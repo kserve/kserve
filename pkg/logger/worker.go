@@ -57,6 +57,10 @@ const (
 	CloudEventsIdHeader   = "Ce-Id"
 )
 
+// caCertMountPath is where per-sink CA certificates are mounted. It is a
+// variable so tests can point it at a temporary directory.
+var caCertMountPath = constants.LoggerCaCertMountPath
+
 // A buffered channel that we can send work requests on.
 var WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
 
@@ -69,6 +73,7 @@ func QueueLogRequest(req LogRequest) error {
 	case WorkQueue <- req:
 		return nil
 	default:
+		EventsDroppedTotal.WithLabelValues(req.ReqType).Inc()
 		return fmt.Errorf("logger work queue is full (capacity %d), dropping log request %s", cap(WorkQueue), req.Id)
 	}
 }
@@ -95,22 +100,30 @@ type Worker struct {
 	QuitChan    chan bool
 }
 
+// failDelivery counts a delivery that failed, whether before anything was
+// sent (building the event, loading the CA certificate) or while sending it,
+// and returns err unchanged.
+func failDelivery(reqType string, err error) error {
+	EventsFailedTotal.WithLabelValues(reqType).Inc()
+	return err
+}
+
 func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 	t, err := cloudevents.NewHTTP(
 		cloudevents.WithTarget(logReq.Url.String()),
 	)
 	if err != nil {
-		return fmt.Errorf("while creating http transport: %w", err)
+		return failDelivery(logReq.ReqType, fmt.Errorf("while creating http transport: %w", err))
 	}
 
 	if logReq.Url.Scheme == "https" {
-		caCertFilePath := filepath.Join(constants.LoggerCaCertMountPath, logReq.CertName)
+		caCertFilePath := filepath.Join(caCertMountPath, logReq.CertName)
 		caCertFile, err := os.ReadFile(filepath.Clean(caCertFilePath))
 		// Do not fail if certificates not found, for backwards compatibility
 		if err == nil {
 			clientCertPool := x509.NewCertPool()
 			if !clientCertPool.AppendCertsFromPEM(caCertFile) {
-				return errors.New("while parsing CA certificate")
+				return failDelivery(logReq.ReqType, errors.New("while parsing CA certificate"))
 			}
 
 			tlsTransport := &http.Transport{
@@ -128,7 +141,7 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 
 	c, err := cloudevents.NewClient(t)
 	if err != nil {
-		return fmt.Errorf("while creating new cloudevents client: %w", err)
+		return failDelivery(logReq.ReqType, fmt.Errorf("while creating new cloudevents client: %w", err))
 	}
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
@@ -143,7 +156,7 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 
 	encodedMetadata, err := json.Marshal(logReq.Metadata)
 	if err != nil {
-		return fmt.Errorf("could not encode metadata as json: %w", err)
+		return failDelivery(logReq.ReqType, fmt.Errorf("could not encode metadata as json: %w", err))
 	}
 	event.SetExtension(MetadataAttr, string(encodedMetadata))
 
@@ -158,21 +171,30 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 
 	event.SetSource(logReq.SourceUri.String())
 	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {
-		return fmt.Errorf("while setting cloudevents data: %w", err)
+		return failDelivery(logReq.ReqType, fmt.Errorf("while setting cloudevents data: %w", err))
 	}
 	ceCtx := cloudevents.WithEncodingBinary(context.Background())
+	sendStart := time.Now()
 	res := c.Send(ceCtx, event)
+	DeliveryDuration.WithLabelValues(logReq.ReqType).Observe(time.Since(sendStart).Seconds())
 	if cloudevents.IsUndelivered(res) {
-		return fmt.Errorf("while sending event: %w", res)
+		return failDelivery(logReq.ReqType, fmt.Errorf("while sending event: %w", res))
 	} else {
 		var httpResult *cehttp.Result
 		if cloudevents.ResultAs(res, &httpResult) {
 			var err error
-			if httpResult.StatusCode != http.StatusOK {
+			// Knative's broker ingress (the log sink in every real deployment
+			// of this) responds 202 Accepted, not 200 -- treat the whole 2xx
+			// range as success, not just an exact match on 200.
+			if httpResult.StatusCode < 200 || httpResult.StatusCode >= 300 {
 				err = fmt.Errorf(httpResult.Format, httpResult.Args...)
+				EventsFailedTotal.WithLabelValues(logReq.ReqType).Inc()
+			} else {
+				EventsSentTotal.WithLabelValues(logReq.ReqType).Inc()
 			}
 			w.Log.Infof("Sent with status code %d, error: %v", httpResult.StatusCode, err)
 		} else {
+			EventsFailedTotal.WithLabelValues(logReq.ReqType).Inc()
 			w.Log.Infof("Send did not return an HTTP response: %s", res)
 		}
 	}
