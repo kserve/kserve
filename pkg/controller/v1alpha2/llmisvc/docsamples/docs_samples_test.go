@@ -40,6 +40,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
@@ -100,6 +103,34 @@ var _ = Describe("LLMInferenceService documentation samples", func() {
 		Expect(outdated).To(BeEmpty(),
 			"documentation samples must be updated when the API graduates - older versions still round-trip "+
 				"through the conversion webhook, so nothing else in CI notices they went stale")
+	})
+
+	It("should reject SGLang samples when cluster TLS is enabled", func(ctx SpecContext) {
+		config, err := llmisvc.LoadConfig(ctx, envTest.Client)
+		Expect(err).NotTo(HaveOccurred())
+		fixture.PatchIngressConfigKey(ctx, envTest.Client, "enableLLMInferenceServiceTLS", true)
+		DeferCleanup(func(ctx SpecContext) {
+			fixture.PatchIngressConfigKey(ctx, envTest.Client, "enableLLMInferenceServiceTLS", config.EnableTLS)
+		})
+
+		checked := 0
+		for _, doc := range allSamples {
+			if doc.err != nil || doc.obj.GetKind() != "LLMInferenceService" {
+				continue
+			}
+			runtime, _, err := unstructured.NestedString(doc.obj.Object, "spec", "runtime")
+			Expect(err).NotTo(HaveOccurred())
+			if runtime != v1alpha2.SGLangRuntimeName {
+				continue
+			}
+
+			obj := doc.obj.DeepCopy()
+			obj.SetNamespace(samplesNamespace)
+			err = envTest.Create(ctx, obj, client.DryRunAll, client.FieldValidation(metav1.FieldValidationStrict))
+			Expect(err).To(MatchError(ContainSubstring(`runtime "kserve-llm-sglang" does not support TLS`)), doc.String())
+			checked++
+		}
+		Expect(checked).To(BeNumerically(">", 0), "no SGLang samples checked")
 	})
 
 	for _, doc := range allSamples {

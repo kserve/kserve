@@ -18,7 +18,6 @@ package llmisvc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -412,9 +411,10 @@ func collectLoRADownloadPairs(adapters []resolvedLoRAAdapter) []storageDownloadP
 	return pairs
 }
 
-// attachLoRAAdapters reconciles spec.model.lora.adapters into vLLM CLI flags appended to the main
-// container's Args. hf:// and s3:// adapters are downloaded in attachModelArtifacts via one
-// storage-initializer; pvc:// adapters are mounted here.
+// attachLoRAAdapters reconciles spec.model.lora.adapters into engine-native CLI
+// flags appended to the main container's Args. The runtime arg mapper selects the
+// correct flag format (vLLM vs SGLang). hf:// and s3:// adapters are downloaded
+// in attachModelArtifacts via one storage-initializer; pvc:// adapters are mounted here.
 func (r *LLMISVCReconciler) attachLoRAAdapters(
 	ctx context.Context,
 	llmSvc *v1alpha2.LLMInferenceService,
@@ -427,12 +427,20 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		return nil
 	}
 
+	mapper := mapperForRuntime(llmSvc.Spec.Runtime)
+	if !mapper.SupportsFeature(FeatureLoRA) {
+		log.FromContext(ctx).Error(nil, "Runtime does not support LoRA; skipping injection",
+			"runtime", ptr.Deref(llmSvc.Spec.Runtime, "(default)"),
+			"llmService", llmSvc.Name, "namespace", llmSvc.Namespace)
+		return nil
+	}
+
 	volNames, err := loraPVCVolumeNames(podSpec, containerName, adapters)
 	if err != nil {
 		return err
 	}
 
-	var loraModules []string
+	var adapterRefs []loraAdapterRef
 	for i, a := range adapters {
 		switch a.scheme {
 		case constants.PvcURIPrefix:
@@ -454,16 +462,10 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		default:
 			return fmt.Errorf("LoRA adapter %q: internal error, unhandled scheme %q", a.name, a.scheme)
 		}
-		for _, mod := range []loraModuleJSON{
-			{Name: a.name, Path: a.mountPath},
-			{Name: fullyQualifiedModelName(llmSvc.Namespace, a.name), Path: a.mountPath},
-		} {
-			m, err := json.Marshal(mod)
-			if err != nil {
-				return fmt.Errorf("LoRA adapter %q: failed to marshal module JSON: %w", a.name, err)
-			}
-			loraModules = append(loraModules, string(m))
-		}
+		adapterRefs = append(adapterRefs,
+			loraAdapterRef{Name: a.name, Path: a.mountPath},
+			loraAdapterRef{Name: fullyQualifiedModelName(llmSvc.Namespace, a.name), Path: a.mountPath},
+		)
 	}
 
 	mainIdx := -1
@@ -480,20 +482,19 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 
 	if hasValueFromLoRAConfig(main) {
 		log.FromContext(ctx).Info("VLLM_ADDITIONAL_ARGS is set via valueFrom; cannot inspect value at reconcile time - "+
-			"injecting --lora-modules as usual; if the referenced value already contains --lora-modules, duplicate flags may result",
+			"injecting LoRA args as usual; if the referenced value already contains LoRA flags, duplicate flags may result",
 			"llmService", llmSvc.Name, "namespace", llmSvc.Namespace)
 	}
 
-	if userSuppliedLoRAConfig(main) {
-		log.FromContext(ctx).Info("Skipping controller LoRA injection: workload already sets --lora-modules",
+	if userSuppliedLoRAConfig(main, llmSvc.Spec.Runtime) {
+		log.FromContext(ctx).Info("Skipping controller LoRA injection: workload already sets LoRA flags",
 			"llmService", llmSvc.Name, "namespace", llmSvc.Namespace)
 		return nil
 	}
 
-	// vLLM sets its own defaults for these LoRA tuning parameters (rank=16, loras=1,
-	// cpu-loras=max_loras). We only inject them when the user explicitly sets the
-	// corresponding fields in the spec, letting vLLM apply its own defaults otherwise.
-	// See: https://github.com/vllm-project/vllm/blob/main/vllm/config/lora.py
+	// Engines set their own defaults for LoRA tuning parameters (rank, max adapters,
+	// etc.). We only inject them when the user explicitly sets the corresponding fields
+	// in the spec, letting the engine apply its own defaults otherwise.
 	loraSpec := llmSvc.Spec.Model.LoRA
 
 	var maxRank, maxAdapters, maxCpuAdapters *int32
@@ -503,19 +504,26 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		maxCpuAdapters = loraSpec.MaxCpuAdapters
 	}
 
-	addLoRAVLLMArgs(main, loraModules, maxRank, maxAdapters, maxCpuAdapters)
+	mapper.AddLoRAArgs(main, adapterRefs, maxRank, maxAdapters, maxCpuAdapters)
 
 	return nil
 }
 
-func userSuppliedLoRAConfig(c *corev1.Container) bool {
-	for _, e := range c.Env {
-		if e.Name == "VLLM_ADDITIONAL_ARGS" && strings.Contains(e.Value, "--lora-modules") {
-			return true
+func userSuppliedLoRAConfig(c *corev1.Container, runtime *string) bool {
+	// SGLang uses --lora-paths; vLLM uses --lora-modules.
+	keyword := "--lora-modules"
+	if runtime != nil && *runtime == SGLangServingRuntimeName {
+		keyword = "--lora-paths"
+	} else {
+		// vLLM also checks VLLM_ADDITIONAL_ARGS for --lora-modules
+		for _, e := range c.Env {
+			if e.Name == "VLLM_ADDITIONAL_ARGS" && strings.Contains(e.Value, "--lora-modules") {
+				return true
+			}
 		}
 	}
 	joined := strings.Join(c.Command, " ") + " " + strings.Join(c.Args, " ")
-	return strings.Contains(joined, "--lora-modules")
+	return strings.Contains(joined, keyword)
 }
 
 // hasValueFromLoRAConfig reports whether VLLM_ADDITIONAL_ARGS is set via valueFrom

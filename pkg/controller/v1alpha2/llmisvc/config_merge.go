@@ -160,7 +160,7 @@ var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INF
 // (no image, aligned probes / volumes / security context across engines) so
 // that the ServingRuntime alone drives engine selection. At that point this
 // name-based mapping and kserve-config-sglang-template can be removed.
-const SGLangServingRuntimeName = "kserve-llm-sglang"
+const SGLangServingRuntimeName = v1alpha2.SGLangRuntimeName
 
 // OmniServingRuntimeName is the well-known ClusterServingRuntime name shipped
 // with KServe that identifies the vLLM-Omni engine. When spec.runtime is set
@@ -183,7 +183,8 @@ func isOmniRuntime(runtime *string) bool {
 // template is used; for the omni runtime the omni overlay is layered on top
 // of the base vLLM template so only the omni-specific diff (image, probes,
 // security context) lives in its own config; otherwise the default vLLM
-// template alone.
+// template alone. Custom runtime names retain the vLLM-compatible mapping,
+// with an admission warning.
 func selectSingleNodeTemplateNames(runtime *string) []string {
 	if isOmniRuntime(runtime) {
 		return []string{configTemplateName, configOmniTemplateName}

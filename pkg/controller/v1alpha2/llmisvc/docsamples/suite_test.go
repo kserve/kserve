@@ -59,6 +59,9 @@ var envTest *pkgtest.Client
 var _ = BeforeSuite(func(ctx SpecContext) {
 	envTest = fixture.SetupTestEnv(ctx)
 
+	// SGLang samples require cluster-level LLMI TLS to be disabled.
+	fixture.PatchIngressConfigKey(ctx, envTest.Client, "enableLLMInferenceServiceTLS", false)
+
 	// One namespace for the whole suite. Dry-run submissions never persist, so
 	// there is nothing for the samples to collide over, but the namespace still
 	// has to exist for the API server to admit a create against it.

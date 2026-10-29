@@ -129,7 +129,7 @@ func TestInjectSchedulerTracing_CommandOverrideCompatibility(t *testing.T) {
 func TestInjectServerTracing_NilSpec(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	mutated := injectServerTracing(nil, "ns", "svc", "-decode", container)
+	mutated := injectServerTracing(nil, nil, "ns", "svc", "-decode", container)
 	g.Expect(mutated).To(BeFalse())
 	g.Expect(container.Args).To(BeEmpty())
 	g.Expect(container.Env).To(BeEmpty())
@@ -138,7 +138,7 @@ func TestInjectServerTracing_NilSpec(t *testing.T) {
 func TestInjectServerTracing_EmptySpec_NoEndpoint_Skips(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	mutated := injectServerTracing(&v1alpha2.TracingSpec{}, "test-ns", "my-llm", "-decode", container)
+	mutated := injectServerTracing(nil, &v1alpha2.TracingSpec{}, "test-ns", "my-llm", "-decode", container)
 	g.Expect(mutated).To(BeFalse())
 	g.Expect(container.Args).To(BeEmpty())
 	g.Expect(container.Env).To(BeEmpty())
@@ -147,7 +147,7 @@ func TestInjectServerTracing_EmptySpec_NoEndpoint_Skips(t *testing.T) {
 func TestInjectServerTracing_WithEndpoint_Decode(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	mutated := injectServerTracing(&v1alpha2.TracingSpec{
+	mutated := injectServerTracing(nil, &v1alpha2.TracingSpec{
 		ExporterEndpoint: ptr.To("http://collector:4317"),
 	}, "test-ns", "my-llm", "-decode", container)
 	g.Expect(mutated).To(BeTrue())
@@ -164,7 +164,7 @@ func TestInjectServerTracing_WithEndpoint_Decode(t *testing.T) {
 func TestInjectServerTracing_WithEndpoint_Prefill(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	injectServerTracing(&v1alpha2.TracingSpec{
+	injectServerTracing(nil, &v1alpha2.TracingSpec{
 		ExporterEndpoint: ptr.To("http://collector:4317"),
 	}, "test-ns", "my-llm", "-prefill", container)
 
@@ -181,7 +181,7 @@ func TestInjectServerTracing_CustomEndpoint(t *testing.T) {
 		SamplerArg:       ptr.To("1.0"),
 		Exporter:         ptr.To("otlp"),
 	}
-	injectServerTracing(spec, "prod", "llm-prod", "-decode", container)
+	injectServerTracing(nil, spec, "prod", "llm-prod", "-decode", container)
 
 	g.Expect(container.Args).To(ContainElements("--otlp-traces-endpoint", "http://my-collector:4317"))
 
@@ -199,7 +199,7 @@ func TestInjectServerTracing_DoesNotDuplicateArgs(t *testing.T) {
 		Name: "main",
 		Args: []string{"--otlp-traces-endpoint", "http://existing:4317", "--collect-detailed-traces", "model"},
 	}
-	injectServerTracing(&v1alpha2.TracingSpec{
+	injectServerTracing(nil, &v1alpha2.TracingSpec{
 		ExporterEndpoint: ptr.To("http://new:4317"),
 	}, "ns", "svc", "-decode", container)
 
@@ -221,7 +221,7 @@ func TestInjectServerTracing_PreservesExistingEnv(t *testing.T) {
 			{Name: "OTEL_TRACES_SAMPLER", Value: "user-sampler"},
 		},
 	}
-	injectServerTracing(&v1alpha2.TracingSpec{
+	injectServerTracing(nil, &v1alpha2.TracingSpec{
 		Sampler: ptr.To("injected-sampler"),
 	}, "ns", "svc", "-decode", container)
 
@@ -238,7 +238,7 @@ func TestInjectServerTracing_CommandOverrideCompatibility(t *testing.T) {
 			if version != "" {
 				container.Env = []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: version}}
 			}
-			injectServerTracing(&v1alpha2.TracingSpec{ExporterEndpoint: ptr.To("http://collector:4317")}, "ns", "svc", "-decode", container)
+			injectServerTracing(nil, &v1alpha2.TracingSpec{ExporterEndpoint: ptr.To("http://collector:4317")}, "ns", "svc", "-decode", container)
 			want := []string{"--collect-detailed-traces", "all"}
 			if version != "1" {
 				want = append([]string{"--otlp-traces-endpoint", "http://collector:4317"}, want...)
@@ -257,7 +257,7 @@ func TestInjectServerTracingIntoPodSpec_FindsMainContainer(t *testing.T) {
 			{Name: "main"},
 		},
 	}
-	mutated := injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{
+	mutated := injectServerTracingIntoPodSpec(nil, &v1alpha2.TracingSpec{
 		ExporterEndpoint: ptr.To("http://collector:4317"),
 	}, "ns", "svc", "-decode", podSpec)
 	g.Expect(mutated).To(BeTrue())
@@ -276,7 +276,7 @@ func TestInjectServerTracingIntoPodSpec_NoMainContainer(t *testing.T) {
 			{Name: "sidecar"},
 		},
 	}
-	mutated := injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{}, "ns", "svc", "-decode", podSpec)
+	mutated := injectServerTracingIntoPodSpec(nil, &v1alpha2.TracingSpec{}, "ns", "svc", "-decode", podSpec)
 	g.Expect(mutated).To(BeFalse())
 	g.Expect(podSpec.Containers[0].Env).To(BeEmpty())
 }
@@ -316,7 +316,7 @@ func TestInjectServerTracingIntoPodSpec_RoutingSidecar(t *testing.T) {
 			spec := &v1alpha2.TracingSpec{
 				ExporterEndpoint: ptr.To("http://collector:4317"), Sampler: ptr.To("always_on"),
 			}
-			g.Expect(injectServerTracingIntoPodSpec(spec, "ns", "svc", "-decode", pod)).To(BeTrue())
+			g.Expect(injectServerTracingIntoPodSpec(nil, spec, "ns", "svc", "-decode", pod)).To(BeTrue())
 			g.Expect(sidecar.Command).To(Equal(tt.command))
 			g.Expect(sidecar.Args).To(Equal(tt.expectedArgs))
 			g.Expect(sidecar.Env).To(ContainElement(sampler))
@@ -330,7 +330,7 @@ func TestInjectServerTracingIntoPodSpec_RoutingSidecar(t *testing.T) {
 			g.Expect(pod.InitContainers[0].Env).To(BeEmpty())
 			g.Expect(pod.Containers[1].Env).To(BeEmpty())
 			before := pod.DeepCopy()
-			injectServerTracingIntoPodSpec(spec, "ns", "svc", "-decode", pod)
+			injectServerTracingIntoPodSpec(nil, spec, "ns", "svc", "-decode", pod)
 			g.Expect(pod).To(Equal(before))
 		})
 	}
@@ -346,7 +346,33 @@ func TestInjectServerTracingIntoPodSpec_RoutingSidecarDisabled(t *testing.T) {
 		}},
 	}
 	before := pod.DeepCopy()
-	g.Expect(injectServerTracingIntoPodSpec(nil, "ns", "svc", "-decode", pod)).To(BeFalse())
+	g.Expect(injectServerTracingIntoPodSpec(nil, nil, "ns", "svc", "-decode", pod)).To(BeFalse())
+	g.Expect(pod).To(Equal(before))
+}
+
+func TestInjectServerTracingIntoPodSpec_SGLangRoutingSidecar(t *testing.T) {
+	g := NewGomegaWithT(t)
+	pod := &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "main"}, {Name: "unrelated"}},
+		InitContainers: []corev1.Container{{
+			Name: constants.LLMISVCRoutingSidecarContainerName,
+			Env:  []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: "1"}},
+		}},
+	}
+	spec := &v1alpha2.TracingSpec{ExporterEndpoint: ptr.To("http://collector:4317")}
+	runtime := ptr.To(v1alpha2.SGLangRuntimeName)
+
+	g.Expect(injectServerTracingIntoPodSpec(runtime, spec, "ns", "svc", "-decode", pod)).To(BeTrue())
+	g.Expect(pod.Containers[0].Args).To(Equal([]string{"--otlp-traces-endpoint", "collector:4317", "--enable-trace"}))
+	g.Expect(envToMap(pod.Containers[0].Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "inference-server-decode"))
+	g.Expect(pod.InitContainers[0].Args).To(Equal([]string{"--tracing=true"}))
+	g.Expect(envToMap(pod.InitContainers[0].Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "routing-sidecar"))
+	g.Expect(envToMap(pod.InitContainers[0].Env)).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317"))
+	g.Expect(pod.Containers[1].Args).To(BeEmpty())
+	g.Expect(pod.Containers[1].Env).To(BeEmpty())
+
+	before := pod.DeepCopy()
+	injectServerTracingIntoPodSpec(runtime, spec, "ns", "svc", "-decode", pod)
 	g.Expect(pod).To(Equal(before))
 }
 

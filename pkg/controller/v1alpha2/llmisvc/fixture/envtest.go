@@ -130,9 +130,18 @@ func SetupWebhooks(cfg *rest.Config, mgr ctrl.Manager) error {
 		}
 		return v2ConfigValidationFunc(ctx, v2Config)
 	}
+	tlsConfigEnabledFunc := func(ctx context.Context) (bool, error) {
+		config, err := llmisvc.LoadConfig(ctx, mgr.GetAPIReader())
+		if err != nil {
+			return false, err
+		}
+		return config.EnableTLS, nil
+	}
 
 	// Register v1alpha1 validators
-	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{
+		TLSConfigEnabledFunc: tlsConfigEnabledFunc,
+	}
 	if err := v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -145,7 +154,9 @@ func SetupWebhooks(cfg *rest.Config, mgr ctrl.Manager) error {
 	}
 
 	// Register v1alpha2 validators
-	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{
+		TLSConfigEnabledFunc: tlsConfigEnabledFunc,
+	}
 	if err := v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
 		return err
 	}

@@ -3,6 +3,8 @@ kind: LLMInferenceService
 metadata:
   name: sglang-opt-125m-single
 spec:
+  # Requires enableLLMInferenceServiceTLS: false in the ingress configuration
+  # of the inferenceservice-config ConfigMap; SGLang does not support LLMI TLS.
   runtime: kserve-llm-sglang
   model:
     uri: hf://facebook/opt-125m
