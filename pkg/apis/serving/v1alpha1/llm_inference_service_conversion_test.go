@@ -1349,3 +1349,67 @@ func TestLLMInferenceServiceConversion_EmptyRuntimeRoundTrips(t *testing.T) {
 	require.NoError(t, restored.ConvertFrom(dst))
 	assert.Nil(t, restored.Spec.Runtime)
 }
+
+// A v1alpha1 client reading a stored v1alpha2 service and writing it back must keep the confidential spec.
+func TestLLMInferenceServiceConversion_PreservesConfidential(t *testing.T) {
+	adapterName := "my-adapter"
+	model := v1alpha2.LLMModelSpec{
+		URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+		Confidential: &v1alpha2.ConfidentialSpec{
+			Enabled:    true,
+			ResourceId: ptr.To("kbs:///default/key/model"),
+		},
+		LoRA: &v1alpha2.LoRASpec{
+			Adapters: []v1alpha2.LLMModelSpec{{
+				URI:          apis.URL{Scheme: "hf", Host: "my-org/my-adapter"},
+				Name:         &adapterName,
+				Confidential: &v1alpha2.ConfidentialSpec{Enabled: true},
+			}},
+		},
+	}
+
+	t.Run("LLMInferenceService", func(t *testing.T) {
+		hub := &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-llm-confidential", Namespace: "default"},
+			Spec:       v1alpha2.LLMInferenceServiceSpec{Model: *model.DeepCopy()},
+		}
+
+		spoke := &LLMInferenceService{}
+		require.NoError(t, spoke.ConvertFrom(hub))
+		restored := &v1alpha2.LLMInferenceService{}
+		require.NoError(t, spoke.ConvertTo(restored))
+
+		assert.Equal(t, model, restored.Spec.Model)
+	})
+
+	t.Run("LLMInferenceServiceConfig", func(t *testing.T) {
+		hub := &v1alpha2.LLMInferenceServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-llm-config-confidential", Namespace: "default"},
+			Spec:       v1alpha2.LLMInferenceServiceSpec{Model: *model.DeepCopy()},
+		}
+
+		spoke := &LLMInferenceServiceConfig{}
+		require.NoError(t, spoke.ConvertFrom(hub))
+		restored := &v1alpha2.LLMInferenceServiceConfig{}
+		require.NoError(t, spoke.ConvertTo(restored))
+
+		assert.Equal(t, model, restored.Spec.Model)
+	})
+}
+
+func TestLLMInferenceServiceConversion_NilConfidentialPreserved(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm-no-confidential", Namespace: "default"},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}},
+		},
+	}
+
+	hub := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(hub))
+	assert.Nil(t, hub.Spec.Model.Confidential)
+
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(hub))
+	assert.Nil(t, restored.Spec.Model.Confidential)
+}

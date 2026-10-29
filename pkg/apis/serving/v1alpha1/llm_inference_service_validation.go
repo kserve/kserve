@@ -49,18 +49,15 @@ func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error 
 }
 
 func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, llmSvc *LLMInferenceService) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
-
-	return warnings, l.validate(ctx, nil, llmSvc)
+	return l.validate(ctx, nil, llmSvc)
 }
 
 func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, prev, llmSvc *LLMInferenceService) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
 	if llmSvc.GetDeletionTimestamp() != nil {
-		return warnings, nil
+		return admission.Warnings{}, nil
 	}
 
-	return warnings, l.validate(ctx, prev, llmSvc)
+	return l.validate(ctx, prev, llmSvc)
 }
 
 func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ *LLMInferenceService) (admission.Warnings, error) {
@@ -68,11 +65,12 @@ func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ *LLMI
 	return admission.Warnings{}, nil
 }
 
-func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) error {
+func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Validating LLMInferenceService v1alpha1", "name", llmSvc.Name, "namespace", llmSvc.Namespace)
 
 	var allErrs field.ErrorList
+	var warnings admission.Warnings
 
 	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateTrafficFields(llmSvc)...)
@@ -85,16 +83,19 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())...)
 	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
+	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+	warnings = append(warnings, confidentialWarnings...)
+	allErrs = append(allErrs, confidentialErrs...)
 	allErrs = append(allErrs, v1alpha2.ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha1 is valid", "llmisvc", llmSvc)
-		return nil
+		return warnings, nil
 	}
 
-	return apierrors.NewInvalid(
+	return warnings, apierrors.NewInvalid(
 		LLMInferenceServiceGVK.GroupKind(),
 		llmSvc.Name, allErrs)
 }
@@ -449,6 +450,21 @@ func (l *LLMInferenceServiceValidator) validateModelExpress(llmSvc *LLMInference
 		}
 	}
 	return kservevalidation.ValidateModelExpress(llmSvc.GetAnnotations(), llmSvc.Spec.Model.URI.String(), loraURIs)
+}
+
+// validateConfidential validates the confidential spec on the model with the same rules as v1alpha2.
+func (l *LLMInferenceServiceValidator) validateConfidential(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	confidential := llmSvc.Spec.Model.Confidential
+	if confidential == nil {
+		return nil, nil
+	}
+
+	return kservevalidation.ValidateConfidentialSpec(
+		confidential.Enabled,
+		confidential.ResourceId,
+		llmSvc.Spec.Model.URI.String(),
+		field.NewPath("spec", "model"),
+	)
 }
 
 func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInferenceService) field.ErrorList {

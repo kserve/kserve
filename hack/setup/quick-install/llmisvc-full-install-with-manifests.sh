@@ -9107,6 +9107,15 @@ spec:
                 type: object
               model:
                 properties:
+                  confidential:
+                    properties:
+                      enabled:
+                        type: boolean
+                      resourceId:
+                        type: string
+                    required:
+                    - enabled
+                    type: object
                   criticality:
                     enum:
                     - Critical
@@ -60718,6 +60727,15 @@ spec:
                 type: object
               model:
                 properties:
+                  confidential:
+                    properties:
+                      enabled:
+                        type: boolean
+                      resourceId:
+                        type: string
+                    required:
+                    - enabled
+                    type: object
                   criticality:
                     enum:
                     - Critical
