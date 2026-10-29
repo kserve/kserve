@@ -376,6 +376,94 @@ var _ = Describe("LocalModelNode controller", func() {
 				"Download job SubPath must use storageKey hash, not modelName, for storage deduplication. "+
 					"storageKey=%s, modelName=%s", storageKey, modelName)
 		})
+		It("Should tolerate the node's NoSchedule and NoExecute taints in the download job", func() {
+			ctx := context.Background()
+			fsMock.clear()
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-tainted"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{Key: "nvidia.com/gpu", Value: "present", Effect: corev1.TaintEffectNoSchedule},
+						{Key: "dedicated", Value: "inference", Effect: corev1.TaintEffectNoExecute},
+						// Does not keep pods off the node, so no toleration is needed.
+						{Key: "spot", Effect: corev1.TaintEffectPreferNoSchedule},
+						// A node condition the job should keep respecting.
+						{Key: "node.kubernetes.io/unschedulable", Effect: corev1.TaintEffectNoSchedule},
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: localModelNodeSpec,
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": modelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			podSpec := jobs.Items[0].Spec.Template.Spec
+			Expect(podSpec.NodeSelector).To(Equal(map[string]string{"kubernetes.io/hostname": nodeName}))
+			Expect(podSpec.Tolerations).To(Equal([]corev1.Toleration{
+				{Key: "nvidia.com/gpu", Operator: corev1.TolerationOpEqual, Value: "present", Effect: corev1.TaintEffectNoSchedule},
+				{Key: "dedicated", Operator: corev1.TolerationOpEqual, Value: "inference", Effect: corev1.TaintEffectNoExecute},
+			}))
+		})
 		It("Should recreate download jobs if the model is missing from local disk", func() {
 			fsMock.clear()
 			storageKey := v1alpha1.GetStorageKey(sourceModelUri)

@@ -36,6 +36,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -181,6 +182,14 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	jobNs := jobNamespace
 
+	// The job is pinned to this node by nodeSelector, so it must also tolerate
+	// the node's taints, or it stays Pending on a tainted node (e.g. a GPU node).
+	node := &corev1.Node{}
+	if err := c.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
+		c.Log.Error(err, "Failed to get current node", "node name", nodeName)
+		return nil, err
+	}
+
 	if secretName, ok := credentials.FirstNamedImagePullSecret(modelInfo.ImagePullSecrets); ok {
 		reader := c.APIReader
 		if reader == nil {
@@ -231,6 +240,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					NodeSelector:  map[string]string{"kubernetes.io/hostname": nodeName},
+					Tolerations:   tolerationsForNodeTaints(node.Spec.Taints),
 					Containers:    []corev1.Container{*container},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Volumes:       volumes,
@@ -258,6 +268,30 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	c.Log.Info("Created job", "name", createdJob.Name, "namespace", createdJob.Namespace,
 		"model", modelInfo.ModelName, "storageKey", storageKey)
 	return createdJob, err
+}
+
+// tolerationsForNodeTaints returns a toleration for each NoSchedule and NoExecute
+// taint on the node, so that a download job pinned to the node can be scheduled there.
+// Taints in the node.kubernetes.io/ namespace are skipped: they reflect node
+// conditions (not-ready, unreachable, unschedulable, pressure) that the job should
+// keep respecting, rather than how the node is dedicated.
+func tolerationsForNodeTaints(taints []corev1.Taint) []corev1.Toleration {
+	var tolerations []corev1.Toleration
+	for _, taint := range taints {
+		if taint.Effect != corev1.TaintEffectNoSchedule && taint.Effect != corev1.TaintEffectNoExecute {
+			continue
+		}
+		if strings.HasPrefix(taint.Key, "node.kubernetes.io/") {
+			continue
+		}
+		tolerations = append(tolerations, corev1.Toleration{
+			Key:      taint.Key,
+			Operator: corev1.TolerationOpEqual,
+			Value:    taint.Value,
+			Effect:   taint.Effect,
+		})
+	}
+	return tolerations
 }
 
 // mountCaBundleVolume checks if the container has AWS_CA_BUNDLE_CONFIGMAP env var set and,
