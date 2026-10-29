@@ -12,7 +12,7 @@
 #   SERVICE             - LLMInferenceService name (default: opt-125m-pd-nixl-cpu)
 #   KUBE_CONTEXT        - kubectl context (default: current context)
 #   VLLM_NIXL_CPU_IMAGE - image for the in-cluster client pod; any image with curl works
-#                         (default: kserve-dev/vllm-openai-cpu-nixl:v0.19.0-nixl0.10.1)
+#                         (default: the image the decode pod runs)
 #   GATEWAY_URL         - base URL of the service as seen from inside the cluster
 #                         (default: the service's status.url)
 #   EXPECT_KV_TRANSFER  - false checks only that prefill is reached, for images
@@ -22,7 +22,7 @@ set -euo pipefail
 NAMESPACE="${NAMESPACE:-pd-nixl-cpu}"
 SERVICE="${SERVICE:-opt-125m-pd-nixl-cpu}"
 KUBE_CONTEXT="${KUBE_CONTEXT:-}"
-IMAGE="${VLLM_NIXL_CPU_IMAGE:-kserve-dev/vllm-openai-cpu-nixl:v0.19.0-nixl0.10.1}"
+IMAGE="${VLLM_NIXL_CPU_IMAGE:-}"
 EXPECT_KV_TRANSFER="${EXPECT_KV_TRANSFER:-true}"
 CLIENT=pd-nixl-client
 MODEL=facebook/opt-125m
@@ -39,7 +39,17 @@ k() {
 kcurl() { k exec "$CLIENT" -- curl -sk --max-time 300 "$@"; }
 
 if ! k get pod "$CLIENT" >/dev/null 2>&1; then
-    echo "Creating client pod $CLIENT ..."
+    if [ -z "$IMAGE" ]; then
+        # The decode pod's own image is already on its node and ships curl, whichever
+        # variant was deployed (-noonednn on Apple silicon, or the no-NIXL baseline).
+        IMAGE=$(k get pod -l "app.kubernetes.io/name=${SERVICE},llm-d.ai/role=decode" \
+            -o jsonpath='{.items[0].spec.containers[?(@.name=="main")].image}' 2>/dev/null || true)
+    fi
+    if [ -z "$IMAGE" ]; then
+        echo "ERROR: no decode pod for $SERVICE to take the client image from; set VLLM_NIXL_CPU_IMAGE" >&2
+        exit 1
+    fi
+    echo "Creating client pod $CLIENT ($IMAGE) ..."
     k run "$CLIENT" --image "$IMAGE" --image-pull-policy IfNotPresent --restart Never \
         --command -- sleep infinity >/dev/null
 fi

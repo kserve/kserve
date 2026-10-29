@@ -73,7 +73,7 @@ in the sample's namespace, `pd-nixl-cpu`.
 | Object | Name | Role |
 |---|---|---|
 | Decode Deployment | `opt-125m-pd-nixl-cpu-kserve` | Routing sidecar on :8000 in front of vLLM on :8001; label `llm-d.ai/role=decode` |
-| Prefill Deployment | `opt-125m-pd-nixl-cpu-kserve-prefill` | vLLM on :8000; label `llm-d.ai/role=prefill` |
+| Prefill Deployment | `opt-125m-pd-nixl-cpu-kserve-prefill` | vLLM on :8000; label `llm-d.ai/role=prefill`; required to run on the decode pod's node, which shares the model claim |
 | Scheduler (EPP) | `opt-125m-pd-nixl-cpu-kserve-router-scheduler` | Endpoint picker running `always-disagg-pd-decider` |
 | InferencePool | `opt-125m-pd-nixl-cpu-inference-pool` | Selects the decode and prefill pods; its endpoint picker is the EPP |
 | HTTPRoute | `opt-125m-pd-nixl-cpu-kserve-route` | Attached to the `kserve-ingress-gateway` Gateway; routes to the InferencePool |
@@ -251,7 +251,7 @@ kubectl wait -n pd-nixl-cpu --for=condition=Complete job/opt-125m-model-download
 sed "s|\${VLLM_NIXL_CPU_IMAGE}|$IMAGE|g" llm-inference-service-pd-nixl-cpu.yaml | kubectl apply -n pd-nixl-cpu -f -
 kubectl wait -n pd-nixl-cpu --for=condition=Ready llminferenceservice/opt-125m-pd-nixl-cpu --timeout=20m
 
-VLLM_NIXL_CPU_IMAGE=$IMAGE ./validate.sh
+./validate.sh
 ```
 
 ### Without NIXL
@@ -355,6 +355,10 @@ and Flax weights) on each rollout and crash, and Hugging Face throttles each con
 to roughly 150-250 KB/s. The Job fetches only the files vLLM reads, as 48 parallel byte
 ranges (about 3 minutes for the 250 MB weights), checks the LFS sha256, and fills a PVC
 that both pods mount through `pvc://`.
+
+The claim is `ReadWriteOnce`, which most block storage attaches to one node at a time, so
+the prefill template requires the decode pod's node. Without that, on a multi-node cluster
+one of the two pods can wait for the volume indefinitely.
 
 ## Troubleshooting
 

@@ -82,6 +82,16 @@ spec:
   # Prefill workload. vLLM listens on 8000 directly.
   prefill:
     template:
+      # Both workloads mount the ReadWriteOnce model claim, which most block storage
+      # attaches to one node at a time, so prefill runs on the decode pod's node.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: opt-125m-pd-nixl-cpu
+                  app.kubernetes.io/component: llminferenceservice-workload
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: main
           image: ${VLLM_NIXL_CPU_IMAGE}
