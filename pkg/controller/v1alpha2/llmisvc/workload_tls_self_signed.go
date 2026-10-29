@@ -28,6 +28,7 @@ import (
 	"maps"
 	"math/big"
 	"net"
+	"slices"
 	"sort"
 	"time"
 
@@ -306,6 +307,12 @@ func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha
 		}
 	}
 
+	eppName := llmSvc.Spec.Router.EPPServiceName(llmSvc)
+	dnsNames = append(dnsNames,
+		network.GetServiceHostname(eppName, llmSvc.GetNamespace()),
+		fmt.Sprintf("%s.%s.svc", eppName, llmSvc.GetNamespace()),
+	)
+
 	if isTokenizerEnabled(llmSvc.Spec) {
 		tokSvcName := tokenizerServiceName(llmSvc)
 		dnsNames = append(dnsNames,
@@ -315,7 +322,7 @@ func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha
 	}
 
 	sort.Strings(dnsNames)
-	return dnsNames
+	return slices.Compact(dnsNames)
 }
 
 func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]string, error) {

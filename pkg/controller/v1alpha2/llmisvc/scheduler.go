@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -339,11 +340,53 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 		})
 
 		svc.Spec.Ports = servicePorts
+		configureSchedulerMetricsProtocol(svc, podSpec)
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected router EPP service", "service", svc)
 
 	return svc
+}
+
+func configureSchedulerMetricsProtocol(service *corev1.Service, pod *corev1.PodSpec) {
+	protocol := "http"
+	if schedulerMetricsTLSEnabled(pod) {
+		protocol = "https"
+	}
+	for i := range service.Spec.Ports {
+		if service.Spec.Ports[i].Name == "metrics" {
+			service.Spec.Ports[i].AppProtocol = ptr.To(protocol)
+		}
+	}
+}
+
+func schedulerMetricsTLSEnabled(pod *corev1.PodSpec) bool {
+	if pod == nil {
+		return false
+	}
+	for _, container := range pod.Containers {
+		if !slices.ContainsFunc(container.Ports, func(port corev1.ContainerPort) bool {
+			return port.Name == "metrics"
+		}) {
+			continue
+		}
+		args := slices.Concat(container.Command, container.Args)
+		directory := ""
+		for i := 0; i < len(args); i++ {
+			arg := args[i]
+			if arg == "--" {
+				break
+			}
+			if value, found := strings.CutPrefix(arg, "--metrics-cert-dir="); found {
+				directory = value
+			} else if arg == "--metrics-cert-dir" && i+1 < len(args) {
+				i++
+				directory = args[i]
+			}
+		}
+		return directory != ""
+	}
+	return false
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *igwapi.InferencePool {

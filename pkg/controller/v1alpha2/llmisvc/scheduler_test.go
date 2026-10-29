@@ -98,6 +98,66 @@ func TestReconcileRouter_ManagedPoolWithoutEndpointPickerRefIsTerminal(t *testin
 		"spec.router.scheduler.pool.spec.endpointPickerRef is required")
 }
 
+func TestSchedulerMetricsServiceProtocol(t *testing.T) {
+	tests := []struct {
+		name    string
+		command []string
+		args    []string
+		want    string
+	}{
+		{name: "plaintext default", command: []string{"/app/epp"}, want: "http"},
+		{name: "gRPC TLS alone", command: []string{"/app/epp", "--secure-serving=true", "--cert-path=/tls"}, want: "http"},
+		{name: "metrics TLS flag", command: []string{"/app/epp", "--metrics-cert-dir=/tls"}, want: "https"},
+		{name: "separate metrics TLS argument", command: []string{"/app/epp"}, args: []string{"--metrics-cert-dir", "/tls"}, want: "https"},
+		{name: "args override command", command: []string{"/app/epp", "--metrics-cert-dir=/tls"}, args: []string{"--metrics-cert-dir="}, want: "http"},
+		{name: "empty directory", command: []string{"/app/epp", "--metrics-cert-dir", ""}, want: "http"},
+		{name: "gRPC disabled with metrics TLS", command: []string{"/app/epp", "--secure-serving=false"}, args: []string{"--metrics-cert-dir=/tls"}, want: "https"},
+		{name: "positional argument is not a flag", command: []string{"/app/epp", "--"}, args: []string{"--metrics-cert-dir=/tls"}, want: "http"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "models"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "main", Command: tt.command, Args: tt.args,
+							Ports: []corev1.ContainerPort{{Name: "metrics", ContainerPort: 9090}, {Name: "grpc", ContainerPort: 9002}},
+						}},
+					}},
+				}},
+			}
+			before := model.DeepCopy()
+			service := (&LLMISVCReconciler{}).expectedSchedulerService(t.Context(), model)
+			found := false
+			for _, port := range service.Spec.Ports {
+				if port.Name == "metrics" {
+					found = true
+					assert.Equal(t, tt.want, ptr.Deref(port.AppProtocol, ""))
+				} else {
+					assert.Nil(t, port.AppProtocol)
+				}
+			}
+			assert.True(t, found, "scheduler Service has no metrics port")
+			assert.Equal(t, before, model)
+		})
+	}
+}
+
+func TestSchedulerMetricsProtocolMissingTemplate(t *testing.T) {
+	for _, router := range []*v1alpha2.RouterSpec{nil, {}, {Scheduler: &v1alpha2.SchedulerSpec{}}} {
+		model := &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{Router: router}}
+		service := (&LLMISVCReconciler{}).expectedSchedulerService(t.Context(), model)
+		assert.Empty(t, service.Spec.Ports)
+		if router != nil && router.Scheduler != nil {
+			assert.False(t, schedulerMetricsTLSEnabled(router.Scheduler.Template))
+		} else {
+			assert.False(t, schedulerMetricsTLSEnabled(nil))
+		}
+	}
+}
+
 // loadSchedulerPresetInline reads a scheduler preset from config/llmisvcconfig and
 // returns its resolved EPPConfig inline as a parsed map.
 func loadSchedulerPresetInline(g *WithT, filename string) (*v1alpha2.LLMInferenceServiceConfig, map[string]interface{}) {

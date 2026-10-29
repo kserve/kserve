@@ -6784,6 +6784,8 @@ spec:
             end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
             }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--metrics-cert-dir=/var/run/kserve/tls{{-
+            end }}'
           - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion
             }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
           - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites

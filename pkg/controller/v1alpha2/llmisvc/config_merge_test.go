@@ -3245,6 +3245,7 @@ spec:
               - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--metrics-cert-dir=/var/run/kserve/tls{{- end }}'
 `
 
 const tlsProfileSchedulerFixture = `apiVersion: serving.kserve.io/v1alpha1
@@ -3310,12 +3311,14 @@ func TestReplaceVariables_TLSConditional(t *testing.T) {
 				"--secure-serving=true",
 				"--model-server-metrics-scheme=https",
 				"--cert-path=/var/run/kserve/tls",
+				"--metrics-cert-dir=/var/run/kserve/tls",
 			},
 		},
 		{
 			name:      "TLS off: all flags render empty",
 			enableTLS: false,
 			wantArgs: []string{
+				"",
 				"",
 				"",
 				"",
