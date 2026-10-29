@@ -32,7 +32,6 @@ from kserve.protocol.rest.timeseries.types import (
         ("invalid_frequency", 400),
         ("model_error", 500),
     ],
-
 )
 def test_forecast_error_without_code_returns_correct_status(
     error_type, expected_status
@@ -85,6 +84,7 @@ def test_forecast_error_without_code_returns_correct_status(
     )
 
     assert result.json()["error"]["type"] == error_type
+
 
 def test_forecast_preserves_explicit_error_status():
     class FakeDataPlane:
