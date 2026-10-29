@@ -364,6 +364,8 @@ class ModelServer:
             signal.signal(sig, lambda sig, frame: self.stop(sig))
 
     async def _serve(self):
+        # asyncio.run creates a new loop; configure the loop serving requests.
+        self.setup_event_loop()
         await asyncio.gather(*self.servers)
 
     def start(self, models: List[BaseKServeModel]) -> None:
@@ -413,7 +415,6 @@ class ModelServer:
                 grace_period=self.grace_period,
             )
             self.servers.append(self._grpc_server.start(self.max_threads))
-        self.setup_event_loop()
         self.register_signal_handler()
         asyncio.run(self._serve())
 
