@@ -342,7 +342,7 @@ func TestLoggerRequestOnlyDoesNotCaptureResponseBody(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
+	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogRequest, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", nil, true)
