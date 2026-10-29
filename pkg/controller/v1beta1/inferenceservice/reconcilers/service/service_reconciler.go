@@ -34,6 +34,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -186,7 +187,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 	}
 
 	// Allow platform-specific customization of the service (e.g. annotations, port overrides).
-	customizeService(service, componentMeta)
+	customizeService(service, componentMeta, podSpec)
 
 	return service
 }
@@ -282,7 +283,7 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, error) {
 	for _, svc := range r.ServiceList {
 		// reconcile Service
-		checkResult, _, err := r.checkServiceExist(ctx, r.client, svc)
+		checkResult, existing, err := r.checkServiceExist(ctx, r.client, svc)
 		log.Info("service reconcile", "checkResult", checkResult, "err", err)
 		if err != nil {
 			return nil, err
@@ -294,6 +295,14 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 			opErr = r.client.Create(ctx, svc)
 		case constants.CheckResultUpdate:
 			opErr = r.client.Update(ctx, svc)
+		case constants.CheckResultExisted:
+			if svc.Labels[constants.KServeManagedLabelKey] != existing.Labels[constants.KServeManagedLabelKey] {
+				before := existing.DeepCopy()
+				existing.Labels = utils.Union(existing.Labels, map[string]string{
+					constants.KServeManagedLabelKey: svc.Labels[constants.KServeManagedLabelKey],
+				})
+				opErr = r.client.Patch(ctx, existing, client.MergeFrom(before))
+			}
 		case constants.CheckResultDelete:
 			if svc.GetDeletionTimestamp() == nil { // check if the service was already deleted
 				log.Info("Deleting service", "namespace", svc.Namespace, "name", svc.Name)
@@ -319,6 +328,14 @@ func (r *ServiceReconciler) SetControllerReferences(owner metav1.Object, scheme 
 		if err := controllerutil.SetControllerReference(owner, svc, scheme); err != nil {
 			return err
 		}
+		svc.Labels = utils.Union(svc.Labels, map[string]string{
+			constants.KServeManagedLabelKey: constants.KServeManagedLabelValue,
+		})
 	}
 	return nil
+}
+
+// CleanupOrphans deletes Services selected by scope whose names are not retained.
+func (r *ServiceReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*corev1.ServiceList](ctx, r.client, scope)
 }

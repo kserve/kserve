@@ -30,8 +30,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -1298,8 +1301,9 @@ func TestNewDeploymentReconciler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewDeploymentReconciler(
+			got, err := NewDeploymentReconciler(t.Context(),
 				tt.fields.client,
+				nil, // clientset
 				tt.fields.scheme,
 				tt.fields.objectMeta,
 				tt.fields.workerMeta,
@@ -1669,4 +1673,397 @@ func TestSetControllerReferences(t *testing.T) {
 	assert.Equal(t, owner.Name, deployment1.GetOwnerReferences()[0].Name)
 	assert.Len(t, deployment2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, deployment2.GetOwnerReferences()[0].Name)
+	assert.Equal(t, constants.KServeManagedLabelValue, deployment1.Labels[constants.KServeManagedLabelKey])
+	assert.Equal(t, constants.KServeManagedLabelValue, deployment2.Labels[constants.KServeManagedLabelKey])
+}
+
+func TestReconcileLabelsExistingDeploymentWithoutRollout(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	require.NoError(t, v1beta1.AddToScheme(scheme))
+	existing := createRawDefaultDeployment(metav1.ObjectMeta{
+		Name: "model", Namespace: "default", Labels: map[string]string{"app": "model"},
+	}, nil, &corev1.PodSpec{}, nil)
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	desired := existing.DeepCopy()
+	// Exercise the shared label map used by the resource constructor.
+	desired.Labels = desired.Spec.Template.Labels
+	reconciler := &DeploymentReconciler{client: cl, DeploymentList: []*appsv1.Deployment{desired}}
+	require.NoError(t, reconciler.SetControllerReferences(&v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "default", UID: "model"},
+	}, scheme))
+	_, err := reconciler.Reconcile(t.Context())
+	require.NoError(t, err)
+	actual := &appsv1.Deployment{}
+	require.NoError(t, cl.Get(t.Context(), kclient.ObjectKeyFromObject(existing), actual))
+	assert.Equal(t, constants.KServeManagedLabelValue, actual.Labels[constants.KServeManagedLabelKey])
+	assert.Equal(t, existing.Spec.Template, actual.Spec.Template)
+}
+
+func TestCleanupOrphans(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = appsv1.AddToScheme(scheme)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	expected := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-v2-predictor", Namespace: "default", Labels: labels},
+	}
+	orphan := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(expected, orphan).Build()
+	reconciler := &DeploymentReconciler{client: fakeClient, scheme: scheme}
+
+	expectedNames := sets.New("my-isvc-v2-predictor")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: kclient.MatchingLabels(labels), RetainNames: expectedNames,
+	})
+	require.NoError(t, err)
+
+	// Orphan should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.True(t, errors.IsNotFound(err))
+
+	// Expected should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-v2-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.NoError(t, err)
+}
+
+func TestCleanupOrphansWithWorker(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = appsv1.AddToScheme(scheme)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	headDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+	workerDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor-worker", Namespace: "default", Labels: labels},
+	}
+	oldDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(headDeployment, workerDeployment, oldDeployment).Build()
+	reconciler := &DeploymentReconciler{client: fakeClient, scheme: scheme}
+
+	// expectedNames should include both head and worker deployment names
+	expectedNames := sets.New("my-isvc-predictor", "my-isvc-predictor-worker")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: kclient.MatchingLabels(labels), RetainNames: expectedNames,
+	})
+	require.NoError(t, err)
+
+	// Old deployment should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.True(t, errors.IsNotFound(err))
+
+	// Head deployment should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.NoError(t, err)
+
+	// Worker deployment should be kept (not deleted as orphan)
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor-worker", Namespace: "default"}, &appsv1.Deployment{})
+	assert.NoError(t, err)
+}
+
+func TestGetArgValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		flag    string
+		wantVal string
+		wantOk  bool
+	}{
+		{
+			name:    "two-element form",
+			args:    []string{"--model_name", "foo", "--http_port", "9090"},
+			flag:    "--http_port",
+			wantVal: "9090",
+			wantOk:  true,
+		},
+		{
+			name:    "equals form",
+			args:    []string{"--model_name=foo", "--http_port=9090"},
+			flag:    "--http_port",
+			wantVal: "9090",
+			wantOk:  true,
+		},
+		{
+			name:   "flag not present",
+			args:   []string{"--model_name", "foo"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			name:   "flag at end without value",
+			args:   []string{"--http_port"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			name:   "empty args",
+			args:   nil,
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			name:    "duplicate flag returns last value",
+			args:    []string{"--http_port=8080", "--http_port=5000"},
+			flag:    "--http_port",
+			wantVal: "5000",
+			wantOk:  true,
+		},
+		{
+			name:    "duplicate mixed forms returns last value",
+			args:    []string{"--http_port", "8080", "--http_port=5000"},
+			flag:    "--http_port",
+			wantVal: "5000",
+			wantOk:  true,
+		},
+		{
+			name:   "flag followed by another flag has no value",
+			args:   []string{"--http_port", "--model_name", "foo"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			name:   "flag followed by another flag at end has no value",
+			args:   []string{"--model_name", "foo", "--http_port", "--enable_docs_url"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			// getArgValue only tokenizes: "-1" is this flag's value rather than a
+			// separate flag. It is rejected as a port later, by utils.ParsePort.
+			name:    "negative number is a value, not a flag",
+			args:    []string{"--http_port", "-1"},
+			flag:    "--http_port",
+			wantVal: "-1",
+			wantOk:  true,
+		},
+		{
+			name:    "lone dash is a value, not a flag",
+			args:    []string{"--http_port", "-"},
+			flag:    "--http_port",
+			wantVal: "-",
+			wantOk:  true,
+		},
+		{
+			name:    "valueless occurrence does not mask an earlier value",
+			args:    []string{"--http_port", "9090", "--http_port", "--model_name", "foo"},
+			flag:    "--http_port",
+			wantVal: "9090",
+			wantOk:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, ok := isvcutils.GetArgValue(tt.args, tt.flag)
+			assert.Equal(t, tt.wantOk, ok)
+			if ok {
+				assert.Equal(t, tt.wantVal, val)
+			}
+		})
+	}
+}
+
+func TestSetArgValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		flag     string
+		value    string
+		expected []string
+	}{
+		{
+			name:     "replace two-element form",
+			args:     []string{"--http_port", "8080"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443"},
+		},
+		{
+			name:     "replace equals form",
+			args:     []string{"--http_port=8080"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port=8443"},
+		},
+		{
+			name:     "append when absent",
+			args:     []string{"--model_name", "foo"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--model_name", "foo", "--http_port", "8443"},
+		},
+		{
+			name:     "append to nil",
+			args:     nil,
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443"},
+		},
+		{
+			name:     "append value to trailing flag",
+			args:     []string{"--model_name", "foo", "--http_port"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--model_name", "foo", "--http_port", "8443"},
+		},
+		{
+			name:     "replace duplicate mixed forms",
+			args:     []string{"--http_port", "9000", "--http_port=0"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--http_port=8443"},
+		},
+		{
+			name:     "replace duplicate mixed forms in reverse order",
+			args:     []string{"--http_port=9000", "--http_port", "65536"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port=8443", "--http_port", "8443"},
+		},
+		{
+			name:     "insert value when flag is followed by another flag",
+			args:     []string{"--http_port", "--model_name", "foo"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
+		{
+			name:     "insert value when flag is followed by another flag mid-slice",
+			args:     []string{"--model_name", "foo", "--http_port", "--enable_docs_url"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--model_name", "foo", "--http_port", "8443", "--enable_docs_url"},
+		},
+		{
+			name:     "replace negative value rather than inserting",
+			args:     []string{"--http_port", "-1", "--model_name", "foo"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
+		{
+			name:     "insert and replace across duplicate occurrences",
+			args:     []string{"--http_port", "--model_name", "foo", "--http_port", "9000"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo", "--http_port", "8443"},
+		},
+		{
+			name:     "insert does not corrupt caller slice with spare capacity",
+			args:     append(make([]string, 0, 8), "--http_port", "--model_name", "foo"),
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isvcutils.SetArgValue(tt.args, tt.flag, tt.value)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSetDefaultPodSpec_ReadinessProbeRespectsHttpPort(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		ports        []corev1.ContainerPort
+		expectedPort int32
+	}{
+		{
+			name:         "no ports no args defaults to 8080",
+			expectedPort: 8080,
+		},
+		{
+			name:         "port defined takes precedence over default",
+			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
+			expectedPort: 9090,
+		},
+		{
+			name:         "--http_port arg overrides default",
+			args:         []string{"--http_port", "8443"},
+			expectedPort: 8443,
+		},
+		{
+			name:         "--http_port= arg overrides default",
+			args:         []string{"--http_port=7070"},
+			expectedPort: 7070,
+		},
+		{
+			name:         "--http_port overrides container port",
+			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
+			args:         []string{"--http_port", "8443"},
+			expectedPort: 8443,
+		},
+		{
+			name:         "zero --http_port falls back to default",
+			args:         []string{"--http_port", "0"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "negative --http_port falls back to container port",
+			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
+			args:         []string{"--http_port", "-1"},
+			expectedPort: 9090,
+		},
+		{
+			name:         "negative --http_port falls back to default",
+			args:         []string{"--http_port", "-1"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "negative --http_port= falls back to default",
+			args:         []string{"--http_port=-1"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "large negative --http_port falls back to default",
+			args:         []string{"--http_port", "-65535"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "oversized --http_port falls back to default",
+			args:         []string{"--http_port=65536"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "malformed --http_port falls back to default",
+			args:         []string{"--http_port", "not-a-port"},
+			expectedPort: 8080,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "kserve-container",
+						Image: "test:latest",
+						Args:  tt.args,
+						Ports: tt.ports,
+					},
+				},
+			}
+			setDefaultPodSpec(podSpec)
+			probe := podSpec.Containers[0].ReadinessProbe
+			require.NotNil(t, probe)
+			require.NotNil(t, probe.TCPSocket)
+			assert.Equal(t, tt.expectedPort, probe.TCPSocket.Port.IntVal)
+		})
+	}
 }

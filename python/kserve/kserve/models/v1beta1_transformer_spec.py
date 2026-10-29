@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2020 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ class V1beta1TransformerSpec(object):
         'dns_policy': 'str',
         'enable_service_links': 'bool',
         'ephemeral_containers': 'list[V1EphemeralContainer]',
+        'eviction_responders': 'list[V1EvictionResponder]',
         'host_aliases': 'list[V1HostAlias]',
         'host_ipc': 'bool',
         'host_network': 'bool',
@@ -91,6 +92,7 @@ class V1beta1TransformerSpec(object):
         'scale_target': 'int',
         'scheduler_name': 'str',
         'scheduling_gates': 'list[V1PodSchedulingGate]',
+        'scheduling_group': 'V1PodSchedulingGroup',
         'security_context': 'V1PodSecurityContext',
         'service_account': 'str',
         'service_account_name': 'str',
@@ -120,6 +122,7 @@ class V1beta1TransformerSpec(object):
         'dns_policy': 'dnsPolicy',
         'enable_service_links': 'enableServiceLinks',
         'ephemeral_containers': 'ephemeralContainers',
+        'eviction_responders': 'evictionResponders',
         'host_aliases': 'hostAliases',
         'host_ipc': 'hostIPC',
         'host_network': 'hostNetwork',
@@ -150,6 +153,7 @@ class V1beta1TransformerSpec(object):
         'scale_target': 'scaleTarget',
         'scheduler_name': 'schedulerName',
         'scheduling_gates': 'schedulingGates',
+        'scheduling_group': 'schedulingGroup',
         'security_context': 'securityContext',
         'service_account': 'serviceAccount',
         'service_account_name': 'serviceAccountName',
@@ -164,7 +168,7 @@ class V1beta1TransformerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, eviction_responders=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, scheduling_group=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TransformerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -184,6 +188,7 @@ class V1beta1TransformerSpec(object):
         self._dns_policy = None
         self._enable_service_links = None
         self._ephemeral_containers = None
+        self._eviction_responders = None
         self._host_aliases = None
         self._host_ipc = None
         self._host_network = None
@@ -214,6 +219,7 @@ class V1beta1TransformerSpec(object):
         self._scale_target = None
         self._scheduler_name = None
         self._scheduling_gates = None
+        self._scheduling_group = None
         self._security_context = None
         self._service_account = None
         self._service_account_name = None
@@ -256,6 +262,8 @@ class V1beta1TransformerSpec(object):
             self.enable_service_links = enable_service_links
         if ephemeral_containers is not None:
             self.ephemeral_containers = ephemeral_containers
+        if eviction_responders is not None:
+            self.eviction_responders = eviction_responders
         if host_aliases is not None:
             self.host_aliases = host_aliases
         if host_ipc is not None:
@@ -316,6 +324,8 @@ class V1beta1TransformerSpec(object):
             self.scheduler_name = scheduler_name
         if scheduling_gates is not None:
             self.scheduling_gates = scheduling_gates
+        if scheduling_group is not None:
+            self.scheduling_group = scheduling_group
         if security_context is not None:
             self.security_context = security_context
         if service_account is not None:
@@ -652,6 +662,29 @@ class V1beta1TransformerSpec(object):
         """
 
         self._ephemeral_containers = ephemeral_containers
+
+    @property
+    def eviction_responders(self):
+        """Gets the eviction_responders of this V1beta1TransformerSpec.  # noqa: E501
+
+        EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.  The maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.  # noqa: E501
+
+        :return: The eviction_responders of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: list[V1EvictionResponder]
+        """
+        return self._eviction_responders
+
+    @eviction_responders.setter
+    def eviction_responders(self, eviction_responders):
+        """Sets the eviction_responders of this V1beta1TransformerSpec.
+
+        EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.  The maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.  # noqa: E501
+
+        :param eviction_responders: The eviction_responders of this V1beta1TransformerSpec.  # noqa: E501
+        :type: list[V1EvictionResponder]
+        """
+
+        self._eviction_responders = eviction_responders
 
     @property
     def host_aliases(self):
@@ -1336,6 +1369,27 @@ class V1beta1TransformerSpec(object):
         """
 
         self._scheduling_gates = scheduling_gates
+
+    @property
+    def scheduling_group(self):
+        """Gets the scheduling_group of this V1beta1TransformerSpec.  # noqa: E501
+
+
+        :return: The scheduling_group of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: V1PodSchedulingGroup
+        """
+        return self._scheduling_group
+
+    @scheduling_group.setter
+    def scheduling_group(self, scheduling_group):
+        """Sets the scheduling_group of this V1beta1TransformerSpec.
+
+
+        :param scheduling_group: The scheduling_group of this V1beta1TransformerSpec.  # noqa: E501
+        :type: V1PodSchedulingGroup
+        """
+
+        self._scheduling_group = scheduling_group
 
     @property
     def security_context(self):

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"slices"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -40,7 +39,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
-func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
 	log.FromContext(ctx).Info("Reconciling single-node workload")
 
 	if err := r.reconcileManagedDRA(ctx, llmSvc); err != nil {
@@ -51,18 +50,18 @@ func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llm
 		return fmt.Errorf("failed to reconcile service account: %w", err)
 	}
 
-	if err := r.reconcileSingleNodeMainWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileSingleNodeMainWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		return fmt.Errorf("failed to reconcile main workload: %w", err)
 	}
 
-	if err := r.reconcileSingleNodePrefill(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileSingleNodePrefill(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		return fmt.Errorf("failed to reconcile prefill workload: %w", err)
 	}
 	return nil
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker != nil {
+func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker != nil || useDisaggregatedSet {
 		if isStopped {
 			llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
@@ -80,16 +79,75 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return err
 	}
 	return r.propagateWorkloadDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
+	key := types.NamespacedName{Name: mainDeploymentName(llmSvc), Namespace: llmSvc.GetNamespace()}
+
+	var deployed corev1.PodSpec
+	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
+		var err error
+		if deployed, err = r.deployedDeploymentPodSpec(ctx, key); err != nil {
+			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", key.Namespace, key.Name, err)
+		}
+	}
+
+	pod, err := r.expectedSingleNodeMainPodTemplate(ctx, llmSvc, config, deployed)
+	if err != nil {
+		return nil, err
+	}
+
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+			Labels: pod.IdentityLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: llmSvc.Spec.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: deploymentSelectorLabels(pod.IdentityLabels, llmSvc.Spec.Labels),
+			},
+			Template: pod.Template,
+		},
+	}
+
+	applyDeploymentRolloutStrategy(d, &llmSvc.Spec.WorkloadSpec)
+	propagateDeploymentObjectMetadata(llmSvc, d)
+
+	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
+
+	return d, nil
+}
+
+// singleNodePodTemplate is a rendered single-node pod template. IdentityLabels are
+// the workload identity labels, before any propagated metadata, which a Deployment
+// uses for its own labels and its selector.
+type singleNodePodTemplate struct {
+	Template       corev1.PodTemplateSpec
+	IdentityLabels map[string]string
+}
+
+// expectedSingleNodeMainPodTemplate renders the decode pod template of a single-node
+// workload. deployed is the pod spec currently deployed for decode, used to keep
+// storage-initializer settings stable across controller upgrades.
+func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, deployed corev1.PodSpec) (*singleNodePodTemplate, error) {
 	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = constants.LLMDRoleBoth
+		currentRole, err := r.currentMainWorkloadRole(ctx, llmSvc)
+		if err != nil {
+			return nil, err
+		}
+		if role, err = nonDisaggregatedRole(llmSvc, currentRole); err != nil {
+			return nil, err
+		}
 	}
 
 	labels := r.singleNodeLabels(llmSvc)
@@ -102,59 +160,47 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		"prometheus.io/path",
 		"prometheus.io/scheme",
 	}
-	deploymentAnnotations := map[string]string{}
+	podAnnotations := map[string]string{}
 	llmSvcAnnotations := llmSvc.GetAnnotations()
 	for _, annotationKey := range annotationsToPass {
 		if _, ok := llmSvcAnnotations[annotationKey]; ok {
-			deploymentAnnotations[annotationKey] = llmSvcAnnotations[annotationKey]
+			podAnnotations[annotationKey] = llmSvcAnnotations[annotationKey]
 		}
 	}
 
-	d := &appsv1.Deployment{
+	err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, labels)
+	if err != nil {
+		return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+	}
+
+	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mainDeploymentName(llmSvc),
-			Namespace: llmSvc.GetNamespace(),
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
-			},
-			Labels: labels,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: llmSvc.Spec.Replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels:      labels,
-					Annotations: deploymentAnnotations,
-				},
-			},
+			Labels:      maps.Clone(labels),
+			Annotations: podAnnotations,
 		},
 	}
 
-	applyDeploymentRolloutStrategy(d, &llmSvc.Spec.WorkloadSpec)
-
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
-		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
+		template.Spec = *llmSvc.Spec.Template.DeepCopy()
 
 		var serviceAccount *corev1.ServiceAccount = nil
-		if hasRoutingSidecar(d.Spec.Template.Spec) {
-			log.FromContext(ctx).Info("Main container has a routing sidecar")
-
+		if hasRoutingSidecar(template.Spec) || config.ModelExpress != nil {
 			var err error
 			serviceAccount, _, err = r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
 			if err != nil {
 				return nil, fmt.Errorf("failed to created expected single node service account: %w", err)
 			}
-			d.Spec.Template.Spec.ServiceAccountName = serviceAccount.GetName()
-			s := routingSidecar(&d.Spec.Template.Spec)
-			if llmSvc.Spec.Router != nil {
-				s.Env = append(s.Env, corev1.EnvVar{
-					Name:      "INFERENCE_POOL_NAME",
-					Value:     llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
-					ValueFrom: nil,
-				})
+			template.Spec.ServiceAccountName = serviceAccount.GetName()
+			if hasRoutingSidecar(template.Spec) {
+				log.FromContext(ctx).Info("Main container has a routing sidecar")
+				s := routingSidecar(&template.Spec)
+				if llmSvc.Spec.Router != nil {
+					s.Env = append(s.Env, corev1.EnvVar{
+						Name:      "INFERENCE_POOL_NAME",
+						Value:     llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
+						ValueFrom: nil,
+					})
+				}
 			}
 		} else if llmSvc.Spec.Template.ServiceAccountName != "" {
 			serviceAccount = &corev1.ServiceAccount{}
@@ -164,40 +210,34 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			}
 		}
 
-		curr := &appsv1.Deployment{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
-		}
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
-			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, deployed, &template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+			return nil, fmt.Errorf("failed to attach model artifacts to main pod template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+		}
+		if err := attachModelExpress(llmSvc, &template.Spec, config.ModelExpress); err != nil {
+			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
 		}
 	}
 
-	r.propagateDeploymentMetadata(llmSvc, d)
+	propagatePodTemplateMetadata(llmSvc, &template)
 
-	utils.PropagateMap(llmSvc.Spec.Labels, &d.Spec.Template.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
+	utils.PropagateMap(llmSvc.Spec.Labels, &template.Labels)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
-		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
-			return c.Name == "main"
-		})
-		if mainIdx >= 0 {
-			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &d.Spec.Template.Spec.Containers[mainIdx])
-		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &template.Spec)
 	}
 
-	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
+	applyWorkloadRevision(&template, config)
 
-	return d, nil
+	return &singleNodePodTemplate{Template: template, IdentityLabels: labels}, nil
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker != nil {
+func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker != nil || useDisaggregatedSet {
 		if isStopped {
 			llmSvc.MarkPrefillWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
@@ -215,13 +255,61 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 	if err != nil {
 		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
 	}
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return fmt.Errorf("failed to reconcile prefill deployment %s/%s: %w", prefill.GetNamespace(), prefill.GetName(), err)
 	}
 	return r.propagateWorkloadDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
+	key := types.NamespacedName{Name: prefillDeploymentName(llmSvc), Namespace: llmSvc.GetNamespace()}
+
+	var deployed corev1.PodSpec
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
+		var err error
+		if deployed, err = r.deployedDeploymentPodSpec(ctx, key); err != nil {
+			return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w", key.Namespace, key.Name, err)
+		}
+	}
+
+	pod, err := r.expectedSingleNodePrefillPodTemplate(ctx, llmSvc, config, deployed)
+	if err != nil {
+		return nil, err
+	}
+
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+			Labels: pod.IdentityLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: pod.Template,
+		},
+	}
+
+	if llmSvc.Spec.Prefill != nil {
+		d.Spec.Replicas = llmSvc.Spec.Prefill.Replicas
+		d.Spec.Selector = &metav1.LabelSelector{
+			MatchLabels: deploymentSelectorLabels(pod.IdentityLabels, llmSvc.Spec.Prefill.Labels),
+		}
+		applyDeploymentRolloutStrategy(d, llmSvc.Spec.Prefill)
+	}
+
+	propagateDeploymentObjectMetadata(llmSvc, d)
+
+	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
+
+	return d, nil
+}
+
+// expectedSingleNodePrefillPodTemplate renders the prefill pod template of a
+// single-node workload. deployed is the pod spec currently deployed for prefill, used
+// to keep storage-initializer settings stable across controller upgrades.
+func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, deployed corev1.PodSpec) (*singleNodePodTemplate, error) {
 	labels := map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadPrefill,
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
@@ -230,98 +318,127 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		constants.LLMDRoleLabelKey:            constants.LLMDRolePrefill,
 	}
 
-	d := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      prefillDeploymentName(llmSvc),
-			Namespace: llmSvc.GetNamespace(),
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
-			},
-			Labels: labels,
-		},
-	}
-
+	var template corev1.PodTemplateSpec
 	if llmSvc.Spec.Prefill != nil {
-		d.Spec = appsv1.DeploymentSpec{
-			Replicas: llmSvc.Spec.Prefill.Replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-			},
+		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, labels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
 		}
-		applyDeploymentRolloutStrategy(d, llmSvc.Spec.Prefill)
+
+		template.Labels = maps.Clone(labels)
 	}
 
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
-		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
+		template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
 
-		var existingServiceAccount *corev1.ServiceAccount = nil
-		if llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
-			existingServiceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Prefill.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Prefill.Template.ServiceAccountName, err)
+		// A prefill workload that already runs keeps the ServiceAccount it
+		// runs with — including none — whichever backend deploys it: the
+		// Deployment of the single-node path or a role of a DisaggregatedSet,
+		// both of which pass the deployed pod spec in. A controller upgrade
+		// therefore never rewrites the prefill identity and never rolls the
+		// workload. A pod spec without containers is no deployed workload,
+		// so the main-workload fallback below applies at creation only: it
+		// makes prefill pods run with the same identity as the main
+		// workload, including IRSA annotations for model download. In a
+		// mixed topology the main workload is multi-node and can name its
+		// ServiceAccount on the worker spec, so fall back to it the same
+		// way the tokenizer does.
+		if template.Spec.ServiceAccountName == "" {
+			switch {
+			case len(deployed.Containers) > 0:
+				template.Spec.ServiceAccountName = deployed.ServiceAccountName
+			case llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "":
+				template.Spec.ServiceAccountName = llmSvc.Spec.Template.ServiceAccountName
+			case llmSvc.Spec.Worker != nil && llmSvc.Spec.Worker.ServiceAccountName != "":
+				template.Spec.ServiceAccountName = llmSvc.Spec.Worker.ServiceAccountName
 			}
 		}
 
-		curr := &appsv1.Deployment{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		var existingServiceAccount *corev1.ServiceAccount = nil
+		if template.Spec.ServiceAccountName != "" {
+			existingServiceAccount = &corev1.ServiceAccount{}
+			err := r.Get(ctx, types.NamespacedName{Name: template.Spec.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, template.Spec.ServiceAccountName, err)
+			}
+		} else if config.ModelExpress != nil {
+			var err error
+			existingServiceAccount, _, err = r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
+			if err != nil {
+				return nil, fmt.Errorf("failed to created expected single node service account: %w", err)
+			}
+			template.Spec.ServiceAccountName = existingServiceAccount.GetName()
 		}
-		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
-			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
+
+		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, deployed, &template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+			return nil, fmt.Errorf("failed to attach model artifacts to prefill pod template: %w", err)
 		}
 		if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+		}
+		if err := attachModelExpress(llmSvc, &template.Spec, config.ModelExpress); err != nil {
+			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
 		}
 	}
 
-	r.propagateDeploymentMetadata(llmSvc, d)
+	propagatePodTemplateMetadata(llmSvc, &template)
 
 	if llmSvc.Spec.Prefill != nil {
-		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &d.Spec.Template.Labels)
-		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &template.Labels)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
 	}
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
-		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
-			return c.Name == "main"
-		})
-		if mainIdx >= 0 {
-			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &d.Spec.Template.Spec.Containers[mainIdx])
-		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &template.Spec)
 	}
 
-	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
+	applyWorkloadRevision(&template, config)
 
-	return d, nil
+	return &singleNodePodTemplate{Template: template, IdentityLabels: labels}, nil
 }
 
-func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
-	// Define the prefixes to approve for annotations and labels
-	approvedAnnotationPrefixes := []string{
+// Top-level metadata keys propagated to Deployments and their pod templates.
+var (
+	deploymentApprovedAnnotationPrefixes = []string{
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
 		"prometheus.io",
 		constants.LocalModelLabel,
 	}
-	approvedLabelPrefixes := []string{
+	deploymentApprovedLabelPrefixes = []string{
 		constants.KueueAPIGroupName,
 		constants.LocalModelLabel,
 	}
+)
 
-	// Propagate approved annotations from top-level metadata to the Deployment and its Pod template
-	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Annotations, approvedAnnotationPrefixes...)
-	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Spec.Template.Annotations, approvedAnnotationPrefixes...)
+func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
+	propagateDeploymentObjectMetadata(llmSvc, expected)
+	propagatePodTemplateMetadata(llmSvc, &expected.Spec.Template)
+}
 
-	// Propagate approved labels from top-level metadata to the Deployment and its Pod template
-	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Labels, approvedLabelPrefixes...)
-	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Spec.Template.Labels, approvedLabelPrefixes...)
+// propagateDeploymentObjectMetadata propagates approved top-level annotations and
+// labels to the Deployment object.
+func propagateDeploymentObjectMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
+	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Annotations, deploymentApprovedAnnotationPrefixes...)
+	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Labels, deploymentApprovedLabelPrefixes...)
+}
+
+// propagatePodTemplateMetadata propagates approved top-level annotations and labels to
+// a single-node pod template.
+func propagatePodTemplateMetadata(llmSvc *v1alpha2.LLMInferenceService, template *corev1.PodTemplateSpec) {
+	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &template.Annotations, deploymentApprovedAnnotationPrefixes...)
+	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &template.Labels, deploymentApprovedLabelPrefixes...)
+}
+
+// deployedDeploymentPodSpec returns the pod spec of the Deployment named key, or an
+// empty spec when it does not exist.
+func (r *LLMISVCReconciler) deployedDeploymentPodSpec(ctx context.Context, key types.NamespacedName) (corev1.PodSpec, error) {
+	curr := &appsv1.Deployment{}
+	if err := r.Get(ctx, key, curr); err != nil && !apierrors.IsNotFound(err) {
+		return corev1.PodSpec{}, err
+	}
+	return curr.Spec.Template.Spec, nil
 }
 
 func (r *LLMISVCReconciler) propagateWorkloadDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
@@ -373,7 +490,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainServiceAccount(ctx context.Co
 	}
 
 	if !useExistingServiceAccount {
-		if utils.GetForceStopRuntime(llmSvc) || !hasRoutingSidecar(expectedDeployment.Spec.Template.Spec) {
+		if utils.GetForceStopRuntime(llmSvc) || (!hasRoutingSidecar(expectedDeployment.Spec.Template.Spec) && config.ModelExpress == nil) {
 			return Delete(ctx, r, llmSvc, serviceAccount)
 		}
 

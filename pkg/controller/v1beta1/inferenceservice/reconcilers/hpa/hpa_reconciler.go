@@ -30,6 +30,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -290,4 +291,9 @@ func (r *HPAReconciler) Reconcile(ctx context.Context) error {
 
 func (r *HPAReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return controllerutil.SetControllerReference(owner, r.HPA, scheme)
+}
+
+// CleanupOrphans deletes HPAs selected by scope whose names are not retained.
+func (r *HPAReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*autoscalingv2.HorizontalPodAutoscalerList](ctx, r.client, scope)
 }

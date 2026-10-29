@@ -188,8 +188,44 @@ validate_kserve_deps() {
     print_success "kserve-deps.env version matches: $current_version"
 }
 
+validate_chart_versions() {
+    print_section "🔍 Phase 3: Validating Helm chart versions..."
+
+    local mismatched=()
+    local chart_dir
+    for chart_dir in charts/*/; do
+        local chart_name
+        chart_name=$(basename "$chart_dir")
+        # Skip shared/non-published chart fragments (e.g. charts/_common)
+        [[ "$chart_name" == _* ]] && continue
+
+        local chart_file="${chart_dir}Chart.yaml"
+        [[ -f "$chart_file" ]] || continue
+
+        local chart_version
+        chart_version=$(grep -m1 '^version:' "$chart_file" | awk '{print $2}')
+        if [[ "$chart_version" != "$VERSION" ]]; then
+            mismatched+=("${chart_file} (found: ${chart_version:-<empty>}, expected: ${VERSION})")
+        fi
+    done
+
+    if [[ ${#mismatched[@]} -gt 0 ]]; then
+        print_error "Helm chart version mismatch!"
+        echo ""
+        for entry in "${mismatched[@]}"; do
+            echo "   - $entry"
+        done
+        echo ""
+        echo "Please run prepare-for-release.sh first to bump chart versions:"
+        echo "  ./hack/release/prepare-for-release.sh <prior_version> <new_version>"
+        exit 1
+    fi
+
+    print_success "All Helm chart versions match: $VERSION"
+}
+
 validate_tag_duplicate() {
-    print_section "🔍 Phase 3: Checking for duplicate tag..."
+    print_section "🔍 Phase 4: Checking for duplicate tag..."
 
     if git rev-parse "$VERSION" >/dev/null 2>&1; then
         print_error "Tag $VERSION already exists!"
@@ -203,7 +239,7 @@ validate_tag_duplicate() {
 }
 
 validate_github_release_duplicate() {
-    print_section "🔍 Phase 4: Checking for duplicate GitHub Release..."
+    print_section "🔍 Phase 5: Checking for duplicate GitHub Release..."
 
     # Skip actual check if --github-actions is not set
     if [[ "$GITHUB_ACTIONS_MODE" == false ]]; then
@@ -236,7 +272,7 @@ validate_branch_rc0() {
         return
     fi
 
-    print_section "🔍 Phase 5: Checking release branch (RC0 mode)..."
+    print_section "🔍 Phase 6: Checking release branch (RC0 mode)..."
 
     if git ls-remote --heads $UPSTREAM_REMOTE "$BRANCH" 2>/dev/null | grep -q "$BRANCH"; then
         print_error "Branch $BRANCH already exists!"
@@ -254,7 +290,7 @@ validate_branch_rc1_plus() {
         return
     fi
 
-    print_section "🔍 Phase 6: Checking release branch (RC1+/Final mode)..."
+    print_section "🔍 Phase 7: Checking release branch (RC1+/Final mode)..."
 
     if ! git ls-remote --heads $UPSTREAM_REMOTE "$BRANCH" 2>/dev/null | grep -q "$BRANCH"; then
         print_error "Branch $BRANCH does not exist!"
@@ -512,6 +548,7 @@ main() {
     validate_version_format
     parse_version
     validate_kserve_deps
+    validate_chart_versions
     validate_tag_duplicate
     validate_github_release_duplicate
     validate_branch_rc0

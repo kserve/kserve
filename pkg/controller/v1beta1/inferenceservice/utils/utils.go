@@ -23,7 +23,9 @@ import (
 	"fmt"
 	"html/template"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -249,17 +251,115 @@ func GetDeploymentMode(statusDeploymentMode string, annotations map[string]strin
 
 // MergeRuntimeContainers merges the runtime Container with the InferenceService Container,
 // allowing users to override runtime container settings from the predictor spec.
-// Args are concatenated (runtime + isvc) rather than replaced.
+// Args from the ISVC take precedence: any runtime flag that the ISVC also sets is
+// removed before concatenation so the final list contains no duplicate flags.
 func MergeRuntimeContainers(runtimeContainer *corev1.Container, isvcContainer *corev1.Container) (*corev1.Container, error) {
 	merged, err := kserveutils.MergeContainerWithPatch(*runtimeContainer, *isvcContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	// Concatenate args rather than replacing — isvc extends runtime flags
-	merged.Args = append(append([]string{}, runtimeContainer.Args...), isvcContainer.Args...)
+	merged.Args = mergeArgs(runtimeContainer.Args, isvcContainer.Args)
 
 	return &merged, nil
+}
+
+// mergeArgs concatenates runtime and ISVC args, removing any runtime flags
+// that the ISVC also sets so the ISVC value takes precedence without duplicates.
+func mergeArgs(runtimeArgs, isvcArgs []string) []string {
+	overridden := flagNames(isvcArgs)
+
+	var merged []string
+	for i := 0; i < len(runtimeArgs); i++ {
+		name := flagName(runtimeArgs[i])
+		if name != "" && overridden[name] {
+			if !strings.Contains(runtimeArgs[i], "=") && i+1 < len(runtimeArgs) && !strings.HasPrefix(runtimeArgs[i+1], "-") {
+				i++
+			}
+			continue
+		}
+		merged = append(merged, runtimeArgs[i])
+	}
+	return append(merged, isvcArgs...)
+}
+
+// GetArgValue extracts the value for a CLI flag from an args slice.
+// It handles both "--flag value" (two elements) and "--flag=value" (single element) forms.
+// A flag that is last in the slice, or immediately followed by another flag, has no value.
+func GetArgValue(args []string, flag string) (string, bool) {
+	var lastVal string
+	found := false
+	for i, arg := range args {
+		if arg == flag && i+1 < len(args) && !isFlag(args[i+1]) {
+			lastVal = args[i+1]
+			found = true
+		}
+		if after, ok := strings.CutPrefix(arg, flag+"="); ok {
+			lastVal = after
+			found = true
+		}
+	}
+	return lastVal, found
+}
+
+// SetArgValue replaces every occurrence of a flag in an args slice, or appends
+// it if absent. It handles both two-element and "=" forms. A flag with no value
+// - last in the slice, or immediately followed by another flag - has the value
+// inserted after it rather than overwriting the next element.
+func SetArgValue(args []string, flag, value string) []string {
+	found := false
+	// Indexed rather than range: inserting may reallocate, and range would keep
+	// iterating the original backing array.
+	for i := 0; i < len(args); i++ {
+		if args[i] == flag {
+			if i+1 < len(args) && !isFlag(args[i+1]) {
+				args[i+1] = value
+			} else {
+				args = slices.Insert(args, i+1, value)
+			}
+			i++ // skip the value we just wrote
+			found = true
+			continue
+		}
+		if strings.HasPrefix(args[i], flag+"=") {
+			args[i] = flag + "=" + value
+			found = true
+		}
+	}
+	if found {
+		return args
+	}
+	return append(args, flag, value)
+}
+
+// isFlag reports whether an arg is a flag rather than a value. A lone "-" and
+// negative numbers are values, not flags.
+func isFlag(arg string) bool {
+	if !strings.HasPrefix(arg, "-") || arg == "-" {
+		return false
+	}
+	_, err := strconv.ParseFloat(arg, 64)
+	return err != nil
+}
+
+func flagName(arg string) string {
+	if !strings.HasPrefix(arg, "-") {
+		return ""
+	}
+	if idx := strings.Index(arg, "="); idx >= 0 {
+		return arg[:idx]
+	}
+	return arg
+}
+
+func flagNames(args []string) map[string]bool {
+	names := make(map[string]bool)
+	for _, arg := range args {
+		if name := flagName(arg); name != "" {
+			names[name] = true
+		}
+	}
+	return names
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
@@ -419,6 +519,9 @@ func sortPodsByCreatedTimestampDesc(pods *corev1.PodList) {
 func ValidateStorageURI(ctx context.Context, storageURI *string, client client.Client) error {
 	if storageURI == nil {
 		return nil
+	}
+	if err := kserveutils.CheckHTTPStorageURI(*storageURI); err != nil {
+		return err
 	}
 
 	// Step 1: Passes the validation if we have a storage container CR that supports this storageURI.

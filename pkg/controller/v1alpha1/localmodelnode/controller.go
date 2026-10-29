@@ -25,10 +25,13 @@ limitations under the License.
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
+// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 package localmodelnode
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -38,7 +41,7 @@ import (
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,10 +56,19 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/jobs"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/credentials/s3"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
+
+// errInvalidImagePullSecret is returned by launchJob when the named
+// imagePullSecret is missing or not a usable dockerconfigjson. downloadModels
+// maps it to ModelDownloadError and continues so Status().Update still runs
+// for other models on the node.
+var errInvalidImagePullSecret = errors.New("invalid image pull secret")
 
 type ensureModelRootFolderResult struct {
 	Result   ctrl.Result
@@ -65,6 +77,7 @@ type ensureModelRootFolderResult struct {
 
 type LocalModelNodeReconciler struct {
 	client.Client
+	APIReader         client.Reader
 	Clientset         *kubernetes.Clientset
 	Log               logr.Logger
 	Scheme            *runtime.Scheme
@@ -73,12 +86,10 @@ type LocalModelNodeReconciler struct {
 }
 
 const (
-	DownloadContainerName = "kserve-localmodel-download"
-	PvcSourceMountName    = "kserve-pvc-source"
+	CaBundleVolumeName = "cabundle-cert"
 )
 
 var (
-	defaultJobImage            = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
 	FSGroup                    *int64
 	jobNamespace               string
 	jobTTLSecondsAfterFinished int32         = 3600                   // One hour. Can be overwritten by the value in the configmap
@@ -134,24 +145,24 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	}
 	c.Log.Info("Using PVC name to create download job", "current node", nodeName, "node group", nodeGroupName, "PVC name", pvcName)
 
-	// First, try to get container spec from ClusterStorageContainer for backward compatibility
-	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
+	// Resolve the download container from ClusterStorageContainer (backward compatibility) or
+	// the StorageInitializerConfig fallback.
+	container, err := jobs.ResolveDownloadContainer(ctx, c.Client, storageInitializerConfig, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
 	}
 
-	// If no ClusterStorageContainer match, use StorageInitializerConfig
-	if container == nil {
-		container = c.getContainerSpecFromConfig(storageInitializerConfig)
-	}
-
 	// Use hash-based folder path for storage deduplication
 	storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
-	container.Args = []string{modelInfo.SourceModelUri, MountPath}
+	storageUri := modelInfo.SourceModelUri
+	if _, normalized, isOci := kserveutils.ParseOciScheme(storageUri); isOci {
+		storageUri = normalized
+	}
+	container.Args = []string{storageUri, MountPath}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: MountPath,
-			Name:      PvcSourceMountName,
+			Name:      constants.PvcSourceMountName,
 			ReadOnly:  false,
 			SubPath:   filepath.Join("models", storageKey),
 		},
@@ -159,7 +170,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	volumes := []corev1.Volume{
 		{
-			Name: PvcSourceMountName,
+			Name: constants.PvcSourceMountName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: pvcName,
@@ -170,13 +181,34 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	jobNs := jobNamespace
 
+	if secretName, ok := credentials.FirstNamedImagePullSecret(modelInfo.ImagePullSecrets); ok {
+		reader := c.APIReader
+		if reader == nil {
+			reader = c.Client
+		}
+		if err := credentials.FetchAndValidateDockerConfigJSONSecret(ctx, reader, jobNs, secretName); err != nil {
+			return nil, fmt.Errorf("%w: %w", errInvalidImagePullSecret, err)
+		}
+		credentials.MountImagePullSecretsAsDockerConfig(modelInfo.ImagePullSecrets, container, &volumes)
+	}
+
 	// Only inject if credentials are explicitly configured in LocalModelCache
 	if modelInfo.ServiceAccountName != "" || modelInfo.Storage != nil {
-		if err := c.injectCredentials(ctx, container, &volumes, modelInfo, jobNs); err != nil {
+		if err := jobs.InjectCredentials(ctx, c.CredentialBuilder, c.Log, container, &volumes, modelInfo.ServiceAccountName, modelInfo.Storage, jobNs); err != nil {
 			c.Log.Error(err, "Failed to inject credentials", "model", modelInfo.ModelName)
 			// Don't fail the job creation, continue with whatever credentials were injected
 		}
 	}
+
+	if _, _, isOci := kserveutils.ParseOciScheme(modelInfo.SourceModelUri); isOci {
+		if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
+			credentials.SetOciInsecureRegistryEnv(container)
+		}
+		credentials.MountOciCaBundle(storageInitializerConfig, jobNs, container, &volumes)
+	}
+
+	// Mount CA bundle ConfigMap as volume if AWS_CA_BUNDLE_CONFIGMAP env was injected
+	c.mountCaBundleVolume(container, &volumes)
 
 	// Note: statusKey (namespace/modelName) cannot be used as a label value since labels
 	// cannot contain '/'. We store namespace separately and reconstruct statusKey when needed.
@@ -228,49 +260,64 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	return createdJob, err
 }
 
-func (c *LocalModelNodeReconciler) getContainerSpecFromConfig(config *pkgtypes.StorageInitializerConfig) *corev1.Container {
-	image := defaultJobImage
-	if config != nil && config.Image != "" {
-		image = config.Image
+// mountCaBundleVolume checks if the container has AWS_CA_BUNDLE_CONFIGMAP env var set and,
+// if so, mounts the referenced ConfigMap as a volume so the storage initializer can read the
+// CA certificates. This mirrors the behavior of the storage-initializer webhook injector.
+func (c *LocalModelNodeReconciler) mountCaBundleVolume(container *corev1.Container, volumes *[]corev1.Volume) {
+	var caBundleConfigMapName string
+	for _, envVar := range container.Env {
+		if envVar.Name == s3.AWSCABundleConfigMap {
+			caBundleConfigMapName = envVar.Value
+			break
+		}
+	}
+	if caBundleConfigMapName == "" {
+		return
 	}
 
-	container := &corev1.Container{
-		Name:                     DownloadContainerName,
-		Image:                    image,
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+	mountPath := constants.DefaultCaBundleVolumeMountPath
+
+	caBundleVolume := corev1.Volume{
+		Name: CaBundleVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: caBundleConfigMapName,
+				},
+			},
+		},
+	}
+	caBundleVolumeMount := corev1.VolumeMount{
+		Name:      CaBundleVolumeName,
+		MountPath: mountPath,
+		ReadOnly:  true,
 	}
 
-	return container
+	*volumes = append(*volumes, caBundleVolume)
+	container.VolumeMounts = append(container.VolumeMounts, caBundleVolumeMount)
+
+	if !envVarExists(container.Env, constants.CaBundleConfigMapNameEnvVarKey) {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.CaBundleConfigMapNameEnvVarKey,
+			Value: caBundleConfigMapName,
+		})
+	}
+	if !envVarExists(container.Env, constants.CaBundleVolumeMountPathEnvVarKey) {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+			Value: mountPath,
+		})
+	}
+	c.Log.Info("Mounted CA bundle ConfigMap volume", "configMap", caBundleConfigMapName, "mountPath", mountPath)
 }
 
-// injectCredentials injects storage credentials into the download container.
-func (c *LocalModelNodeReconciler) injectCredentials(ctx context.Context, container *corev1.Container,
-	volumes *[]corev1.Volume, modelInfo v1alpha1.LocalModelInfo, jobNs string,
-) error {
-	if c.CredentialBuilder == nil {
-		c.Log.Info("CredentialBuilder not initialized, skipping credential injection")
-		return nil
-	}
-
-	// If storage spec with key is provided, use storage spec credentials
-	if modelInfo.Storage != nil && modelInfo.Storage.StorageKey != nil {
-		var params map[string]string
-		if modelInfo.Storage.Parameters != nil {
-			params = *modelInfo.Storage.Parameters
+func envVarExists(envs []corev1.EnvVar, name string) bool {
+	for _, e := range envs {
+		if e.Name == name {
+			return true
 		}
-		c.Log.Info("Injecting storage spec credentials", "storageKey", *modelInfo.Storage.StorageKey)
-		return c.CredentialBuilder.CreateStorageSpecSecretEnvs(
-			ctx, jobNs, nil, *modelInfo.Storage.StorageKey, params, container)
 	}
-
-	// Use service account credentials
-	serviceAccountName := modelInfo.ServiceAccountName
-	if serviceAccountName == "" {
-		serviceAccountName = "default"
-	}
-	c.Log.Info("Injecting service account credentials", "serviceAccountName", serviceAccountName)
-	return c.CredentialBuilder.CreateSecretVolumeAndEnv(
-		ctx, jobNs, nil, serviceAccountName, container, volumes)
+	return false
 }
 
 // Fetches container spec for model download container, use the default KServe image if not found
@@ -312,7 +359,7 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelInfo v
 	}
 
 	if err := c.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			c.Log.Info("Job not found", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace)
 			return nil, 0, nil
 		}
@@ -392,6 +439,11 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
+					if errors.Is(err, errInvalidImagePullSecret) {
+						newStatus[statusKey] = v1alpha1.ModelDownloadError
+						processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
+						continue
+					}
 					return err
 				}
 			}
@@ -419,6 +471,11 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create job", "model", modelInfo.ModelName, "node", nodeName)
+					if errors.Is(err, errInvalidImagePullSecret) {
+						newStatus[statusKey] = v1alpha1.ModelDownloadError
+						processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
+						continue
+					}
 					return err
 				}
 			}
@@ -606,6 +663,9 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if c.APIReader == nil {
+		c.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		// Do not reconcile on status change, when a job is created and the status is updated, the next reconcile is triggered immediately and
 		// there is a chance that the job is not returned when we list jobs, causing the same job to be created twice.

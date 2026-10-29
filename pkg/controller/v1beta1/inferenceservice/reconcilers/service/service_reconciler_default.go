@@ -24,7 +24,7 @@ import (
 )
 
 // customizeService is the default (upstream) no-op hook for platform-specific service customization.
-func customizeService(_ *corev1.Service, _ metav1.ObjectMeta) {}
+func customizeService(_ *corev1.Service, _ metav1.ObjectMeta, _ *corev1.PodSpec) {}
 
 // customizeHeadSvc is the default (upstream) no-op hook for platform-specific headless service customization.
 func customizeHeadSvc(_ *corev1.Service, _ string) {}

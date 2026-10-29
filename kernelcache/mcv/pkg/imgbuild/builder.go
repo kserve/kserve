@@ -28,6 +28,7 @@ import (
 const (
 	Buildah = "buildah"
 	Docker  = "docker"
+	OCI     = "oci"
 )
 
 type ImageBuilder interface {
@@ -49,6 +50,9 @@ func New() (ImageBuilder, error) {
 
 func NewWithBuilder(builder string) (ImageBuilder, error) {
 	switch builder {
+	case OCI:
+		logging.Info("Using OCI packaging to create and push the image")
+		return &ociBuilder{}, nil
 	case Buildah:
 		if HasApp(Buildah) {
 			logging.Infof("Using buildah to build the image")

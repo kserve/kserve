@@ -22,6 +22,12 @@ from typing import Any
 
 
 YAML_SEPARATOR = "---\n"
+_KUSTOMIZE_BUILD_CACHE: dict[Path, str] = {}
+
+
+def clear_kustomize_build_cache() -> None:
+    """Clear the per-generator-process Kustomize output cache."""
+    _KUSTOMIZE_BUILD_CACHE.clear()
 
 
 def to_bool_string(value: Any) -> str:
@@ -41,6 +47,17 @@ def to_bool_string(value: Any) -> str:
     return "true" if str(value).lower() in ["true", "1", "yes"] else "false"
 
 
+def _find_kustomize_binary(kustomize_dir: Path) -> str:
+    """Find kustomize binary in bin/ relative to the git root."""
+    current = kustomize_dir.resolve()
+    while current != current.parent:
+        candidate = current / "bin" / "kustomize"
+        if candidate.exists():
+            return str(candidate)
+        current = current.parent
+    return "kustomize"
+
+
 def run_kustomize_build(kustomize_dir: Path) -> str:
     """Run kustomize build on a directory.
 
@@ -54,14 +71,20 @@ def run_kustomize_build(kustomize_dir: Path) -> str:
         subprocess.CalledProcessError: If kustomize build fails
         FileNotFoundError: If kustomize command not found
     """
+    cache_key = kustomize_dir.resolve()
+    if cache_key in _KUSTOMIZE_BUILD_CACHE:
+        return _KUSTOMIZE_BUILD_CACHE[cache_key]
+
+    kustomize_bin = _find_kustomize_binary(kustomize_dir)
     try:
         result = subprocess.run(
-            ["kustomize", "build", str(kustomize_dir)],
+            [kustomize_bin, "build", str(kustomize_dir)],
             capture_output=True,
             text=True,
             check=True,
             cwd=kustomize_dir.parent,
         )
+        _KUSTOMIZE_BUILD_CACHE[cache_key] = result.stdout
         return result.stdout
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
@@ -69,7 +92,7 @@ def run_kustomize_build(kustomize_dir: Path) -> str:
         )
     except FileNotFoundError:
         raise FileNotFoundError(
-            "kustomize command not found. Please install kustomize."
+            "kustomize command not found. Please install kustomize or run 'make kustomize'."
         )
 
 

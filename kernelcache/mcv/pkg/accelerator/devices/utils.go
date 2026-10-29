@@ -20,9 +20,6 @@ import (
 	"errors"
 
 	"github.com/jaypipes/ghw"
-	"github.com/jaypipes/ghw/pkg/accelerator"
-	"github.com/jaypipes/ghw/pkg/pci"
-	"github.com/jaypipes/pcidb"
 	logging "github.com/sirupsen/logrus"
 
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
@@ -43,52 +40,12 @@ func GetProductName(id int) (name string, err error) {
 }
 
 // DetectAccelerators detects hardware accelerators and enables GPU logic if supported hardware is found.
-// If stub mode is enabled, it simulates the presence of an AMD Aldebaran MI200 GPU.
+// If stub mode is enabled, it simulates the accelerator selected by MCV_STUB_PROFILE (default: amd).
 // If no hardware accelerators are found, it returns nil without an error.
 func DetectAccelerators() (accInfo *ghw.AcceleratorInfo) {
 	if config.IsStubEnabled() {
 		logging.Debug("Stub mode configured, simulating accelerator device")
-		accInfo = &ghw.AcceleratorInfo{
-			Devices: []*accelerator.AcceleratorDevice{
-				{
-					Address: "0000:00:01.0",
-					PCIDevice: &pci.Device{
-						Vendor: &pcidb.Vendor{
-							Name: stubbedAMDName,
-							ID:   "1002",
-						},
-						Product: &pcidb.Product{
-							Name: stubbedAMDName,
-							ID:   "STUBBED Aldebaran/MI200",
-						},
-						Driver: "dummy",
-						Class: &pcidb.Class{
-							Name: "controller",
-							ID:   "0300",
-						},
-					},
-				},
-				{
-					Address: "0000:00:02.0",
-					PCIDevice: &pci.Device{
-						Vendor: &pcidb.Vendor{
-							Name: stubbedAMDName,
-							ID:   "1002",
-						},
-						Product: &pcidb.Product{
-							Name: "STUBBED Product",
-							ID:   "STUBBED Aldebaran/MI200",
-						},
-						Driver: "dummy",
-						Class: &pcidb.Class{
-							Name: "controller",
-							ID:   "0300",
-						},
-					},
-				},
-			},
-		}
-		return accInfo
+		return stubbedAcceleratorInfo(activeStubProfile())
 	}
 
 	acc, err := ghw.Accelerator()

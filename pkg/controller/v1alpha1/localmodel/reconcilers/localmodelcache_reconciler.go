@@ -105,8 +105,14 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, localModel, nil, nodeGroups)
 	}
 
+	consumers, err := collectCacheConsumers(ctx, c.Client, c.Log, localModel, nil, c.llmInferenceServiceCRDUp)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	previousNamespaces := consumerNamespaces(localModel.Status)
+
 	// Step 2 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, localModel, nil, nodeGroups); err != nil {
+	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, localModel, nil, nodeGroups, consumers); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode")
 	}
 
@@ -138,7 +144,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup, c.llmInferenceServiceCRDUp)
+	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
 	return ctrl.Result{}, err
 }
 

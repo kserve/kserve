@@ -812,3 +812,260 @@ func TestConfigureOciNativeToContainer(t *testing.T) {
 
 	_ = g // suppress unused warning from outer scope
 }
+
+// TestAddModelMount pins the mount identity AddModelMount dedupes on. By default an
+// existing mount carrying the volume name suppresses the new one, which is how a workload
+// overrides an injected volume by declaring its own. MountsPerPath widens the identity to
+// the path, so one volume can carry a mount per path - how N LoRA adapters share one claim
+// without fanning out into N pod Volumes.
+func TestAddModelMount(t *testing.T) {
+	t.Run("default: a mount with the volume name suppresses an injected one", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name: "main",
+				VolumeMounts: []corev1.VolumeMount{
+					{Name: "shared", MountPath: "/workload/owns/this"},
+				},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "shared",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "workload-claim"},
+				},
+			}},
+		}
+
+		g.Expect(AddModelMount(StorageMountParams{
+			MountPath:  "/mnt/models",
+			VolumeName: "shared",
+			PVCName:    "injected-claim",
+			ReadOnly:   true,
+		}, "main", podSpec)).To(gomega.Succeed())
+
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.ConsistOf(
+			corev1.VolumeMount{Name: "shared", MountPath: "/workload/owns/this"},
+		), "the workload's own mount must stand")
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal("workload-claim"))
+	})
+
+	t.Run("MountsPerPath: same volume, different paths, one mount each", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+
+		for _, sub := range []string{"adapters/a", "adapters/b"} {
+			g.Expect(AddModelMount(StorageMountParams{
+				MountPath:     "/mnt/lora/" + sub,
+				VolumeName:    "shared",
+				SubPath:       sub,
+				PVCName:       "claim",
+				ReadOnly:      true,
+				MountsPerPath: true,
+			}, "main", podSpec)).To(gomega.Succeed())
+		}
+
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal("claim"))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.ConsistOf(
+			corev1.VolumeMount{Name: "shared", MountPath: "/mnt/lora/adapters/a", SubPath: "adapters/a", ReadOnly: true},
+			corev1.VolumeMount{Name: "shared", MountPath: "/mnt/lora/adapters/b", SubPath: "adapters/b", ReadOnly: true},
+		))
+	})
+
+	t.Run("MountsPerPath: an identical mount is still deduped", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+		params := StorageMountParams{
+			MountPath:     "/mnt/models",
+			VolumeName:    "shared",
+			SubPath:       "base",
+			PVCName:       "claim",
+			ReadOnly:      true,
+			MountsPerPath: true,
+		}
+
+		g.Expect(AddModelMount(params, "main", podSpec)).To(gomega.Succeed())
+		g.Expect(AddModelMount(params, "main", podSpec)).To(gomega.Succeed())
+
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(1))
+	})
+
+	t.Run("init container target gets a writable mount", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{
+			InitContainers: []corev1.Container{{Name: "storage-initializer"}},
+			Containers:     []corev1.Container{{Name: "main"}},
+		}
+
+		g.Expect(AddModelMount(StorageMountParams{
+			MountPath:  "/mnt/models",
+			VolumeName: "shared",
+			ReadOnly:   true,
+		}, "storage-initializer", podSpec)).To(gomega.Succeed())
+
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.BeEmpty())
+		g.Expect(podSpec.InitContainers[0].VolumeMounts).To(gomega.ConsistOf(
+			corev1.VolumeMount{Name: "shared", MountPath: "/mnt/models", ReadOnly: false},
+		))
+	})
+
+	t.Run("unknown container adds nothing", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+
+		g.Expect(AddModelMount(StorageMountParams{
+			MountPath:  "/mnt/models",
+			VolumeName: "shared",
+		}, "absent", podSpec)).To(gomega.Succeed())
+
+		g.Expect(podSpec.Volumes).To(gomega.BeEmpty())
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.BeEmpty())
+	})
+}
+
+func TestAddModelMount_VolumeSource(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	containerName := "kserve-container"
+	mountPath := constants.DefaultModelLocalMountPath
+	volumeName := constants.StorageInitializerVolumeName
+
+	newPodSpec := func() *corev1.PodSpec {
+		return &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: containerName},
+			},
+		}
+	}
+
+	t.Run("nil DefaultVolumeSource uses emptyDir", func(t *testing.T) {
+		podSpec := newPodSpec()
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			DefaultVolumeSource: nil,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].EmptyDir).ToNot(gomega.BeNil(), "should default to emptyDir")
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim).To(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].Ephemeral).To(gomega.BeNil())
+	})
+
+	t.Run("PVCName takes precedence over DefaultVolumeSource", func(t *testing.T) {
+		podSpec := newPodSpec()
+		ephemeral := &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					},
+				},
+			},
+		}
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			PVCName:             "my-pvc",
+			DefaultVolumeSource: ephemeral,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal("my-pvc"))
+		g.Expect(podSpec.Volumes[0].Ephemeral).To(gomega.BeNil())
+	})
+
+	t.Run("dedicated PVC via PVCName", func(t *testing.T) {
+		podSpec := newPodSpec()
+		err := AddModelMount(StorageMountParams{
+			MountPath:  mountPath,
+			VolumeName: volumeName,
+			PVCName:    "model-cache-pvc",
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal("model-cache-pvc"))
+	})
+
+	t.Run("ephemeral VolumeClaimTemplate via DefaultVolumeSource", func(t *testing.T) {
+		podSpec := newPodSpec()
+		storageClassName := "fast-nvme"
+		ephemeral := &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &storageClassName,
+					},
+				},
+			},
+		}
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			DefaultVolumeSource: ephemeral,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].Ephemeral).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].Ephemeral.VolumeClaimTemplate.Spec.StorageClassName).To(
+			gomega.HaveValue(gomega.Equal("fast-nvme")),
+		)
+		g.Expect(podSpec.Volumes[0].EmptyDir).To(gomega.BeNil())
+	})
+
+	t.Run("existing volume with same name is not replaced (per-service override)", func(t *testing.T) {
+		storageClassName := "user-sc"
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{{Name: containerName}},
+			Volumes: []corev1.Volume{
+				{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						Ephemeral: &corev1.EphemeralVolumeSource{
+							VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+								Spec: corev1.PersistentVolumeClaimSpec{
+									StorageClassName: &storageClassName,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			DefaultVolumeSource: nil,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].Ephemeral).ToNot(gomega.BeNil(), "user-supplied ephemeral volume must not be overwritten")
+		g.Expect(podSpec.Volumes[0].Ephemeral.VolumeClaimTemplate.Spec.StorageClassName).To(
+			gomega.HaveValue(gomega.Equal("user-sc")),
+		)
+	})
+
+	t.Run("hostPath via DefaultVolumeSource", func(t *testing.T) {
+		podSpec := newPodSpec()
+		dirOrCreate := corev1.HostPathDirectoryOrCreate
+		hostPath := &corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/mnt/fast-nvme/models",
+				Type: &dirOrCreate,
+			},
+		}
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			DefaultVolumeSource: hostPath,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes[0].HostPath).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].HostPath.Path).To(gomega.Equal("/mnt/fast-nvme/models"))
+	})
+}

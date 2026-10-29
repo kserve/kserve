@@ -69,16 +69,64 @@ jobs:
         with:
           cache-binary: true
 
-      - name: Build mcv container image
+      - name: Build mcv-minimal container image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           platforms: linux/amd64
-          context: kernelcache/mcv
+          context: .
           file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-minimal
           push: false
           load: true
-          tags: ${{ env.IMAGE_NAME }}:test
-          # https://github.com/docker/buildx/issues/1533
+          tags: ${{ env.IMAGE_NAME }}:test-minimal
+          provenance: false
+
+      - name: Build mcv-rocm container image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-rocm
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:test-rocm
+          provenance: false
+
+      - name: Build mcv-gaudi container image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-gaudi
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:test-gaudi
+          provenance: false
+
+      - name: Build mcv-cuda container image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-cuda
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:test-cuda
+          provenance: false
+
+      - name: Build mcv-unified container image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-unified
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:test-unified
           provenance: false
 
       - name: Build and validate cache images
@@ -97,9 +145,9 @@ jobs:
             image="localhost:5000/mcv-test:${tag}"
 
             echo "::group::Building ${image} from ${cache_dir}"
-            docker run --rm --privileged \
+            docker run --rm --privileged --user root \
               -v "${GITHUB_WORKSPACE}:/work:rw" \
-              ${{ env.IMAGE_NAME }}:test \
+              ${{ env.IMAGE_NAME }}:test-minimal \
               --create \
               --image "${image}" \
               --dir "/work/${cache_dir}" \

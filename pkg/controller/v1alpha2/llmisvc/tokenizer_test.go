@@ -23,9 +23,13 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -651,6 +655,276 @@ plugins:
 				g.Expect(configText).To(ContainSubstring("http://custom-url:9999"))
 				g.Expect(configText).NotTo(ContainSubstring(tt.tokenizerURL))
 			}
+		})
+	}
+}
+
+func TestExpectedTokenizerDeploymentTracing(t *testing.T) {
+	tracingSpec := &v1alpha2.TracingSpec{
+		ExporterEndpoint: ptr.To("http://collector:4317"), Sampler: ptr.To("always_on"),
+	}
+	for _, tt := range []struct {
+		name    string
+		spec    *v1alpha2.TracingSpec
+		version string
+		command []string
+		args    []string
+		want    []string
+	}{
+		{name: "disabled", version: "1"},
+		{name: "no endpoint", spec: &v1alpha2.TracingSpec{}, version: "1"},
+		{name: "legacy preset", spec: tracingSpec},
+		{name: "unknown version", spec: tracingSpec, version: "2"},
+		{name: "enabled", spec: tracingSpec, version: "1", want: []string{"--otlp-traces-endpoint", "http://collector:4317"}},
+		{name: "override", spec: tracingSpec, version: "1", args: []string{"--otlp-traces-endpoint=http://custom:4317"}, want: []string{"--otlp-traces-endpoint=http://custom:4317"}},
+		{name: "command override", spec: tracingSpec, version: "1", command: []string{"vllm", "launch", "render", "--otlp-traces-endpoint=http://custom:4317"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			r := disaggTestReconciler(t)
+			g.Expect(r.Create(t.Context(), roleTestInferenceServiceConfigMap())).To(Succeed())
+			svc := disaggTestService(t)
+			sampler := corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "tracing"}, Key: "sampler"},
+			}}
+			template := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main", Command: tt.command, Args: tt.args, Env: []corev1.EnvVar{sampler}}}}
+			if tt.version != "" {
+				template.Containers[0].Env = append(template.Containers[0].Env,
+					corev1.EnvVar{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: tt.version})
+			}
+			svc.Spec.Router = &v1alpha2.RouterSpec{Scheduler: &v1alpha2.SchedulerSpec{
+				Tokenizer: &v1alpha2.TokenizerSpec{Template: template},
+			}}
+			svc.Spec.Tracing = tt.spec
+			before := template.DeepCopy()
+			d, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			g.Expect(err).NotTo(HaveOccurred())
+			container := d.Spec.Template.Spec.Containers[0]
+			g.Expect(container.Args).To(Equal(tt.want))
+			g.Expect(container.Command).To(Equal(tt.command))
+			g.Expect(container.Args).NotTo(ContainElement("--collect-detailed-traces"))
+			g.Expect(container.Env).To(ContainElement(sampler))
+			if tt.spec == tracingSpec && tt.version == "1" {
+				g.Expect(envToMap(container.Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "tokenizer"))
+				g.Expect(envToMap(container.Env)).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317"))
+			} else {
+				g.Expect(envToMap(container.Env)).NotTo(HaveKey("OTEL_SERVICE_NAME"))
+				withoutTracing := svc.DeepCopy()
+				withoutTracing.Spec.Tracing = nil
+				baseline, err := r.expectedTokenizerDeployment(t.Context(), withoutTracing)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(d.Spec.Template).To(Equal(baseline.Spec.Template), "old presets must not roll out on controller upgrade")
+			}
+			g.Expect(template).To(Equal(before))
+			again, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(again.Spec.Template).To(Equal(d.Spec.Template))
+		})
+	}
+}
+
+func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
+	pullSecrets := func(names ...string) []corev1.LocalObjectReference {
+		refs := make([]corev1.LocalObjectReference, 0, len(names))
+		for _, name := range names {
+			refs = append(refs, corev1.LocalObjectReference{Name: name})
+		}
+		return refs
+	}
+	serviceAccount := func(name string, secrets ...string) *corev1.ServiceAccount {
+		return &corev1.ServiceAccount{
+			ObjectMeta:       metav1.ObjectMeta{Name: name, Namespace: disaggTestNamespace},
+			ImagePullSecrets: pullSecrets(secrets...),
+		}
+	}
+
+	for _, tt := range []struct {
+		name            string
+		tokenizer       []corev1.LocalObjectReference
+		tokenizerSAName string
+		scheduler       []corev1.LocalObjectReference
+		main            []corev1.LocalObjectReference
+		schedulerSAName string
+		mainSAName      string
+		serviceAccounts []*corev1.ServiceAccount
+		// failServiceAccountGet makes the Get of this ServiceAccount fail with a non-NotFound error.
+		failServiceAccountGet string
+		// withoutOptIn leaves KSERVE_PULL_SECRETS_CONFIG_VERSION unset on the tokenizer container.
+		withoutOptIn bool
+		// optInVersion is the KSERVE_PULL_SECRETS_CONFIG_VERSION value; empty means "1".
+		optInVersion string
+		// wantServiceAccountName is the tokenizer Pod ServiceAccount; empty means tokenizerSAName.
+		wantServiceAccountName string
+		want                   []corev1.LocalObjectReference
+		wantErr                string
+	}{
+		{
+			name:            "tokenizer list is kept as is",
+			tokenizer:       pullSecrets("tokenizer-pull"),
+			scheduler:       pullSecrets("scheduler-pull"),
+			main:            pullSecrets("main-pull"),
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "default-pull")},
+			want:            pullSecrets("tokenizer-pull"),
+		},
+		{
+			name:      "scheduler and main template lists are merged without duplicates",
+			scheduler: pullSecrets("scheduler-pull", "shared-pull"),
+			main:      pullSecrets("main-pull", "shared-pull"),
+			want:      pullSecrets("scheduler-pull", "shared-pull", "main-pull"),
+		},
+		{
+			name:      "scheduler template list is used when main template has none",
+			scheduler: pullSecrets("scheduler-pull"),
+			want:      pullSecrets("scheduler-pull"),
+		},
+		{
+			name: "main template list is used when scheduler template has none",
+			main: pullSecrets("main-pull"),
+			want: pullSecrets("main-pull"),
+		},
+		{
+			name:            "default service account list is appended without duplicates",
+			main:            pullSecrets("main-pull", "shared-pull"),
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "shared-pull", "default-pull")},
+			want:            pullSecrets("main-pull", "shared-pull", "default-pull"),
+		},
+		{
+			name:            "tokenizer template service account list is appended instead of the default one",
+			main:            pullSecrets("main-pull"),
+			tokenizerSAName: "tokenizer-sa",
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "default-pull"), serviceAccount("tokenizer-sa", "tokenizer-sa-pull")},
+			want:            pullSecrets("main-pull", "tokenizer-sa-pull"),
+		},
+		{
+			name:                   "main template service account list is appended when the tokenizer runs as it",
+			main:                   pullSecrets("main-pull"),
+			mainSAName:             "main-sa",
+			serviceAccounts:        []*corev1.ServiceAccount{serviceAccount("default", "default-pull"), serviceAccount("main-sa", "main-sa-pull")},
+			wantServiceAccountName: "main-sa",
+			want:                   pullSecrets("main-pull", "main-sa-pull"),
+		},
+		{
+			name: "missing default service account leaves the inherited list",
+			main: pullSecrets("main-pull"),
+			want: pullSecrets("main-pull"),
+		},
+		{
+			name:                  "default service account Get error is returned",
+			main:                  pullSecrets("main-pull"),
+			serviceAccounts:       []*corev1.ServiceAccount{serviceAccount("default", "default-pull")},
+			failServiceAccountGet: "default",
+			wantErr:               "failed to fetch tokenizer service account",
+		},
+		{
+			name:                  "default service account is not read without a template list",
+			serviceAccounts:       []*corev1.ServiceAccount{serviceAccount("default", "default-pull")},
+			failServiceAccountGet: "default",
+		},
+		{
+			name:            "service account lists alone are not inherited",
+			schedulerSAName: "scheduler-sa",
+			mainSAName:      "main-sa",
+			serviceAccounts: []*corev1.ServiceAccount{
+				serviceAccount("default", "default-pull"),
+				serviceAccount("scheduler-sa", "scheduler-sa-pull"),
+				serviceAccount("main-sa", "main-sa-pull"),
+			},
+			wantServiceAccountName: "main-sa",
+		},
+		{
+			name: "no list anywhere leaves the tokenizer list empty",
+		},
+		{
+			name:            "tokenizer without the opt-in marker does not inherit",
+			withoutOptIn:    true,
+			scheduler:       pullSecrets("scheduler-pull"),
+			main:            pullSecrets("main-pull"),
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "default-pull")},
+		},
+		{
+			name:            "tokenizer with an unknown opt-in version does not inherit",
+			optInVersion:    "2",
+			scheduler:       pullSecrets("scheduler-pull"),
+			main:            pullSecrets("main-pull"),
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "default-pull")},
+		},
+		{
+			name:                  "default service account is not read without the opt-in marker",
+			withoutOptIn:          true,
+			main:                  pullSecrets("main-pull"),
+			serviceAccounts:       []*corev1.ServiceAccount{serviceAccount("default", "default-pull")},
+			failServiceAccountGet: "default",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			r := disaggTestReconciler(t)
+			g.Expect(r.Create(t.Context(), roleTestInferenceServiceConfigMap())).To(Succeed())
+			for _, sa := range tt.serviceAccounts {
+				g.Expect(r.Create(t.Context(), sa)).To(Succeed())
+			}
+			if tt.failServiceAccountGet != "" {
+				r.Client = interceptor.NewClient(r.Client.(client.WithWatch), interceptor.Funcs{
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if _, ok := obj.(*corev1.ServiceAccount); ok && key.Name == tt.failServiceAccountGet {
+							return apierrors.NewServiceUnavailable("api server unavailable")
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				})
+			}
+
+			tokenizerContainer := corev1.Container{Name: "main"}
+			if !tt.withoutOptIn {
+				version := tt.optInVersion
+				if version == "" {
+					version = "1"
+				}
+				tokenizerContainer.Env = []corev1.EnvVar{{Name: "KSERVE_PULL_SECRETS_CONFIG_VERSION", Value: version}}
+			}
+
+			svc := disaggTestService(t)
+			svc.Spec.Template.ImagePullSecrets = tt.main
+			svc.Spec.Template.ServiceAccountName = tt.mainSAName
+			svc.Spec.Router = &v1alpha2.RouterSpec{Scheduler: &v1alpha2.SchedulerSpec{
+				Template: &corev1.PodSpec{
+					ServiceAccountName: tt.schedulerSAName,
+					ImagePullSecrets:   tt.scheduler,
+				},
+				Tokenizer: &v1alpha2.TokenizerSpec{Template: &corev1.PodSpec{
+					ServiceAccountName: tt.tokenizerSAName,
+					Containers:         []corev1.Container{tokenizerContainer},
+					ImagePullSecrets:   tt.tokenizer,
+				}},
+			}}
+			before := svc.DeepCopy()
+
+			d, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			if tt.wantErr != "" {
+				g.Expect(err).To(MatchError(ContainSubstring(tt.wantErr)))
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+			wantServiceAccountName := tt.wantServiceAccountName
+			if wantServiceAccountName == "" {
+				wantServiceAccountName = tt.tokenizerSAName
+			}
+			g.Expect(d.Spec.Template.Spec.ServiceAccountName).To(Equal(wantServiceAccountName))
+			if tt.want == nil {
+				g.Expect(d.Spec.Template.Spec.ImagePullSecrets).To(BeEmpty())
+			} else {
+				g.Expect(d.Spec.Template.Spec.ImagePullSecrets).To(Equal(tt.want))
+			}
+			g.Expect(svc.Spec).To(Equal(before.Spec))
+
+			again, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(again.Spec.Template).To(Equal(d.Spec.Template))
+
+			for i := range d.Spec.Template.Spec.ImagePullSecrets {
+				d.Spec.Template.Spec.ImagePullSecrets[i].Name = "mutated"
+			}
+			g.Expect(svc.Spec).To(Equal(before.Spec))
 		})
 	}
 }

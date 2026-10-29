@@ -2,8 +2,16 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-prefill-template
+  annotations:
+    # Percentage of kvCacheOffloading.cpu added to the dshm sizeLimit below: 120
+    # is the tier itself plus a fifth again. The connector maps a file the size of
+    # the tier there, and the literal covers NCCL only. Retuning this ships as a
+    # new preset, so nothing already running moves until it is re-pinned.
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
 spec:
   prefill:
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
     template:
@@ -150,23 +158,56 @@ spec:
               fi
               echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
+              {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
+              TLS_CIPHER_ARGS=""
+              # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+                TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+                case "${TLS_CIPHER_HELP}" in
+                  *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+                  *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+                esac
+              else
+                echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+              fi
+              {{ end }}
+
               # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
               SHUTDOWN_TIMEOUT_ARGS=""
               if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
                 SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
               fi
 
-              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
               KV_TRANSFER_ARGS=""
-              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-                if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-                  KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+              if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+                # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+                # it is empty (no-op) when KV cache offloading is not configured.
+                if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+                  # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+                  if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                    KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+                  fi
+                fi
+                # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+                # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+                if [ -z "${KV_TRANSFER_ARGS}" ]; then
+                  # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+                  # raise RuntimeError("NIXL is not available") and never finish starting.
+                  NIXL_PY=$(command -v python3 || command -v python || true)
+                  if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                    KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                    echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+                  else
+                    echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+                  fi
                 fi
               fi
 
-              eval "exec vllm serve /mnt/models \
+              eval "exec vllm serve ${KSERVE_MODEL_ARGS:-/mnt/models} \
                 --served-model-name "{{ .Spec.Model.Name }}" \
                 --port 8000 \
+                --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
                 ${ACCESS_LOG_ARGS} \
                 ${SHUTDOWN_TIMEOUT_ARGS} \
                 ${KV_TRANSFER_ARGS} \
@@ -174,17 +215,28 @@ spec:
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
                 {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
                 {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+                {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
                 ${VLLM_ADDITIONAL_ARGS} \
                 $@"
             # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
             - "--"
           env:
+            - name: KSERVE_KV_TRANSFER_ARGS
+              value: ''
+            - name: KSERVE_MODEL_ARGS
+              value: ''
             - name: HOME
               value: /home
             - name: VLLM_LOGGING_LEVEL
               value: INFO
             - name: HF_HUB_CACHE
               value: /models
+            # NixlConnector advertises this address to the peer engine for the KV side channel.
+            # It defaults to localhost, which cannot be reached across pods.
+            - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           securityContext:
             allowPrivilegeEscalation: false
             # nvidia-cdi-hook requires a writable root filesystem

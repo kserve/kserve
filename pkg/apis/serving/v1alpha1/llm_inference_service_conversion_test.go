@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -33,8 +34,6 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
-
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -326,6 +325,7 @@ func TestLLMInferenceServiceConversion_PreservesInferencePoolSpec(t *testing.T) 
 	v1Spec := dst.Spec.Router.Scheduler.Pool.Spec
 	assert.Equal(t, igwapiv1.PortNumber(8000), v1Spec.TargetPorts[0].Number)
 	assert.Equal(t, igwapiv1.LabelValue("vllm"), v1Spec.Selector.MatchLabels["app"])
+	require.NotNil(t, v1Spec.EndpointPickerRef)
 	assert.Equal(t, igwapiv1.ObjectName("my-epp"), v1Spec.EndpointPickerRef.Name)
 
 	// Convert back to v1alpha1
@@ -475,157 +475,6 @@ func TestLLMInferenceServiceConversion_PreservesSchedulerConfig(t *testing.T) {
 	}
 }
 
-func TestLLMInferenceServiceConversion_ScalingSpecWithHPA(t *testing.T) {
-	modelName := "test-model"
-
-	src := &LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-llm-isvc-scaling-hpa",
-			Namespace: "default",
-		},
-		Spec: LLMInferenceServiceSpec{
-			Model: LLMModelSpec{
-				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
-				Name: &modelName,
-			},
-			WorkloadSpec: WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: 10,
-					WVA: &WVASpec{
-						VariantCost: "15.0",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{
-								Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
-									ScaleUp: &autoscalingv2.HPAScalingRules{
-										StabilizationWindowSeconds: ptr.To(int32(60)),
-									},
-									ScaleDown: &autoscalingv2.HPAScalingRules{
-										StabilizationWindowSeconds: ptr.To(int32(300)),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Convert to v1alpha2 (hub)
-	dst := &v1alpha2.LLMInferenceService{}
-	err := src.ConvertTo(dst)
-	require.NoError(t, err)
-
-	// Verify the scaling spec is converted
-	require.NotNil(t, dst.Spec.Scaling)
-	assert.Equal(t, int32(2), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), dst.Spec.Scaling.MaxReplicas)
-	require.NotNil(t, dst.Spec.Scaling.WVA)
-	assert.Equal(t, "15.0", dst.Spec.Scaling.WVA.VariantCost)
-	require.NotNil(t, dst.Spec.Scaling.WVA.HPA)
-	assert.Nil(t, dst.Spec.Scaling.WVA.KEDA)
-	require.NotNil(t, dst.Spec.Scaling.WVA.HPA.Behavior)
-	assert.Equal(t, int32(60), *dst.Spec.Scaling.WVA.HPA.Behavior.ScaleUp.StabilizationWindowSeconds)
-	assert.Equal(t, int32(300), *dst.Spec.Scaling.WVA.HPA.Behavior.ScaleDown.StabilizationWindowSeconds)
-
-	// Convert back to v1alpha1
-	restored := &LLMInferenceService{}
-	err = restored.ConvertFrom(dst)
-	require.NoError(t, err)
-
-	// Verify round-trip
-	require.NotNil(t, restored.Spec.Scaling)
-	assert.Equal(t, int32(2), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), restored.Spec.Scaling.MaxReplicas)
-	require.NotNil(t, restored.Spec.Scaling.WVA)
-	assert.Equal(t, "15.0", restored.Spec.Scaling.WVA.VariantCost)
-	require.NotNil(t, restored.Spec.Scaling.WVA.HPA)
-	assert.Nil(t, restored.Spec.Scaling.WVA.KEDA)
-	assert.Equal(t, int32(60), *restored.Spec.Scaling.WVA.HPA.Behavior.ScaleUp.StabilizationWindowSeconds)
-	assert.Equal(t, int32(300), *restored.Spec.Scaling.WVA.HPA.Behavior.ScaleDown.StabilizationWindowSeconds)
-}
-
-func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
-	modelName := "test-model"
-
-	src := &LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-llm-isvc-scaling-keda",
-			Namespace: "default",
-		},
-		Spec: LLMInferenceServiceSpec{
-			Model: LLMModelSpec{
-				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
-				Name: &modelName,
-			},
-			WorkloadSpec: WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(3)),
-					MaxReplicas: 20,
-					WVA: &WVASpec{
-						VariantCost: "5.5",
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								PollingInterval:       ptr.To(int32(15)),
-								CooldownPeriod:        ptr.To(int32(120)),
-								InitialCooldownPeriod: ptr.To(int32(60)),
-								IdleReplicaCount:      ptr.To(int32(1)),
-								Fallback: &kedav1alpha1.Fallback{
-									FailureThreshold: 3,
-									Replicas:         2,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Convert to v1alpha2 (hub)
-	dst := &v1alpha2.LLMInferenceService{}
-	err := src.ConvertTo(dst)
-	require.NoError(t, err)
-
-	// Verify the scaling spec is converted
-	require.NotNil(t, dst.Spec.Scaling)
-	assert.Equal(t, int32(3), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), dst.Spec.Scaling.MaxReplicas)
-	require.NotNil(t, dst.Spec.Scaling.WVA)
-	assert.Equal(t, "5.5", dst.Spec.Scaling.WVA.VariantCost)
-	assert.Nil(t, dst.Spec.Scaling.WVA.HPA)
-	require.NotNil(t, dst.Spec.Scaling.WVA.KEDA)
-	assert.Equal(t, int32(15), *dst.Spec.Scaling.WVA.KEDA.PollingInterval)
-	assert.Equal(t, int32(120), *dst.Spec.Scaling.WVA.KEDA.CooldownPeriod)
-	assert.Equal(t, int32(60), *dst.Spec.Scaling.WVA.KEDA.InitialCooldownPeriod)
-	assert.Equal(t, int32(1), *dst.Spec.Scaling.WVA.KEDA.IdleReplicaCount)
-	require.NotNil(t, dst.Spec.Scaling.WVA.KEDA.Fallback)
-	assert.Equal(t, int32(3), dst.Spec.Scaling.WVA.KEDA.Fallback.FailureThreshold)
-	assert.Equal(t, int32(2), dst.Spec.Scaling.WVA.KEDA.Fallback.Replicas)
-
-	// Convert back to v1alpha1
-	restored := &LLMInferenceService{}
-	err = restored.ConvertFrom(dst)
-	require.NoError(t, err)
-
-	// Verify round-trip
-	require.NotNil(t, restored.Spec.Scaling)
-	assert.Equal(t, int32(3), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), restored.Spec.Scaling.MaxReplicas)
-	require.NotNil(t, restored.Spec.Scaling.WVA)
-	assert.Equal(t, "5.5", restored.Spec.Scaling.WVA.VariantCost)
-	assert.Nil(t, restored.Spec.Scaling.WVA.HPA)
-	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA)
-	assert.Equal(t, int32(15), *restored.Spec.Scaling.WVA.KEDA.PollingInterval)
-	assert.Equal(t, int32(120), *restored.Spec.Scaling.WVA.KEDA.CooldownPeriod)
-	assert.Equal(t, int32(60), *restored.Spec.Scaling.WVA.KEDA.InitialCooldownPeriod)
-	assert.Equal(t, int32(1), *restored.Spec.Scaling.WVA.KEDA.IdleReplicaCount)
-	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA.Fallback)
-	assert.Equal(t, int32(3), restored.Spec.Scaling.WVA.KEDA.Fallback.FailureThreshold)
-	assert.Equal(t, int32(2), restored.Spec.Scaling.WVA.KEDA.Fallback.Replicas)
-}
-
 func TestLLMInferenceServiceConversion_ScalingSpecWithDirectKEDA(t *testing.T) {
 	modelName := "test-model"
 
@@ -670,7 +519,6 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithDirectKEDA(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, dst.Spec.Scaling)
-	assert.Nil(t, dst.Spec.Scaling.WVA)
 	require.NotNil(t, dst.Spec.Scaling.KEDA)
 	assert.Equal(t, int32(30), *dst.Spec.Scaling.KEDA.PollingInterval)
 	assert.Equal(t, int32(60), *dst.Spec.Scaling.KEDA.CooldownPeriod)
@@ -687,7 +535,6 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithDirectKEDA(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, restored.Spec.Scaling)
-	assert.Nil(t, restored.Spec.Scaling.WVA)
 	require.NotNil(t, restored.Spec.Scaling.KEDA)
 	assert.Equal(t, int32(30), *restored.Spec.Scaling.KEDA.PollingInterval)
 	assert.Equal(t, int32(60), *restored.Spec.Scaling.KEDA.CooldownPeriod)
@@ -698,6 +545,51 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithDirectKEDA(t *testing.T) {
 	require.Len(t, restored.Spec.Scaling.KEDA.Triggers, 2)
 	assert.Equal(t, "cpu", restored.Spec.Scaling.KEDA.Triggers[0].Type)
 	assert.Equal(t, "memory", restored.Spec.Scaling.KEDA.Triggers[1].Type)
+}
+
+func TestLLMInferenceServiceConversion_ScalingSpecWithWVA(t *testing.T) {
+	modelName := "test-model"
+	pollingInterval := int32(30)
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-scaling-wva",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+			},
+			WorkloadSpec: WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 2,
+					WVA: &WVASpec{
+						VariantCost: "15.0",
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								PollingInterval: &pollingInterval,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+
+	require.NotNil(t, restored.Spec.Scaling)
+	require.NotNil(t, restored.Spec.Scaling.WVA)
+	assert.Equal(t, "15.0", restored.Spec.Scaling.WVA.VariantCost)
+	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA)
+	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA.PollingInterval)
+	assert.Equal(t, pollingInterval, *restored.Spec.Scaling.WVA.KEDA.PollingInterval)
 }
 
 func TestLLMInferenceServiceConversion_NilScalingSpec(t *testing.T) {
@@ -736,178 +628,6 @@ func TestLLMInferenceServiceConversion_NilScalingSpec(t *testing.T) {
 	// Verify round-trip
 	assert.Nil(t, restored.Spec.Scaling, "Scaling must remain nil after round-trip")
 	assert.Equal(t, int32(3), *restored.Spec.Replicas)
-}
-
-func TestLLMInferenceServiceConversion_ScalingOnPrefill(t *testing.T) {
-	modelName := "test-model"
-
-	src := &LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-llm-isvc-prefill-scaling",
-			Namespace: "default",
-		},
-		Spec: LLMInferenceServiceSpec{
-			Model: LLMModelSpec{
-				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
-				Name: &modelName,
-			},
-			WorkloadSpec: WorkloadSpec{
-				Replicas: ptr.To(int32(2)),
-			},
-			Prefill: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 8,
-					WVA: &WVASpec{
-						VariantCost: "10.0",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Convert to v1alpha2 (hub)
-	dst := &v1alpha2.LLMInferenceService{}
-	err := src.ConvertTo(dst)
-	require.NoError(t, err)
-
-	// Main workload should have no scaling
-	assert.Nil(t, dst.Spec.Scaling, "Decode workload scaling should be nil")
-	assert.Equal(t, int32(2), *dst.Spec.Replicas)
-
-	// Prefill should have scaling
-	require.NotNil(t, dst.Spec.Prefill)
-	require.NotNil(t, dst.Spec.Prefill.Scaling)
-	assert.Equal(t, int32(1), *dst.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(8), dst.Spec.Prefill.Scaling.MaxReplicas)
-	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA)
-	assert.Equal(t, "10.0", dst.Spec.Prefill.Scaling.WVA.VariantCost)
-	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.HPA)
-
-	// Convert back to v1alpha1
-	restored := &LLMInferenceService{}
-	err = restored.ConvertFrom(dst)
-	require.NoError(t, err)
-
-	// Verify round-trip
-	assert.Nil(t, restored.Spec.Scaling, "Decode workload scaling should remain nil")
-	assert.Equal(t, int32(2), *restored.Spec.Replicas)
-	require.NotNil(t, restored.Spec.Prefill)
-	require.NotNil(t, restored.Spec.Prefill.Scaling)
-	assert.Equal(t, int32(1), *restored.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(8), restored.Spec.Prefill.Scaling.MaxReplicas)
-	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA)
-	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.HPA)
-}
-
-func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *testing.T) {
-	modelName := "test-model"
-
-	src := &LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-llm-isvc-both-scaling",
-			Namespace: "default",
-		},
-		Spec: LLMInferenceServiceSpec{
-			Model: LLMModelSpec{
-				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
-				Name: &modelName,
-			},
-			WorkloadSpec: WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: 10,
-					WVA: &WVASpec{
-						VariantCost: "10.0",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			Prefill: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(4)),
-					MaxReplicas: 20,
-					WVA: &WVASpec{
-						VariantCost: "5.0",
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								PollingInterval:       ptr.To(int32(10)),
-								CooldownPeriod:        ptr.To(int32(60)),
-								InitialCooldownPeriod: ptr.To(int32(30)),
-								IdleReplicaCount:      ptr.To(int32(2)),
-								Fallback: &kedav1alpha1.Fallback{
-									FailureThreshold: 5,
-									Replicas:         3,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Convert to v1alpha2 (hub)
-	dst := &v1alpha2.LLMInferenceService{}
-	err := src.ConvertTo(dst)
-	require.NoError(t, err)
-
-	// Verify decode scaling
-	require.NotNil(t, dst.Spec.Scaling)
-	assert.Equal(t, int32(2), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), dst.Spec.Scaling.MaxReplicas)
-	assert.Equal(t, "10.0", dst.Spec.Scaling.WVA.VariantCost)
-	require.NotNil(t, dst.Spec.Scaling.WVA.HPA)
-	assert.Nil(t, dst.Spec.Scaling.WVA.KEDA)
-
-	// Verify prefill scaling
-	require.NotNil(t, dst.Spec.Prefill)
-	require.NotNil(t, dst.Spec.Prefill.Scaling)
-	assert.Equal(t, int32(4), *dst.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), dst.Spec.Prefill.Scaling.MaxReplicas)
-	assert.Equal(t, "5.0", dst.Spec.Prefill.Scaling.WVA.VariantCost)
-	assert.Nil(t, dst.Spec.Prefill.Scaling.WVA.HPA)
-	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.KEDA)
-	assert.Equal(t, int32(10), *dst.Spec.Prefill.Scaling.WVA.KEDA.PollingInterval)
-	assert.Equal(t, int32(30), *dst.Spec.Prefill.Scaling.WVA.KEDA.InitialCooldownPeriod)
-	assert.Equal(t, int32(2), *dst.Spec.Prefill.Scaling.WVA.KEDA.IdleReplicaCount)
-	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.KEDA.Fallback)
-	assert.Equal(t, int32(5), dst.Spec.Prefill.Scaling.WVA.KEDA.Fallback.FailureThreshold)
-	assert.Equal(t, int32(3), dst.Spec.Prefill.Scaling.WVA.KEDA.Fallback.Replicas)
-
-	// Convert back to v1alpha1
-	restored := &LLMInferenceService{}
-	err = restored.ConvertFrom(dst)
-	require.NoError(t, err)
-
-	// Verify decode round-trip
-	require.NotNil(t, restored.Spec.Scaling)
-	assert.Equal(t, int32(2), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), restored.Spec.Scaling.MaxReplicas)
-	assert.Equal(t, "10.0", restored.Spec.Scaling.WVA.VariantCost)
-	require.NotNil(t, restored.Spec.Scaling.WVA.HPA)
-	assert.Nil(t, restored.Spec.Scaling.WVA.KEDA)
-
-	// Verify prefill round-trip
-	require.NotNil(t, restored.Spec.Prefill)
-	require.NotNil(t, restored.Spec.Prefill.Scaling)
-	assert.Equal(t, int32(4), *restored.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), restored.Spec.Prefill.Scaling.MaxReplicas)
-	assert.Equal(t, "5.0", restored.Spec.Prefill.Scaling.WVA.VariantCost)
-	assert.Nil(t, restored.Spec.Prefill.Scaling.WVA.HPA)
-	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.KEDA)
-	assert.Equal(t, int32(10), *restored.Spec.Prefill.Scaling.WVA.KEDA.PollingInterval)
-	assert.Equal(t, int32(60), *restored.Spec.Prefill.Scaling.WVA.KEDA.CooldownPeriod)
-	assert.Equal(t, int32(30), *restored.Spec.Prefill.Scaling.WVA.KEDA.InitialCooldownPeriod)
-	assert.Equal(t, int32(2), *restored.Spec.Prefill.Scaling.WVA.KEDA.IdleReplicaCount)
-	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback)
-	assert.Equal(t, int32(5), restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback.FailureThreshold)
-	assert.Equal(t, int32(3), restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback.Replicas)
 }
 
 func TestLLMInferenceServiceConversion_PreservesLoRASpecFields(t *testing.T) {
@@ -1415,4 +1135,217 @@ func TestLLMInferenceServiceConversion_NilRolloutStrategy(t *testing.T) {
 	err = restored.ConvertFrom(hub)
 	require.NoError(t, err)
 	assert.Nil(t, restored.Spec.RolloutStrategy)
+}
+
+func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) {
+	storageClass := "fast-nvme"
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-kvcache",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+			WorkloadSpec: WorkloadSpec{
+				KVCacheOffloading: &KVCacheOffloadingSpec{
+					CPU:            resource.MustParse("10Gi"),
+					EvictionPolicy: "lru",
+					Secondary: []SecondaryTierSpec{
+						{
+							FileSystem: &FileSystemTierSpec{
+								EmptyDir: &EmptyDirTierSpec{
+									Size: resource.MustParse("100Gi"),
+								},
+							},
+						},
+						{
+							FileSystem: &FileSystemTierSpec{
+								PVC: &PVCTierSpec{
+									Spec: &corev1.PersistentVolumeClaimSpec{
+										StorageClassName: &storageClass,
+										Resources: corev1.VolumeResourceRequirements{
+											Requests: corev1.ResourceList{
+												corev1.ResourceStorage: resource.MustParse("200Gi"),
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							FileSystem: &FileSystemTierSpec{
+								PVC: &PVCTierSpec{
+									Ref: &PVCRefTierSpec{
+										Name: "my-pvc",
+										Path: "kv-cache/",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, hub.Spec.KVCacheOffloading)
+	assert.True(t, hub.Spec.KVCacheOffloading.CPU.Equal(resource.MustParse("10Gi")))
+	assert.Equal(t, "lru", hub.Spec.KVCacheOffloading.EvictionPolicy)
+	require.Len(t, hub.Spec.KVCacheOffloading.Secondary, 3)
+
+	// emptyDir tier
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[0].FileSystem)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir)
+	assert.True(t, hub.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir.Size.Equal(resource.MustParse("100Gi")))
+
+	// PVC spec tier
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec)
+	assert.Equal(t, storageClass, *hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec.StorageClassName)
+
+	// PVC ref tier
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[2].FileSystem)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref)
+	assert.Equal(t, "my-pvc", hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Name)
+	assert.Equal(t, "kv-cache/", hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Path)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.KVCacheOffloading)
+	assert.True(t, restored.Spec.KVCacheOffloading.CPU.Equal(resource.MustParse("10Gi")))
+	assert.Equal(t, "lru", restored.Spec.KVCacheOffloading.EvictionPolicy)
+	require.Len(t, restored.Spec.KVCacheOffloading.Secondary, 3)
+
+	// emptyDir round-trip
+	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir)
+	assert.True(t, restored.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir.Size.Equal(resource.MustParse("100Gi")))
+
+	// PVC spec round-trip
+	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec)
+	assert.Equal(t, storageClass, *restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec.StorageClassName)
+
+	// PVC ref round-trip
+	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref)
+	assert.Equal(t, "my-pvc", restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Name)
+	assert.Equal(t, "kv-cache/", restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Path)
+}
+
+func TestLLMInferenceServiceConversion_NilKVCacheOffloadingPreserved(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-no-kvcache",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "facebook/opt-125m"},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	assert.Nil(t, hub.Spec.KVCacheOffloading)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	assert.Nil(t, restored.Spec.KVCacheOffloading)
+}
+
+func TestLLMInferenceServiceConversion_KVCacheOnPrefill(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-prefill-kvcache",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+			Prefill: &WorkloadSpec{
+				KVCacheOffloading: &KVCacheOffloadingSpec{
+					CPU:            resource.MustParse("8Gi"),
+					EvictionPolicy: "arc",
+					Secondary: []SecondaryTierSpec{
+						{
+							FileSystem: &FileSystemTierSpec{
+								EmptyDir: &EmptyDirTierSpec{
+									Size: resource.MustParse("50Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, hub.Spec.Prefill)
+	require.NotNil(t, hub.Spec.Prefill.KVCacheOffloading)
+	assert.True(t, hub.Spec.Prefill.KVCacheOffloading.CPU.Equal(resource.MustParse("8Gi")))
+	assert.Equal(t, "arc", hub.Spec.Prefill.KVCacheOffloading.EvictionPolicy)
+	require.Len(t, hub.Spec.Prefill.KVCacheOffloading.Secondary, 1)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.Prefill)
+	require.NotNil(t, restored.Spec.Prefill.KVCacheOffloading)
+	assert.True(t, restored.Spec.Prefill.KVCacheOffloading.CPU.Equal(resource.MustParse("8Gi")))
+	assert.Equal(t, "arc", restored.Spec.Prefill.KVCacheOffloading.EvictionPolicy)
+	require.Len(t, restored.Spec.Prefill.KVCacheOffloading.Secondary, 1)
+	require.NotNil(t, restored.Spec.Prefill.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir)
+	assert.True(t, restored.Spec.Prefill.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir.Size.Equal(resource.MustParse("50Gi")))
+}
+
+func TestLLMInferenceServiceConversion_PreservesRuntime(t *testing.T) {
+	modelName := "test-model"
+	src := &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"}, Spec: LLMInferenceServiceSpec{
+		Model:   LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}, Name: &modelName},
+		Runtime: ptr.To("kserve-llm-sglang"),
+	}}
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+	require.NotNil(t, dst.Spec.Runtime)
+	assert.Equal(t, "kserve-llm-sglang", *dst.Spec.Runtime)
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+	require.NotNil(t, restored.Spec.Runtime)
+	assert.Equal(t, "kserve-llm-sglang", *restored.Spec.Runtime)
+}
+
+func TestLLMInferenceServiceConversion_EmptyRuntimeRoundTrips(t *testing.T) {
+	modelName := "test-model"
+	src := &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"}, Spec: LLMInferenceServiceSpec{
+		Model: LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}, Name: &modelName},
+	}}
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+	assert.Nil(t, dst.Spec.Runtime)
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+	assert.Nil(t, restored.Spec.Runtime)
 }

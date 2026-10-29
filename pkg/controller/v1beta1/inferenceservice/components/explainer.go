@@ -128,6 +128,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	}
 
 	podSpec := corev1.PodSpec(isvc.Spec.Explainer.PodSpec)
+	isvcutils.InjectComponentTracing(isvc.Spec.Tracing, isvc.Namespace, isvc.Name, "", "", string(v1beta1.ExplainerComponent), &podSpec.Containers[0])
 
 	// Here we allow switch between knative and vanilla deployment
 	if e.deploymentMode == constants.Standard {

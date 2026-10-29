@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 // Interface provides access to all the informers in this group version.
 type Interface interface {
 	// InferenceServices returns a InferenceServiceInformer.
-	InferenceServices() InferenceServiceInformer
+	InferenceServices() TypedInferenceServiceInformer
 }
 
 type version struct {
@@ -39,7 +39,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// InferenceServices returns a InferenceServiceInformer.
-func (v *version) InferenceServices() InferenceServiceInformer {
+// InferenceServices returns a TypedInferenceServiceInformer.
+func (v *version) InferenceServices() TypedInferenceServiceInformer {
 	return &inferenceServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

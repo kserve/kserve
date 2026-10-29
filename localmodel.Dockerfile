@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.25 AS deps
+FROM golang:1.26.8 AS deps
 
 WORKDIR /go/src/github.com/kserve/kserve
 COPY go.mod  go.mod
@@ -16,7 +16,7 @@ COPY cmd/${CMD}/ cmd/${CMD}/
 COPY pkg/    pkg/
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -a -o localmodel-manager ./cmd/${CMD}
+    CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -o localmodel-manager ./cmd/${CMD}
 
 # ---- License stage (parallel with build on BuildKit) ----
 FROM deps AS license

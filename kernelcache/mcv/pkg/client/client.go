@@ -31,6 +31,7 @@ import (
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/fetcher"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/logformat"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/preflightcheck"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/registryauth"
 	logging "github.com/sirupsen/logrus"
 )
 
@@ -46,8 +47,6 @@ type Options struct {
 	LogLevel string
 	// If true, enables full hardware checks including kernel dummy key validation (for baremetal envs only)
 	EnableBaremetal *bool
-	// If true, skips summary-level preflight GPU compatibility checks
-	SkipPrecheck *bool
 }
 
 type HwOptions struct {
@@ -60,7 +59,7 @@ func InspectCacheImage(img string) (labels map[string]string, err error) {
 		return nil, fmt.Errorf("image name must be specified")
 	}
 
-	_, err = name.ParseReference(img, name.StrictValidation)
+	_, err = name.ParseReference(img, registryauth.ReferenceOptions(true)...)
 	if err != nil {
 		return nil, fmt.Errorf("error validating image name: %v", err)
 	}
@@ -84,13 +83,6 @@ func ExtractCache(opts Options) (matchedIDs, unmatchedIDs []int, err error) {
 
 	if err = logformat.ConfigureLogging(opts.LogLevel); err != nil {
 		return nil, nil, fmt.Errorf("error configuring logging: %v", err)
-	}
-
-	if opts.SkipPrecheck != nil {
-		config.SetSkipPrecheck(*opts.SkipPrecheck)
-		if *opts.SkipPrecheck {
-			logging.Debug("preflight checks disabled via client options")
-		}
 	}
 
 	if opts.EnableBaremetal != nil {
@@ -119,7 +111,6 @@ func ExtractCache(opts Options) (matchedIDs, unmatchedIDs []int, err error) {
 
 	if !config.IsGPUEnabled() {
 		logging.Debug("GPU support is disabled So skipping accelerator detection and disabling preflight check")
-		config.SetSkipPrecheck(true) // No GPU, so skip preflight
 	}
 
 	if opts.CacheDir != "" {
@@ -130,24 +121,15 @@ func ExtractCache(opts Options) (matchedIDs, unmatchedIDs []int, err error) {
 		constants.ExtractCacheDir = cacheDir
 	}
 
-	// If caller asked to skip preflight, do not run it here or downstream.
-	// Otherwise, run it ONCE here, and then set SkipPrecheck=true so downstream won’t repeat it.
-	shouldRunPreflight := config.IsGPUEnabled() && !config.IsSkipPrecheckEnabled()
-	if shouldRunPreflight {
+	if config.IsGPUEnabled() {
 		matchedIDs, unmatchedIDs, err = PreflightCheck(opts.ImageName)
 		if err != nil {
 			return nil, nil, fmt.Errorf("preflight check failed: %w", err)
 		}
-		// Prevent duplicate preflight inside extract
-		config.SetSkipPrecheck(true)
 		logging.WithFields(logging.Fields{
 			"matched":   matchedIDs,
 			"unmatched": unmatchedIDs,
 		}).Info("Preflight completed")
-	} else if config.IsSkipPrecheckEnabled() {
-		logging.Debug("Skipping preflight (requested by options)")
-	} else if !config.IsSkipPrecheckEnabled() {
-		logging.Debug("Skipping preflight (GPU disabled)")
 	}
 
 	return matchedIDs, unmatchedIDs, fetcher.New().FetchAndExtractCache(opts.ImageName)

@@ -18,16 +18,21 @@ package llmisvc
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
@@ -65,6 +70,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/utils"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
@@ -131,6 +137,14 @@ const (
 	LLMInferenceServiceNotReadyState LLMInferenceServiceState = "LLMInferenceServiceNotReady"
 )
 
+// DefaultMaxConcurrentReconciles is how many objects each llmisvc controller reconciles at once
+// unless --max-concurrent-reconciles says otherwise.
+const DefaultMaxConcurrentReconciles = 8
+
+// DefaultFinalizationRequeueAfter is how long the reconciler waits before re-checking
+// a finalization that is not complete yet.
+const DefaultFinalizationRequeueAfter = 5 * time.Second
+
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
@@ -138,6 +152,30 @@ type LLMISVCReconciler struct {
 	Config *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
+
+	// DisaggregatedSetAvailable reports whether the DisaggregatedSet CRD was present
+	// when SetupWithManager ran. Discovery is cached for the manager's lifetime, so
+	// installing the LWS operator after startup requires a controller restart, the
+	// same constraint that already applies to LeaderWorkerSet.
+	DisaggregatedSetAvailable bool
+
+	// DisaggregatedSetRoleScalerAvailable reports whether the DisaggregatedSetRoleScaler
+	// CRD was present when SetupWithManager ran.
+	DisaggregatedSetRoleScalerAvailable bool
+
+	// GenerateCertificateKey creates the private key of each workload serving
+	// certificate. Nil means a fresh RSA 4096 key per certificate.
+	GenerateCertificateKey func() (*rsa.PrivateKey, error)
+
+	// FinalizationRequeueAfter overrides DefaultFinalizationRequeueAfter when set.
+	FinalizationRequeueAfter *time.Duration
+}
+
+func (r *LLMISVCReconciler) finalizationRequeueAfter() time.Duration {
+	if r.FinalizationRequeueAfter != nil {
+		return *r.FinalizationRequeueAfter
+	}
+	return DefaultFinalizationRequeueAfter
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -145,8 +183,11 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices/finalizers,verbs=update
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=serving.kserve.io,resources=servingruntimes;clusterservingruntimes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsetrolescalers,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // Secret access stays cluster-scoped so Owns() can watch TLS cert secrets in workload namespaces.
 // Keep create/update/patch/delete so reconcile and force-stop can manage TLS secrets.
@@ -161,7 +202,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
-//+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews;subjectaccessreviews,verbs=create
+//+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 //+kubebuilder:rbac:urls=/metrics,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch
@@ -212,7 +253,7 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				if statusErr := r.updateStatus(ctx, original); statusErr != nil {
 					logger.Error(statusErr, "Failed to persist finalization status")
 				}
-				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+				return ctrl.Result{RequeueAfter: r.finalizationRequeueAfter()}, nil
 			}
 
 			// Cleanup successful, remove finalizer to allow deletion
@@ -237,17 +278,27 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Pre/post process hooks for status management
 	reconciler.PreProcessReconcile(ctx, resource)
+	// Releasing terminating peers must not depend on this service's own desired
+	// state being valid, so it runs before and independently of r.reconcile.
+	cleanupErr := r.reconcileTerminatingGroupBackends(ctx, resource)
 	reconcileErr := r.reconcile(ctx, resource)
 	reconciler.PostProcessReconcile(ctx, resource, original)
 
-	if reconcileErr != nil {
-		logger.Error(reconcileErr, "Failed to reconcile LLMInferenceService")
-		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", reconcileErr.Error())
+	if err := errors.Join(cleanupErr, reconcileErr); err != nil {
+		logger.Error(err, "Failed to reconcile LLMInferenceService")
+		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", err.Error())
 	}
 
 	if err := r.updateStatus(ctx, resource); err != nil {
 		logger.Error(err, "Failed to update status for LLMInferenceService")
 		return ctrl.Result{}, err
+	}
+
+	// Returned separately rather than joined: controller-runtime recognises a
+	// TerminalError through errors.Is, so joining one in would cancel the retry
+	// that a failed cleanup still needs.
+	if cleanupErr != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to clean up terminating group backends: %w", cleanupErr)
 	}
 
 	return ctrl.Result{}, reconcileErr
@@ -282,6 +333,17 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
+	if migrated := migrateLegacyPoolGroup(&llmSvc.Spec); len(migrated) > 0 {
+		logger.Info("Rewrote deprecated InferencePool API group in --pool-group",
+			"from", constants.InferencePoolV1Alpha2APIGroupName, "to", constants.InferencePoolV1APIGroupName, "templates", migrated)
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "DeprecatedInferencePoolGroup",
+			"--pool-group=%s is no longer supported by llm-d-router and was rewritten to %s in %s; update the template to use %s",
+			constants.InferencePoolV1Alpha2APIGroupName, constants.InferencePoolV1APIGroupName,
+			strings.Join(migrated, ", "), constants.InferencePoolV1APIGroupName)
+	}
+
+	RecordAcceleratorAnnotation(llmSvc)
+
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
@@ -290,7 +352,14 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
-	if err := r.observeWorkloadStatus(ctx, llmSvc); err != nil {
+	// There is no upstream status condition for platform resources. A hook that
+	// wants its failure visible in status marks its own condition before returning
+	// the error; otherwise the failure only surfaces as a warning event.
+	if err := r.reconcilePlatformResources(ctx, llmSvc, config); err != nil {
+		return err
+	}
+
+	if err := r.observeWorkloadStatus(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to observe workload status: %w", err)
 	}
 
@@ -307,6 +376,13 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	}
 	if !done {
 		return false, nil
+	}
+
+	// Status is not persisted when finalization fails, so conditions set by the
+	// hook are dropped. A failure here keeps the finalizer in place and only
+	// surfaces in the controller logs.
+	if err := r.finalizePlatformResources(ctx, llmSvc); err != nil {
+		return false, err
 	}
 
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
@@ -368,14 +444,20 @@ func llmInferenceServiceReadinessFalse(status v1alpha2.LLMInferenceServiceStatus
 	return readyCondition != nil && readyCondition.Status == corev1.ConditionFalse
 }
 
+// readyIndependentConditions are informational: False says a feature did not
+// apply while the service keeps serving. They can't be filtered by severity,
+// since every sub-condition outside the Ready condition set gets Info severity,
+// including the ones that do roll up into Ready.
+var readyIndependentConditions = []apis.ConditionType{v1alpha2.GroupReady, v1alpha2.PerModelPathsDropped, v1alpha2.DisaggregatedSetUsed}
+
 // GetFailConditions returns a comma-separated list of sub-condition Types whose Status is False.
 // The top-level apis.ConditionReady is intentionally excluded because it is the aggregate that
 // is being reported on; including it would be self-referential ("Ready is no longer Ready
-// because of: Ready, ...").
+// because of: Ready, ..."). So are readyIndependentConditions, which never cause it.
 func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 	msg := ""
 	for _, cond := range svc.Status.Conditions {
-		if cond.Type == apis.ConditionReady {
+		if cond.Type == apis.ConditionReady || slices.Contains(readyIndependentConditions, cond.Type) {
 			continue
 		}
 		if cond.Status == corev1.ConditionFalse {
@@ -411,7 +493,10 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.ConfigMap{}, r.enqueueOnInferenceServiceConfigMapChange(logger), builder.WithPredicates(inferenceServiceConfigMapPredicate)).
 		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
-			builder.WithPredicates(PodStatusPredicate()))
+			builder.WithPredicates(PodStatusPredicate())).
+		Watches(&corev1.ServiceAccount{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnServiceAccountChange(logger)),
+			builder.WithPredicates(serviceAccountImagePullSecretsChangedPredicate()))
 
 	b = b.Watches(
 		&v1alpha2.LLMInferenceService{},
@@ -449,8 +534,37 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), disaggregatedsetv1.GroupVersion.String(), "DisaggregatedSet"); ok && err == nil {
+		r.DisaggregatedSetAvailable = true
+		b = b.Owns(&disaggregatedsetv1.DisaggregatedSet{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), disaggregatedsetv1.GroupVersion.String(), "DisaggregatedSetRoleScaler"); ok && err == nil {
+		r.DisaggregatedSetRoleScalerAvailable = true
+		b = b.Watches(&disaggregatedsetv1.DisaggregatedSetRoleScaler{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnDisaggregatedSetRoleScalerChange(logger)),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+	}
+
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate"); ok && err == nil {
 		b = b.Owns(&resourcev1.ResourceClaimTemplate{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	// Watch ServingRuntime / ClusterServingRuntime so that operator-managed image
+	// updates re-reconcile every LLMInferenceService whose spec.runtime references
+	// the changed runtime. Only spec changes trigger reconciliation — creates and
+	// deletes are ignored because they can't retroactively affect existing services
+	// (a new runtime has no consumers yet; a deleted runtime falls through silently
+	// during merge).
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime"); ok && err == nil {
+		b = b.Watches(&v1alpha1.ClusterServingRuntime{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnClusterServingRuntimeChange(logger)),
+			builder.WithPredicates(servingRuntimeSpecChangedPredicate()))
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "ServingRuntime"); ok && err == nil {
+		b = b.Watches(&v1alpha1.ServingRuntime{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnServingRuntimeChange(logger)),
+			builder.WithPredicates(servingRuntimeSpecChangedPredicate()))
 	}
 
 	return b.Complete(r)
@@ -645,6 +759,30 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 
 		return reqs
 	})
+}
+
+// enqueueOnDisaggregatedSetRoleScalerChange triggers reconciliation of the
+// LLMInferenceService whose DisaggregatedSet owns a changed DisaggregatedSetRoleScaler.
+func (r *LLMISVCReconciler) enqueueOnDisaggregatedSetRoleScalerChange(logger logr.Logger) handler.MapFunc {
+	logger = logger.WithName("enqueueOnDisaggregatedSetRoleScalerChange")
+	return func(ctx context.Context, object client.Object) []reconcile.Request {
+		dsRef := metav1.GetControllerOf(object)
+		if dsRef == nil || dsRef.Kind != "DisaggregatedSet" || dsRef.APIVersion != disaggregatedsetv1.GroupVersion.String() {
+			return nil
+		}
+		ds := &disaggregatedsetv1.DisaggregatedSet{}
+		if err := r.Get(ctx, types.NamespacedName{Namespace: object.GetNamespace(), Name: dsRef.Name}, ds); err != nil {
+			if !apierrors.IsNotFound(err) {
+				logger.Error(err, "Failed to get DisaggregatedSet", "name", dsRef.Name, "namespace", object.GetNamespace())
+			}
+			return nil
+		}
+		ownerRef := metav1.GetControllerOf(ds)
+		if ownerRef == nil || ownerRef.Kind != "LLMInferenceService" || ownerRef.APIVersion != v1alpha2.LLMInferenceServiceGVK.GroupVersion().String() {
+			return nil
+		}
+		return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: ds.Namespace, Name: ownerRef.Name}}}
+	}
 }
 
 // enqueueOnLLMInferenceServiceConfigChange triggers reconciliation of every LLMInferenceService

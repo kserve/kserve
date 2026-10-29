@@ -20,36 +20,24 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/constants"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
-)
-
-// variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
-var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
-
-// Scaling mode and actuator backend names used in validation error messages.
-const (
-	scalingModeWVA        = "wva"
-	scalingModeDirectKEDA = "direct keda"
-	actuatorBackendHPA    = "hpa"
-	actuatorBackendKEDA   = "keda"
 )
 
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
@@ -59,33 +47,19 @@ const (
 // +kubebuilder:object:generate=false
 type LLMInferenceServiceValidator struct{}
 
-var _ webhook.CustomValidator = &LLMInferenceServiceValidator{}
+var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
 
 func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&LLMInferenceService{}).
+	return ctrl.NewWebhookManagedBy(mgr, &LLMInferenceService{}).
 		WithValidator(l).
 		Complete()
 }
 
-func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	llmSvc, err := utils.Convert[*LLMInferenceService](obj)
-	if err != nil {
-		return nil, err
-	}
-
+func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	return l.validate(ctx, nil, llmSvc)
 }
 
-func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	llmSvc, err := utils.Convert[*LLMInferenceService](newObj)
-	if err != nil {
-		return nil, err
-	}
-	prev, err := utils.Convert[*LLMInferenceService](oldObj)
-	if err != nil {
-		return nil, err
-	}
+func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, prev, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	if llmSvc.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
@@ -93,7 +67,7 @@ func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldOb
 	return l.validate(ctx, prev, llmSvc)
 }
 
-func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ *LLMInferenceService) (admission.Warnings, error) {
 	// No validation needed for deletion
 	return admission.Warnings{}, nil
 }
@@ -113,12 +87,16 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
+	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
+	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
+	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
+	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
@@ -134,6 +112,49 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	return warnings, apierrors.NewInvalid(
 		LLMInferenceServiceGVK.GroupKind(),
 		llmSvc.Name, allErrs)
+}
+
+// validateWVAConfig keeps the WVA fields readable for upgrade compatibility.
+// Existing WVA configuration may remain unchanged or be removed, but adding or
+// modifying it is rejected because WVA is no longer reconciled.
+func (l *LLMInferenceServiceValidator) validateWVAConfig(prev, llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	validateWorkload := func(path *field.Path, oldWorkload, newWorkload *WorkloadSpec) {
+		var oldWVA, newWVA *WVASpec
+		if oldWorkload != nil && oldWorkload.Scaling != nil {
+			oldWVA = oldWorkload.Scaling.WVA
+		}
+		if newWorkload != nil && newWorkload.Scaling != nil {
+			newWVA = newWorkload.Scaling.WVA
+		}
+		if newWVA != nil && oldWVA == nil {
+			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
+				"WVA autoscaling is no longer supported; remove spec.scaling.wva and use direct KEDA scaling if needed"))
+		} else if newWVA != nil && !equality.Semantic.DeepEqual(oldWVA, newWVA) {
+			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
+				"WVA autoscaling is no longer supported; existing WVA configuration must remain unchanged or be removed"))
+		}
+	}
+
+	var oldSpec *LLMInferenceServiceSpec
+	if prev != nil {
+		oldSpec = &prev.Spec
+	}
+	validateWorkload(field.NewPath("spec"), workloadSpec(oldSpec), workloadSpec(&llmSvc.Spec))
+	var oldPrefill, newPrefill *WorkloadSpec
+	if oldSpec != nil {
+		oldPrefill = oldSpec.Prefill
+	}
+	newPrefill = llmSvc.Spec.Prefill
+	validateWorkload(field.NewPath("spec", "prefill"), oldPrefill, newPrefill)
+	return allErrs
+}
+
+func workloadSpec(spec *LLMInferenceServiceSpec) *WorkloadSpec {
+	if spec == nil {
+		return nil
+	}
+	return &spec.WorkloadSpec
 }
 
 func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
@@ -520,7 +541,7 @@ func (l *LLMInferenceServiceValidator) validateActuatorConsistency(llmSvc *LLMIn
 
 // ValidateActuatorConsistency ensures that when both decode and prefill workloads
 // have autoscaling configured, they use the same scaling mode and actuator backend.
-// Mixing WVA with direct KEDA, or mixing HPA with KEDA under WVA, is not supported.
+// Decode and prefill workloads must use the same scaling mechanism.
 //
 // It is exported so that v1alpha1 can reuse it via conversion.
 func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) field.ErrorList {
@@ -534,56 +555,13 @@ func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) fi
 		return nil
 	}
 
-	decodeUsesDirectKEDA := decodeScaling.KEDA != nil
-	prefillUsesDirectKEDA := prefillScaling.KEDA != nil
-	if decodeUsesDirectKEDA != prefillUsesDirectKEDA {
-		decodeMode := scalingModeWVA
-		prefillMode := scalingModeDirectKEDA
-		if decodeUsesDirectKEDA {
-			decodeMode = scalingModeDirectKEDA
-			prefillMode = scalingModeWVA
-		}
-		return field.ErrorList{
-			field.Invalid(
-				field.NewPath("spec").Child("prefill", "scaling"),
-				prefillScaling,
-				fmt.Sprintf(
-					"decode and prefill must use the same scaling mode; decode uses %s but prefill uses %s",
-					decodeMode, prefillMode,
-				),
-			),
-		}
-	}
-
-	// Both sides must have scaling.wva configured for an actuator mismatch to be possible.
-	if decodeScaling.WVA == nil || prefillScaling.WVA == nil {
+	if (decodeScaling.KEDA != nil) == (prefillScaling.KEDA != nil) {
 		return nil
 	}
-
-	decodeUsesHPA := decodeScaling.WVA.HPA != nil
-	prefillUsesHPA := prefillScaling.WVA.HPA != nil
-
-	if decodeUsesHPA == prefillUsesHPA {
-		return nil
-	}
-
-	decodeBackend := actuatorBackendKEDA
-	prefillBackend := actuatorBackendHPA
-	if decodeUsesHPA {
-		decodeBackend = actuatorBackendHPA
-		prefillBackend = actuatorBackendKEDA
-	}
-
 	return field.ErrorList{
 		field.Invalid(
-			field.NewPath("spec").Child("prefill", "scaling", "wva"),
-			prefillScaling.WVA,
-			fmt.Sprintf(
-				"decode and prefill must use the same actuator backend; "+
-					"decode uses %s but prefill uses %s — "+
-					"mixing backends requires two separate metric pipelines and leads to independent, unsynchronised scaling decisions",
-				decodeBackend, prefillBackend,
-			),
+			field.NewPath("spec").Child("prefill", "scaling"), prefillScaling,
+			"decode and prefill must both use direct keda scaling",
 		),
 	}
 }
@@ -618,66 +596,20 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 		))
 	}
 
-	// Must specify exactly one scaling mechanism.
-	if scaling.WVA != nil && scaling.KEDA != nil {
-		allErrs = append(allErrs, field.Invalid(
-			scalingPath,
-			scaling,
-			"wva and keda are mutually exclusive; choose one scaling mechanism",
-		))
-		return allErrs
-	}
-
-	if scaling.WVA == nil && scaling.KEDA == nil {
-		allErrs = append(allErrs, field.Required(
-			scalingPath,
-			"either wva or keda must be specified when scaling is configured",
-		))
-		return allErrs
-	}
-
-	if scaling.KEDA != nil {
-		return append(allErrs, validateDirectKEDA(scalingPath, scaling)...)
-	}
-
-	// Validate WVA configuration
-	wvaPath := scalingPath.Child("wva")
-
-	// HPA and KEDA are mutually exclusive
-	if scaling.WVA.HPA != nil && scaling.WVA.KEDA != nil {
-		allErrs = append(allErrs, field.Invalid(
-			wvaPath,
-			scaling.WVA,
-			"hpa and keda are mutually exclusive; choose one actuator backend",
-		))
-	}
-
-	// Must specify at least one actuator
-	if scaling.WVA.HPA == nil && scaling.WVA.KEDA == nil {
-		allErrs = append(allErrs, field.Required(
-			wvaPath,
-			"either hpa or keda must be specified as the actuator backend",
-		))
-	}
-
-	// Validate variantCost format (must be a non-negative numeric string, e.g., "10", "10.0", "0.5")
-	if scaling.WVA.VariantCost != "" {
-		if !variantCostPattern.MatchString(scaling.WVA.VariantCost) {
-			allErrs = append(allErrs, field.Invalid(
-				wvaPath.Child("variantCost"),
-				scaling.WVA.VariantCost,
-				"variantCost must be a non-negative numeric string (e.g., \"10\", \"10.0\", \"0.5\")",
-			))
+	if scaling.KEDA == nil {
+		// Retain existing WVA resources for upgrade compatibility. The admission
+		// validator rejects new WVA configuration, while the controller leaves
+		// existing WVA autoscaling disabled until the field is removed.
+		if scaling.WVA != nil {
+			return allErrs
 		}
+		allErrs = append(allErrs, field.Required(
+			scalingPath,
+			"keda must be specified when scaling is configured",
+		))
+		return allErrs
 	}
-
-	if scaling.WVA.KEDA != nil {
-		// WVA path: forbid scalingModifiers (WVA owns the formula) and HPA name.
-		allErrs = append(allErrs, validateKEDAAdvancedFields(wvaPath.Child("keda"), scaling.WVA.KEDA, true)...)
-		allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, wvaPath.Child("keda"), scaling, scaling.WVA.KEDA)...)
-	}
-
-	return allErrs
+	return append(allErrs, validateDirectKEDA(scalingPath, scaling)...)
 }
 
 func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.ErrorList {
@@ -692,8 +624,7 @@ func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.Err
 		))
 	}
 
-	// Direct KEDA path: allow scalingModifiers (no WVA formula to protect).
-	// Still forbid HPA name — the controller manages it.
+	// Direct KEDA allows user-defined scaling modifiers while the controller manages the HPA name.
 	allErrs = append(allErrs, validateKEDAAdvancedFields(kedaPath, &keda.KEDAScalingSpec, false)...)
 	allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, kedaPath, scaling, &keda.KEDAScalingSpec)...)
 
@@ -701,8 +632,7 @@ func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.Err
 }
 
 // validateKEDAAdvancedFields validates Advanced ScaledObject settings.
-// forbidScalingModifiers should be true for the WVA actuator path (WVA owns the metric formula)
-// and false for direct KEDA (users may set their own scalingModifiers).
+// forbidScalingModifiers is retained for validation helper compatibility.
 func validateKEDAAdvancedFields(kedaPath *field.Path, keda *KEDAScalingSpec, forbidScalingModifiers bool) field.ErrorList {
 	var allErrs field.ErrorList
 	if keda == nil || keda.Advanced == nil {
@@ -714,7 +644,7 @@ func validateKEDAAdvancedFields(kedaPath *field.Path, keda *KEDAScalingSpec, for
 		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
 			allErrs = append(allErrs, field.Forbidden(
 				kedaPath.Child("advanced", "scalingModifiers"),
-				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
+				"scalingModifiers must not be set for this scaling configuration",
 			))
 		}
 	}
@@ -772,21 +702,44 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 	return kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())
 }
 
+// validateModelExpress validates the serving.kserve.io/exp-modelexpress-* annotations and,
+// when the model URI is set on the service itself, that the mode can load it.
+func (l *LLMInferenceServiceValidator) validateModelExpress(llmSvc *LLMInferenceService) field.ErrorList {
+	var loraURIs []string
+	if llmSvc.Spec.Model.LoRA != nil {
+		for _, a := range llmSvc.Spec.Model.LoRA.Adapters {
+			loraURIs = append(loraURIs, a.URI.String())
+		}
+	}
+	return kservevalidation.ValidateModelExpress(llmSvc.GetAnnotations(), llmSvc.Spec.Model.URI.String(), loraURIs)
+}
+
 // validateKVCacheOffloading validates KVCacheOffloading secondary tier specs.
 func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
-	allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
+	allErrs = append(allErrs, ValidateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
 	if llmSvc.Spec.Prefill != nil {
-		allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
+		allErrs = append(allErrs, ValidateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
 	}
 	return allErrs
 }
 
-func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
-	if kv == nil || len(kv.Secondary) == 0 {
+// validateKVCacheOffloadingSpec validates one kvCacheOffloading block.
+func ValidateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
+	if kv == nil {
 		return nil
 	}
 	var allErrs field.ErrorList
+	// A negative size is always a mistake. Not ratcheted: the rendered spec is
+	// re-validated as a create on every reconcile, so a stored negative already
+	// fails there, and correcting the field is accepted either way.
+	if kv.CPU.Sign() < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("cpu"), kv.CPU.String(),
+			"cpu must not be negative"))
+	}
+	if len(kv.Secondary) == 0 {
+		return allErrs
+	}
 	if kv.CPU.IsZero() {
 		allErrs = append(allErrs, field.Required(fldPath.Child("cpu"),
 			"cpu must be set when secondary tiers are configured"))
@@ -996,4 +949,42 @@ func validatePositiveIntOrPercent(fldPath *field.Path, val intstr.IntOrString) f
 	}
 
 	return allErrs
+}
+
+// validateLoRAModelRoutingStrategyAnnotation rejects an unusable
+// serving.kserve.io/lora-model-routing-strategy at admission, so a typo fails
+// the apply instead of parking the service in RoutingPreconditionNotMet. The
+// merged spec is re-validated at reconcile, which covers a preset-carried value.
+// Trimmed and case-insensitive, matching the consumer.
+func (l *LLMInferenceServiceValidator) validateLoRAModelRoutingStrategyAnnotation(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
+}
+
+// validateDisaggregatedSetAnnotation checks that the DisaggregatedSet annotation in
+// spec.annotations is well formed. It lives in spec.annotations rather than the
+// object's metadata so the presets that turn it on by default can set it.
+//
+// Feature-level constraints are enforced by the reconciler, not here; see
+// ValidateDisaggregatedSetAnnotation for why.
+func (l *LLMInferenceServiceValidator) validateDisaggregatedSetAnnotation(llmSvc *LLMInferenceService) field.ErrorList {
+	return kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
+}
+
+// ValidateLoRAModelRoutingStrategyAnnotation is shared with the v1alpha1
+// validator, which keeps its own checklist, so both API versions reject the
+// same values.
+func ValidateLoRAModelRoutingStrategyAnnotation(annotations map[string]string, path *field.Path) field.ErrorList {
+	raw, ok := annotations[constants.LoRAModelRoutingStrategyAnnotationKey]
+	if !ok {
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex:
+		return nil
+	}
+	return field.ErrorList{field.NotSupported(
+		path.Key(constants.LoRAModelRoutingStrategyAnnotationKey),
+		raw,
+		[]string{constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex},
+	)}
 }
