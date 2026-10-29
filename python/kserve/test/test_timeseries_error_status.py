@@ -30,7 +30,10 @@ from kserve.protocol.rest.timeseries.types import (
         ("invalid_horizon", 400),
         ("invalid_quantile", 400),
         ("invalid_frequency", 400),
+        ("unsupported_time_series_type", 400),
+        ("model_not_supported", 400),
         ("model_error", 500),
+        ("unexpected_error", 500),
     ],
 )
 def test_forecast_error_without_code_returns_correct_status(
