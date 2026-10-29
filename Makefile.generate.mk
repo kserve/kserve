@@ -21,6 +21,7 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 generate-chart-manifests: helm-docs ## After config/ or charts/_common edits: regenerate chart files, then helm lint. Needs helm.
 	@bash hack/setup/scripts/generate_chart_manifests.sh
 	make lint-helm-charts
+	make verify-helm-storage-overrides
 	make verify-helm-helpers-consistency
 	@# Chart READMEs are rendered from each chart's values.yaml, which the script above
 	@# regenerates from charts/_common. Run helm-docs here, after the sync, so a change to a
