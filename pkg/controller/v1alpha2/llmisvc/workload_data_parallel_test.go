@@ -209,8 +209,10 @@ func TestDataParallelRoutingRequiresBaseRefs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []igwapi.Port{{Number: 8000}}, combined.Config.Spec.Router.Scheduler.Pool.Spec.TargetPorts)
 	require.Nil(t, routingSidecar(combined.Config.Spec.Worker))
-	require.Nil(t, combined.Config.Spec.Worker.Containers[0].ReadinessProbe)
-	assert.Contains(t, strings.Join(combined.Config.Spec.Worker.Containers[0].Command, " "), "--headless")
+	main := utils.GetContainerWithName(combined.Config.Spec.Worker, mainContainerName)
+	require.NotNil(t, main)
+	require.Nil(t, main.ReadinessProbe)
+	assert.Contains(t, strings.Join(main.Command, " "), "--headless")
 }
 
 func TestDataParallelBaseRefsReplaceDefaults(t *testing.T) {
@@ -353,7 +355,9 @@ func TestDataParallelBaseRefWithTensorParallelPrefill(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, combined.Config.Spec.Router.Scheduler.Pool.Spec.TargetPorts, 4)
 	require.Nil(t, combined.Config.Spec.Prefill.Worker)
-	assert.Contains(t, strings.Join(combined.Config.Spec.Prefill.Template.Containers[0].Command, " "), "--tensor-parallel-size 8")
+	main := utils.GetContainerWithName(combined.Config.Spec.Prefill.Template, mainContainerName)
+	require.NotNil(t, main)
+	assert.Contains(t, strings.Join(main.Command, " "), "--tensor-parallel-size 8")
 	svc.Spec = combined.Config.Spec
 	pod, err := disaggTestReconciler(t).expectedSingleNodePrefillPodTemplate(t.Context(), svc, disaggTestConfig(), corev1.PodSpec{})
 	require.NoError(t, err)

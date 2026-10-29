@@ -2673,6 +2673,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: Always
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -3040,6 +3056,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: Always
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -3737,6 +3769,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: Always
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -6983,6 +7031,22 @@ spec:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: Always
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -7375,6 +7439,22 @@ spec:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: Always
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
