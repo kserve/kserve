@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -168,6 +169,30 @@ func TestGroupBackendCleanupSkipsUnownedAndAbsentRoutes(t *testing.T) {
 		}).Build()
 		require.NoError(t, (&LLMISVCReconciler{Client: c}).reconcileTerminatingGroupBackends(t.Context(), grouped()),
 			"an absent optional CRD means there are no routes to prune")
+	})
+
+	t.Run("HTTPRoute informer missing for an uninstalled API", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithRESTMapper(restMapperFor()).WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+				require.IsType(t, &gwapiv1.HTTPRoute{}, obj)
+				return &cache.ErrResourceNotCached{GVK: httpRouteGVK()}
+			},
+		}).Build()
+		require.NoError(t, (&LLMISVCReconciler{Client: c}).reconcileTerminatingGroupBackends(t.Context(), grouped()),
+			"an absent optional API means there are no routes to prune")
+	})
+
+	t.Run("HTTPRoute informer missing for an installed API stays an error", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithRESTMapper(restMapperFor(httpRouteGVK())).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+					require.IsType(t, &gwapiv1.HTTPRoute{}, obj)
+					return &cache.ErrResourceNotCached{GVK: httpRouteGVK()}
+				},
+			}).Build()
+		err := (&LLMISVCReconciler{Client: c}).reconcileTerminatingGroupBackends(t.Context(), grouped())
+		var notCached *cache.ErrResourceNotCached
+		require.ErrorAs(t, err, &notCached, "a missing informer for an installed API is not absence")
 	})
 
 	t.Run("route not created yet", func(t *testing.T) {
