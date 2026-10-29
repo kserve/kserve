@@ -146,6 +146,10 @@ data:
       "jobNamespace": "{{ .Values.kserve.kernelcache.jobNamespace }}",
       "mcvImage": "{{ .Values.kserve.kernelcache.mcvImage }}:{{ .Values.kserve.kernelcache.mcvTag | default .Values.kserve.version }}",
       "prefetchImage": "{{ .Values.kserve.kernelcache.prefetchImage }}{{ if .Values.kserve.kernelcache.prefetchTag }}:{{ .Values.kserve.kernelcache.prefetchTag }}{{ end }}",
+      "runtimeImagePrefetch": {
+        "enabled": {{ .Values.kserve.kernelcache.runtimeImagePrefetch.enabled }},
+        "jobTTLSecondsAfterFinished": {{ .Values.kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished }}
+      },
       "registry": {
         "endpoint": {{ .Values.kserve.kernelcache.registry.endpoint | toJson }},
 {{ if or .Values.kserve.kernelcache.registry.caConfigMapRef.name .Values.kserve.kernelcache.registry.caConfigMapRef.key }}

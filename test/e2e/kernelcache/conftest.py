@@ -110,6 +110,10 @@ def kc_config(kernelcache_registry_url):
         "jobNamespace": _KC_JOBS_NS,
         "mcvImage": mcv_image,
         "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+        "runtimeImagePrefetch": {
+            "enabled": True,
+            "jobTTLSecondsAfterFinished": 86400,
+        },
         "registry": {
             "endpoint": kernelcache_registry_url,
             "insecure": True,
