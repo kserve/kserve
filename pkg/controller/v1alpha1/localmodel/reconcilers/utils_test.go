@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -142,5 +143,81 @@ func TestUpdateLocalModelNodeReplacesImagePullSecrets(t *testing.T) {
 	if len(got.Spec.LocalModels) != 1 || len(got.Spec.LocalModels[0].ImagePullSecrets) != 1 ||
 		got.Spec.LocalModels[0].ImagePullSecrets[0].Name != "reg-cred-b" {
 		t.Fatalf("LocalModels = %#v, want imagePullSecrets [reg-cred-b]", got.Spec.LocalModels)
+	}
+}
+
+func TestCreatePVCReleasesStaleClaimRefOnRetainedPV(t *testing.T) {
+	ctx := context.Background()
+	releasedPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-ns"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "ns",
+				Name:      "cache-gpu",
+				UID:       "deleted-claim-uid",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeReleased},
+	}
+	cs := k8sfake.NewClientset(releasedPV)
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "cache-gpu-ns"},
+	}
+	if err := CreatePVC(ctx, cs, nil, logr.Discard(), pvc, "ns", nil, nil); err != nil {
+		t.Fatalf("CreatePVC() error = %v", err)
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-ns", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef != nil {
+		t.Fatalf("PV claimRef = %#v, want nil so the recreated claim can bind", gotPV.Spec.ClaimRef)
+	}
+
+	gotPVC, err := cs.CoreV1().PersistentVolumeClaims("ns").Get(ctx, "cache-gpu", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PVC: %v", err)
+	}
+	if gotPVC.Spec.VolumeName != "cache-gpu-ns" {
+		t.Fatalf("PVC volumeName = %q, want %q", gotPVC.Spec.VolumeName, "cache-gpu-ns")
+	}
+}
+
+func TestCreatePVCLeavesClaimRefOfAnotherNamespaceAlone(t *testing.T) {
+	ctx := context.Background()
+	boundPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-other"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "other",
+				Name:      "cache-gpu",
+				UID:       "live-claim-uid",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeBound},
+	}
+	cs := k8sfake.NewClientset(boundPV)
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "cache-gpu-other"},
+	}
+	if err := CreatePVC(ctx, cs, nil, logr.Discard(), pvc, "ns", nil, nil); err != nil {
+		t.Fatalf("CreatePVC() error = %v", err)
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-other", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef == nil || gotPV.Spec.ClaimRef.Namespace != "other" {
+		t.Fatalf("PV claimRef = %#v, want the claim of namespace other untouched", gotPV.Spec.ClaimRef)
 	}
 }

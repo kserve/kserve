@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -410,11 +411,44 @@ func CreatePV(
 	return nil
 }
 
+// releaseStaleClaimRef clears the claimRef of a PersistentVolume that still points at the
+// claim the controller is about to recreate, so the new claim can bind to it. A serving PV
+// uses persistentVolumeReclaimPolicy Retain, so the PV controller keeps the claimRef of the
+// deleted claim and marks the volume Released. A new claim with the same name but a new UID
+// is then rejected with "already bound to a different claim" and stays Pending forever.
+// The caller has already checked that the claim does not exist, so a claimRef naming it
+// cannot be live.
+func releaseStaleClaimRef(
+	ctx context.Context,
+	persistentVolumes corev1client.PersistentVolumeInterface,
+	log logr.Logger,
+	name, namespace, claimName string,
+) error {
+	pv, err := persistentVolumes.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if apierr.IsNotFound(err) {
+			return nil
+		}
+		log.Error(err, "Failed to get PV", "name", name)
+		return err
+	}
+	claimRef := pv.Spec.ClaimRef
+	if claimRef == nil || claimRef.Namespace != namespace || claimRef.Name != claimName {
+		return nil
+	}
+	log.Info("Releasing stale claim reference", "pv", name, "claim", claimName, "namespace", namespace)
+	if _, err := persistentVolumes.Patch(ctx, name, types.MergePatchType, []byte(`{"spec":{"claimRef":null}}`), metav1.PatchOptions{}); err != nil {
+		log.Error(err, "Failed to release stale claim reference", "pv", name)
+		return err
+	}
+	return nil
+}
+
 // CreatePVC creates a PersistentVolumeClaim and sets the owner reference
 // Only one of localModelCache or localModelNamespaceCache should be non-nil
 func CreatePVC(
 	ctx context.Context,
-	clientset *kubernetes.Clientset,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	spec corev1.PersistentVolumeClaim,
@@ -429,6 +463,15 @@ func CreatePVC(
 			return err
 		}
 		log.Info("Create PVC", "name", spec.Name, "namespace", namespace)
+
+		// The claim does not exist, so a claimRef on the volume can only name the
+		// claim that was deleted earlier. Clear it before creating the new claim.
+		if spec.Spec.VolumeName != "" {
+			if err := releaseStaleClaimRef(ctx, clientset.CoreV1().PersistentVolumes(), log, spec.Spec.VolumeName, namespace, spec.Name); err != nil {
+				log.Error(err, "Release stale claim reference", "pv", spec.Spec.VolumeName)
+				return err
+			}
+		}
 
 		spec.Namespace = namespace
 
