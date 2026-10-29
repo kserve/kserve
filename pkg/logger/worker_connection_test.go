@@ -69,7 +69,7 @@ func TestWorkerHTTPConnectionReuse(t *testing.T) {
 
 			var wg sync.WaitGroup
 			for range concurrency {
-				worker := NewWorker(0, nil, zaptest.NewLogger(t).Sugar(), DefaultHTTPClientTimeout)
+				worker := NewWorker(0, nil, zaptest.NewLogger(t).Sugar())
 				wg.Go(func() {
 					for range eventsPerWorker {
 						body := []byte("{}")
