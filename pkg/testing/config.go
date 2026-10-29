@@ -129,7 +129,9 @@ func (e *Config) BuildEnvironment() *envtest.Environment {
 	envTest := &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			ErrorIfPathMissing: true,
-			CleanUpAfterUse:    true,
+			// The control plane is discarded on Stop, so uninstalling every CRD
+			// first only costs time and kube-apiserver CPU.
+			CleanUpAfterUse: false,
 			// The controller-runtime default is 10s, which is too short under
 			// cross-suite parallel load in this repository.
 			MaxTime:      2 * time.Minute,
@@ -266,7 +268,7 @@ func (e *Config) Start(ctx context.Context) *Client {
 
 	return &Client{
 		Client:      cli,
-		Cleaner:     CreateCleaner(cli, cfg, 10*time.Second, 250*time.Millisecond),
+		Cleaner:     CreateCleaner(cli, cfg, 10*time.Second, 50*time.Millisecond),
 		Environment: envTest,
 	}
 }
