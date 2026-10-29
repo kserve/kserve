@@ -472,10 +472,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 			group.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
 			prefillWorkerEvictorTemplate = takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
 			if prefillWorkerEvictorTemplate == nil {
-				prefillWorkerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Prefill.Template)
-				if prefillWorkerEvictorTemplate == nil {
-					prefillWorkerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
-				}
+				prefillWorkerEvictorTemplate = inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, findPVCEvictorContainerTemplate(llmSvc.Spec.Template))
 			} else {
 				prefillWorkerEvictorTemplate = inheritPVCEvictorImage(
 					prefillWorkerEvictorTemplate,

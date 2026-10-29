@@ -149,7 +149,7 @@ func workloadPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec) *corev
 
 func inheritedPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec, fallback *corev1.Container) *corev1.Container {
 	if template := workloadPVCEvictorContainerTemplate(workload); template != nil {
-		return template
+		return inheritPVCEvictorImage(template, fallback)
 	}
 	if fallback == nil {
 		return nil
@@ -257,7 +257,8 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 			referencesByIdentity[identity] = reference
 		}
 	}
-	for identity, identityWorkloads := range workloadsByIdentity {
+	for _, identity := range slices.Sorted(maps.Keys(workloadsByIdentity)) {
+		identityWorkloads := workloadsByIdentity[identity]
 		if len(identityWorkloads) == 0 {
 			continue
 		}
@@ -537,17 +538,33 @@ func pvcEvictorServiceChangePredicate() predicate.Predicate {
 }
 
 func (r *LLMISVCReconciler) enqueueOnPVCEvictorResourceChange() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-		services := &v1alpha2.LLMInferenceServiceList{}
-		if err := r.List(ctx, services, client.InNamespace(object.GetNamespace())); err != nil {
-			return nil
-		}
-		requests := make([]reconcile.Request, 0, len(services.Items))
-		for i := range services.Items {
-			requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&services.Items[i])})
-		}
-		return requests
-	})
+	return handler.EnqueueRequestsFromMapFunc(r.pvcEvictorNamespaceRequests)
+}
+
+func (r *LLMISVCReconciler) enqueueOnPVCEvictorServiceChange() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(r.pvcEvictorPeerRequests)
+}
+
+// pvcEvictorPeerRequests enqueues the namespace on a service change only while a shared
+// evictor exists there; without one no peer has a template to agree on or anything to clean up.
+func (r *LLMISVCReconciler) pvcEvictorPeerRequests(ctx context.Context, object client.Object) []reconcile.Request {
+	evictors := &appsv1.DeploymentList{}
+	if err := r.List(ctx, evictors, client.InNamespace(object.GetNamespace()), client.MatchingLabels{pvcEvictorLabel: "true"}); err != nil || len(evictors.Items) == 0 {
+		return nil
+	}
+	return r.pvcEvictorNamespaceRequests(ctx, object)
+}
+
+func (r *LLMISVCReconciler) pvcEvictorNamespaceRequests(ctx context.Context, object client.Object) []reconcile.Request {
+	services := &v1alpha2.LLMInferenceServiceList{}
+	if err := r.List(ctx, services, client.InNamespace(object.GetNamespace())); err != nil {
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(services.Items))
+	for i := range services.Items {
+		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&services.Items[i])})
+	}
+	return requests
 }
 
 func (r *LLMISVCReconciler) enqueueOnPVCEvictorPVCChange() handler.EventHandler {
@@ -737,20 +754,22 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 		config *Config
 		err    error
 	)
+	resolved := llmSvc
 	if !llmSvcReferencesPVCEvictors(llmSvc) && len(llmSvc.Spec.BaseRefs) > 0 {
+		resolved = llmSvc.DeepCopy()
 		config, err = r.loadConfig(ctx)
 		if err != nil {
 			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because configuration could not be loaded", "error", err)
 			return nil
 		}
-		combined, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
+		combined, err := r.combineBaseRefsConfig(ctx, resolved, config)
 		if err != nil {
 			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because references could not be resolved", "error", err)
 			return nil
 		}
-		llmSvc.Spec = combined.Config.Spec
+		resolved.Spec = combined.Config.Spec
 	}
-	if !llmSvcReferencesPVCEvictors(llmSvc) {
+	if !llmSvcReferencesPVCEvictors(resolved) {
 		return nil
 	}
 	if config == nil {
@@ -809,6 +828,11 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 	); err != nil {
 		return fmt.Errorf("failed to list PVC evictor deployments: %w", err)
 	}
+	if len(expected) == 0 && len(current.Items) == 0 && !r.hasPVCEvictorServiceAccount(ctx, llmSvc.Namespace) {
+		// Nothing to render and nothing left to clean up, so skip resolving every peer in the namespace.
+		markPVCEvictorReadiness(llmSvc, expected, current.Items)
+		return nil
+	}
 	var agreements map[string]pvcEvictorTemplateAgreement
 	if len(expected) > 0 {
 		agreements, err = r.desiredPVCEvictorTemplateAgreements(ctx, llmSvc, config)
@@ -859,7 +883,8 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 	}
 
 	logger := log.FromContext(ctx)
-	for _, deployment := range expected {
+	for _, name := range slices.Sorted(maps.Keys(expected)) {
+		deployment := expected[name]
 		matches := findPVCEvictorDeployments(current.Items, deployment.Name, deployment.Annotations[pvcEvictorPVCName], deployment.Annotations[pvcEvictorPVCPath])
 		if len(matches) > 0 {
 			existing := matches[0]
@@ -899,12 +924,23 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 	return nil
 }
 
+// hasPVCEvictorServiceAccount reports whether the managed evictor ServiceAccount may still exist.
+// A failed lookup counts as present, so cleanup keeps retrying it.
+func (r *LLMISVCReconciler) hasPVCEvictorServiceAccount(ctx context.Context, namespace string) bool {
+	serviceAccount := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: pvcEvictorServiceAccount, Namespace: namespace}, serviceAccount); err != nil {
+		return !apierrors.IsNotFound(err)
+	}
+	return serviceAccount.Labels[pvcEvictorLabel] == "true"
+}
+
 func markPVCEvictorReadiness(llmSvc *v1alpha2.LLMInferenceService, expected map[string]*appsv1.Deployment, current []appsv1.Deployment) {
 	if len(expected) == 0 {
 		llmSvc.MarkPVCEvictorUnset()
 		return
 	}
-	for _, deployment := range expected {
+	for _, name := range slices.Sorted(maps.Keys(expected)) {
+		deployment := expected[name]
 		matches := findPVCEvictorDeployments(current, deployment.Name, deployment.Annotations[pvcEvictorPVCName], deployment.Annotations[pvcEvictorPVCPath])
 		if len(matches) == 0 || matches[0].Status.AvailableReplicas == 0 {
 			message := fmt.Sprintf("PVC evictor Deployment %s/%s has no available replicas", deployment.Namespace, deployment.Name)

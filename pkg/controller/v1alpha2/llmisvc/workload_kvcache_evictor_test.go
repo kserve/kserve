@@ -213,11 +213,16 @@ func TestFinalizePVCEvictorsCleansDeploymentWithoutReadyStatus(t *testing.T) {
 		}()).Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient}
 
+	stored := deleting.Spec.DeepCopy()
 	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
 		t.Fatalf("finalizePVCEvictors() error = %v", err)
 	}
 	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err == nil {
 		t.Fatal("PVC evictor Deployment remains after finalization")
+	}
+	// Reconcile removes the finalizer by updating this object, so its spec must stay as stored.
+	if diff := cmp.Diff(*stored, deleting.Spec); diff != "" {
+		t.Fatalf("finalizePVCEvictors() changed the stored spec (-want +got):\n%s", diff)
 	}
 }
 
@@ -2468,5 +2473,141 @@ func TestKVCacheSecondaryRootDirWithoutPVCEvictor(t *testing.T) {
 func TestPVCEvictorKeyNormalizesSubPath(t *testing.T) {
 	if got, want := pvcEvictorKey("shared-pvc", "kv-cache/"), pvcEvictorKey("shared-pvc", "kv-cache"); got != want {
 		t.Fatalf("PVC evictor key = %q, want %q", got, want)
+	}
+}
+
+func TestReconcilePVCEvictorsSkipsPeerMergeWithoutEvictors(t *testing.T) {
+	service := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "plain", Namespace: "test"}}
+	peer := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "peer", Namespace: "test"},
+		Spec:       v1alpha2.LLMInferenceServiceSpec{BaseRefs: []corev1.LocalObjectReference{{Name: "peer-base"}}},
+	}
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	serviceLists := 0
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(service, peer).
+		WithInterceptorFuncs(interceptor.Funcs{List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if _, ok := list.(*v1alpha2.LLMInferenceServiceList); ok {
+				serviceLists++
+			}
+			return c.List(ctx, list, opts...)
+		}}).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.reconcilePVCEvictors(t.Context(), service, &Config{}); err != nil {
+		t.Fatalf("reconcilePVCEvictors() error = %v", err)
+	}
+	if serviceLists != 0 {
+		t.Fatalf("reconcilePVCEvictors() listed LLMInferenceServices %d times in a namespace without evictors, want 0", serviceLists)
+	}
+	if condition := service.Status.GetCondition(v1alpha2.PVCEvictorReady); condition != nil {
+		t.Fatalf("PVCEvictorReady = %+v, want unset", condition)
+	}
+}
+
+func TestReconcilePVCEvictorsRemovesLeftoverServiceAccount(t *testing.T) {
+	// The last evictor Deployment is gone but deleting the ServiceAccount failed on that pass.
+	service := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "plain", Namespace: "test"}}
+	serviceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+		Name:      pvcEvictorServiceAccount,
+		Namespace: "test",
+		Labels:    map[string]string{pvcEvictorLabel: "true"},
+	}}
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(service, serviceAccount).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.reconcilePVCEvictors(t.Context(), service, &Config{}); err != nil {
+		t.Fatalf("reconcilePVCEvictors() error = %v", err)
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(serviceAccount), &corev1.ServiceAccount{}); err == nil {
+		t.Fatal("leftover PVC evictor ServiceAccount was not removed")
+	}
+}
+
+func TestMarkPVCEvictorReadinessReportsDeploymentsInNameOrder(t *testing.T) {
+	expected := make(map[string]*appsv1.Deployment)
+	for _, name := range []string{"evictor-b", "evictor-a", "evictor-c"} {
+		expected[name] = &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   "test",
+			Annotations: map[string]string{pvcEvictorPVCName: name, pvcEvictorPVCPath: "kv-cache"},
+		}}
+	}
+	for range 50 {
+		service := &v1alpha2.LLMInferenceService{}
+		markPVCEvictorReadiness(service, expected, nil)
+		condition := service.Status.GetCondition(v1alpha2.PVCEvictorReady)
+		if condition == nil || !strings.Contains(condition.Message, "test/evictor-a ") {
+			t.Fatalf("PVCEvictorReady = %+v, want the message to name test/evictor-a", condition)
+		}
+	}
+}
+
+func TestValidatePVCEvictorContainerTemplatesReportsConflictsInIdentityOrder(t *testing.T) {
+	podSpec := func(image string) *corev1.PodSpec {
+		return &corev1.PodSpec{Containers: []corev1.Container{
+			{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+			{Name: pvcEvictorTemplateName, Image: image},
+		}}
+	}
+	tiers := func() *v1alpha2.KVCacheOffloadingSpec {
+		kv := &v1alpha2.KVCacheOffloadingSpec{}
+		for _, name := range []string{"pvc-b", "pvc-a", "pvc-c"} {
+			kv.Secondary = append(kv.Secondary, v1alpha2.SecondaryTierSpec{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: name, Path: "kv-cache"}},
+			}})
+		}
+		return kv
+	}
+	service := &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{Template: podSpec("example.com/evictor:main"), KVCacheOffloading: tiers()},
+		Prefill:      &v1alpha2.WorkloadSpec{Template: podSpec("example.com/evictor:prefill"), KVCacheOffloading: tiers()},
+	}}
+	for range 50 {
+		err := validatePVCEvictorContainerTemplates(service)
+		if err == nil || !strings.Contains(err.Error(), `PVC "pvc-a"`) {
+			t.Fatalf("validatePVCEvictorContainerTemplates() error = %v, want the conflict on PVC \"pvc-a\"", err)
+		}
+	}
+}
+
+func TestPVCEvictorPeerRequestsNeedASharedEvictor(t *testing.T) {
+	changed := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "changed", Namespace: "test"}}
+	peer := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "peer", Namespace: "test"}}
+	evictor := expectedPVCEvictorDeployment(peer, pvcEvictorTarget{
+		claimName: "shared-pvc", subPath: "kv-cache",
+		containerTemplate: &corev1.Container{Name: pvcEvictorTemplateName, Image: "example.com/evictor:preset"},
+	})
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, v1alpha2.AddToScheme} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, tc := range []struct {
+		name    string
+		objects []client.Object
+		want    int
+	}{
+		{name: "no shared evictor", objects: []client.Object{changed, peer}, want: 0},
+		{name: "shared evictor", objects: []client.Object{changed, peer, evictor}, want: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(tc.objects...).Build()}
+			if requests := reconciler.pvcEvictorPeerRequests(t.Context(), changed); len(requests) != tc.want {
+				t.Fatalf("pvcEvictorPeerRequests() = %v, want %d requests", requests, tc.want)
+			}
+		})
 	}
 }

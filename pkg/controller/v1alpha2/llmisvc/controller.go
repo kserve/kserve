@@ -509,7 +509,7 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha2.LLMInferenceService{}).
-		Watches(&v1alpha2.LLMInferenceService{}, r.enqueueOnPVCEvictorResourceChange(), builder.WithPredicates(pvcEvictorServiceChangePredicate())).
+		Watches(&v1alpha2.LLMInferenceService{}, r.enqueueOnPVCEvictorServiceChange(), builder.WithPredicates(pvcEvictorServiceChangePredicate())).
 		Watches(&v1alpha2.LLMInferenceServiceConfig{}, r.enqueueOnLLMInferenceServiceConfigChange(logger)).
 		Owns(&netv1.Ingress{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
