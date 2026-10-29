@@ -120,6 +120,16 @@ class TestHealthCheck(unittest.TestCase):
         mock_get.assert_called_once_with(health_check_url, timeout=5)
 
     @patch("health_check.requests.get")
+    def test_check_runtime_health_unavailable(self, mock_get):
+        mock_get.return_value.status_code = 503
+
+        assert (
+            health_check.check_runtime_health("http://localhost:8080", retries=0)
+            == "Unhealthy"
+        )
+        mock_get.assert_called_once_with("http://localhost:8080", timeout=5)
+
+    @patch("health_check.requests.get")
     def test_check_runtime_health_healthy_with_retries(self, mock_get):
         mock_get.side_effect = [
             MagicMock(status_code=500),  # First call

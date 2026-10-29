@@ -73,6 +73,9 @@ class BaseKServeModel(ABC):
     This class implements the expectations of model repository and model server.
     """
 
+    # Opt in to active server readiness checks. Liveness always calls is_live.
+    server_health_check_enabled: bool = False
+
     @abstractmethod
     def __init__(self, name: str):
         """
@@ -85,6 +88,10 @@ class BaseKServeModel(ABC):
         self.ready = False
         self.engine = False
 
+    async def is_live(self) -> bool:
+        """Return whether the model's serving engine is recoverably alive."""
+        return True
+
     async def healthy(self) -> bool:
         """
         Check the health of this model. By default returns `self.ready`.
@@ -93,6 +100,10 @@ class BaseKServeModel(ABC):
             True if healthy, false otherwise
         """
         return self.ready
+
+    async def is_ready(self) -> bool:
+        """Check server readiness, allowing engines to override active probes."""
+        return await self.healthy()
 
     def load(self) -> bool:
         """Load handler can be overridden to load the model from storage.
