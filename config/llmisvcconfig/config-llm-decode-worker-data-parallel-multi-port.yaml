@@ -110,9 +110,14 @@ spec:
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
     containers:
+    # Reserved slot, never run as declared. The controller takes it out of the pod
+    # and builds evictors from it only for kvCacheOffloading PVC tiers: a sidecar
+    # per pvc.spec tier, a shared Deployment per pvc.ref claim and path. Like the
+    # empty KSERVE_KV_TRANSFER_ARGS, declaring it is the preset's opt-in; without it
+    # PVC tiers keep the rendering they had before the evictor existed.
     - name: pvc-evictor
       image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       resources:
         requests:
           cpu: "1"

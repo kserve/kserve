@@ -332,7 +332,7 @@ func newPVCEvictorContainer(template *corev1.Container, name, volumeName, mountP
 func normalizedPVCEvictorContainer(template *corev1.Container) corev1.Container {
 	if template == nil {
 		return corev1.Container{
-			ImagePullPolicy: corev1.PullAlways,
+			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: pvcEvictorContainerSecurityContext(),
 			Resources:       pvcEvictorResources(),
 		}
@@ -340,7 +340,7 @@ func normalizedPVCEvictorContainer(template *corev1.Container) corev1.Container 
 
 	evictor := *template.DeepCopy()
 	if evictor.ImagePullPolicy == "" {
-		evictor.ImagePullPolicy = corev1.PullAlways
+		evictor.ImagePullPolicy = corev1.PullIfNotPresent
 	}
 	if evictor.SecurityContext == nil {
 		evictor.SecurityContext = pvcEvictorContainerSecurityContext()
