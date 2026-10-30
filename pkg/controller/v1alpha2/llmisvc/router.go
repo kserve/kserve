@@ -369,6 +369,13 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasSpec() {
 		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
 
+		// Some Gateway implementations (e.g. GKE) reject spec.rules.timeouts.
+		if cfg.DisableHTTPRouteTimeout {
+			for i := range httpRoute.Spec.Rules {
+				httpRoute.Spec.Rules[i].Timeouts = nil
+			}
+		}
+
 		// The route preset ships modality rules for the omni runtime. Strip
 		// them for every other runtime so they do not consume the Gateway API
 		// rule and match caps that LoRA adapter expansion needs; this runs

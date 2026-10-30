@@ -158,6 +158,10 @@ type Config struct {
 	TLSCipherSuites         string `json:"tlsCipherSuites,omitempty"`
 	TLSCipherSuitesOpenSSL  string `json:"tlsCipherSuitesOpenSSL,omitempty"`
 
+	// DisableHTTPRouteTimeout omits spec.rules.timeouts from generated HTTPRoutes,
+	// for Gateway implementations (e.g. GKE) that reject the field.
+	DisableHTTPRouteTimeout bool `json:"disableHTTPRouteTimeout,omitempty"`
+
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
 
@@ -223,6 +227,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayName:          igwName,
 		UrlScheme:                   ingressConfig.UrlScheme,
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
+		DisableHTTPRouteTimeout:     ingressConfig.DisableHTTPRouteTimeout,
 		TLSMinVersion:               ingressConfig.LLMInferenceServiceTLSMinVersion,
 		TLSCipherSuites:             ingressConfig.LLMInferenceServiceTLSCipherSuites,
 		TLSCipherSuitesOpenSSL:      openSSLCiphers,
