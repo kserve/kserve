@@ -108,6 +108,7 @@ data:
         "cpuLimit": "{{ .Values.kserve.storage.resources.limits.cpu }}",
         "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
         "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
+        "httpStorageUriAllowlist": {{ .Values.kserve.storage.httpStorageUriAllowlist | toJson }},
         "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
         "uidModelcar": {{ .Values.kserve.storage.uidModelcar }},
         "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",

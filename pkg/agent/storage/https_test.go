@@ -237,3 +237,19 @@ func TestCreateNewFileValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPStorageURIAllowlistFromEnv(t *testing.T) {
+	t.Setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", `["models.ml-platform.svc","10.20.0.0/16"]`)
+	allowlist, err := httpStorageURIAllowlistFromEnv()
+	if err != nil {
+		t.Fatalf("httpStorageURIAllowlistFromEnv() error = %v", err)
+	}
+	if len(allowlist) != 2 || allowlist[0] != "models.ml-platform.svc" || allowlist[1] != "10.20.0.0/16" {
+		t.Fatalf("httpStorageURIAllowlistFromEnv() = %v", allowlist)
+	}
+
+	t.Setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", `["*.ml-platform.svc"]`)
+	if _, err := httpStorageURIAllowlistFromEnv(); err == nil {
+		t.Fatal("expected invalid allowlist to be rejected")
+	}
+}

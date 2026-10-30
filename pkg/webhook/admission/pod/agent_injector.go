@@ -57,11 +57,12 @@ const (
 )
 
 type AgentConfig struct {
-	Image         string `json:"image"`
-	CpuRequest    string `json:"cpuRequest"`
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryRequest string `json:"memoryRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
+	Image                   string   `json:"image"`
+	CpuRequest              string   `json:"cpuRequest"`
+	CpuLimit                string   `json:"cpuLimit"`
+	MemoryRequest           string   `json:"memoryRequest"`
+	MemoryLimit             string   `json:"memoryLimit"`
+	HTTPStorageURIAllowlist []string `json:"-"`
 }
 
 type LoggerConfig struct {
@@ -347,6 +348,16 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		}
 	}
 	args = append(args, constants.AgentComponentPortArgName, componentPort)
+	if len(ag.agentConfig.HTTPStorageURIAllowlist) > 0 {
+		allowlistJSON, err := json.Marshal(ag.agentConfig.HTTPStorageURIAllowlist)
+		if err != nil {
+			return fmt.Errorf("failed to encode HTTP storage URI allowlist: %w", err)
+		}
+		agentEnvs = append(agentEnvs, corev1.EnvVar{
+			Name:  constants.HTTPStorageURIAllowlistEnvVar,
+			Value: string(allowlistJSON),
+		})
+	}
 
 	agentReadinessProbePath := "/"
 	if !queueProxyAvailable {

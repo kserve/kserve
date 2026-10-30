@@ -35,6 +35,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -520,7 +521,23 @@ func ValidateStorageURI(ctx context.Context, storageURI *string, client client.C
 	if storageURI == nil {
 		return nil
 	}
-	if err := kserveutils.CheckHTTPStorageURI(*storageURI); err != nil {
+	var allowlist []string
+	if client != nil {
+		configMap := &corev1.ConfigMap{}
+		key := k8stypes.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}
+		if err := client.Get(ctx, key, configMap); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to read InferenceService config map %s/%s: %w", key.Namespace, key.Name, err)
+			}
+		} else {
+			var err error
+			allowlist, err = v1beta1.GetHTTPStorageURIAllowlist(configMap)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if err := kserveutils.CheckHTTPStorageURIWithAllowlist(*storageURI, allowlist); err != nil {
 		return err
 	}
 
