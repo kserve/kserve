@@ -97,6 +97,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
+	allErrs = append(allErrs, l.validateRouteRuleNamingAnnotation(llmSvc)...)
 	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
@@ -970,6 +971,13 @@ func (l *LLMInferenceServiceValidator) validateLoRAModelRoutingStrategyAnnotatio
 	return ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
 }
 
+// validateRouteRuleNamingAnnotation sees only the service's own annotations. A
+// value carried by a preset is caught when the merged spec is validated at
+// reconcile.
+func (l *LLMInferenceServiceValidator) validateRouteRuleNamingAnnotation(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateRouteRuleNamingAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
+}
+
 // validateDisaggregatedSetAnnotation checks that the DisaggregatedSet annotation in
 // spec.annotations is well formed. It lives in spec.annotations rather than the
 // object's metadata so the presets that turn it on by default can set it.
@@ -996,5 +1004,22 @@ func ValidateLoRAModelRoutingStrategyAnnotation(annotations map[string]string, p
 		path.Key(constants.LoRAModelRoutingStrategyAnnotationKey),
 		raw,
 		[]string{constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex},
+	)}
+}
+
+// ValidateRouteRuleNamingAnnotation is exported for the v1alpha1 validator.
+func ValidateRouteRuleNamingAnnotation(annotations map[string]string, path *field.Path) field.ErrorList {
+	raw, ok := annotations[constants.RouteRuleNamingAnnotationKey]
+	if !ok {
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", constants.RouteRuleNamingPreset, constants.RouteRuleNamingUnique:
+		return nil
+	}
+	return field.ErrorList{field.NotSupported(
+		path.Key(constants.RouteRuleNamingAnnotationKey),
+		raw,
+		[]string{constants.RouteRuleNamingPreset, constants.RouteRuleNamingUnique},
 	)}
 }

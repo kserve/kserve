@@ -1245,3 +1245,32 @@ func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
 		})
 	}
 }
+
+func TestNewIngressConfigRouteRuleNaming(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		value string // omitted from the ingress JSON when empty
+		want  string
+	}{
+		{name: "defaults to preset when omitted", want: constants.RouteRuleNamingPreset},
+		{name: "defaults to preset when blank", value: "  ", want: constants.RouteRuleNamingPreset},
+		{name: "keeps preset", value: "preset", want: constants.RouteRuleNamingPreset},
+		{name: "normalizes case and whitespace", value: " Unique ", want: constants.RouteRuleNamingUnique},
+		// Rejected per service by the llmisvc router; failing here would fail every reader of the ingress config.
+		{name: "keeps an unsupported value for the router to reject", value: " Suffixed ", want: "suffixed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			ingress := `{"ingressGateway": "knative-serving/knative-ingress-gateway"`
+			if tt.value != "" {
+				ingress += `, "routeRuleNaming": ` + strconv.Quote(tt.value)
+			}
+			ingress += `}`
+
+			cfg, err := NewIngressConfig(&corev1.ConfigMap{Data: map[string]string{IngressConfigKeyName: ingress}})
+
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(cfg.RouteRuleNaming).To(gomega.Equal(tt.want))
+		})
+	}
+}

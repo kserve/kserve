@@ -52,6 +52,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
 | kserve.controller.gateway.loraModelRoutingStrategy | string | `"exact"` |  |
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
+| kserve.controller.gateway.routeRuleNaming | string | `"preset"` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.createSharedResources | bool | `true` |  |
 | kserve.inferenceServiceConfig.enabled | string | `""` |  |
