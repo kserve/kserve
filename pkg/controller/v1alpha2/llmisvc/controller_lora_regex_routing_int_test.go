@@ -136,10 +136,13 @@ var _ = Describe("LoRA model routing strategy", func() {
 		r := &llmisvc.LLMISVCReconciler{
 			Client: c, Clientset: kubernetesfake.NewClientset(cm),
 			EventRecorder: record.NewFakeRecorder(100),
+			// Fast, shared key: certificate generation is asynchronous, and
+			// this spec drives it through reconcileUntilSettled below.
+			GenerateCertificateKey: CertificateKey,
 		}
 		// Repeat the same inputs: an unsupported value is terminal, never a backoff retry.
 		for range 2 {
-			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(svc)})
+			result, err := reconcileUntilSettled(ctx, r, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(svc)})
 			Expect(errors.Is(err, reconcile.TerminalError(nil))).To(BeTrue(), "got: %v", err)
 			Expect(result.IsZero()).To(BeTrue())
 			for _, suffix := range []string{"-kserve", "-kserve-router-scheduler"} {
