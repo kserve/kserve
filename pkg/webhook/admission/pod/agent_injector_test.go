@@ -1202,7 +1202,7 @@ func TestAgentInjector(t *testing.T) {
 						{
 							Name: "queue-proxy",
 							Env: []corev1.EnvVar{
-								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
+								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
 								{Name: "USER_PORT", Value: constants.InferenceServiceDefaultAgentPortStr},
 							},
 						},
@@ -1888,6 +1888,105 @@ func TestAgentInjector(t *testing.T) {
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
+	}
+}
+
+func TestAgentInjectorQueueProxyReadinessProbe(t *testing.T) {
+	tcpProbe := `{"tcpSocket":{"port":8080},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}`
+	httpProbe := `{"httpGet":{"path":"/v2/health/ready","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"timeoutSeconds":5,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}`
+	multiProbes := `[{"tcpSocket":{"port":8080},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},{"httpGet":{"path":"/ready","port":8090,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}]`
+
+	scenarios := map[string]struct {
+		queueProxyEnv []corev1.EnvVar
+		expectedProbe string
+	}{
+		"TCPSocketProbeMovedToAgentPort": {
+			queueProxyEnv: []corev1.EnvVar{
+				{Name: "SERVING_READINESS_PROBE", Value: tcpProbe},
+				{Name: "USER_PORT", Value: "8080"},
+			},
+			expectedProbe: `{"tcpSocket":{"port":9081},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}`,
+		},
+		"HTTPGetProbeMovedToAgentPort": {
+			queueProxyEnv: []corev1.EnvVar{
+				{Name: "USER_PORT", Value: "8080"},
+				{Name: "SERVING_READINESS_PROBE", Value: httpProbe},
+			},
+			expectedProbe: `{"httpGet":{"path":"/v2/health/ready","port":9081,"host":"127.0.0.1","scheme":"HTTP"},"timeoutSeconds":5,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}`,
+		},
+		"MultiContainerProbesOnlyUserPortMoved": {
+			queueProxyEnv: []corev1.EnvVar{
+				{Name: "SERVING_READINESS_PROBE", Value: multiProbes},
+				{Name: "USER_PORT", Value: "8080"},
+			},
+			expectedProbe: `[{"tcpSocket":{"port":9081},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},{"httpGet":{"path":"/ready","port":8090,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}]`,
+		},
+		"ProbeOnOtherPortUnchanged": {
+			queueProxyEnv: []corev1.EnvVar{
+				{Name: "SERVING_READINESS_PROBE", Value: tcpProbe},
+				{Name: "USER_PORT", Value: "8000"},
+			},
+			expectedProbe: tcpProbe,
+		},
+		"NoUserPortUnchanged": {
+			queueProxyEnv: []corev1.EnvVar{
+				{Name: "SERVING_READINESS_PROBE", Value: tcpProbe},
+			},
+			expectedProbe: tcpProbe,
+		},
+	}
+
+	clientset := fakeclientset.NewSimpleClientset()
+	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
+		Data: map[string]string{},
+	})
+	injector := &AgentInjector{
+		credentialBuilder,
+		agentConfig,
+		loggerConfig,
+		batcherTestConfig,
+	}
+	findEnv := func(env []corev1.EnvVar, name string) string {
+		for _, e := range env {
+			if e.Name == name {
+				return e.Value
+			}
+		}
+		return ""
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			originalProbe := findEnv(scenario.queueProxyEnv, "SERVING_READINESS_PROBE")
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: constants.InferenceServiceContainerName},
+						{Name: "queue-proxy", Env: scenario.queueProxyEnv},
+					},
+				},
+			}
+			if err := injector.InjectAgent(pod); err != nil {
+				t.Fatalf("InjectAgent failed: %v", err)
+			}
+			if len(pod.Spec.Containers) != 3 || pod.Spec.Containers[2].Name != constants.AgentContainerName {
+				t.Fatalf("expected the agent container to be injected, got %d containers", len(pod.Spec.Containers))
+			}
+			if got := findEnv(pod.Spec.Containers[1].Env, "SERVING_READINESS_PROBE"); got != scenario.expectedProbe {
+				t.Errorf("queue-proxy SERVING_READINESS_PROBE = %s, want %s", got, scenario.expectedProbe)
+			}
+			// The agent still probes the user container on its own port.
+			if got := findEnv(pod.Spec.Containers[2].Env, "SERVING_READINESS_PROBE"); got != originalProbe {
+				t.Errorf("agent SERVING_READINESS_PROBE = %s, want %s", got, originalProbe)
+			}
+		})
 	}
 }
 
