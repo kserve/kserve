@@ -40,9 +40,26 @@ class TimeSeriesEndpoints:
             response,
         )
         if isinstance(forecast_response, ErrorResponse):
+            error = forecast_response.error
+
+            if error.code is not None:
+                status_code = int(error.code)
+            elif error.type in {
+                "invalid_horizon",
+                "invalid_quantile",
+                "invalid_frequency",
+                "unsupported_time_series_type",
+                "model_not_supported",
+            }:
+                status_code = 400
+            else:
+                status_code = 500
+
+            error.code = str(status_code)
+
             return ORJSONResponse(
                 content=forecast_response.model_dump(),
-                status_code=int(forecast_response.error.code),
+                status_code=status_code,
             )
         else:
             return forecast_response
