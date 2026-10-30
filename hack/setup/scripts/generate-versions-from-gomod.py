@@ -218,7 +218,10 @@ def find_best_chart_version(versions, requested_app_version):
 def ensure_helm_repo(name, url):
     result = run("helm repo list -o json || echo '[]'")
     repos = json.loads(result)
-    if any(r.get("name") == name for r in repos):
+    existing = next((repo for repo in repos if repo.get("name") == name), None)
+    if existing is not None:
+        if existing.get("url") != url:
+            run(f"helm repo add --force-update {name} {url}")
         return
     run(f"helm repo add {name} {url}")
 
