@@ -14,7 +14,7 @@ from urllib.request import Request
 # Configuration: (go_package, helm_repo, helm_chart, (github_repo, download_file))
 DEPENDENCIES = {
     "KEDA_VERSION": ("github.com/kedacore/keda/v2", "kedacore", "keda", None),
-    "ISTIO_VERSION": ("istio.io/api", "istio", "base", None),
+    "ISTIO_VERSION": ("istio.io/api", None, None, None),
     "OPENTELEMETRY_OPERATOR_VERSION": (
         "github.com/open-telemetry/opentelemetry-operator",
         "open-telemetry",
@@ -42,7 +42,6 @@ DEPENDENCIES = {
 }
 
 HELM_REPOS = {
-    "istio": "https://blob.istio.io/istio-release/charts",
     "kedacore": "https://kedacore.github.io/charts",
     "open-telemetry": "https://open-telemetry.github.io/opentelemetry-helm-charts",
 }
@@ -318,7 +317,7 @@ def main():
     new_section = [
         "# START\n",
         "# Serverless dependencies\n",
-        f"ISTIO_VERSION={versions['ISTIO_VERSION']}\n",
+        f"ISTIO_VERSION={versions['ISTIO_VERSION'].lstrip('v')}\n",
         "\n",
         "# KEDA dependencies\n",
         f"KEDA_VERSION={versions['KEDA_VERSION']}\n",
