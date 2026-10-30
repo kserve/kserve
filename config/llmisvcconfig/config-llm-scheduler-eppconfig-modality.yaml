@@ -15,7 +15,7 @@ spec:
         # endpoint instead. Intentionally free of token-producer/precise-prefix
         # plugins so no standalone tokenizer is auto-deployed.
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
             - type: active-request-scorer

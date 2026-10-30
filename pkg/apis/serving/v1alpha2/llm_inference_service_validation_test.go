@@ -992,6 +992,22 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
 	})
 
+	t.Run("pvc.spec rejects ReadOnlyMany", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{
+				PVC: &PVCTierSpec{
+					Spec: &corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
+					},
+				},
+			}}},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "accessModes")
+	})
+
 	t.Run("prefill kvCacheOffloading is also validated", func(t *testing.T) {
 		svc := &LLMInferenceService{
 			Spec: LLMInferenceServiceSpec{

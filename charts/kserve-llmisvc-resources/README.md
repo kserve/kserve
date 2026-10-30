@@ -87,6 +87,8 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.kernelcache.registry.caConfigMapRef.key | string | `""` |  |
 | kserve.kernelcache.registry.caConfigMapRef.name | string | `""` |  |
 | kserve.kernelcache.registry.endpoint | string | `""` |  |
+| kserve.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
+| kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
 | kserve.llmisvc.controller.affinity | object | `{}` |  |
 | kserve.llmisvc.controller.annotations | object | `{}` |  |
 | kserve.llmisvc.controller.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
@@ -111,7 +113,6 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.livenessProbe.initialDelaySeconds | int | `30` |  |
 | kserve.llmisvc.controller.livenessProbe.periodSeconds | int | `10` |  |
 | kserve.llmisvc.controller.livenessProbe.timeoutSeconds | int | `5` |  |
-| kserve.llmisvc.controller.metricsBindAddress | string | `"127.0.0.1"` |  |
 | kserve.llmisvc.controller.metricsBindPort | string | `"8443"` |  |
 | kserve.llmisvc.controller.nodeSelector | object | `{}` |  |
 | kserve.llmisvc.controller.podAnnotations | object | `{}` |  |

@@ -20,25 +20,55 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
 	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
 
 const (
-	kernelCachePrefetchServiceAccount = "kernel-cache-prefetcher-sa"
-	kernelCachePrefetchRoleBinding    = "kernel-cache-prefetcher-rb"
-	kernelCachePrefetchManagedLabel   = "internal.serving.kserve.io/kernelcache-prefetcher"
+	kernelCachePrefetchServiceAccount   = "kernel-cache-prefetcher-sa"
+	kernelCachePrefetchRoleBinding      = "kernel-cache-prefetcher-rb"
+	kernelCachePrefetchManagedLabel     = "internal.serving.kserve.io/kernelcache-prefetcher"
+	runtimeImagePrefetchJobLabel        = "internal.serving.kserve.io/runtime-image-prefetch"
+	runtimeImagePrefetchImageAnnotation = "internal.serving.kserve.io/runtime-image"
+	kernelCachePrefetchVolumeName       = "kernel-cache"
+	kernelCachePrefetchMountPath        = "/mnt/kernel-cache"
+	runtimeImagePrefetchVolumeName      = "runtime-image"
+	runtimeImagePrefetchMountPath       = "/mnt/runtime-image"
+	// Runtime image prefetch is best-effort. Bound stuck Jobs so they become terminal.
+	// A later KernelCache reconcile can replace a failed Job.
+	runtimeImagePrefetchActiveDeadlineSeconds int64 = 1800
 )
+
+type imagePrefetchJobOptions struct {
+	name                    string
+	namespace               string
+	metadata                metav1.ObjectMeta
+	containerName           string
+	helperImage             string
+	imageReference          string
+	volumeName              string
+	mountPath               string
+	tolerations             []corev1.Toleration
+	node                    *corev1.Node
+	ttlSecondsAfterFinished *int32
+	activeDeadlineSeconds   *int64
+}
 
 func (r *KernelCacheReconciler) checkNamespace(ctx context.Context, name string) error {
 	namespace := &corev1.Namespace{}
@@ -80,7 +110,7 @@ func (r *KernelCacheReconciler) ensurePrefetchServiceAccount(ctx context.Context
 	return nil
 }
 
-func (r *KernelCacheReconciler) ensureOCIPrefetchJobs(
+func (r *KernelCacheReconciler) ensureKernelCacheArtifactPrefetchJobs(
 	ctx context.Context,
 	kernelCache *v1alpha1.KernelCache,
 	nodeGroup *v1alpha1.KernelCacheNodeGroup,
@@ -88,14 +118,14 @@ func (r *KernelCacheReconciler) ensureOCIPrefetchJobs(
 	config *v1beta1.KernelCacheConfig,
 ) error {
 	for i := range readyNodes.Items {
-		if err := r.ensureOCIPrefetchJob(ctx, kernelCache, nodeGroup, &readyNodes.Items[i], config); err != nil {
+		if err := r.ensureKernelCacheArtifactPrefetchJob(ctx, kernelCache, nodeGroup, &readyNodes.Items[i], config); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *KernelCacheReconciler) ensureOCIPrefetchJob(
+func (r *KernelCacheReconciler) ensureKernelCacheArtifactPrefetchJob(
 	ctx context.Context,
 	kernelCache *v1alpha1.KernelCache,
 	nodeGroup *v1alpha1.KernelCacheNodeGroup,
@@ -128,48 +158,182 @@ func (r *KernelCacheReconciler) ensureOCIPrefetchJob(
 	}
 
 	metadata := kernelcachelabels.ObjectMeta(kernelCache.Name, kernelCache.Namespace, node.Name)
-	job = &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        jobName,
-			Namespace:   config.JobNamespace,
-			Labels:      metadata.Labels,
-			Annotations: metadata.Annotations,
-		},
-		Spec: batchv1.JobSpec{
-			TTLSecondsAfterFinished: kernelCacheJobTTL(config),
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: metadata.Labels, Annotations: metadata.Annotations},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyNever,
-					ServiceAccountName: kernelCachePrefetchServiceAccount,
-					NodeSelector:       map[string]string{"kubernetes.io/hostname": nodeHostname(node)},
-					Tolerations:        append([]corev1.Toleration(nil), nodeGroup.Spec.Tolerations...),
-					Containers: []corev1.Container{{
-						Name:            "kernel-cache-prefetch",
-						Image:           config.PrefetchImage,
-						ImagePullPolicy: corev1.PullIfNotPresent,
-						Command:         []string{"/bin/sh", "-c", "test -d /mnt/kernel-cache"},
-						VolumeMounts:    []corev1.VolumeMount{{Name: "kernel-cache", MountPath: "/mnt/kernel-cache", ReadOnly: true}},
-					}},
-					Volumes: []corev1.Volume{{Name: "kernel-cache", VolumeSource: corev1.VolumeSource{
-						Image: &corev1.ImageVolumeSource{Reference: kernelCache.Spec.Artifact.ImageReference, PullPolicy: corev1.PullIfNotPresent},
-					}}},
-				},
-			},
-		},
-	}
-	automount := false
-	job.Spec.Template.Spec.AutomountServiceAccountToken = &automount
+	job = buildImagePrefetchJob(imagePrefetchJobOptions{
+		name:                    jobName,
+		namespace:               config.JobNamespace,
+		metadata:                metadata,
+		containerName:           "kernel-cache-prefetch",
+		helperImage:             config.PrefetchImage,
+		imageReference:          kernelCache.Spec.Artifact.ImageReference,
+		volumeName:              kernelCachePrefetchVolumeName,
+		mountPath:               kernelCachePrefetchMountPath,
+		tolerations:             nodeGroup.Spec.Tolerations,
+		node:                    node,
+		ttlSecondsAfterFinished: kernelCacheJobTTL(config),
+	})
 	if err := r.Create(ctx, job); err != nil && !apierrors.IsAlreadyExists(err) {
 		return err
 	}
 	return nil
 }
 
+func (r *KernelCacheReconciler) ensureRuntimeImagePrefetchJobs(
+	ctx context.Context,
+	kernelCache *v1alpha1.KernelCache,
+	nodeGroup *v1alpha1.KernelCacheNodeGroup,
+	readyNodes *corev1.NodeList,
+	config *v1beta1.KernelCacheConfig,
+) (bool, error) {
+	runtimeImage := runtimeImageForKernelCache(kernelCache)
+	if !config.RuntimeImagePrefetch.Enabled || runtimeImage == "" || isIneligibleRuntimeImageReference(runtimeImage) {
+		return false, nil
+	}
+	needsRequeue := false
+	var result error
+	for i := range readyNodes.Items {
+		needsRequeueForNode, err := r.ensureRuntimeImagePrefetchJob(ctx, runtimeImage, nodeGroup.Spec.Tolerations, &readyNodes.Items[i], config)
+		if needsRequeueForNode {
+			needsRequeue = true
+		}
+		if err != nil {
+			result = errors.Join(result, err)
+		}
+	}
+	return needsRequeue, result
+}
+
+func (r *KernelCacheReconciler) ensureRuntimeImagePrefetchJob(
+	ctx context.Context,
+	runtimeImage string,
+	tolerations []corev1.Toleration,
+	node *corev1.Node,
+	config *v1beta1.KernelCacheConfig,
+) (bool, error) {
+	jobName := runtimeImagePrefetchJobName(runtimeImage, node, tolerations)
+	job := &batchv1.Job{}
+	if err := r.Get(ctx, client.ObjectKey{Name: jobName, Namespace: config.JobNamespace}, job); err == nil {
+		if !job.DeletionTimestamp.IsZero() {
+			return true, nil
+		}
+		for _, condition := range job.Status.Conditions {
+			if condition.Type == batchv1.JobFailed && condition.Status == corev1.ConditionTrue {
+				uid := job.UID
+				if err := r.Delete(ctx, job, client.Preconditions{UID: &uid}, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !apierrors.IsNotFound(err) {
+					return false, err
+				}
+				return true, nil
+			}
+		}
+		return false, nil
+	} else if !apierrors.IsNotFound(err) {
+		return false, err
+	}
+
+	metadata := metav1.ObjectMeta{
+		Labels: map[string]string{
+			runtimeImagePrefetchJobLabel: "true",
+		},
+		Annotations: map[string]string{
+			runtimeImagePrefetchImageAnnotation:         runtimeImage,
+			kernelcachelabels.KernelCacheNodeAnnotation: node.Name,
+		},
+	}
+	job = buildImagePrefetchJob(imagePrefetchJobOptions{
+		name:                    jobName,
+		namespace:               config.JobNamespace,
+		metadata:                metadata,
+		containerName:           "runtime-image-prefetch",
+		helperImage:             config.PrefetchImage,
+		imageReference:          runtimeImage,
+		volumeName:              runtimeImagePrefetchVolumeName,
+		mountPath:               runtimeImagePrefetchMountPath,
+		tolerations:             tolerations,
+		node:                    node,
+		ttlSecondsAfterFinished: runtimeImagePrefetchJobTTL(config),
+		activeDeadlineSeconds:   ptr.To(runtimeImagePrefetchActiveDeadlineSeconds),
+	})
+	if err := r.Create(ctx, job); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
+}
+
+func buildImagePrefetchJob(options imagePrefetchJobOptions) *batchv1.Job {
+	automount := false
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: options.name, Namespace: options.namespace,
+			Labels: options.metadata.Labels, Annotations: options.metadata.Annotations,
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: options.ttlSecondsAfterFinished,
+			ActiveDeadlineSeconds:   options.activeDeadlineSeconds,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: options.metadata.Labels, Annotations: options.metadata.Annotations},
+				Spec: corev1.PodSpec{
+					RestartPolicy:                corev1.RestartPolicyNever,
+					ServiceAccountName:           kernelCachePrefetchServiceAccount,
+					AutomountServiceAccountToken: &automount,
+					NodeSelector:                 map[string]string{"kubernetes.io/hostname": nodeHostname(options.node)},
+					Tolerations:                  append([]corev1.Toleration(nil), options.tolerations...),
+					Containers: []corev1.Container{{
+						Name:            options.containerName,
+						Image:           options.helperImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Command:         []string{"/bin/sh", "-c", "test -d " + options.mountPath},
+						VolumeMounts:    []corev1.VolumeMount{{Name: options.volumeName, MountPath: options.mountPath, ReadOnly: true}},
+					}},
+					Volumes: []corev1.Volume{{Name: options.volumeName, VolumeSource: corev1.VolumeSource{
+						Image: &corev1.ImageVolumeSource{Reference: options.imageReference, PullPolicy: corev1.PullIfNotPresent},
+					}}},
+				},
+			},
+		},
+	}
+}
+
 func kernelCachePrefetchJobName(kernelCache *v1alpha1.KernelCache, node *corev1.Node) string {
 	key := kernelCache.Namespace + "/" + kernelCache.Name + "/" + kernelCache.Spec.Artifact.ImageReference + "/" + node.Name
 	hash := sha256.Sum256([]byte(key))
 	return fmt.Sprintf("kc-%s-%s-%s", readableJobNamePart(kernelCache.Name, 24), readableJobNamePart(node.Name, 18), hex.EncodeToString(hash[:])[:16])
+}
+
+func runtimeImagePrefetchJobName(runtimeImage string, node *corev1.Node, tolerations []corev1.Toleration) string {
+	key := string(node.UID) + "/" + runtimeImage + "/" + runtimeImagePrefetchTolerationKey(tolerations)
+	hash := sha256.Sum256([]byte(key))
+	return fmt.Sprintf("kc-runtime-%s-%s", readableJobNamePart(node.Name, 34), hex.EncodeToString(hash[:])[:16])
+}
+
+func runtimeImagePrefetchTolerationKey(tolerations []corev1.Toleration) string {
+	canonical := append([]corev1.Toleration(nil), tolerations...)
+	sort.Slice(canonical, func(i, j int) bool {
+		return tolerationKey(canonical[i]) < tolerationKey(canonical[j])
+	})
+	keys := make([]string, len(canonical))
+	for i := range canonical {
+		keys[i] = tolerationKey(canonical[i])
+	}
+	return strings.Join(keys, "\x01")
+}
+
+func tolerationKey(toleration corev1.Toleration) string {
+	tolerationSeconds := ""
+	if toleration.TolerationSeconds != nil {
+		tolerationSeconds = strconv.FormatInt(*toleration.TolerationSeconds, 10)
+	}
+	return strings.Join([]string{toleration.Key, string(toleration.Operator), toleration.Value, string(toleration.Effect), tolerationSeconds}, "\x00")
+}
+
+func runtimeImageForKernelCache(kernelCache *v1alpha1.KernelCache) string {
+	return strings.TrimSpace(kernelCache.Spec.Artifact.Identity.Factors[cacheidentity.RuntimeImageFactor])
+}
+
+func isIneligibleRuntimeImageReference(image string) bool {
+	ref, err := name.ParseReference(image)
+	return err != nil || ref.Identifier() == "latest"
 }
 
 func readableJobNamePart(value string, maxLength int) string {
@@ -189,6 +353,14 @@ func kernelCacheJobTTL(config *v1beta1.KernelCacheConfig) *int32 {
 		return config.JobTTLSecondsAfterFinished
 	}
 	ttl := v1beta1.DefaultKernelCacheJobTTLSeconds
+	return &ttl
+}
+
+func runtimeImagePrefetchJobTTL(config *v1beta1.KernelCacheConfig) *int32 {
+	if config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished != nil {
+		return config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished
+	}
+	ttl := v1beta1.DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds
 	return &ttl
 }
 

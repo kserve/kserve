@@ -65,7 +65,7 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 				Namespace: ns,
 			},
 			Spec: v1alpha2.LLMInferenceServiceSpec{
-				Model: v1alpha2.LLMModelSpec{URI: mustParseURL("gs://dummy")},
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
 				Router: &v1alpha2.RouterSpec{
 					Route: &v1alpha2.GatewayRoutesSpec{
 						HTTP: &v1alpha2.HTTPRouteSpec{
@@ -99,8 +99,8 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 	})
 })
 
-func mustParseURL(s string) apis.URL {
-	u, err := apis.ParseURL(s)
+func mustParseURL() apis.URL {
+	u, err := apis.ParseURL("gs://dummy")
 	if err != nil {
 		panic(err)
 	}

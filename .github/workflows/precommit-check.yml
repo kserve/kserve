@@ -5,11 +5,15 @@ on:
   # for PR runs; a burst of merges coalesces into one run for its last commit.
   # Merges by github-actions[bot] start no push runs, so a dependency bump the
   # bot merges is picked up by the next human merge.
+  #
+  # Covers every event go.yml runs on: Go Test skips fmt, vet and manifests
+  # (make test-only) and relies on this workflow for them.
   push:
-    branches: [master]
+    branches: [master, release*]
   pull_request:
   merge_group:
     types: [ checks_requested ]
+  workflow_dispatch:
 
 # make check runs third-party tooling (pip, uv, go install, apt), so it gets no
 # write access to the repository.
@@ -26,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     # A master run that misses the cache builds from scratch and then saves ~2GB.
     timeout-minutes: 30
+    env:
+      SAVES_GO_CACHE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -67,15 +73,16 @@ jobs:
       # go.sum, Go version, tools), not with kserve's own code: Go matches
       # build entries by content, so changed packages recompile on top of it.
       #
-      # Only master push runs save it. PR and merge queue runs
-      # restore the master entry and never save: their entries are visible to
-      # that one ref and would only eat into the 10GB cache quota.
+      # Only master push runs save it (SAVES_GO_CACHE). PR, merge queue,
+      # release branch and manual runs restore the master entry and never
+      # save: their entries are visible to that one ref and would only eat
+      # into the 10GB cache quota.
       #
       # It also means the entry PR runs restore was built from merged code.
       # GitHub scopes a PR run's saves to its merge ref, and gives
       # pull_request_target, issue_comment and workflow_run jobs a read-only
       # cache. Keep it that way:
-      # - never save this cache from pull_request or merge_group runs
+      # - never save this cache from runs other than master pushes
       # - never set cache-mode: write, and never run code that is not on master
       #   from a trigger that writes master's cache
       # - never restore this key in workflows that build or publish releases
@@ -85,6 +92,9 @@ jobs:
       # immutable, so a bad entry stays until the key changes.
       # To drop one: gh cache list -R kserve/kserve --key precommit-go-, then
       # gh cache delete -R kserve/kserve <key>; the next master run rebuilds it.
+      #
+      # go.yml restores this entry too. Keep its `path` list identical to this
+      # one, or it silently misses and builds from scratch.
       - name: Restore Go cache
         id: go-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -94,10 +104,10 @@ jobs:
             ~/.cache/go-build
             ~/.cache/golangci-lint
           key: precommit-go-${{ runner.os }}-${{ steps.key.outputs.image }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', 'qpext/go.mod', 'qpext/go.sum', 'kernelcache/mcv/go.mod', 'kernelcache/mcv/go.sum') }}-${{ steps.key.outputs.tools }}
-          # PR runs fall back to the newest master entry when the dependency set differs.
-          # Master builds each entry from scratch, so modules dropped from
-          # go.sum don't pile up in it.
-          restore-keys: ${{ github.event_name != 'push' && format('precommit-go-{0}-{1}-{2}-', runner.os, steps.key.outputs.image, steps.setup-go.outputs.go-version) || '' }}
+          # Runs that don't save fall back to the newest master entry when the
+          # dependency set differs. Master builds each entry from scratch, so
+          # modules dropped from go.sum don't pile up in it.
+          restore-keys: ${{ env.SAVES_GO_CACHE != 'true' && format('precommit-go-{0}-{1}-{2}-', runner.os, steps.key.outputs.image, steps.setup-go.outputs.go-version) || '' }}
 
       # Go and golangci-lint delete entries unused for 5 days, at most once a
       # day, going by file mtimes, which the restore keeps from the day master
@@ -146,7 +156,7 @@ jobs:
       # A failed check saves nothing either, so a half-built cache never takes
       # the key.
       - name: Save Go cache
-        if: github.event_name == 'push' && steps.go-cache.outputs.cache-hit != 'true'
+        if: env.SAVES_GO_CACHE == 'true' && steps.go-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |

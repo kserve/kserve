@@ -437,13 +437,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		}
 
 		currentInitContainer := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-
-		// Add HF default env vars when the init container is new or already has HF_ env vars
-		// from a previous reconciliation. Skip only when upgrading from an older operator version
-		// that didn't set these vars, to avoid unnecessary pod restarts.
-		if currentInitContainer == nil || slices.ContainsFunc(currentInitContainer.Env, func(e corev1.EnvVar) bool {
-			return strings.HasPrefix(e.Name, "HF_")
-		}) {
+		if addsDefaultHFEnv(currentInitContainer, initContainer.Args) {
 			utils.AddDefaultHuggingFaceEnvVars(initContainer)
 		}
 
@@ -453,6 +447,21 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 	}
 
 	return nil
+}
+
+// addsDefaultHFEnv reports whether the storage-initializer gets the default Hugging
+// Face download environment variables. It returns true when there is no live init
+// container, when the live container downloads a different set of arguments, or when
+// the live container already carries an HF_ variable. A live container that runs the
+// same downloads without any HF_ variable keeps that environment, so a controller
+// upgrade does not restart its pod.
+func addsDefaultHFEnv(current *corev1.Container, args []string) bool {
+	if current == nil || !slices.Equal(current.Args, args) {
+		return true
+	}
+	return slices.ContainsFunc(current.Env, func(e corev1.EnvVar) bool {
+		return strings.HasPrefix(e.Name, "HF_")
+	})
 }
 
 // attachStorageInitializer configures a PodSpec to use KServe storage-initializer for
@@ -637,9 +646,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 		return strings.HasPrefix(p.uri, constants.HfURIPrefix)
 	})
 	currentInit := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-	if needHF && (currentInit == nil || slices.ContainsFunc(currentInit.Env, func(e corev1.EnvVar) bool {
-		return strings.HasPrefix(e.Name, "HF_")
-	})) {
+	if needHF && addsDefaultHFEnv(currentInit, initPtr.Args) {
 		utils.AddDefaultHuggingFaceEnvVars(initPtr)
 	}
 

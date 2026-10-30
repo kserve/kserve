@@ -28,6 +28,7 @@ import (
 	"maps"
 	"math/big"
 	"net"
+	"slices"
 	"sort"
 	"time"
 
@@ -152,8 +153,16 @@ func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMIn
 	return expected, nil
 }
 
+// generateCertificateKey creates the private key of a workload serving certificate.
+func (r *LLMISVCReconciler) generateCertificateKey() (*rsa.PrivateKey, error) {
+	if r.GenerateCertificateKey != nil {
+		return r.GenerateCertificateKey()
+	}
+	return rsa.GenerateKey(rand.Reader, 4096)
+}
+
 // createSelfSignedTLSCertificate creates a self-signed cert the server can use to serve TLS.
-func createSelfSignedTLSCertificate(dnsNames []string, ipStrings []string) ([]byte, []byte, error) {
+func createSelfSignedTLSCertificate(dnsNames []string, ipStrings []string, generateKey func() (*rsa.PrivateKey, error)) ([]byte, []byte, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
@@ -182,7 +191,7 @@ func createSelfSignedTLSCertificate(dnsNames []string, ipStrings []string) ([]by
 		IPAddresses:           ipAddresses,
 	}
 
-	priv, err := rsa.GenerateKey(rand.Reader, 4096)
+	priv, err := generateKey()
 	if err != nil {
 		return nil, nil, fmt.Errorf("error generating key: %w", err)
 	}
@@ -298,6 +307,12 @@ func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha
 		}
 	}
 
+	eppName := llmSvc.Spec.Router.EPPServiceName(llmSvc)
+	dnsNames = append(dnsNames,
+		network.GetServiceHostname(eppName, llmSvc.GetNamespace()),
+		fmt.Sprintf("%s.%s.svc", eppName, llmSvc.GetNamespace()),
+	)
+
 	if isTokenizerEnabled(llmSvc.Spec) {
 		tokSvcName := tokenizerServiceName(llmSvc)
 		dnsNames = append(dnsNames,
@@ -307,7 +322,7 @@ func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha
 	}
 
 	sort.Strings(dnsNames)
-	return dnsNames
+	return slices.Compact(dnsNames)
 }
 
 func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]string, error) {

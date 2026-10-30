@@ -104,7 +104,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0",
+									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
@@ -746,6 +746,9 @@ func TestPresetFiles(t *testing.T) {
 		},
 	}
 
+	addExpectedPVCEvictorPresetOutput(tt["config-llm-template.yaml"].expected, false)
+	addExpectedPVCEvictorPresetOutput(tt["config-llm-decode-worker-data-parallel.yaml"].expected, false)
+
 	remaining := llmisvc.WellKnownDefaultConfigs.Union(llmisvc.WellKnownBaseRefConfigs)
 
 	_ = filepath.Walk(presetsDir, func(path string, info os.FileInfo, err error) error {
@@ -768,6 +771,16 @@ func TestPresetFiles(t *testing.T) {
 			}
 
 			config := loadConfig(t, data, filePath)
+
+			rolePodSpecs := []*corev1.PodSpec{config.Spec.Worker}
+			if config.Spec.Prefill != nil {
+				rolePodSpecs = append(rolePodSpecs, config.Spec.Prefill.Template, config.Spec.Prefill.Worker)
+			}
+			for _, podSpec := range rolePodSpecs {
+				if podSpec != nil && utils.GetContainerWithName(podSpec, "pvc-evictor") != nil {
+					t.Errorf("%s: pvc-evictor must be declared only on spec.template", filename)
+				}
+			}
 
 			name := config.Name
 			if !llmisvc.WellKnownDefaultConfigs.Has(name) && !llmisvc.WellKnownBaseRefConfigs.Has(name) {
@@ -889,7 +902,7 @@ func TestSingleNodeTensorParallelRendered(t *testing.T) {
 				t.Fatal("expected at least one container")
 			}
 
-			cmd := strings.Join(containers[0].Command, " ")
+			cmd := strings.Join(findMainContainerForPresetTest(t, containers).Command, " ")
 			if tt.wantFlag != "" {
 				if !strings.Contains(cmd, tt.wantFlag) {
 					t.Errorf("rendered command does not contain %q:\n%s", tt.wantFlag, cmd)
@@ -973,6 +986,63 @@ func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferen
 	return config
 }
 
+func findMainContainerForPresetTest(t *testing.T, containers []corev1.Container) *corev1.Container {
+	t.Helper()
+	for i := range containers {
+		if containers[i].Name == "main" {
+			return &containers[i]
+		}
+	}
+	t.Fatalf("main container not found in %v", containers)
+	return nil
+}
+
+func addExpectedPVCEvictorPresetOutput(config *v1alpha2.LLMInferenceServiceConfig, hasWorker bool) {
+	config.Annotations = map[string]string{
+		"internal.serving.kserve.io/kv-cache-shm-percent-of-cpu": "120",
+	}
+	config.Spec.Annotations = map[string]string{
+		"serving.kserve.io/model-based-routing-enabled": "true",
+	}
+	if hasWorker {
+		config.Spec.Labels = map[string]string{
+			"serving.kserve.io/llmisvc-revision": "placeholder",
+		}
+		config.Spec.Annotations["serving.kserve.io/enable-disaggregated-set"] = "true"
+	}
+	addExpectedPVCEvictorContainer(config.Spec.Template)
+	if hasWorker {
+		addExpectedPVCEvictorContainer(config.Spec.Worker)
+	}
+}
+
+func addExpectedPVCEvictorContainer(podSpec *corev1.PodSpec) {
+	if podSpec == nil {
+		return
+	}
+	evictor := corev1.Container{
+		Name:            "pvc-evictor",
+		Image:           "ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499",
+		ImagePullPolicy: corev1.PullAlways,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("1Gi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("4"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: ptr.To(false),
+			Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+			RunAsNonRoot:             ptr.To(true),
+		},
+	}
+	podSpec.Containers = append([]corev1.Container{evictor}, podSpec.Containers...)
+}
+
 // TestDataParallelPresetsWithoutParallelism guards the data-parallel presets
 // against a nil .spec.parallelism. The controller only selects them when
 // parallelism is set, but nothing stops a user from listing one in baseRefs
@@ -1020,7 +1090,7 @@ func TestDataParallelPresetsWithoutParallelism(t *testing.T) {
 				t.Fatal("expected at least one container")
 			}
 
-			cmd := strings.Join(containers[0].Command, " ")
+			cmd := strings.Join(findMainContainerForPresetTest(t, containers).Command, " ")
 			for _, want := range []string{"--data-parallel-size 1", "--data-parallel-size-local 1", "--data-parallel-rpc-port 5555"} {
 				if !strings.Contains(cmd, want) {
 					t.Errorf("rendered command does not contain %q", want)
@@ -1232,7 +1302,7 @@ func TestSGLangTemplateNilParallelism(t *testing.T) {
 	}
 
 	// --tp flag must be absent when Parallelism.Tensor is zero/nil
-	cmd := out.Spec.Template.Containers[0].Command[2]
+	cmd := findMainContainerForPresetTest(t, out.Spec.Template.Containers).Command[2]
 	if strings.Contains(cmd, "--tp") {
 		t.Errorf("Expected no --tp flag when Parallelism.Tensor is unset, got command: %q", cmd)
 	}
@@ -1281,7 +1351,7 @@ func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
 		t.Fatalf("ReplaceVariables() returned unexpected error: %v", err)
 	}
 
-	container := out.Spec.Template.Containers[0]
+	container := findMainContainerForPresetTest(t, out.Spec.Template.Containers)
 	if strings.Contains(container.Command[2], "--trust-remote-code") {
 		t.Errorf("Expected no automatically injected --trust-remote-code flag, got command: %q", container.Command[2])
 	}

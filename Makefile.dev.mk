@@ -1,7 +1,8 @@
 # Local development: build binaries, run, deploy/undeploy.
 
-# Build manager binary
-manager: generate fmt vet go-lint
+##@ Local development
+
+manager: generate fmt vet go-lint ## Build bin/manager. Runs generate, fmt, vet and go-lint first.
 	go build -o bin/manager ./cmd/manager
 
 # Build agent binary
@@ -12,12 +13,10 @@ agent: fmt vet
 router: fmt vet
 	go build -o bin/router ./cmd/router
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet go-lint
+run: generate fmt vet go-lint ## Run the manager against your kubeconfig cluster. Runs generate, fmt, vet, go-lint first.
 	go run ./cmd/manager/main.go
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
+deploy: manifests ## Install config/default with published images. Discards edits to certmanager certificate.yaml.
 	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
 	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
 	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
@@ -44,7 +43,7 @@ deploy: manifests
 	kubectl apply  --server-side=true  -k config/clusterresources
 	git checkout HEAD -- config/certmanager/certificate.yaml config/certmanager/llmisvc/certificate.yaml
 
-deploy-dev: manifests
+deploy-dev: manifests ## ko-build and install with cert-manager, LWS, Envoy Gateway. Needs ko, helm, KO_DOCKER_REPO.
 	kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
 	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
@@ -70,8 +69,7 @@ deploy-dev: manifests
 	kubectl wait --for=condition=ready pod -l control-plane=llmisvc-controller-manager -n kserve --timeout=300s
 	kubectl apply --server-side=true --force-conflicts -k config/clusterresources
 
-# Quick redeploy after code changes (rebuild images and update deployments)
-redeploy-dev-image:
+redeploy-dev-image: ## After code changes on a deploy-dev cluster: ko-build, push, restart both controllers.
 	./hack/image_patch_dev.sh development
 	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
 	
@@ -109,13 +107,13 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 	
-deploy-helm:
+deploy-helm: ## Test chart changes: install KServe from the local charts/ with Helm.
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
 
-undeploy:
+undeploy: ## Delete config/default from the cluster. CRDs and cluster runtimes stay.
 	kubectl delete -k config/default
 
-undeploy-dev:
+undeploy-dev: ## Delete the development overlay incl. kserve namespace and CRDs, so every KServe CR goes.
 	kubectl delete -k config/overlays/development
 
 deploy-dev-qpext: docker-build-push-qpext
