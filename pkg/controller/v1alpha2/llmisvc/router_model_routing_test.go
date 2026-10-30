@@ -395,7 +395,7 @@ func TestNormalizePublisherPathMatches_ShippedRoute(t *testing.T) {
 		rules := renderShippedRouterRoute(t, llmSvc)
 		want := deepCopyRules(rules)
 
-		got := normalizePublisherPathMatches(rules, llmSvc, modelRoutingTestHeader)
+		got := normalizePublisherPathMatches(rules, llmSvc)
 
 		assert.Equal(t, want, got)
 	})
@@ -408,7 +408,7 @@ func TestNormalizePublisherPathMatches_ShippedRoute(t *testing.T) {
 				wantHeaders := headerValues(rules)
 				require.Len(t, publisherPaths(rules), len(endpoints))
 
-				got := normalizePublisherPathMatches(rules, llmSvc, modelRoutingTestHeader)
+				got := normalizePublisherPathMatches(rules, llmSvc)
 
 				want := make([]string, 0, len(endpoints))
 				for _, endpoint := range endpoints {
@@ -427,10 +427,41 @@ func TestNormalizePublisherPathMatches_ShippedRoute(t *testing.T) {
 		ruleCount := len(rules)
 		require.Len(t, publisherPaths(rules), len(endpoints))
 
-		got := normalizePublisherPathMatches(rules, llmSvc, modelRoutingTestHeader)
+		got := normalizePublisherPathMatches(rules, llmSvc)
 
 		assert.Empty(t, publisherPaths(got))
 		assert.Len(t, got, ruleCount-len(endpoints), "only the publisher path rules are removed")
+	})
+
+	t.Run("removes a publisher path match that also carries the model-routing header when no model segment remains", func(t *testing.T) {
+		llmSvc := svc("/")
+		headerValue := "publishers/team-a/models//"
+		header := []gwapiv1.HTTPHeaderMatch{{Name: modelRoutingTestHeader, Value: headerValue}}
+		rules := []gwapiv1.HTTPRouteRule{{
+			Matches: []gwapiv1.HTTPRouteMatch{
+				{
+					Path: &gwapiv1.HTTPPathMatch{
+						Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+						Value: ptr.To("/publishers/team-a/models///v1/completions"),
+					},
+					Headers: header,
+				},
+				{
+					Path: &gwapiv1.HTTPPathMatch{
+						Type:  ptr.To(gwapiv1.PathMatchExact),
+						Value: ptr.To("/v1/completions"),
+					},
+					Headers: header,
+				},
+			},
+		}}
+
+		got := normalizePublisherPathMatches(rules, llmSvc)
+
+		assert.Empty(t, publisherPaths(got))
+		require.Len(t, got, 1)
+		require.Len(t, got[0].Matches, 1, "the model-routing match outside the publisher path is kept")
+		assert.Equal(t, "/v1/completions", ptr.Deref(got[0].Matches[0].Path.Value, ""))
 	})
 
 	t.Run("rewrites a publisher path match that also carries the model-routing header", func(t *testing.T) {
@@ -449,7 +480,7 @@ func TestNormalizePublisherPathMatches_ShippedRoute(t *testing.T) {
 			}},
 		}}
 
-		got := normalizePublisherPathMatches(rules, llmSvc, modelRoutingTestHeader)
+		got := normalizePublisherPathMatches(rules, llmSvc)
 
 		assert.Equal(t, []string{"/publishers/team-a/models/app/root/model/v1/completions"}, publisherPaths(got))
 		assert.Equal(t, []string{headerValue}, headerValues(got), "model-routing header values keep the declared model name")

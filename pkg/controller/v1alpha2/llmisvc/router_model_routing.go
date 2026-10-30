@@ -207,11 +207,11 @@ func publisherModelPath(modelName string) string {
 
 // normalizePublisherPathMatches rewrites the model name in the publisher path
 // matches of rules, /publishers/{namespace}/models/{model}, to
-// publisherModelPath(model), including in matches that also carry the
-// model-routing header. When no model segment remains, the publisher path
-// matches without that header are removed. Header values, which carry the
-// model name as declared, are left as they are.
-func normalizePublisherPathMatches(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alpha2.LLMInferenceService, headerName string) []gwapiv1.HTTPRouteRule {
+// publisherModelPath(model). When no model segment remains, the publisher path
+// matches are removed. Matches that also carry the model-routing header are
+// handled the same way. Header values, which carry the model name as declared,
+// are left as they are.
+func normalizePublisherPathMatches(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alpha2.LLMInferenceService) []gwapiv1.HTTPRouteRule {
 	modelName := resolveModelName(llmSvc)
 	modelPath := publisherModelPath(modelName)
 	if modelPath == modelName {
@@ -220,7 +220,7 @@ func normalizePublisherPathMatches(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alph
 
 	renderedPrefix := []string{"/" + fullyQualifiedModelName(llmSvc.GetNamespace(), modelName)}
 	if modelPath == "" {
-		return stripPerModelPathMatches(rules, renderedPrefix, headerName)
+		return stripPerModelPathMatches(rules, renderedPrefix, "")
 	}
 
 	prefix := "/" + fullyQualifiedModelName(llmSvc.GetNamespace(), modelPath)
