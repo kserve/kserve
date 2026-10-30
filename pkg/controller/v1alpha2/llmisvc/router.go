@@ -275,7 +275,8 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	if route.HTTP.HasSpec() {
 		// Model name collisions affect publisher paths and model-routing
-		// headers alike - both derive from the same fullyQualifiedModelName.
+		// headers. Headers carry the declared model name; publisher paths
+		// carry its publisherModelPath, so distinct names can share a path.
 		// Run unconditionally because publisher paths are always present.
 		others := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, others, client.InNamespace(llmSvc.Namespace)); err != nil {

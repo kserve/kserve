@@ -231,6 +231,75 @@ func TestFindModelNameCollisions(t *testing.T) {
 			},
 			want: []string{"b"},
 		},
+		{
+			name: "publisher path collision - leading slash",
+			self: newLLMISVC("a", withModelName("a/b")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withStatusModels("publishers/default/models//a/b")),
+			},
+			want: []string{"b"},
+		},
+		{
+			name: "publisher path collision - repeated and trailing slashes",
+			self: newLLMISVC("a", withModelName("a//b/")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withStatusModels("publishers/default/models/a/b")),
+			},
+			want: []string{"b"},
+		},
+		{
+			name: "publisher path collision - dot-dot segment",
+			self: newLLMISVC("a", withModelName("y")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withStatusModels("publishers/default/models/x/../y")),
+			},
+			want: []string{"b"},
+		},
+		{
+			name: "publisher path collision - peer with empty status",
+			self: newLLMISVC("a", withModelName("/a/b")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withModelName("a/b")),
+			},
+			want: []string{"b"},
+		},
+		{
+			name: "no publisher path collision when no model segment remains",
+			self: newLLMISVC("a", withModelName("/")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withStatusModels("publishers/default/models/.")),
+			},
+		},
+		{
+			name: "no publisher path collision with a peer lora adapter",
+			self: newLLMISVC("a", withModelName("x")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withModelName("base"), withLoRAAdapter("/x"),
+					withStatusModels(
+						"publishers/default/models/base",
+						"publishers/default/models//x",
+					)),
+			},
+		},
+		{
+			name: "publisher path collision with a peer base model next to its lora adapters",
+			self: newLLMISVC("a", withModelName("x")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withModelName("/x"), withLoRAAdapter("adapter"),
+					withStatusModels(
+						"publishers/default/models//x",
+						"publishers/default/models/adapter",
+					)),
+			},
+			want: []string{"b"},
+		},
+		{
+			name: "no publisher path collision with a peer name outside the publisher prefix",
+			self: newLLMISVC("a", withModelName("a/b")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withStatusModels("/a/b")),
+			},
+		},
 	}
 
 	for _, tt := range tests {
