@@ -600,6 +600,20 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(servingRuntimeSpecChangedPredicate()))
 	}
 
+	// Watch local model caches so LLMInferenceServices waiting for a cache
+	// import (fail closed, see resolveBaseModelCachePVC) resume as soon as the
+	// cache becomes Ready instead of on the next requeue backoff.
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "LocalModelNamespaceCache"); ok && err == nil {
+		b = b.Watches(&v1alpha1.LocalModelNamespaceCache{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnLocalModelCacheChange(logger)),
+			builder.WithPredicates(localModelCacheReadinessChangePredicate()))
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "LocalModelCache"); ok && err == nil {
+		b = b.Watches(&v1alpha1.LocalModelCache{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnLocalModelCacheChange(logger)),
+			builder.WithPredicates(localModelCacheReadinessChangePredicate()))
+	}
+
 	return b.Complete(r)
 }
 

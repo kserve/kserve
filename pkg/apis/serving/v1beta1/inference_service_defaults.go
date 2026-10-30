@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"slices"
 	"strconv"
 
 	"google.golang.org/protobuf/proto"
@@ -36,6 +35,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -512,95 +512,42 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 
-	// Check namespace-scoped LocalModelNamespaceCache first (higher priority)
-	if nsModels != nil {
-		for i, nsModel := range nsModels.Items {
-			if nsModel.Spec.MatchStorageURI(isvcStorageUri) {
-				var localModelPVCName string
-				switch {
-				case nsModel.Spec.SharedPVCMode():
-					// Shared-PVC mode: select only once Ready=True; the serving PVC is the
-					// referenced claim itself (node groups do not apply). An ISVC already
-					// bound to this cache stays bound if the cache later drops to NotReady
-					// (spec-generation bump, re-import blocked) while its import record still
-					// attests that the data is on the claim, so a concurrent ISVC update does
-					// not strip the labels and roll pods back to downloading from source. The
-					// record is cleared once a fresh import starts onto a recreated claim;
-					// the binding is released then, since the claim holds no data yet.
-					bound := isvc.Labels[constants.LocalModelLabel] == nsModel.Name && nsModel.Status.SharedPVCImport != nil
-					if !nsModel.IsReady() && !bound {
-						continue
-					}
-					localModelPVCName = *nsModel.Spec.PVCRef
-				case isvcNodeGroupExists:
-					if slices.Contains(nsModel.Spec.NodeGroups, isvcNodeGroup) {
-						localModelPVCName = nsModel.Name + "-" + isvcNodeGroup
-					} else {
-						continue
-					}
-				default:
-					localModelPVCName = nsModel.Name + "-" + nsModel.Spec.NodeGroups[0]
-				}
-				if isvc.Labels == nil {
-					isvc.Labels = make(map[string]string)
-				}
-				if isvc.Annotations == nil {
-					isvc.Annotations = make(map[string]string)
-				}
-				isvc.Labels[constants.LocalModelLabel] = nsModels.Items[i].Name
-				isvc.Labels[constants.LocalModelNamespaceLabel] = nsModels.Items[i].Namespace
-				isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = nsModels.Items[i].Spec.SourceModelUri
-				isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
-
-				mutatorLogger.Info("LocalModelNamespaceCache found", "model", nsModels.Items[i].Name, "modelNamespace", nsModels.Items[i].Namespace, "isvcNamespace", isvc.Namespace, "isvc", isvc.Name)
-				return
-			}
-		}
-	}
-
-	// Fall back to cluster-scoped LocalModelCache
-	if models == nil {
+	// Selection is deterministic and binding-aware (see
+	// localmodelcache.MatchCacheForURI): a cache the ISVC is already bound to
+	// keeps winning while it still matches the storage URI, otherwise ready
+	// shared-PVC caches are preferred over node-local caches, and the oldest
+	// cache breaks ties (independent of API list order). A not-ready shared-PVC
+	// cache is still matched for an unbound ISVC as a fail-closed wait intent:
+	// the binding records the intent to serve from that cache, and the pod
+	// mutator rejects pods until the cache becomes Ready, so the workload never
+	// falls back to downloading from its original source URI.
+	match := localmodelcache.MatchCacheForURI(v1alpha1.LocalModelCacheSelection{
+		StorageURI:      isvcStorageUri,
+		NodeGroup:       isvcNodeGroup,
+		NodeGroupExists: isvcNodeGroupExists,
+		BoundCache:      isvc.Labels[constants.LocalModelLabel],
+		BoundNamespace:  isvc.Labels[constants.LocalModelNamespaceLabel],
+	}, models, nsModels)
+	if match == nil {
 		deleteLocalModelMetadata(isvc)
 		return
 	}
-	var localModel *v1alpha1.LocalModelCache
-	var localModelPVCName string
-	for i, model := range models.Items {
-		// both storage URI and node group have to match for the isvc to be considered cached
-		if model.Spec.MatchStorageURI(isvcStorageUri) {
-			if isvcNodeGroupExists {
-				if slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
-					// isvc has the nodegroup annotation and it's in the node groups this model is cached on
-					localModelPVCName = model.Name + "-" + isvcNodeGroup
-				} else {
-					// isvc has the nodegroup annotation, but it's not in node groups this model is cached on
-					// isvc is not considered cached in this case
-					continue
-				}
-			} else {
-				// isvc doesn't have the nodegroup annotation. Use the first node group from model cache
-				localModelPVCName = model.Name + "-" + model.Spec.NodeGroups[0]
-			}
-			// found matched local model cache for isvc
-			localModel = &models.Items[i]
-			break
-		}
-	}
-	if localModel == nil {
-		deleteLocalModelMetadata(isvc)
-		return
-	}
+
 	if isvc.Labels == nil {
 		isvc.Labels = make(map[string]string)
 	}
 	if isvc.Annotations == nil {
 		isvc.Annotations = make(map[string]string)
 	}
-	isvc.Labels[constants.LocalModelLabel] = localModel.Name
-	// Remove namespace label for cluster-scoped model (in case it was previously set)
-	delete(isvc.Labels, constants.LocalModelNamespaceLabel)
-	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
-	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
+	isvc.Labels[constants.LocalModelLabel] = match.Cache
+	if match.Namespace != "" {
+		isvc.Labels[constants.LocalModelNamespaceLabel] = match.Namespace
+	} else {
+		// Cluster-scoped bindings must not carry the namespace label.
+		delete(isvc.Labels, constants.LocalModelNamespaceLabel)
+	}
+	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = match.SourceURI
+	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = match.PVCName
 
-	mutatorLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
+	mutatorLogger.Info("LocalModelCache found", "model", match.Cache, "modelNamespace", match.Namespace, "isvcNamespace", isvc.Namespace, "isvc", isvc.Name)
 }

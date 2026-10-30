@@ -20,11 +20,17 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -340,6 +346,148 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			t.Errorf("args mismatch (-want +got):\n%s", diff)
 		}
 	})
+}
+
+func newBaseModelCacheScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+	return scheme
+}
+
+func baseModelCacheLLMSvc(labels map[string]string, annotations map[string]string) *v1alpha2.LLMInferenceService {
+	return &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-llm",
+			Namespace:   "default",
+			Labels:      labels,
+			Annotations: annotations,
+		},
+	}
+}
+
+func TestResolveBaseModelCachePVC(t *testing.T) {
+	t.Parallel()
+
+	sharedRef := "shared-pvc"
+	sharedReady := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/model",
+			PVCRef:         &sharedRef,
+		},
+	}
+	sharedReady.Status.MarkReady(1)
+
+	sharedNotReady := sharedReady.DeepCopy()
+	sharedNotReady.Name = "shared-not-ready"
+	sharedNotReady.Status.MarkNotReady(v1alpha1.ReasonImportRunning, "Import Job is running", 1)
+
+	nodeLocalNS := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "node-cache", Namespace: "default"},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/model",
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+
+	clusterCache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "hf://org/model",
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+
+	scenarios := map[string]struct {
+		labels         map[string]string
+		annotations    map[string]string
+		objects        []client.Object
+		expectedSource string
+		expectedPVC    string
+		expectedErr    string
+	}{
+		"shared-PVC cache ready resolves the claim": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-cache",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			objects:        []client.Object{sharedReady},
+			expectedSource: "hf://org/model",
+			expectedPVC:    "shared-pvc",
+		},
+		"shared-PVC cache not ready fails closed": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-not-ready",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			objects:     []client.Object{sharedNotReady},
+			expectedErr: "not ready",
+		},
+		"missing shared-PVC cache fails closed": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "gone-cache",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			expectedErr: "get LocalModelNamespaceCache",
+		},
+		"namespace-scoped node-local cache derives the PVC from the node group": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "node-cache",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			annotations: map[string]string{
+				constants.NodeGroupAnnotationKey: "gpu1",
+			},
+			objects:        []client.Object{nodeLocalNS},
+			expectedSource: "hf://org/model",
+			expectedPVC:    "node-cache-gpu1",
+		},
+		"cluster-scoped cache derives the PVC from the node group": {
+			labels: map[string]string{
+				constants.LocalModelLabel: "cluster-cache",
+			},
+			objects:        []client.Object{clusterCache},
+			expectedSource: "hf://org/model",
+			expectedPVC:    "cluster-cache-gpu1",
+		},
+		"cluster-scoped cache with unmatched node group fails": {
+			labels: map[string]string{
+				constants.LocalModelLabel: "cluster-cache",
+			},
+			annotations: map[string]string{
+				constants.NodeGroupAnnotationKey: "gpu2",
+			},
+			objects:     []client.Object{clusterCache},
+			expectedErr: "no matching node group",
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			c := fake.NewClientBuilder().
+				WithScheme(newBaseModelCacheScheme(t)).
+				WithObjects(scenario.objects...).
+				Build()
+
+			llmSvc := baseModelCacheLLMSvc(scenario.labels, scenario.annotations)
+			sourceURI, pvcName, err := resolveBaseModelCachePVC(t.Context(), c, llmSvc)
+
+			if scenario.expectedErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), scenario.expectedErr)
+				if name == "shared-PVC cache not ready fails closed" {
+					assert.ErrorIs(t, err, errLocalModelCacheNotReady)
+				}
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, scenario.expectedSource, sourceURI)
+			assert.Equal(t, scenario.expectedPVC, pvcName)
+		})
+	}
 }
 
 func TestAddsDefaultHFEnv(t *testing.T) {

@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -1808,12 +1809,18 @@ func TestSetLocalModelLabel_SharedPVCReady(t *testing.T) {
 	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
 }
 
-func TestSetLocalModelLabel_SharedPVCNotReadySkipped(t *testing.T) {
+// A not-ready shared-PVC cache is still selected for an unbound ISVC: the
+// binding records the intent to serve from that cache, and the pod mutator
+// rejects pods until the cache becomes Ready (fail closed) instead of letting
+// the workload start from its original source URI.
+func TestSetLocalModelLabel_SharedPVCNotReadySelected(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()
 	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
 
-	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
 }
 
 // A bound ISVC keeps its binding while the NotReady cache still records a completed import
@@ -1821,69 +1828,124 @@ func TestSetLocalModelLabel_SharedPVCNotReadySkipped(t *testing.T) {
 func TestSetLocalModelLabel_SharedPVCNotReadyKeepsBoundISVC(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()
-	isvc.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
-	imported := makeSharedPVCNSCache(false)
-	imported.Items[0].Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "claim-uid"}
-	isvc.setLocalModelLabel(nil, imported)
+	isvc.Labels = map[string]string{
+		constants.LocalModelLabel:          "shared-ns-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
 
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
 	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
 }
 
-// A recreated claim holds no data: the cache clears its import record when the fresh import
-// starts, and a bound ISVC updated during that import falls back to its storageUri rather
-// than staying pointed at the empty claim.
-func TestSetLocalModelLabel_SharedPVCNotReadyReleasesBoundISVCWithoutRecord(t *testing.T) {
+// An ISVC bound to a cache that no longer matches is re-bound to the
+// deterministically selected cache, even while it is not Ready, rather than
+// being reverted to its original source URI.
+func TestSetLocalModelLabel_SharedPVCNotReadyRebindsISVCBoundElsewhere(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()
-	isvc.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
-	isvc.Annotations = map[string]string{constants.LocalModelPVCNameAnnotationKey: "shared-pvc"}
+	isvc.Labels = map[string]string{
+		constants.LocalModelLabel:          "some-other-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
 	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
 
-	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
-	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey))
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
 }
 
-func TestSetLocalModelLabel_SharedPVCTerminatingHoldsBoundISVCOnly(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	terminating := makeSharedPVCNSCache(false)
-	terminating.Items[0].Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "claim-uid"}
-	terminating.Items[0].Status.MarkNotReady(v1alpha1.ReasonPVCTerminating, "PersistentVolumeClaim \"shared-pvc\" is being deleted", 1)
-
-	bound := makeSharedPVCTestISVC()
-	bound.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
-	bound.setLocalModelLabel(nil, terminating)
-	g.Expect(bound.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
-	g.Expect(bound.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
-
-	unbound := makeSharedPVCTestISVC()
-	unbound.setLocalModelLabel(nil, terminating)
-	g.Expect(unbound.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+func makeClusterCacheList() *v1alpha1.LocalModelCacheList {
+	return &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: "gs://testbucket/testmodel",
+				ModelSize:      resource.MustParse("1Gi"),
+				NodeGroups:     []string{"gpu1"},
+			},
+		}},
+	}
 }
 
-func TestSetLocalModelLabel_SharedPVCNotFoundReleasesBoundISVC(t *testing.T) {
+// A ready cluster-scoped cache wins over the not-ready shared-PVC wait intent,
+// so workloads that the cluster cache can serve keep being served.
+func TestSetLocalModelLabel_SharedPVCNotReadyFallsBackToReadyClusterCache(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()
-	isvc.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
-	isvc.Annotations = map[string]string{constants.LocalModelPVCNameAnnotationKey: "shared-pvc"}
-	gone := makeSharedPVCNSCache(false)
-	gone.Items[0].Status.MarkNotReady(v1alpha1.ReasonPVCNotFound, "PersistentVolumeClaim \"shared-pvc\" not found", 1)
-	isvc.setLocalModelLabel(nil, gone)
+	isvc.setLocalModelLabel(makeClusterCacheList(), makeSharedPVCNSCache(false))
 
-	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
-	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey))
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "cluster-cache"))
+	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelNamespaceLabel))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "cluster-cache-gpu1"))
 }
 
-func TestSetLocalModelLabel_SharedPVCNotReadySkipsISVCBoundElsewhere(t *testing.T) {
+// An ISVC bound to a cluster-scoped cache keeps that binding while a
+// not-ready namespace-scoped cache for the same source exists.
+func TestSetLocalModelLabel_SharedPVCNotReadyKeepsClusterBoundISVC(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()
-	isvc.Labels = map[string]string{constants.LocalModelLabel: "some-other-cache"}
-	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
+	isvc.Labels = map[string]string{constants.LocalModelLabel: "cluster-cache"}
+	isvc.setLocalModelLabel(makeClusterCacheList(), makeSharedPVCNSCache(false))
 
-	// Bound to a different cache: the not-ready shared cache is skipped, and the stale
-	// binding is cleared by the existing no-match fallback.
-	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
-	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey))
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "cluster-cache"))
+	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelNamespaceLabel))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "cluster-cache-gpu1"))
+}
+
+func makeSharedPVCNSCacheAt(name, pvcRef string, age time.Duration) v1alpha1.LocalModelNamespaceCache {
+	ref := pvcRef
+	cache := v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              name,
+			Namespace:         "default",
+			Generation:        1,
+			CreationTimestamp: metav1.NewTime(metav1.Now().Add(-age)),
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "gs://testbucket/testmodel",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	cache.Status.MarkReady(1)
+	return cache
+}
+
+// Two ready shared-PVC caches for the same source on different PVCs: repeated
+// defaulting selects the same (oldest) cache regardless of list order.
+func TestSetLocalModelLabel_SharedPVCDeterministicAcrossListOrder(t *testing.T) {
+	older := makeSharedPVCNSCacheAt("older-cache", "older-pvc", 2*time.Hour)
+	newer := makeSharedPVCNSCacheAt("newer-cache", "newer-pvc", time.Hour)
+
+	for _, items := range [][]v1alpha1.LocalModelNamespaceCache{
+		{older, newer},
+		{newer, older},
+	} {
+		g := gomega.NewGomegaWithT(t)
+		isvc := makeSharedPVCTestISVC()
+		isvc.setLocalModelLabel(nil, &v1alpha1.LocalModelNamespaceCacheList{Items: items})
+
+		g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "older-cache"))
+		g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "older-pvc"))
+	}
+}
+
+// A bound ISVC does not flap between eligible caches when a newer one appears:
+// the established binding keeps winning.
+func TestSetLocalModelLabel_SharedPVCStaysBoundAcrossCaches(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.Labels = map[string]string{
+		constants.LocalModelLabel:          "newer-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
+	isvc.setLocalModelLabel(nil, &v1alpha1.LocalModelNamespaceCacheList{Items: []v1alpha1.LocalModelNamespaceCache{
+		makeSharedPVCNSCacheAt("older-cache", "older-pvc", 2*time.Hour),
+		makeSharedPVCNSCacheAt("newer-cache", "newer-pvc", time.Hour),
+	}})
+
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "newer-cache"))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "newer-pvc"))
 }
 
 func TestDefaultInferenceServiceTracing(t *testing.T) {
