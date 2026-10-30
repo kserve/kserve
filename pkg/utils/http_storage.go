@@ -180,6 +180,9 @@ func isAlwaysBlockedHostname(host string) bool {
 
 func isHardBlockedAddr(addr netip.Addr) bool {
 	addr = addr.Unmap()
+	if allowHTTPStorageLoopback.Load() && addr.IsLoopback() {
+		return false
+	}
 	return addr.IsLoopback() || addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast() ||
 		addr.IsMulticast() || addr.IsUnspecified() || addr == netip.MustParseAddr("fd00:ec2::254")
 }

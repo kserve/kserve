@@ -167,6 +167,14 @@ def _parse_http_storage_uri_allowlist() -> tuple[
     return allowed_hosts, allowed_networks
 
 
+def _normalize_http_storage_address(
+    address: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        return address.ipv4_mapped
+    return address
+
+
 def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
     """Reject HTTP(S) model locations which target non-public networks."""
     parsed = urlparse(uri)
@@ -190,17 +198,17 @@ def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
             "host.docker.internal",
             "host.containers.internal",
         }
-        or normalized_host.endswith(
-            (".localhost", ".svc", ".cluster.local", ".internal")
-        )
-    ) and not host_allowed:
+        or normalized_host.endswith(".localhost")
+    ):
         raise RuntimeError(f"HTTP storage URI targets a blocked host or IP: {uri}")
     try:
-        addresses = {ipaddress.ip_address(normalized_host)}
+        addresses = {
+            _normalize_http_storage_address(ipaddress.ip_address(normalized_host))
+        }
     except ValueError:
         try:
             addresses = {
-                ipaddress.ip_address(result[4][0])
+                _normalize_http_storage_address(ipaddress.ip_address(result[4][0]))
                 for result in socket.getaddrinfo(normalized_host, parsed.port or 443)
             }
         except socket.gaierror as error:
