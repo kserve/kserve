@@ -43,10 +43,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// certificateKey is shared by every workload certificate the suite issues. RSA 4096
+// CertificateKey is shared by every workload certificate the suite issues. RSA 4096
 // generation otherwise dominates the test process's CPU time, and no spec depends on
-// certificates having distinct keys.
-var certificateKey = sync.OnceValues(func() (*rsa.PrivateKey, error) {
+// certificates having distinct keys. Reconcilers built by individual specs (outside
+// the managed manager) should inject it for the same reason, and so that the
+// asynchronous certificate generation settles in milliseconds.
+var CertificateKey = sync.OnceValues(func() (*rsa.PrivateKey, error) {
 	return rsa.GenerateKey(rand.Reader, 4096)
 })
 
@@ -73,7 +75,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 			Clientset:     clientSet,
 			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceController"}),
 
-			GenerateCertificateKey: certificateKey,
+			GenerateCertificateKey: CertificateKey,
 			// Group members deleted together finalize after their peers release them;
 			// the default requeue would make every such spec wait it out.
 			FinalizationRequeueAfter: ptr.To(250 * time.Millisecond),

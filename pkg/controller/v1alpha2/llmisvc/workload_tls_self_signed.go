@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
@@ -58,6 +59,12 @@ const (
 // reconcileSelfSignedCertsSecret reconciles the secret containing self-signed certs used by the server to serve TLS.
 // These self-signed certs are used for cluster internal communication encryption by the workload and the scheduler.
 // The certificates are automatically renewed before expiration to ensure continuous secure communication.
+//
+// Generating a certificate requires an RSA key generation which can take well over a minute on
+// constrained nodes. Doing that inline would stall the controller worker for the whole duration,
+// so new certificates are generated in the background: this method dispatches the generation and
+// returns errCertGenerationInProgress until the certificate Secret has been written. Reconciliations
+// that can reuse an existing certificate take the fast path below and never block.
 func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerConfig *SchedulerConfig) error {
 	log.FromContext(ctx).Info("Reconciling self-signed certificates secret")
 
@@ -69,26 +76,91 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 
 	// Generating a new certificate is quite slow and expensive as it generates a new certificate, check if the current
 	// self-signed certificate (if any) is expired before creating a new one.
-	certFunc := r.createWorkloadCertificate(ctx, dnsNames, ips)
-	if curr := r.getExistingSelfSignedCertificate(ctx, llmSvc); curr != nil && !ShouldRecreateCertificate(curr, dnsNames, ips, schedulerConfig.ExpirationAnnotations) {
-		certFunc = func() (*certBundle, error) {
+	curr := r.getExistingSelfSignedCertificate(ctx, llmSvc)
+	if curr != nil && !ShouldRecreateCertificate(curr, dnsNames, ips, schedulerConfig.ExpirationAnnotations) {
+		expected, err := r.expectedSelfSignedCertsSecret(llmSvc, func() (*certBundle, error) {
 			return &certBundle{Key: curr.Data["tls.key"], Cert: curr.Data["tls.crt"], CACert: curr.Data["ca.crt"]}, nil
+		}, schedulerConfig)
+		if err != nil {
+			return fmt.Errorf("failed to get expected self-signed certificate secret: %w", err)
 		}
-	}
 
-	expected, err := r.expectedSelfSignedCertsSecret(llmSvc, certFunc, schedulerConfig)
-	if err != nil {
-		return fmt.Errorf("failed to get expected self-signed certificate secret: %w", err)
+		if utils.GetForceStopRuntime(llmSvc) {
+			return Delete(ctx, r, llmSvc, expected)
+		}
+
+		if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, NewSemanticCertificateSecretIsEqual(schedulerConfig.ExpirationAnnotations)); err != nil {
+			return fmt.Errorf("failed to reconcile self-signed TLS certificate: %w", err)
+		}
+		return nil
 	}
 
 	if utils.GetForceStopRuntime(llmSvc) {
-		return Delete(ctx, r, llmSvc, expected)
+		// A force-stopped runtime must not get a new certificate. A stale secret
+		// that failed the reuse check above (e.g. expired) is deleted by name;
+		// Delete only needs the object key, so a metadata-only stub suffices.
+		return Delete(ctx, r, llmSvc, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-self-signed-certs"),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, NewSemanticCertificateSecretIsEqual(schedulerConfig.ExpirationAnnotations)); err != nil {
-		return fmt.Errorf("failed to reconcile self-signed TLS certificate: %w", err)
+	r.startCertGeneration(ctx, llmSvc.DeepCopy(), dnsNames, ips, schedulerConfig)
+	return errCertGenerationInProgress
+}
+
+// certGenerationTimeout bounds a single background certificate generation.
+const certGenerationTimeout = 10 * time.Minute
+
+// startCertGeneration kicks off background generation of the self-signed serving
+// certificate for llmSvc, unless one is already running for it. When generation
+// succeeds the goroutine writes the certificate Secret, which is owned by llmSvc
+// and therefore re-enqueues its reconciliation through the Owns(&Secret{}) watch.
+// Failures are logged and clear the in-flight entry so that the next
+// reconciliation retries the generation.
+func (r *LLMISVCReconciler) startCertGeneration(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, dnsNames []string, ips []string, schedulerConfig *SchedulerConfig) {
+	key := types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: llmSvc.GetName()}
+
+	r.certGenMu.Lock()
+	defer r.certGenMu.Unlock()
+	if r.certGenInProgress == nil {
+		r.certGenInProgress = make(map[types.NamespacedName]struct{})
 	}
-	return nil
+	if _, running := r.certGenInProgress[key]; running {
+		return
+	}
+	r.certGenInProgress[key] = struct{}{}
+
+	go func() {
+		defer func() {
+			r.certGenMu.Lock()
+			delete(r.certGenInProgress, key)
+			r.certGenMu.Unlock()
+		}()
+
+		// The reconciliation context is cancelled as soon as this round
+		// returns; keep its values (logging) but detach its cancellation, and
+		// bound the generation itself.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), certGenerationTimeout)
+		defer cancel()
+
+		logger := log.Log.WithValues("llmisvc", key.String())
+		logger.Info("Generating self-signed certificate in the background")
+
+		certFunc := r.createWorkloadCertificate(ctx, dnsNames, ips)
+		expected, err := r.expectedSelfSignedCertsSecret(llmSvc, certFunc, schedulerConfig)
+		if err != nil {
+			logger.Error(err, "Failed to generate self-signed TLS certificate")
+			return
+		}
+
+		if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, NewSemanticCertificateSecretIsEqual(schedulerConfig.ExpirationAnnotations)); err != nil {
+			logger.Error(err, "Failed to reconcile self-signed TLS certificate")
+			return
+		}
+	}()
 }
 
 // certBundle holds TLS certificate material.
@@ -354,9 +426,16 @@ func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1al
 
 	ips := sets.NewString("127.0.0.1") // P/D sidecar sends requests for decode over local host
 	for _, pod := range pods.Items {
-		ips.Insert(pod.Status.PodIP)
+		// Pending pods have no IP yet; an empty string must not enter the set,
+		// it would never be covered by a certificate (net.ParseIP drops it) and
+		// would force a regeneration on every reconciliation.
+		if pod.Status.PodIP != "" {
+			ips.Insert(pod.Status.PodIP)
+		}
 		for _, ip := range pod.Status.PodIPs {
-			ips.Insert(ip.IP)
+			if ip.IP != "" {
+				ips.Insert(ip.IP)
+			}
 		}
 	}
 
@@ -366,9 +445,14 @@ func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1al
 	}
 
 	for _, svc := range services.Items {
-		ips.Insert(svc.Spec.ClusterIP)
+		// Headless services have no cluster IP; see the pod comment above.
+		if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != corev1.ClusterIPNone {
+			ips.Insert(svc.Spec.ClusterIP)
+		}
 		for _, ip := range svc.Spec.ClusterIPs {
-			ips.Insert(ip)
+			if ip != "" && ip != corev1.ClusterIPNone {
+				ips.Insert(ip)
+			}
 		}
 	}
 

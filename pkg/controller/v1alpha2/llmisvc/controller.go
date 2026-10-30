@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -145,6 +146,18 @@ const DefaultMaxConcurrentReconciles = 8
 // a finalization that is not complete yet.
 const DefaultFinalizationRequeueAfter = 5 * time.Second
 
+// DefaultCertGenerationRequeueAfter is how long the reconciler waits before re-checking
+// whether a background self-signed certificate generation has finished. The
+// certificate Secret is owned by the LLMInferenceService, so its creation normally
+// re-enqueues the service through the Owns(&Secret{}) watch; this requeue is a
+// fallback for the case where that watch event is missed.
+const DefaultCertGenerationRequeueAfter = 10 * time.Second
+
+// errCertGenerationInProgress is returned by the workload reconciliation while a
+// self-signed serving certificate is being generated in the background. It is not
+// a failure: the caller requeues instead of surfacing it as a reconciliation error.
+var errCertGenerationInProgress = errors.New("self-signed certificate generation in progress")
+
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
@@ -168,6 +181,13 @@ type LLMISVCReconciler struct {
 	// GenerateCertificateKey creates the private key of each workload serving
 	// certificate. Nil means a fresh RSA 4096 key per certificate.
 	GenerateCertificateKey func() (*rsa.PrivateKey, error)
+
+	// certGenMu guards certGenInProgress.
+	certGenMu sync.Mutex
+	// certGenInProgress tracks LLMInferenceServices whose serving certificate is
+	// currently being generated in the background, keyed by namespace/name. It
+	// prevents stacking concurrent generations for the same service.
+	certGenInProgress map[types.NamespacedName]struct{}
 
 	// FinalizationRequeueAfter overrides DefaultFinalizationRequeueAfter when set.
 	FinalizationRequeueAfter *time.Duration
@@ -286,6 +306,22 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	cleanupErr := r.reconcileTerminatingGroupBackends(ctx, resource)
 	reconcileErr := r.reconcile(ctx, resource)
 	reconciler.PostProcessReconcile(ctx, resource, original)
+
+	// A certificate generation was dispatched to (or is already running in) the
+	// background. This is expected during the first reconciliation of a service,
+	// not an error: the certificate Secret is owned by the service, so writing it
+	// re-enqueues this reconciliation through the Owns(&Secret{}) watch. The
+	// status is deliberately not written - the aborted reconcile would persist a
+	// partial status over the last complete one - and a cleanup error from this
+	// aborted round is only logged: every later round re-runs the cleanup and
+	// reports the error once the reconciliation actually completes. Requeue as a
+	// fallback in case the watch event is missed.
+	if errors.Is(reconcileErr, errCertGenerationInProgress) {
+		if cleanupErr != nil {
+			logger.Error(cleanupErr, "Deferred cleanup error while certificate generation is in progress")
+		}
+		return ctrl.Result{RequeueAfter: DefaultCertGenerationRequeueAfter}, nil
+	}
 
 	if err := errors.Join(cleanupErr, reconcileErr); err != nil {
 		logger.Error(err, "Failed to reconcile LLMInferenceService")

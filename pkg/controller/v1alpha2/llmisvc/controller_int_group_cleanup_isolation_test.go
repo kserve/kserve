@@ -100,11 +100,14 @@ var _ = Describe("Group route cleanup isolation", func() {
 				Client:        c,
 				Clientset:     kubernetesfake.NewClientset(cfgMap),
 				EventRecorder: record.NewFakeRecorder(100),
+				// Fast, shared key: certificate generation is asynchronous, and
+				// these specs drive it through reconcileUntilSettled below.
+				GenerateCertificateKey: CertificateKey,
 			}
 
 			// Twice, to prove the classification holds for repeated unchanged inputs.
 			for range 2 {
-				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(svc)})
+				result, err := reconcileUntilSettled(ctx, r, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(svc)})
 				Expect(result.IsZero()).To(BeTrue(), "cleanup must not request its own requeue delay")
 
 				Expect(cleanupFailed(err)).To(Equal(wantCleanupErr), "got: %v", err)
