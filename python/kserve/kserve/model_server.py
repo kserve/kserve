@@ -337,6 +337,7 @@ class ModelServer:
         self._rest_server = None
         self._rest_multiprocess_server = None
         self._grpc_server = None
+        self._shutdown_task: Optional[asyncio.Task] = None
         self.servers = []
 
     def setup_event_loop(self):
@@ -441,7 +442,10 @@ class ModelServer:
                 for model_name in list(self.registered_models.get_models().keys()):
                     self.registered_models.unload(model_name)
 
-        asyncio.create_task(shutdown())
+        # Keep a reference: the event loop only holds a weak one, so an
+        # unreferenced task can be garbage collected before it finishes and
+        # the servers would never be stopped or the models unloaded.
+        self._shutdown_task = asyncio.create_task(shutdown())
 
     def register_exception_handler(
         self,
