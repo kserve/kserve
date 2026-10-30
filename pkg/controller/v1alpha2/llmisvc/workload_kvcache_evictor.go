@@ -750,43 +750,60 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 		// PVC evictors finish deletion even when the global ConfigMap is absent.
 		return r.cleanupPVCEvictorServiceAccount(ctx, llmSvc.Namespace, map[string]struct{}{}, map[string]struct{}{})
 	}
-	var (
-		config *Config
-		err    error
-	)
-	resolved := llmSvc
-	if !llmSvcReferencesPVCEvictors(llmSvc) && len(llmSvc.Spec.BaseRefs) > 0 {
-		resolved = llmSvc.DeepCopy()
-		config, err = r.loadConfig(ctx)
-		if err != nil {
-			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because configuration could not be loaded", "error", err)
-			return nil
-		}
-		combined, err := r.combineBaseRefsConfig(ctx, resolved, config)
-		if err != nil {
-			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because references could not be resolved", "error", err)
-			return nil
-		}
-		resolved.Spec = combined.Config.Spec
-	}
-	if !llmSvcReferencesPVCEvictors(resolved) {
+	if !llmSvcReferencesPVCEvictors(llmSvc) && len(llmSvc.Spec.BaseRefs) == 0 {
 		return nil
 	}
-	if config == nil {
-		config, err = r.loadConfig(ctx)
-		if err != nil {
-			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because configuration could not be loaded", "error", err)
-			return nil
+	// Resolved with the configuration reconcile renders with: a preset can template
+	// pvc.ref and container names from its globals, and any other rendering would
+	// count different evictor identities than the services that use them.
+	config, err := r.loadConfig(ctx)
+	var invalid invalidConfigError
+	switch {
+	case apierrors.IsNotFound(err):
+		r.skipPVCEvictorCleanup(ctx, llmSvc, fmt.Sprintf("the %s/%s ConfigMap does not exist", constants.KServeNamespace, constants.InferenceServiceConfigMapName))
+		return nil
+	case errors.As(err, &invalid):
+		r.skipPVCEvictorCleanup(ctx, llmSvc, fmt.Sprintf("the %s/%s ConfigMap is invalid: %v", constants.KServeNamespace, constants.InferenceServiceConfigMapName, err))
+		return nil
+	case err != nil:
+		// A failed read retries like the List and Delete calls of the cleanup.
+		return err
+	}
+	if !llmSvcReferencesPVCEvictors(llmSvc) {
+		// Without a stored PVCEvictorReady, the spec merged with its baseRefs and presets
+		// decides whether this service used an evictor, and so whether to clean up. If it
+		// can't be merged, a missing baseRef for example, the cleanup runs anyway: it
+		// counts only the remaining services, so it can't remove an evictor still in use.
+		resolved := llmSvc.DeepCopy()
+		if combined, err := r.combineBaseRefsConfig(ctx, resolved, config); err == nil {
+			resolved.Spec = combined.Config.Spec
+			if !llmSvcReferencesPVCEvictors(resolved) {
+				return nil
+			}
 		}
 	}
 	if err := r.cleanupUnusedPVCEvictors(ctx, llmSvc.Namespace, config, nil, llmSvc.Name); err != nil {
 		if errors.Is(err, errPVCEvictorCleanupUnsafe) {
-			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because ownership could not be resolved", "error", err)
+			r.skipPVCEvictorCleanup(ctx, llmSvc, "another LLMInferenceService in the namespace could not be resolved")
 			return nil
 		}
 		return err
 	}
 	return nil
+}
+
+// skipPVCEvictorCleanup lets the deletion finish without removing shared evictors
+// when the configuration or a peer can't be resolved. Holding the finalizer instead
+// would keep the service Terminating until both are fixed. The cost: only the
+// reconcile of another LLMInferenceService in the namespace removes an evictor no
+// service uses, so with none left the Deployment and ServiceAccount stay until
+// deleted by hand, and the event says which. The deleted service's status is never
+// written again, hence an event rather than a condition.
+func (r *LLMISVCReconciler) skipPVCEvictorCleanup(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
+	log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization", "reason", reason)
+	r.Eventf(llmSvc, corev1.EventTypeWarning, "PVCEvictorCleanupSkipped",
+		"Skipped removing unused PVC evictors because %s. Once that is fixed, any remaining LLMInferenceService in the namespace removes them; "+
+			"with none left, delete the Deployments labelled %s=true and the %s ServiceAccount", reason, pvcEvictorLabel, pvcEvictorServiceAccount)
 }
 
 func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
@@ -1486,8 +1503,11 @@ func (r *LLMISVCReconciler) referencedPVCEvictorIdentities(ctx context.Context, 
 		if utils.GetForceStopRuntime(service) {
 			continue
 		}
-		for identity := range collectPVCEvictorIdentities(service) {
-			referenced[identity] = struct{}{}
+		// Only workloads that run the pvc-evictor container count. One without it keeps
+		// its KV cache at a different root on the same PVC and path, so it gives no
+		// reason to keep the evictor or its ServiceAccount.
+		for _, target := range collectPVCEvictorTargets(service) {
+			referenced[pvcEvictorIdentity(target.claimName, target.subPath)] = struct{}{}
 		}
 	}
 	return referenced, cleanupSafe, nil
