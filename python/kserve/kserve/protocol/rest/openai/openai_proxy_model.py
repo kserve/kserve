@@ -90,6 +90,19 @@ def error_handler(f):
     return wrapper
 
 
+def _sse_data(line: str) -> Optional[str]:
+    """Return the payload of an SSE ``data`` line, or None for any other line.
+
+    Blank lines, comments (such as the ``:`` keep-alive TGI sends while a
+    request waits) and other fields such as ``event:`` carry no chunk. The
+    space after the colon is optional in the SSE format.
+    """
+    if not line.startswith("data:"):
+        return None
+    data = line[5:]
+    return data[1:] if data.startswith(" ") else data
+
+
 class OpenAIProxyModel(OpenAIGenerativeModel):
     """
     An implementation of OpenAIModel that proxies requests to a backend server exposing Open AI endpoints.
@@ -211,12 +224,8 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
         request: CompletionRequest,
         raw_request: Optional[Request] = None,
     ):
-        # Skip empty lines
-        if len(raw_chunk) == 0:
-            return None
-        # All chunks are prefixed with "data: "
-        data = raw_chunk[6:]
-        if data == "[DONE]":
+        data = _sse_data(raw_chunk)
+        if data is None or data == "[DONE]":
             return None
 
         if self.skip_upstream_validation:
@@ -233,14 +242,8 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
         request: ChatCompletionRequest,
         raw_request: Optional[Request] = None,
     ):
-        # Skip empty lines
-        if len(raw_chunk) == 0:
-            return None
-        # All chunks are prefixed with "data: "
-        if len(raw_chunk) == 0:
-            return None
-        data = raw_chunk[6:]
-        if data == "[DONE]":
+        data = _sse_data(raw_chunk)
+        if data is None or data == "[DONE]":
             return None
         if self.skip_upstream_validation:
             obj = orjson.loads(data)
