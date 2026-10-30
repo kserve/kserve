@@ -70,7 +70,7 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionContentPartTextParam,
     ChatCompletionAssistantMessageParam,
 )
-from kserve.protocol.rest.openai.errors import OpenAIError
+from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.utils.utils import generate_uuid
 from kserve.constants.constants import LLM_STATS_KEY
 from kserve.metrics import LLMStats
@@ -442,10 +442,24 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
         if request.presence_penalty and request.presence_penalty > 0:
             kwargs["repetition_penalty"] = request.presence_penalty
         if request.logit_bias is not None:
-            # transformers accepts a dict of token tuple to bias (i.e. Dict[Tuple, float])
-            kwargs["sequence_bias"] = {
-                tuple(token): bias for token, bias in request.logit_bias.items()
-            }
+            # logit_bias maps token ids, sent as JSON string keys, to a bias;
+            # transformers takes a dict of token-id tuple to bias.
+            sequence_bias = {}
+            for token, bias in request.logit_bias.items():
+                try:
+                    token_id = int(token)
+                except ValueError:
+                    token_id = -1
+                if token_id < 0:
+                    raise OpenAIError(
+                        response=create_error_response(
+                            f"logit_bias keys must be token ids, got {token!r}",
+                            err_type="invalid_request_error",
+                            param="logit_bias",
+                        )
+                    )
+                sequence_bias[(token_id,)] = bias
+            kwargs["sequence_bias"] = sequence_bias
         return GenerationConfig(**kwargs)
 
     def _parse_chat_message_content_parts(
