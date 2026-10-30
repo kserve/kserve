@@ -59355,6 +59355,22 @@ data:
            # HTTPRoute.
            "loraModelRoutingStrategy": "exact",
 
+           # routeRuleNaming selects how LLMInferenceService managed HTTPRoutes name their rules.
+           # "preset" (the default when omitted) keeps the names the route spec carries, so every service
+           # rendered from the same preset has the same rule names. "unique" appends
+           # "-<first 8 hex of sha256(<namespace>/<service name>)>" to every named rule; unnamed rules and
+           # routes referenced through spec.router.route.http.refs are left alone. Gateway API only requires
+           # rule names to be unique within one route, but Istio before 1.29.9, 1.30.6 and 1.31.2 keys the
+           # InferencePool endpoint picker by bare rule name across every HTTPRoute on a gateway, so services
+           # sharing rule names get scheduled by each other's endpoint picker; "unique" avoids that on such an
+           # Istio. A change reaches every service on its next reconcile and renames the rules of its existing
+           # HTTPRoute in place. A policy that targets a rule by sectionName stops applying until it names the
+           # new rule, and under "unique" that name differs per service. A service pins its own value with the
+           # spec annotation serving.kserve.io/route-rule-naming, which a preset may carry. Any other value
+           # marks every service without its own value HTTPRoutesReady=False (RoutingPreconditionNotMet)
+           # and leaves its existing HTTPRoute as it is.
+           "routeRuleNaming": "preset",
+
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
            # Name of the inference service  ( {{ .Name}} )

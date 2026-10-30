@@ -61,6 +61,31 @@ func TestValidateCreateRejectsUnsupportedLoRARoutingStrategyAnnotation(t *testin
 	}
 }
 
+func TestValidateCreateRejectsUnsupportedRouteRuleNamingAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "valid value is admitted", value: " Unique "},
+		{name: "unsupported value is rejected", value: "suffixed", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Spec.Annotations = map[string]string{constants.RouteRuleNamingAnnotationKey: tt.value}
+
+			_, err := validator.ValidateCreate(t.Context(), svc)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, constants.RouteRuleNamingAnnotationKey)
+		})
+	}
+}
+
 func TestValidateKVCacheOffloading(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 	valid := &LLMInferenceService{Spec: LLMInferenceServiceSpec{WorkloadSpec: WorkloadSpec{
