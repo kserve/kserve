@@ -209,23 +209,27 @@ same vLLM pod. Do not use `pvc.ref` with a
 or `ReadWriteMany` instead.
 
 A service that stops using an evictor, by moving to a preset without
-`pvc-evictor` or dropping its `pvc.ref`, keeps it until its old pods are gone,
-since they still write to the evicted cache root. If its new pods can't start,
-the evictor stays with them.
+`pvc-evictor` or dropping its `pvc.ref`, keeps it until its old pods have
+exited, since they still write to the evicted cache root. If its new pods can't
+start, the evictor stays with them. Removing an evictor leaves its cache
+directory on the PVC; delete it if no service uses that path anymore.
 
-Otherwise, an evictor Deployment that outlives the services using it usually
-means a deletion skipped the cleanup, because the `inferenceservice-config`
-ConfigMap or another LLMInferenceService in the namespace could not be resolved:
+A Deployment labelled `serving.kserve.io/pvc-evictor=true` that no service uses
+anymore usually means a deletion skipped the cleanup, because the
+`inferenceservice-config` ConfigMap or another LLMInferenceService in the
+namespace could not be resolved. The deletion leaves a Warning event, which
+expires with the API server's event TTL (one hour by default):
 
 ```bash
 kubectl get events -n <namespace> --field-selector reason=PVCEvictorCleanupSkipped
 ```
 
-The controller logs the same as `Skipping PVC evictor cleanup during finalization`
+The controller log keeps it as `Skipping PVC evictor cleanup during finalization`
 with a `reason`; a service it could not resolve shows up as
-`Could not resolve PVC evictor references`. Once that is fixed, any remaining
-LLMInferenceService in the namespace removes the evictor on its next reconcile.
-With none left, delete it by hand:
+`Could not resolve PVC evictor references`, and its own status usually shows
+`PresetsCombined=False`. Once that is fixed, any remaining LLMInferenceService in the
+namespace removes the evictor on its next reconcile. With none left, delete it
+by hand:
 
 ```bash
 kubectl delete deployment -n <namespace> -l serving.kserve.io/pvc-evictor=true
