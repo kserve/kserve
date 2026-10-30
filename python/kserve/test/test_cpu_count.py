@@ -117,3 +117,130 @@ def test_cpu_affinity_is_still_respected(fake_files):
     with mock.patch.object(utils.psutil, "Process") as process:
         process.return_value.cpu_affinity.return_value = [0, 1, 2]
         assert utils.cpu_count() == 3
+
+
+def test_cgroup_v2_parent_cgroup_quota_limits_cpu_count(fake_files):
+    fake_files[PROC_CGROUP] = "0::/kubepods/pod-1/container-1\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/container-1/cpu.max"] = "max 100000\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/cpu.max"] = "200000 100000\n"
+    assert utils.cpu_count() == 2
+
+
+def test_cgroup_v2_tighter_parent_cgroup_limit_wins(fake_files):
+    fake_files[PROC_CGROUP] = "0::/kubepods/pod-1/container-1\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/container-1/cpu.max"] = "400000 100000\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/cpu.max"] = "200000 100000\n"
+    assert utils.cpu_count() == 2
+
+
+def test_cgroup_v2_tighter_child_cgroup_limit_wins(fake_files):
+    fake_files[PROC_CGROUP] = "0::/kubepods/pod-1/container-1\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/container-1/cpu.max"] = "200000 100000\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/cpu.max"] = "400000 100000\n"
+    assert utils.cpu_count() == 2
+
+
+def test_cgroup_v2_grandparent_cgroup_limit(fake_files):
+    fake_files[PROC_CGROUP] = "0::/kubepods/pod-1/container-1\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/container-1/cpu.max"] = "max 100000\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/cpu.max"] = "max 100000\n"
+    fake_files["/sys/fs/cgroup/kubepods/cpu.max"] = "100000 100000\n"
+    assert utils.cpu_count() == 1
+
+
+def test_cgroup_v2_all_ancestors_max_means_no_limit(fake_files):
+    fake_files[PROC_CGROUP] = "0::/kubepods/pod-1/container-1\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/container-1/cpu.max"] = "max 100000\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/cpu.max"] = "max 100000\n"
+    fake_files["/sys/fs/cgroup/kubepods/cpu.max"] = "max 100000\n"
+    fake_files[ROOT_CPU_MAX] = "max 100000\n"
+    assert utils.cpu_count() == 32
+
+
+def test_cgroup_v1_parent_cgroup_quota_limits_cpu_count(fake_files):
+    fake_files[PROC_CGROUP] = "2:cpu,cpuacct:/kubepods/pod-1/container-1\n"
+    fake_files[
+        "/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/container-1/cpu.cfs_quota_us"
+    ] = "-1\n"
+    fake_files[
+        "/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/container-1/cpu.cfs_period_us"
+    ] = "100000\n"
+    fake_files["/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/cpu.cfs_quota_us"] = (
+        "200000\n"
+    )
+    fake_files["/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/cpu.cfs_period_us"] = (
+        "100000\n"
+    )
+    assert utils.cpu_count() == 2
+
+
+def test_cgroup_v1_tighter_parent_cgroup_limit_wins(fake_files):
+    fake_files[PROC_CGROUP] = "2:cpu,cpuacct:/kubepods/pod-1/container-1\n"
+    fake_files[
+        "/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/container-1/cpu.cfs_quota_us"
+    ] = "400000\n"
+    fake_files[
+        "/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/container-1/cpu.cfs_period_us"
+    ] = "100000\n"
+    fake_files["/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/cpu.cfs_quota_us"] = (
+        "200000\n"
+    )
+    fake_files["/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/cpu.cfs_period_us"] = (
+        "100000\n"
+    )
+    assert utils.cpu_count() == 2
+
+
+def test_cgroup_v2_fractional_parent_quota_clamped_to_one(fake_files):
+    fake_files[PROC_CGROUP] = "0::/kubepods/pod-1/container-1\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/container-1/cpu.max"] = "400000 100000\n"
+    fake_files["/sys/fs/cgroup/kubepods/pod-1/cpu.max"] = "50000 100000\n"
+    assert utils.cpu_count() == 1
+
+
+def test_cgroup_v2_fractional_container_quota_clamped_to_one(fake_files):
+    fake_files[ROOT_CPU_MAX] = "50000 100000\n"
+    assert utils.cpu_count() == 1
+
+
+def test_cgroup_v1_fractional_parent_quota_clamped_to_one(fake_files):
+    fake_files[PROC_CGROUP] = "2:cpu,cpuacct:/kubepods/pod-1/container-1\n"
+    fake_files[
+        "/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/container-1/cpu.cfs_quota_us"
+    ] = "400000\n"
+    fake_files[
+        "/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/container-1/cpu.cfs_period_us"
+    ] = "100000\n"
+    fake_files["/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/cpu.cfs_quota_us"] = "50000\n"
+    fake_files["/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/cpu.cfs_period_us"] = (
+        "100000\n"
+    )
+    assert utils.cpu_count() == 1
+
+
+def test_cgroup_v1_fractional_container_quota_clamped_to_one(fake_files):
+    fake_files[V1_QUOTA] = "50000\n"
+    fake_files[V1_PERIOD] = "100000\n"
+    assert utils.cpu_count() == 1
+
+
+def test_cgroup_v1_separate_cpuacct_subsystem_ignored(fake_files):
+    fake_files[PROC_CGROUP] = (
+        "3:cpuacct:/acct-path\n2:cpu:/kubepods/pod-1/container-1\n"
+    )
+    fake_files["/sys/fs/cgroup/cpu/acct-path/cpu.cfs_quota_us"] = "100000\n"
+    fake_files["/sys/fs/cgroup/cpu/acct-path/cpu.cfs_period_us"] = "100000\n"
+    fake_files["/sys/fs/cgroup/cpu/kubepods/pod-1/container-1/cpu.cfs_quota_us"] = (
+        "200000\n"
+    )
+    fake_files["/sys/fs/cgroup/cpu/kubepods/pod-1/container-1/cpu.cfs_period_us"] = (
+        "100000\n"
+    )
+    assert utils.cpu_count() == 2
+
+
+def test_cgroup_v1_path_with_colons(fake_files):
+    fake_files[PROC_CGROUP] = "2:cpu:/app:prod/worker\n"
+    fake_files["/sys/fs/cgroup/cpu/app:prod/worker/cpu.cfs_quota_us"] = "200000\n"
+    fake_files["/sys/fs/cgroup/cpu/app:prod/worker/cpu.cfs_period_us"] = "100000\n"
+    assert utils.cpu_count() == 2
