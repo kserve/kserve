@@ -154,7 +154,7 @@ func TestFinalizePVCEvictorsSkipsConfigForUnrelatedDeletingService(t *testing.T)
 	})
 
 	scheme := runtime.NewScheme()
-	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, v1alpha2.AddToScheme} {
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
 		if err := addToScheme(scheme); err != nil {
 			t.Fatal(err)
 		}
@@ -2587,8 +2587,10 @@ func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 }
 
 func TestReconcilePVCEvictorsKeepsSharedEvictorWhileOldConsumerPodsRun(t *testing.T) {
+	dropContainer := func(s *v1alpha2.LLMInferenceService) { s.Spec.Template.Containers = s.Spec.Template.Containers[:1] }
 	tests := []struct {
 		name        string
+		appName     string
 		stopUsing   func(*v1alpha2.LLMInferenceService)
 		oldPodPhase corev1.PodPhase
 		terminating bool
@@ -2596,7 +2598,7 @@ func TestReconcilePVCEvictorsKeepsSharedEvictorWhileOldConsumerPodsRun(t *testin
 	}{
 		{
 			name:        "preset without pvc-evictor keeps the pvc.ref",
-			stopUsing:   func(s *v1alpha2.LLMInferenceService) { s.Spec.Template.Containers = s.Spec.Template.Containers[:1] },
+			stopUsing:   dropContainer,
 			oldPodPhase: corev1.PodRunning,
 			wantKept:    true,
 		},
@@ -2607,113 +2609,165 @@ func TestReconcilePVCEvictorsKeepsSharedEvictorWhileOldConsumerPodsRun(t *testin
 			wantKept:    true,
 		},
 		{
-			name:        "old pod already failed",
-			stopUsing:   func(s *v1alpha2.LLMInferenceService) { s.Spec.Template.Containers = s.Spec.Template.Containers[:1] },
-			oldPodPhase: corev1.PodFailed,
-		},
-		{
 			name:        "old pod terminating",
-			stopUsing:   func(s *v1alpha2.LLMInferenceService) { s.Spec.Template.Containers = s.Spec.Template.Containers[:1] },
+			stopUsing:   dropContainer,
 			oldPodPhase: corev1.PodRunning,
 			terminating: true,
+			wantKept:    true,
+		},
+		{
+			name:        "spec.labels sets the pods' app name",
+			appName:     "custom-name",
+			stopUsing:   dropContainer,
+			oldPodPhase: corev1.PodRunning,
+			wantKept:    true,
+		},
+		{
+			name:        "old pod already failed",
+			stopUsing:   dropContainer,
+			oldPodPhase: corev1.PodFailed,
 		},
 	}
+	// A kept evictor goes when the old pod exits, or when the service is deleted while the
+	// old pod runs, since the pod then stops with its service.
+	endings := []string{"old pod exits", "service deleted"}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{Name: "first", Namespace: "test"},
-				Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-					Template: &corev1.PodSpec{Containers: []corev1.Container{
-						{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
-						{Name: pvcEvictorTemplateName},
+		for _, ending := range endings {
+			if !tt.wantKept && ending != endings[0] {
+				continue
+			}
+			t.Run(tt.name+"/"+ending, func(t *testing.T) {
+				svc := &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Name: "first", Namespace: "test"},
+					Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{Containers: []corev1.Container{
+							{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+							{Name: pvcEvictorTemplateName},
+						}},
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+							PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+						}}}},
 					}},
-					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
-						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
-					}}}},
-				}},
-			}
-			pvc := &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
-				Spec:       corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}},
-			}
-			scheme := runtime.NewScheme()
-			for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
-				if err := addToScheme(scheme); err != nil {
+				}
+				podAppName := svc.Name
+				if tt.appName != "" {
+					svc.Spec.Labels = map[string]string{constants.KubernetesAppNameLabelKey: tt.appName}
+					podAppName = tt.appName
+				}
+				pvc := &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+					Spec:       corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}},
+				}
+				scheme := runtime.NewScheme()
+				for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
+					if err := addToScheme(scheme); err != nil {
+						t.Fatal(err)
+					}
+				}
+				fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc, testInferenceServiceConfigMap()).Build()
+				reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()}
+				evictors := func() int {
+					deployments := &appsv1.DeploymentList{}
+					if err := fakeClient.List(t.Context(), deployments, client.InNamespace("test"), client.MatchingLabels{pvcEvictorLabel: "true"}); err != nil {
+						t.Fatal(err)
+					}
+					return len(deployments.Items)
+				}
+
+				// given a shared evictor and a pod of the revision that used it
+				if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err != nil {
+					t.Fatalf("reconcilePVCEvictors() error = %v", err)
+				}
+				if got := evictors(); got != 1 {
+					t.Fatalf("shared evictor Deployments = %d, want 1", got)
+				}
+				oldPod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: "first-old", Namespace: "test", Labels: map[string]string{
+						constants.KubernetesAppNameLabelKey:                  podAppName,
+						pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache"): "true",
+					}},
+					Spec:   corev1.PodSpec{NodeName: "node-a", Containers: []corev1.Container{{Name: mainContainerName}}},
+					Status: corev1.PodStatus{Phase: tt.oldPodPhase},
+				}
+				if tt.terminating {
+					oldPod.Finalizers = []string{"test.finalizer"}
+				}
+				if err := fakeClient.Create(t.Context(), oldPod); err != nil {
 					t.Fatal(err)
 				}
-			}
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc).Build()
-			reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()}
-			evictors := func() int {
-				deployments := &appsv1.DeploymentList{}
-				if err := fakeClient.List(t.Context(), deployments, client.InNamespace("test"), client.MatchingLabels{pvcEvictorLabel: "true"}); err != nil {
+				if tt.terminating {
+					if err := fakeClient.Delete(t.Context(), oldPod); err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				// when the service stops using the evictor
+				current := &v1alpha2.LLMInferenceService{}
+				if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(svc), current); err != nil {
 					t.Fatal(err)
 				}
-				return len(deployments.Items)
-			}
-
-			// given a shared evictor and a pod of the revision that used it
-			if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err != nil {
-				t.Fatalf("reconcilePVCEvictors() error = %v", err)
-			}
-			if got := evictors(); got != 1 {
-				t.Fatalf("shared evictor Deployments = %d, want 1", got)
-			}
-			oldPod := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: "first-old", Namespace: "test", Labels: map[string]string{
-					constants.KubernetesAppNameLabelKey:                  "first",
-					pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache"): "true",
-				}},
-				Spec:   corev1.PodSpec{NodeName: "node-a", Containers: []corev1.Container{{Name: mainContainerName}}},
-				Status: corev1.PodStatus{Phase: tt.oldPodPhase},
-			}
-			if tt.terminating {
-				oldPod.Finalizers = []string{"test.finalizer"}
-			}
-			if err := fakeClient.Create(t.Context(), oldPod); err != nil {
-				t.Fatal(err)
-			}
-			if tt.terminating {
-				if err := fakeClient.Delete(t.Context(), oldPod); err != nil {
+				tt.stopUsing(current)
+				if err := fakeClient.Update(t.Context(), current); err != nil {
 					t.Fatal(err)
 				}
-			}
+				if err := reconciler.reconcilePVCEvictors(t.Context(), current, &Config{}); err != nil {
+					t.Fatalf("reconcilePVCEvictors() after the switch error = %v", err)
+				}
 
-			// when the service stops using the evictor
-			current := &v1alpha2.LLMInferenceService{}
-			if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(svc), current); err != nil {
-				t.Fatal(err)
-			}
-			tt.stopUsing(current)
-			if err := fakeClient.Update(t.Context(), current); err != nil {
-				t.Fatal(err)
-			}
-			if err := reconciler.reconcilePVCEvictors(t.Context(), current, &Config{}); err != nil {
-				t.Fatalf("reconcilePVCEvictors() after the switch error = %v", err)
-			}
+				// then the evictor stays while the old pod can still write to its cache root
+				if got, want := evictors(), map[bool]int{true: 1, false: 0}[tt.wantKept]; got != want {
+					t.Fatalf("shared evictor Deployments after the switch = %d, want %d", got, want)
+				}
+				if !tt.wantKept {
+					return
+				}
 
-			// then the evictor stays while the old pod can still write to its cache root
-			if got, want := evictors(), map[bool]int{true: 1, false: 0}[tt.wantKept]; got != want {
-				t.Fatalf("shared evictor Deployments after the switch = %d, want %d", got, want)
-			}
-			if !tt.wantKept {
-				return
-			}
-
-			// and goes once the old pod is gone
-			if err := fakeClient.Delete(t.Context(), oldPod); err != nil {
-				t.Fatal(err)
-			}
-			if err := reconciler.reconcilePVCEvictors(t.Context(), current, &Config{}); err != nil {
-				t.Fatalf("reconcilePVCEvictors() after the old pod stopped error = %v", err)
-			}
-			if got := evictors(); got != 0 {
-				t.Fatalf("shared evictor Deployments after the old pod stopped = %d, want 0", got)
-			}
-			if err := fakeClient.Get(t.Context(), client.ObjectKey{Namespace: "test", Name: pvcEvictorServiceAccount}, &corev1.ServiceAccount{}); !apierrors.IsNotFound(err) {
-				t.Fatalf("evictor ServiceAccount after the old pod stopped: err = %v, want NotFound", err)
-			}
-		})
+				// and goes once the old pod is gone or its service is deleted
+				switch ending {
+				case "old pod exits":
+					if tt.terminating {
+						if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(oldPod), oldPod); err != nil {
+							t.Fatal(err)
+						}
+						oldPod.Finalizers = nil
+						if err := fakeClient.Update(t.Context(), oldPod); err != nil {
+							t.Fatal(err)
+						}
+					} else if err := fakeClient.Delete(t.Context(), oldPod); err != nil {
+						t.Fatal(err)
+					}
+					if err := reconciler.reconcilePVCEvictors(t.Context(), current, &Config{}); err != nil {
+						t.Fatalf("reconcilePVCEvictors() after the old pod stopped error = %v", err)
+					}
+				case "service deleted":
+					// The switch cleared PVCEvictorReady and left no target, so only the old pod
+					// shows the service used the evictor.
+					if current.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil {
+						t.Fatal("PVCEvictorReady still set after the switch")
+					}
+					current.Finalizers = []string{"test.finalizer"}
+					if err := fakeClient.Update(t.Context(), current); err != nil {
+						t.Fatal(err)
+					}
+					if err := fakeClient.Delete(t.Context(), current); err != nil {
+						t.Fatal(err)
+					}
+					deleting := &v1alpha2.LLMInferenceService{}
+					if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(current), deleting); err != nil {
+						t.Fatal(err)
+					}
+					if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+						t.Fatalf("finalizePVCEvictors() error = %v", err)
+					}
+				}
+				if got := evictors(); got != 0 {
+					t.Fatalf("shared evictor Deployments after %s = %d, want 0", ending, got)
+				}
+				if err := fakeClient.Get(t.Context(), client.ObjectKey{Namespace: "test", Name: pvcEvictorServiceAccount}, &corev1.ServiceAccount{}); !apierrors.IsNotFound(err) {
+					t.Fatalf("evictor ServiceAccount after %s: err = %v, want NotFound", ending, err)
+				}
+			})
+		}
 	}
 }
 
