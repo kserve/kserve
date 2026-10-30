@@ -191,6 +191,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
+	rawDeploymentUnavailable := false
 	if deploymentMode == constants.Standard {
 		if err := r.reconcileRawPlatformPrerequisites(ctx, graph); err != nil {
 			return reconcile.Result{}, err
@@ -203,25 +204,13 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		r.Log.Info("Inference graph raw", "deployment conditions", deployment.Status.Conditions)
-		if !forceStopRuntime {
-			// Check if the deployment is ready. If not, requeue
-			igAvailable := false
-			for _, con := range deployment.Status.Conditions {
-				if con.Type == appsv1.DeploymentAvailable {
-					igAvailable = true
-					break
-				}
+		deploymentAvailable := forceStopRuntime || isDeploymentAvailable(deployment)
+		rawDeploymentUnavailable = !deploymentAvailable
+		if deploymentAvailable {
+			url, err = r.reconcileRawPlatformNetworking(ctx, graph, url)
+			if err != nil {
+				return reconcile.Result{}, err
 			}
-			if !igAvailable {
-				// If Deployment resource not yet available, IG is not available as well. Reconcile again.
-				return reconcile.Result{Requeue: true}, errors.Wrapf(err,
-					"Failed to find inference graph deployment  %s", graph.Name)
-			}
-		}
-
-		url, err = r.reconcileRawPlatformNetworking(ctx, graph, url)
-		if err != nil {
-			return reconcile.Result{}, err
 		}
 
 		logger.Info("Inference graph raw before propagate status")
@@ -324,6 +313,12 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := r.updateStatus(ctx, graph); err != nil {
 		r.Recorder.Event(graph, corev1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
+	}
+
+	if rawDeploymentUnavailable {
+		// The graph is not available yet. Its status now carries the deployment's
+		// reason, so retry instead of leaving a stale Ready on the graph.
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return ctrl.Result{}, nil
