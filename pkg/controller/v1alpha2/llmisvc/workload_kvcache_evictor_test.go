@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1291,6 +1292,62 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	}
 	if got.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] {
 		t.Fatalf("security hash = %q, want effective default hash %q", got.Annotations[pvcEvictorSecurityHash], expected.Annotations[pvcEvictorSecurityHash])
+	}
+}
+
+func TestReconcileExistingPVCEvictorDeploymentIgnoresStatusWritesSinceTheCacheRead(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	updates := 0
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(expected.DeepCopy()).
+		WithStatusSubresource(&appsv1.Deployment{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				if !slices.Contains(opts, client.UpdateOption(client.DryRunAll)) {
+					updates++
+					return c.Update(ctx, obj, opts...)
+				}
+				// The fake client skips dry-runs entirely. The apiserver still checks a
+				// resourceVersion it is given before it dry-runs (Store.Update in
+				// k8s.io/apiserver), and accepts none for a Deployment.
+				stored := &appsv1.Deployment{}
+				if err := c.Get(ctx, client.ObjectKeyFromObject(obj), stored); err != nil {
+					return err
+				}
+				if rv := obj.GetResourceVersion(); rv != "" && rv != stored.ResourceVersion {
+					return apierrors.NewConflict(appsv1.Resource("deployments"), obj.GetName(), errors.New("the object has been modified"))
+				}
+				return nil
+			},
+		}).
+		Build()
+	current := &appsv1.Deployment{}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), current); err != nil {
+		t.Fatal(err)
+	}
+	// The Deployment controller reports status after the cache read.
+	latest := current.DeepCopy()
+	latest.Status.AvailableReplicas = 1
+	if err := fakeClient.Status().Update(t.Context(), latest); err != nil {
+		t.Fatal(err)
+	}
+
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {agreed: true},
+	}
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err != nil {
+		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v, want the unchanged Deployment to compare equal", err)
+	}
+	if updates != 0 {
+		t.Errorf("updates = %d, want none for an unchanged Deployment", updates)
 	}
 }
 

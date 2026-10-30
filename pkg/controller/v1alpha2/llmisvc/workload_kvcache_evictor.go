@@ -1174,8 +1174,10 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 		}
 		return nil
 	}
+	// No resourceVersion: the dry-run only fills in server defaults for the comparison, and
+	// a Deployment accepts an unconditional update. With the cached one, every status
+	// write by the Deployment controller since the cache read fails it with a conflict.
 	normalizedExpected := expected.DeepCopy()
-	normalizedExpected.SetResourceVersion(current.GetResourceVersion())
 	if err := r.Update(ctx, normalizedExpected, client.DryRunAll); err != nil {
 		return fmt.Errorf("failed to get defaults for shared PVC evictor Deployment %s/%s: %w", current.Namespace, current.Name, err)
 	}
