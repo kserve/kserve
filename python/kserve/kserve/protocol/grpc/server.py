@@ -29,6 +29,20 @@ from .interceptors import ExceptionToStatusInterceptor, LoggingInterceptor
 from .servicer import InferenceServicer
 
 
+def _server_factory(name: str):
+    """Returns grpc.aio.server, or pygrpc-native's drop-in replacement for it."""
+    if name != "pygrpc-native":
+        return aio.server
+    try:
+        import pygrpc_native.aio
+    except ImportError as e:
+        raise RuntimeError(
+            "--grpc_server pygrpc-native needs the pygrpc-native package. "
+            "Install it with: pip install 'kserve[pygrpc-native]'"
+        ) from e
+    return pygrpc_native.aio.server
+
+
 class GRPCServer:
     def __init__(
         self,
@@ -44,6 +58,8 @@ class GRPCServer:
         self._server = None
         self._grace_period = grace_period
         self._kwargs = kwargs
+        # Resolved here so a missing package fails before the server starts.
+        self._server_factory = _server_factory(kwargs.get("grpc_server", "grpcio"))
 
     async def start(self, max_workers):
         inference_servicer = InferenceServicer(
@@ -69,7 +85,7 @@ class GRPCServer:
                     tracer_provider=tracer_provider, filter_=excluded_urls
                 )
             )
-        self._server = aio.server(
+        self._server = self._server_factory(
             futures.ThreadPoolExecutor(max_workers=max_workers),
             interceptors=interceptors,
             options=[
