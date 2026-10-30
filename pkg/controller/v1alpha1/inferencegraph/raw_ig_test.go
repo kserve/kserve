@@ -556,90 +556,126 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 }
 
 func TestPropagateRawStatus(t *testing.T) {
-	type args struct {
-		graphStatus *InferenceGraphStatus
-		deployment  *appsv1.Deployment
-		url         *apis.URL
-	}
+	url := &apis.URL{Scheme: "http", Host: "test.com"}
 
 	scenarios := []struct {
-		name     string
-		args     args
-		expected *InferenceGraphStatus
+		name       string
+		deployment *appsv1.Deployment
+		expected   duckv1.Conditions
+		wantURL    *apis.URL
 	}{
 		{
-			name: "Basic Inference graph with graph status as ready and deployment available",
-			args: args{
-				graphStatus: &InferenceGraphStatus{
-					Status: duckv1.Status{
-						Conditions: duckv1.Conditions{
-							{
-								Type:   apis.ConditionReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-				deployment: &appsv1.Deployment{
-					Status: appsv1.DeploymentStatus{
-						AvailableReplicas: 1,
-					},
-				},
-				url: &apis.URL{
-					Scheme: "http",
-					Host:   "test.com",
+			name: "an available deployment marks the graph ready",
+			deployment: &appsv1.Deployment{
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 3,
+					Conditions: []appsv1.DeploymentCondition{{
+						Type:   appsv1.DeploymentAvailable,
+						Status: corev1.ConditionTrue,
+						Reason: "MinimumReplicasAvailable",
+					}},
 				},
 			},
-			expected: &InferenceGraphStatus{
-				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   apis.ConditionReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-				},
-			},
+			expected: duckv1.Conditions{{
+				Type:   apis.ConditionReady,
+				Status: corev1.ConditionTrue,
+				Reason: "MinimumReplicasAvailable",
+			}},
+			wantURL: url,
 		},
-
 		{
-			name: "Basic Inference graph with Inferencegraph status as not ready and deployment unavailable",
-			args: args{
-				graphStatus: &InferenceGraphStatus{
-					Status: duckv1.Status{
-						Conditions: duckv1.Conditions{
-							{
-								Type:   apis.ConditionReady,
-								Status: corev1.ConditionFalse,
-							},
-						},
-					},
-				},
-				deployment: &appsv1.Deployment{
-					Status: appsv1.DeploymentStatus{
-						AvailableReplicas: 0,
-					},
+			name: "an unavailable deployment keeps the graph not ready with the deployment's reason",
+			deployment: &appsv1.Deployment{
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 4,
+					Conditions: []appsv1.DeploymentCondition{{
+						Type:    appsv1.DeploymentAvailable,
+						Status:  corev1.ConditionFalse,
+						Reason:  "MinimumReplicasUnavailable",
+						Message: "Deployment does not have minimum availability.",
+					}},
 				},
 			},
-			expected: &InferenceGraphStatus{
-				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   apis.ConditionReady,
-							Status: corev1.ConditionFalse,
-						},
-					},
-				},
-			},
+			expected: duckv1.Conditions{{
+				Type:    apis.ConditionReady,
+				Status:  corev1.ConditionFalse,
+				Reason:  "MinimumReplicasUnavailable",
+				Message: "Deployment does not have minimum availability.",
+			}},
+			wantURL: nil,
+		},
+		{
+			name:       "a deployment without an available condition is not ready",
+			deployment: &appsv1.Deployment{},
+			expected: duckv1.Conditions{{
+				Type:   apis.ConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: deploymentNotAvailableReason,
+			}},
+			wantURL: nil,
 		},
 	}
 
 	for _, tt := range scenarios {
 		t.Run(tt.name, func(t *testing.T) {
-			PropagateRawStatus(tt.args.graphStatus, tt.args.deployment, tt.args.url)
-			if diff := cmp.Diff(tt.expected, tt.args.graphStatus); diff != "" {
-				t.Errorf("Test for graphstatus %q unexpected result (-want +got): %v", t.Name(), diff)
+			// An earlier reconcile left the graph Ready. Propagating the deployment
+			// status must replace that, not keep it.
+			graphStatus := &InferenceGraphStatus{
+				Status: duckv1.Status{Conditions: duckv1.Conditions{{
+					Type:   apis.ConditionReady,
+					Status: corev1.ConditionTrue,
+				}}},
+				URL: url,
+			}
+
+			PropagateRawStatus(graphStatus, tt.deployment, url)
+
+			if diff := cmp.Diff(tt.expected, graphStatus.Conditions); diff != "" {
+				t.Errorf("conditions (-want +got): %v", diff)
+			}
+			if diff := cmp.Diff(tt.wantURL, graphStatus.URL); diff != "" {
+				t.Errorf("URL (-want +got): %v", diff)
+			}
+			if graphStatus.ObservedGeneration != tt.deployment.Status.ObservedGeneration {
+				t.Errorf("observedGeneration = %d, want %d", graphStatus.ObservedGeneration, tt.deployment.Status.ObservedGeneration)
 			}
 		})
+	}
+}
+
+// TestPropagateRawStatusKeepsStoppedCondition checks that a graph whose
+// Deployment cannot start keeps the Stopped condition, and its transition time,
+// instead of having it recreated on every reconcile.
+func TestPropagateRawStatusKeepsStoppedCondition(t *testing.T) {
+	transitionTime := metav1.Now()
+	graphStatus := &InferenceGraphStatus{
+		Status: duckv1.Status{Conditions: duckv1.Conditions{
+			{
+				Type:               v1beta1.Stopped,
+				Status:             corev1.ConditionFalse,
+				LastTransitionTime: apis.VolatileTime{Inner: transitionTime},
+			},
+			{
+				Type:   apis.ConditionReady,
+				Status: corev1.ConditionTrue,
+			},
+		}},
+	}
+
+	PropagateRawStatus(graphStatus, &appsv1.Deployment{}, nil)
+
+	stopped := graphStatus.GetCondition(v1beta1.Stopped)
+	if stopped == nil {
+		t.Fatal("Stopped condition was dropped")
+	}
+	if stopped.Status != corev1.ConditionFalse {
+		t.Errorf("Stopped status = %v, want %v", stopped.Status, corev1.ConditionFalse)
+	}
+	if !stopped.LastTransitionTime.Inner.Equal(&transitionTime) {
+		t.Errorf("Stopped transition time = %v, want %v", stopped.LastTransitionTime.Inner, transitionTime)
+	}
+	ready := graphStatus.GetCondition(apis.ConditionReady)
+	if ready == nil || ready.Status != corev1.ConditionFalse {
+		t.Errorf("Ready = %#v, want False", ready)
 	}
 }
