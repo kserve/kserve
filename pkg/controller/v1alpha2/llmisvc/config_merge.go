@@ -904,6 +904,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
+	if llmSvcCfg.Spec.Router != nil && llmSvcCfg.Spec.Router.Route != nil && llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
+		route := llmSvcCfg.Spec.Router.Route.HTTP.Spec
+		route.Rules = normalizePublisherPathMatches(route.Rules, &effectiveSvc, reconcilerConfig.ModelBasedRoutingHeaderName)
+	}
+
 	// Add the lora-affinity-scorer to the scheduler config only when
 	// .spec.model.lora.adapters is set and the user did not supply their own
 	// scheduler config (via .spec.router.scheduler.config or a config flag in

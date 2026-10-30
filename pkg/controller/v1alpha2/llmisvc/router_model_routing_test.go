@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -299,6 +300,16 @@ func TestPerModelPathPrefixes(t *testing.T) {
 			name: "falls back to metadata.name when spec.model.name is unset",
 			want: []string{"/ns/svc", "/publishers/ns/models/svc"},
 		},
+		{
+			name:      "uses the normalized model path for the publisher prefix",
+			modelName: ptr.To("/app/root//model/"),
+			want:      []string{"/ns/svc", "/publishers/ns/models/app/root/model"},
+		},
+		{
+			name:      "omits the publisher prefix when no model segment remains",
+			modelName: ptr.To("/"),
+			want:      []string{"/ns/svc"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -309,6 +320,122 @@ func TestPerModelPathPrefixes(t *testing.T) {
 			assert.Equal(t, tt.want, perModelPathPrefixes(llmSvc))
 		})
 	}
+}
+
+func TestPublisherModelPath(t *testing.T) {
+	tests := []struct {
+		modelName string
+		want      string
+	}{
+		{modelName: "granite", want: "granite"},
+		{modelName: "1model", want: "1model"},
+		{modelName: "Qwen/Qwen2.5-7B-Instruct", want: "Qwen/Qwen2.5-7B-Instruct"},
+		{modelName: "llama3:8b@v2", want: "llama3:8b@v2"},
+		{modelName: "x/...", want: "x/..."},
+		{modelName: "x/.hidden/..y", want: "x/.hidden/..y"},
+		{modelName: "/app/root/model", want: "app/root/model"},
+		{modelName: "/mnt/models/", want: "mnt/models"},
+		{modelName: "////a///b//", want: "a/b"},
+		{modelName: "x/./y", want: "x/y"},
+		{modelName: "x/../y", want: "x/y"},
+		{modelName: "./models", want: "models"},
+		{modelName: "/", want: ""},
+		{modelName: "..", want: ""},
+		{modelName: "/./../", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.modelName, func(t *testing.T) {
+			assert.Equal(t, tt.want, publisherModelPath(tt.modelName))
+		})
+	}
+}
+
+func TestNormalizePublisherPathMatches_ShippedRoute(t *testing.T) {
+	publisherPaths := func(rules []gwapiv1.HTTPRouteRule) []string {
+		var paths []string
+		for _, rule := range rules {
+			for _, match := range rule.Matches {
+				if match.Path != nil && strings.HasPrefix(ptr.Deref(match.Path.Value, ""), "/publishers/") {
+					paths = append(paths, *match.Path.Value)
+				}
+			}
+		}
+		return paths
+	}
+	headerValues := func(rules []gwapiv1.HTTPRouteRule) []string {
+		var values []string
+		for _, rule := range rules {
+			for _, match := range rule.Matches {
+				for _, header := range match.Headers {
+					values = append(values, header.Value)
+				}
+			}
+		}
+		return values
+	}
+	svc := func(modelName string) *v1alpha2.LLMInferenceService {
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "granite", Namespace: "team-a"},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				Model: v1alpha2.LLMModelSpec{Name: ptr.To(modelName)},
+			},
+		}
+	}
+	endpoints := []string{
+		"/v1/completions", "/v1/chat/completions", "/v1/responses", "/v1/messages",
+		"/v1/audio", "/v1/images", "",
+	}
+
+	t.Run("leaves a route with a valid model name unchanged", func(t *testing.T) {
+		llmSvc := svc("Qwen/Qwen2.5-7B-Instruct")
+		rules := renderShippedRouterRoute(t, llmSvc)
+		want := deepCopyRules(rules)
+
+		got := normalizePublisherPathMatches(rules, llmSvc, modelRoutingTestHeader)
+
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("rewrites publisher paths of a model name with empty and dot segments", func(t *testing.T) {
+		for _, modelName := range []string{"/app/root/model", "//app/./root/../model//"} {
+			t.Run(modelName, func(t *testing.T) {
+				llmSvc := svc(modelName)
+				rules := renderShippedRouterRoute(t, llmSvc)
+				wantHeaders := headerValues(rules)
+				require.Len(t, publisherPaths(rules), len(endpoints))
+
+				got := normalizePublisherPathMatches(rules, llmSvc, modelRoutingTestHeader)
+
+				want := make([]string, 0, len(endpoints))
+				for _, endpoint := range endpoints {
+					want = append(want, "/publishers/team-a/models/app/root/model"+endpoint)
+				}
+				assert.ElementsMatch(t, want, publisherPaths(got))
+				assert.Equal(t, wantHeaders, headerValues(got), "model-routing header values keep the declared model name")
+				assert.Contains(t, headerValues(got), "publishers/team-a/models/"+modelName)
+			})
+		}
+	})
+
+	t.Run("removes publisher paths when no model segment remains", func(t *testing.T) {
+		llmSvc := svc("/")
+		rules := renderShippedRouterRoute(t, llmSvc)
+		ruleCount := len(rules)
+		require.Len(t, publisherPaths(rules), len(endpoints))
+
+		got := normalizePublisherPathMatches(rules, llmSvc, modelRoutingTestHeader)
+
+		assert.Empty(t, publisherPaths(got))
+		assert.Len(t, got, ruleCount-len(endpoints), "only the publisher path rules are removed")
+	})
+}
+
+func deepCopyRules(rules []gwapiv1.HTTPRouteRule) []gwapiv1.HTTPRouteRule {
+	copied := make([]gwapiv1.HTTPRouteRule, len(rules))
+	for i := range rules {
+		rules[i].DeepCopyInto(&copied[i])
+	}
+	return copied
 }
 
 func TestResolveModelBasedRoutingOnly(t *testing.T) {

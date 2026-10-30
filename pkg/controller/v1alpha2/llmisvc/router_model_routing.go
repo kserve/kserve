@@ -189,10 +189,55 @@ func (r *LLMISVCReconciler) readParentGateways(ctx context.Context, route *gwapi
 // exposes llmSvc under: /{namespace}/{name} and the publisher-qualified
 // /publishers/{namespace}/models/{model}.
 func perModelPathPrefixes(llmSvc *v1alpha2.LLMInferenceService) []string {
-	return []string{
-		"/" + llmSvc.GetNamespace() + "/" + llmSvc.GetName(),
-		"/" + fullyQualifiedModelName(llmSvc.GetNamespace(), resolveModelName(llmSvc)),
+	prefixes := []string{"/" + llmSvc.GetNamespace() + "/" + llmSvc.GetName()}
+	if modelPath := publisherModelPath(resolveModelName(llmSvc)); modelPath != "" {
+		prefixes = append(prefixes, "/"+fullyQualifiedModelName(llmSvc.GetNamespace(), modelPath))
 	}
+	return prefixes
+}
+
+// publisherModelPath returns modelName as it appears in publisher path
+// matches: segments are split on "/", and empty, "." and ".." segments are
+// dropped. A name without such segments is returned unchanged.
+func publisherModelPath(modelName string) string {
+	segments := strings.Split(modelName, "/")
+	kept := segments[:0]
+	for _, segment := range segments {
+		if segment != "" && segment != "." && segment != ".." {
+			kept = append(kept, segment)
+		}
+	}
+	return strings.Join(kept, "/")
+}
+
+// normalizePublisherPathMatches rewrites the model name in the publisher path
+// matches of rules, /publishers/{namespace}/models/{model}, to
+// publisherModelPath(model). When no model segment remains, the publisher path
+// matches are removed. Header values, which carry the model name as declared,
+// are left as they are.
+func normalizePublisherPathMatches(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alpha2.LLMInferenceService, headerName string) []gwapiv1.HTTPRouteRule {
+	modelName := resolveModelName(llmSvc)
+	modelPath := publisherModelPath(modelName)
+	if modelPath == modelName {
+		return rules
+	}
+
+	renderedPrefix := []string{"/" + fullyQualifiedModelName(llmSvc.GetNamespace(), modelName)}
+	if modelPath == "" {
+		return stripPerModelPathMatches(rules, renderedPrefix, headerName)
+	}
+
+	prefix := "/" + fullyQualifiedModelName(llmSvc.GetNamespace(), modelPath)
+	for i := range rules {
+		for j := range rules[i].Matches {
+			match := &rules[i].Matches[j]
+			if !isPerModelPathMatch(*match, renderedPrefix, headerName) {
+				continue
+			}
+			match.Path.Value = ptr.To(prefix + strings.TrimPrefix(*match.Path.Value, renderedPrefix[0]))
+		}
+	}
+	return rules
 }
 
 // stripPerModelPathMatches removes matches that route by a path under one of
