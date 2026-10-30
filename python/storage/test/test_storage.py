@@ -86,6 +86,7 @@ def test_http_storage_uri_rejects_internal_targets(uri):
     "allowlist,uri",
     [
         ('["models.ml-platform.svc"]', "http://models.ml-platform.svc/model"),
+        ('["10.20.0.0/16"]', "http://models.ml-platform.svc/model"),
         ('["10.20.0.0/16"]', "http://models.example/model"),
     ],
 )
@@ -114,6 +115,27 @@ def test_http_storage_uri_allowlist_does_not_allow_metadata(monkeypatch):
 def test_http_storage_uri_rejects_invalid_allowlist(monkeypatch):
     monkeypatch.setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", '["*.svc"]')
     with pytest.raises(RuntimeError, match="Invalid or blocked hostname"):
+        _resolve_http_storage_uri("http://models.ml-platform.svc/model")
+
+
+@pytest.mark.parametrize(
+    "resolved_address",
+    ["::ffff:169.254.169.254", "::ffff:127.0.0.1"],
+)
+def test_http_storage_uri_rejects_mapped_blocked_addresses(
+    monkeypatch, resolved_address
+):
+    monkeypatch.setenv(
+        "KSERVE_HTTP_STORAGE_URI_ALLOWLIST", '["models.ml-platform.svc"]'
+    )
+    monkeypatch.setattr(
+        f"{STORAGE_MODULE}.socket.getaddrinfo",
+        lambda *_args: [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", (resolved_address, 443, 0, 0))
+        ],
+    )
+
+    with pytest.raises(RuntimeError, match="blocked host or IP"):
         _resolve_http_storage_uri("http://models.ml-platform.svc/model")
 
 

@@ -104,6 +104,31 @@ func TestCheckHTTPStorageURIResolvedWithAllowlist(t *testing.T) {
 	}
 }
 
+func TestHTTPStorageLoopbackTestingOverride(t *testing.T) {
+	AllowHTTPStorageLoopbackForTesting(true)
+	t.Cleanup(func() { AllowHTTPStorageLoopbackForTesting(false) })
+
+	for _, uri := range []string{"http://127.0.0.1/model", "http://[::1]/model"} {
+		if err := CheckHTTPStorageURI(uri); err != nil {
+			t.Errorf("CheckHTTPStorageURI(%q) unexpectedly failed: %v", uri, err)
+		}
+		if err := CheckHTTPStorageURIResolved(uri); err != nil {
+			t.Errorf("CheckHTTPStorageURIResolved(%q) unexpectedly failed: %v", uri, err)
+		}
+	}
+
+	underlyingErr := errors.New("underlying dial called")
+	client := SafeHTTPClient(&http.Client{Transport: &http.Transport{
+		DialContext: func(context.Context, string, string) (net.Conn, error) {
+			return nil, underlyingErr
+		},
+	}})
+	transport := client.Transport.(*http.Transport)
+	if _, err := transport.DialContext(t.Context(), "tcp", "127.0.0.1:8080"); !errors.Is(err, underlyingErr) {
+		t.Fatalf("loopback dial error = %v, want underlying dial error", err)
+	}
+}
+
 func TestSafeHTTPClientDisablesProxy(t *testing.T) {
 	client := SafeHTTPClient(&http.Client{Transport: &http.Transport{Proxy: http.ProxyFromEnvironment}})
 	transport, ok := client.Transport.(*http.Transport)
