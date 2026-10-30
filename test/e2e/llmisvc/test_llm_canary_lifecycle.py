@@ -610,6 +610,51 @@ def wait_for_group_weight(api, observer, member, expected, ns, timeout=30):
     raise TimeoutError(f"{member} weight={w}, expected {expected} (from {observer})")
 
 
+def wait_for_group_weights(api, observer, expected, ns, timeout=60):
+    """Wait for the observer's group status to reflect the expected weight map.
+
+    Reads the complete weight map from the observer's group status in a single
+    atomic read, avoiding races where individual member weights converge at
+    different times. The observer's group status is updated after the HTTPRoute
+    is reconciled, so this also implicitly waits for route reconciliation.
+
+    Args:
+        api: Kubernetes CustomObjectsApi client.
+        observer: Name of the LLMInferenceService whose group status to observe.
+        expected: Dict mapping member name to expected weight.
+        ns: Namespace.
+        timeout: Timeout in seconds.
+    """
+    deadline = time.monotonic() + timeout
+    actual = {}
+    last_error = None
+    while time.monotonic() < deadline:
+        try:
+            obj = api.get_namespaced_custom_object(
+                KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, observer
+            )
+            members = (
+                obj.get("status", {})
+                .get("router", {})
+                .get("group", {})
+                .get("members", [])
+            )
+            actual = {
+                m.get("name"): m.get("weight")
+                for m in members
+                if m.get("name") in expected
+            }
+            if actual == expected:
+                return
+        except k8s_client.ApiException as e:
+            last_error = e
+        time.sleep(1)
+    msg = f"{observer} group weights={actual}, expected {expected}"
+    if last_error:
+        msg += f" (last error: {last_error})"
+    raise TimeoutError(msg)
+
+
 def _has_istio():
     try:
         k8s_client.ApiextensionsV1Api().read_custom_resource_definition(
@@ -919,7 +964,7 @@ class TestCanaryLifecycle:
         driver.mark("canary_mutation")
         patch_weight(api, v2, 3, ns)
         patch_weight(api, v1, 7, ns)
-        wait_for_group_weight(api, v1, v2, 3, ns)
+        wait_for_group_weights(api, v1, {v1: 7, v2: 3}, ns)
         wait_for_healthy_route(
             f"{gateway}/v1/completions",
             {
@@ -935,7 +980,7 @@ class TestCanaryLifecycle:
         driver.mark("promote_mutation")
         patch_weight(api, v1, 0, ns)
         patch_weight(api, v2, 9, ns)
-        wait_for_group_weight(api, v2, v1, 0, ns)
+        wait_for_group_weights(api, v1, {v1: 0, v2: 9}, ns)
         wait_for_healthy_route(
             f"{gateway}/v1/completions",
             {
