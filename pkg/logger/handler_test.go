@@ -79,7 +79,7 @@ func TestLogger(t *testing.T) {
 	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", nil, true)
+		"default", httpProxy, nil, "", nil, true, false)
 
 	oh.ServeHTTP(w, r)
 
@@ -151,7 +151,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, []string{"Foo", "Fizz"}, "", nil, true)
+		"default", httpProxy, []string{"Foo", "Fizz"}, "", nil, true, false)
 
 	oh.ServeHTTP(w, r)
 
@@ -223,7 +223,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", map[string]string{"Foo": "Bar", "Fizz": "Buzz"}, true)
+		"default", httpProxy, nil, "", map[string]string{"Foo": "Bar", "Fizz": "Buzz"}, true, false)
 
 	oh.ServeHTTP(w, r)
 
@@ -268,7 +268,7 @@ func TestBadResponse(t *testing.T) {
 	StartDispatcher(1, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", nil, true)
+		"default", httpProxy, nil, "", nil, true, false)
 
 	oh.ServeHTTP(w, r)
 	g.Expect(w.Code).To(gomega.Equal(400))
@@ -338,7 +338,7 @@ func TestLoggerWithS3Store(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, []string{"Foo"}, "", map[string]string{"test-annotation": "test-value"}, true)
+		"default", httpProxy, []string{"Foo"}, "", map[string]string{"test-annotation": "test-value"}, true, false)
 
 	oh.ServeHTTP(w, r)
 
@@ -429,7 +429,7 @@ func TestLoggerCloudEventTimestamps(t *testing.T) {
 	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", nil, true)
+		"default", httpProxy, nil, "", nil, true, false)
 
 	oh.ServeHTTP(w, r)
 
@@ -439,4 +439,186 @@ func TestLoggerCloudEventTimestamps(t *testing.T) {
 	// Response occurrence time should be >= request occurrence time
 	g.Expect(resTimestamps.ceTime.After(reqTimestamps.ceTime) ||
 		resTimestamps.ceTime.Equal(reqTimestamps.ceTime)).To(gomega.BeTrue())
+}
+
+func TestLoggerLogAllResponsesOffByDefault(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+
+	eventTypes := make(chan string, 2)
+	// Start a local HTTP server
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		eventTypes <- req.Header.Get("Ce-Type")
+		_, err := rw.Write([]byte(`ok`))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	// Close the server when test finishes
+	defer logSvc.Close()
+
+	// Start a local HTTP server
+	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		http.Error(rw, "unprocessable", http.StatusUnprocessableEntity)
+	}))
+	// Close the server when test finishes
+	defer predictor.Close()
+
+	reader := bytes.NewReader(predictorRequest)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
+	w := httptest.NewRecorder()
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	pkgtest.SetupTestLogger()
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	sourceUri, err := url.Parse("http://localhost:9081/")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	targetUri, err := url.Parse(predictor.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
+	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
+		"default", httpProxy, nil, "", nil, true, false)
+
+	oh.ServeHTTP(w, r)
+	g.Expect(w.Code).To(gomega.Equal(http.StatusUnprocessableEntity))
+
+	g.Expect(<-eventTypes).To(gomega.Equal(CEInferenceRequest))
+	// No response event is emitted for a non-OK status
+	select {
+	case unexpected := <-eventTypes:
+		t.Fatalf("expected no further CloudEvent, got %q", unexpected)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestLoggerLogAllResponses(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+
+	events := make(chan loggedEvent, 2)
+	// Start a local HTTP server
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		events <- loggedEvent{
+			ceType:     req.Header.Get("Ce-Type"),
+			statusCode: req.Header.Get("Ce-Statuscode"),
+			body:       string(b),
+		}
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	// Close the server when test finishes
+	defer logSvc.Close()
+
+	// Start a local HTTP server
+	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		http.Error(rw, "unprocessable", http.StatusUnprocessableEntity)
+	}))
+	// Close the server when test finishes
+	defer predictor.Close()
+
+	reader := bytes.NewReader(predictorRequest)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
+	w := httptest.NewRecorder()
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	pkgtest.SetupTestLogger()
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	sourceUri, err := url.Parse("http://localhost:9081/")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	targetUri, err := url.Parse(predictor.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
+	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
+		"default", httpProxy, nil, "", nil, true, true)
+
+	oh.ServeHTTP(w, r)
+	g.Expect(w.Code).To(gomega.Equal(http.StatusUnprocessableEntity))
+
+	logged := collectEventsByType(t, events, 2)
+
+	g.Expect(logged).To(gomega.HaveKey(CEInferenceRequest))
+	g.Expect(logged).To(gomega.HaveKey(CEInferenceResponse))
+	g.Expect(logged[CEInferenceResponse].statusCode).To(gomega.Equal("422"))
+	g.Expect(logged[CEInferenceResponse].body).To(gomega.ContainSubstring("unprocessable"))
+}
+
+// A handler that only calls Write never calls WriteHeader, so net/http implies a 200.
+func TestLoggerLogAllResponsesImplicitOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+	predictorResponse := []byte(`{"predictions":[1]}`)
+
+	events := make(chan loggedEvent, 2)
+	// Start a local HTTP server
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		events <- loggedEvent{
+			ceType:     req.Header.Get("Ce-Type"),
+			statusCode: req.Header.Get("Ce-Statuscode"),
+			body:       string(b),
+		}
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	// Close the server when test finishes
+	defer logSvc.Close()
+
+	reader := bytes.NewReader(predictorRequest)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
+	w := httptest.NewRecorder()
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	pkgtest.SetupTestLogger()
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	sourceUri, err := url.Parse("http://localhost:9081/")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
+	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := rw.Write(predictorResponse)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	})
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
+		"default", next, nil, "", nil, true, true)
+
+	oh.ServeHTTP(w, r)
+	g.Expect(w.Code).To(gomega.Equal(http.StatusOK))
+
+	logged := collectEventsByType(t, events, 2)
+
+	g.Expect(logged).To(gomega.HaveKey(CEInferenceRequest))
+	g.Expect(logged).To(gomega.HaveKey(CEInferenceResponse))
+	g.Expect(logged[CEInferenceResponse].statusCode).To(gomega.Equal("200"))
+	g.Expect(logged[CEInferenceResponse].body).To(gomega.Equal(string(predictorResponse)))
+}
+
+type loggedEvent struct {
+	ceType     string
+	statusCode string
+	body       string
+}
+
+// collectEventsByType reads n events and indexes them by CloudEvent type, because the
+// dispatcher sends request and response events concurrently and their order is not guaranteed.
+func collectEventsByType(t *testing.T, events <-chan loggedEvent, n int) map[string]loggedEvent {
+	t.Helper()
+	timeout := time.After(5 * time.Second)
+	logged := make(map[string]loggedEvent, n)
+	for received := range n {
+		select {
+		case e := <-events:
+			logged[e.ceType] = e
+		case <-timeout:
+			t.Fatalf("timed out after %d CloudEvents, expected %d", received, n)
+		}
+	}
+	return logged
 }
