@@ -17,6 +17,8 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -29,8 +31,10 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // TestReconcilePVCEvictorsRollsUpWorkloadReadiness covers the status a single pass
@@ -39,6 +43,7 @@ import (
 // PVCEvictorReady within the same status write.
 func TestReconcilePVCEvictorsRollsUpWorkloadReadiness(t *testing.T) {
 	const namespace = "test"
+	errInjectedDelete := errors.New("injected Deployment delete failure")
 
 	service := func(withEvictor bool, stored duckv1.Conditions) *v1alpha2.LLMInferenceService {
 		svc := &v1alpha2.LLMInferenceService{
@@ -62,6 +67,14 @@ func TestReconcilePVCEvictorsRollsUpWorkloadReadiness(t *testing.T) {
 		}
 		return svc
 	}
+	// evictor is the shared Deployment for the evictor tier, whether or not the
+	// service under test still references it.
+	evictor := func(availableReplicas int32) *appsv1.Deployment {
+		owner := service(true, nil)
+		deployment := expectedPVCEvictorDeployment(owner, collectPVCEvictorTargets(owner)[0])
+		deployment.Status.AvailableReplicas = availableReplicas
+		return deployment
+	}
 	cond := func(conditionType apis.ConditionType, status corev1.ConditionStatus, reason string) *apis.Condition {
 		return &apis.Condition{Type: conditionType, Status: status, Reason: reason}
 	}
@@ -83,6 +96,7 @@ func TestReconcilePVCEvictorsRollsUpWorkloadReadiness(t *testing.T) {
 
 	mainReady := cond(v1alpha2.MainWorkloadReady, corev1.ConditionTrue, "")
 	mainNotReady := cond(v1alpha2.MainWorkloadReady, corev1.ConditionFalse, "MinimumReplicasUnavailable")
+	mainStopped := cond(v1alpha2.MainWorkloadReady, corev1.ConditionFalse, "Stopped")
 	evictorReady := cond(v1alpha2.PVCEvictorReady, corev1.ConditionTrue, "")
 	evictorNotReady := cond(v1alpha2.PVCEvictorReady, corev1.ConditionFalse, "PVCEvictorNotReady")
 	evictorError := cond(v1alpha2.PVCEvictorReady, corev1.ConditionFalse, "ReconcilePVCEvictorError")
@@ -95,30 +109,33 @@ func TestReconcilePVCEvictorsRollsUpWorkloadReadiness(t *testing.T) {
 	workloadsBlockedByEvictor, readyBlockedByEvictor := notReadyBecause("PVCEvictorNotReady")
 	workloadsBlockedByError, readyBlockedByError := notReadyBecause("ReconcilePVCEvictorError")
 	workloadsBlockedByMain, readyBlockedByMain := notReadyBecause("MinimumReplicasUnavailable")
+	workloadsBlockedByStop, readyBlockedByStop := notReadyBecause("Stopped")
 
 	tests := []struct {
 		name        string
 		withEvictor bool
+		stopped     bool
 		stored      duckv1.Conditions
-		// availableReplicas of the existing evictor Deployment; nil means none exists yet.
-		availableReplicas *int32
+		// evictor already in the namespace; nil means none exists yet.
+		evictor           *appsv1.Deployment
 		noPVCReader       bool
+		failEvictorDelete bool
 		wantErr           bool
 		want              duckv1.Conditions
 	}{
 		{
-			name:              "evictor gets its first available replica",
-			withEvictor:       true,
-			stored:            conditions(mainReady, evictorNotReady, workloadsBlockedByEvictor, readyBlockedByEvictor),
-			availableReplicas: new(int32(1)),
-			want:              conditions(mainReady, evictorReady, workloadsReady, ready),
+			name:        "evictor gets its first available replica",
+			withEvictor: true,
+			stored:      conditions(mainReady, evictorNotReady, workloadsBlockedByEvictor, readyBlockedByEvictor),
+			evictor:     evictor(1),
+			want:        conditions(mainReady, evictorReady, workloadsReady, ready),
 		},
 		{
-			name:              "evictor loses its replicas while Ready",
-			withEvictor:       true,
-			stored:            conditions(mainReady, evictorReady, workloadsReady, ready),
-			availableReplicas: new(int32(0)),
-			want:              conditions(mainReady, evictorNotReady, workloadsBlockedByEvictor, readyBlockedByEvictor),
+			name:        "evictor loses its replicas while Ready",
+			withEvictor: true,
+			stored:      conditions(mainReady, evictorReady, workloadsReady, ready),
+			evictor:     evictor(0),
+			want:        conditions(mainReady, evictorNotReady, workloadsBlockedByEvictor, readyBlockedByEvictor),
 		},
 		{
 			name:        "first pass after upgrading a Ready service creates the evictor",
@@ -132,11 +149,11 @@ func TestReconcilePVCEvictorsRollsUpWorkloadReadiness(t *testing.T) {
 			want:   conditions(mainReady, nil, workloadsReady, ready),
 		},
 		{
-			name:              "main workload keeps blocking readiness",
-			withEvictor:       true,
-			stored:            conditions(mainNotReady, evictorNotReady, workloadsBlockedByMain, readyBlockedByMain),
-			availableReplicas: new(int32(1)),
-			want:              conditions(mainNotReady, evictorReady, workloadsBlockedByMain, readyBlockedByMain),
+			name:        "main workload keeps blocking readiness",
+			withEvictor: true,
+			stored:      conditions(mainNotReady, evictorNotReady, workloadsBlockedByMain, readyBlockedByMain),
+			evictor:     evictor(1),
+			want:        conditions(mainNotReady, evictorReady, workloadsBlockedByMain, readyBlockedByMain),
 		},
 		{
 			name:        "reconcile error while Ready",
@@ -145,6 +162,32 @@ func TestReconcilePVCEvictorsRollsUpWorkloadReadiness(t *testing.T) {
 			noPVCReader: true,
 			wantErr:     true,
 			want:        conditions(mainReady, evictorError, workloadsBlockedByError, readyBlockedByError),
+		},
+		{
+			name:              "orphan cleanup fails on a service without evictors",
+			stored:            conditions(mainReady, nil, workloadsReady, ready),
+			evictor:           evictor(1),
+			failEvictorDelete: true,
+			wantErr:           true,
+			want:              conditions(mainReady, nil, workloadsReady, ready),
+		},
+		{
+			name:              "orphan cleanup fails right after the service stopped using the evictor",
+			stored:            conditions(mainReady, evictorReady, workloadsReady, ready),
+			evictor:           evictor(1),
+			failEvictorDelete: true,
+			wantErr:           true,
+			want:              conditions(mainReady, evictorReady, workloadsReady, ready),
+		},
+		{
+			name:              "orphan cleanup fails on a stopped service",
+			withEvictor:       true,
+			stopped:           true,
+			stored:            conditions(mainStopped, nil, workloadsBlockedByStop, readyBlockedByStop),
+			evictor:           evictor(1),
+			failEvictorDelete: true,
+			wantErr:           true,
+			want:              conditions(mainStopped, nil, workloadsBlockedByStop, readyBlockedByStop),
 		},
 	}
 
@@ -162,13 +205,25 @@ func TestReconcilePVCEvictorsRollsUpWorkloadReadiness(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := service(tt.withEvictor, tt.stored)
-			objects := []client.Object{svc}
-			if tt.availableReplicas != nil {
-				evictor := expectedPVCEvictorDeployment(svc, collectPVCEvictorTargets(svc)[0])
-				evictor.Status.AvailableReplicas = *tt.availableReplicas
-				objects = append(objects, evictor)
+			if tt.stopped {
+				svc.Annotations = map[string]string{constants.StopAnnotationKey: "true"}
 			}
-			reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()}
+			objects := []client.Object{svc}
+			if tt.evictor != nil {
+				objects = append(objects, tt.evictor)
+			}
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...)
+			if tt.failEvictorDelete {
+				builder = builder.WithInterceptorFuncs(interceptor.Funcs{
+					Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+						if _, ok := obj.(*appsv1.Deployment); ok {
+							return errInjectedDelete
+						}
+						return c.Delete(ctx, obj, opts...)
+					},
+				})
+			}
+			reconciler := &LLMISVCReconciler{Client: builder.Build()}
 			if !tt.noPVCReader {
 				reconciler.APIReader = fake.NewClientBuilder().WithScheme(scheme).WithObjects(&corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: namespace},
@@ -181,6 +236,9 @@ func TestReconcilePVCEvictorsRollsUpWorkloadReadiness(t *testing.T) {
 			err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{})
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("reconcilePVCEvictors() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.failEvictorDelete && !errors.Is(err, errInjectedDelete) {
+				t.Fatalf("reconcilePVCEvictors() error = %v, want the injected orphan Delete failure", err)
 			}
 
 			if diff := cmp.Diff(tt.want, svc.Status.Conditions,

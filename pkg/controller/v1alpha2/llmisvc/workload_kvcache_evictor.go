@@ -801,7 +801,11 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 	// every exit, or the status write pairs the new PVCEvictorReady with a stale
 	// WorkloadsReady and Ready.
 	defer func() {
-		if err != nil {
+		// Every service also cleans up orphaned evictors in its namespace. Only one that
+		// renders evictors of its own is marked NotReady when that fails; any other keeps
+		// its condition, including a stale one that finalization reads as "had evictors".
+		ownsEvictors := !utils.GetForceStopRuntime(llmSvc) && len(collectPVCEvictorTargets(llmSvc)) > 0
+		if err != nil && ownsEvictors {
 			reason := "ReconcilePVCEvictorError"
 			if errors.Is(err, errPVCEvictorUnsupportedAccessMode) {
 				reason = "UnsupportedPVCAccessMode"
