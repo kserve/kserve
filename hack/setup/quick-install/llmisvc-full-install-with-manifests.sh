@@ -115127,7 +115127,7 @@ data:
          # mcvImage is the MCV container image used by cache capture and preparation flows.
          "mcvImage": "kserve/kserve-mcv:latest-minimal",
          # prefetchImage is the lightweight helper image used by prefetch Jobs.
-         "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         "prefetchImage": "docker.io/redhat/ubi9-minimal:9.8@sha256:5ed244b62bbf4095080144d9d35eb8fcd3d39a9801f94aadd63b9d10978a01ae",
          # runtimeImagePrefetch optionally pulls the captured workload's runtime image on each target node.
          "runtimeImagePrefetch": {
            "enabled": false,
@@ -115254,7 +115254,7 @@ data:
       "defaultNodeGroup": "",
       "jobNamespace": "kserve-kernelcache-jobs",
       "mcvImage": "kserve/kserve-mcv:latest-minimal",
-      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "prefetchImage": "docker.io/redhat/ubi9-minimal:9.8@sha256:5ed244b62bbf4095080144d9d35eb8fcd3d39a9801f94aadd63b9d10978a01ae",
       "runtimeImagePrefetch": {
         "enabled": false,
         "jobTTLSecondsAfterFinished": 86400
