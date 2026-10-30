@@ -808,7 +808,10 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 		// renders evictors of its own is marked NotReady when that fails; any other keeps
 		// its condition, including a stale one that finalization reads as "had evictors".
 		ownsEvictors := !utils.GetForceStopRuntime(llmSvc) && len(collectPVCEvictorTargets(llmSvc)) > 0
-		if err != nil && ownsEvictors {
+		// The evictor ServiceAccount and Deployments are shared with peer services and written by
+		// other controllers, so a conflict means another writer changed them since the cache read.
+		// The returned error requeues this service without reporting its evictor as broken.
+		if err != nil && ownsEvictors && !apierrors.IsConflict(err) {
 			reason := "ReconcilePVCEvictorError"
 			if errors.Is(err, errPVCEvictorUnsupportedAccessMode) {
 				reason = "UnsupportedPVCAccessMode"

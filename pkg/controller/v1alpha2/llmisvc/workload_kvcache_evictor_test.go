@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -472,6 +473,67 @@ func TestReconcilePVCEvictorsMarksReconcileError(t *testing.T) {
 	}
 	if condition.Status != corev1.ConditionFalse || condition.Reason != "ReconcilePVCEvictorError" {
 		t.Fatalf("PVCEvictorReady = %#v, want False/ReconcilePVCEvictorError", condition)
+	}
+}
+
+func TestReconcilePVCEvictorsKeepsReadinessOnServiceAccountConflict(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{
+						Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
+					},
+				}}},
+			},
+		}},
+	}
+	svc.MarkPVCEvictorReady()
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+		},
+	}
+	// Missing label and automount, so the ServiceAccount needs a write.
+	serviceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: pvcEvictorServiceAccount, Namespace: "test"}}
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(svc, serviceAccount).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				if _, ok := obj.(*corev1.ServiceAccount); ok {
+					return apierrors.NewConflict(corev1.Resource("serviceaccounts"), obj.GetName(), errors.New("modified by a peer"))
+				}
+				return c.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
+
+	err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{})
+	if !apierrors.IsConflict(err) {
+		t.Fatalf("reconcilePVCEvictors() error = %v, want a conflict to requeue on", err)
+	}
+	if condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady); condition == nil || condition.Status != corev1.ConditionTrue {
+		t.Fatalf("PVCEvictorReady = %#v, want it to stay True", condition)
 	}
 }
 
