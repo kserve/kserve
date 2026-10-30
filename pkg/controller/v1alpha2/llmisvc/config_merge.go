@@ -904,6 +904,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
+	// Publisher path matches are normalized here, before reconcileBaseRefs
+	// dry-run validates the rendered config.
 	if llmSvcCfg.Spec.Router != nil && llmSvcCfg.Spec.Router.Route != nil && llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
 		route := llmSvcCfg.Spec.Router.Route.HTTP.Spec
 		route.Rules = normalizePublisherPathMatches(route.Rules, &effectiveSvc, reconcilerConfig.ModelBasedRoutingHeaderName)

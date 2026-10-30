@@ -337,11 +337,15 @@ func TestPublisherModelPath(t *testing.T) {
 		{modelName: "/mnt/models/", want: "mnt/models"},
 		{modelName: "////a///b//", want: "a/b"},
 		{modelName: "x/./y", want: "x/y"},
-		{modelName: "x/../y", want: "x/y"},
+		{modelName: "x/../y", want: "y"},
+		{modelName: "x/y/../../z", want: "z"},
+		{modelName: "../x", want: "x"},
+		{modelName: "//app/./root/../model//", want: "app/model"},
 		{modelName: "./models", want: "models"},
 		{modelName: "/", want: ""},
 		{modelName: "..", want: ""},
 		{modelName: "/./../", want: ""},
+		{modelName: "x/..", want: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.modelName, func(t *testing.T) {
@@ -397,7 +401,7 @@ func TestNormalizePublisherPathMatches_ShippedRoute(t *testing.T) {
 	})
 
 	t.Run("rewrites publisher paths of a model name with empty and dot segments", func(t *testing.T) {
-		for _, modelName := range []string{"/app/root/model", "//app/./root/../model//"} {
+		for _, modelName := range []string{"/app/root/model", "//app/./root/x/../model//"} {
 			t.Run(modelName, func(t *testing.T) {
 				llmSvc := svc(modelName)
 				rules := renderShippedRouterRoute(t, llmSvc)
@@ -427,6 +431,28 @@ func TestNormalizePublisherPathMatches_ShippedRoute(t *testing.T) {
 
 		assert.Empty(t, publisherPaths(got))
 		assert.Len(t, got, ruleCount-len(endpoints), "only the publisher path rules are removed")
+	})
+
+	t.Run("rewrites a publisher path match that also carries the model-routing header", func(t *testing.T) {
+		llmSvc := svc("/app/root/model")
+		headerValue := "publishers/team-a/models//app/root/model"
+		rules := []gwapiv1.HTTPRouteRule{{
+			Matches: []gwapiv1.HTTPRouteMatch{{
+				Path: &gwapiv1.HTTPPathMatch{
+					Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+					Value: ptr.To("/publishers/team-a/models//app/root/model/v1/completions"),
+				},
+				Headers: []gwapiv1.HTTPHeaderMatch{{
+					Name:  modelRoutingTestHeader,
+					Value: headerValue,
+				}},
+			}},
+		}}
+
+		got := normalizePublisherPathMatches(rules, llmSvc, modelRoutingTestHeader)
+
+		assert.Equal(t, []string{"/publishers/team-a/models/app/root/model/v1/completions"}, publisherPaths(got))
+		assert.Equal(t, []string{headerValue}, headerValues(got), "model-routing header values keep the declared model name")
 	})
 }
 

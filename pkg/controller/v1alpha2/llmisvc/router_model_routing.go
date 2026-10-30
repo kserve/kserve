@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -186,8 +187,8 @@ func (r *LLMISVCReconciler) readParentGateways(ctx context.Context, route *gwapi
 }
 
 // perModelPathPrefixes returns the path prefixes the router route template
-// exposes llmSvc under: /{namespace}/{name} and the publisher-qualified
-// /publishers/{namespace}/models/{model}.
+// exposes llmSvc under: /{namespace}/{name} and, unless publisherModelPath
+// leaves nothing, /publishers/{namespace}/models/{publisherModelPath(model)}.
 func perModelPathPrefixes(llmSvc *v1alpha2.LLMInferenceService) []string {
 	prefixes := []string{"/" + llmSvc.GetNamespace() + "/" + llmSvc.GetName()}
 	if modelPath := publisherModelPath(resolveModelName(llmSvc)); modelPath != "" {
@@ -197,24 +198,19 @@ func perModelPathPrefixes(llmSvc *v1alpha2.LLMInferenceService) []string {
 }
 
 // publisherModelPath returns modelName as it appears in publisher path
-// matches: segments are split on "/", and empty, "." and ".." segments are
-// dropped. A name without such segments is returned unchanged.
+// matches: the name is cleaned as a path, so empty and "." segments are
+// dropped and ".." removes the segment before it, as clients resolve it.
+// A name without such segments is returned unchanged.
 func publisherModelPath(modelName string) string {
-	segments := strings.Split(modelName, "/")
-	kept := segments[:0]
-	for _, segment := range segments {
-		if segment != "" && segment != "." && segment != ".." {
-			kept = append(kept, segment)
-		}
-	}
-	return strings.Join(kept, "/")
+	return strings.TrimPrefix(path.Clean("/"+modelName), "/")
 }
 
 // normalizePublisherPathMatches rewrites the model name in the publisher path
 // matches of rules, /publishers/{namespace}/models/{model}, to
-// publisherModelPath(model). When no model segment remains, the publisher path
-// matches are removed. Header values, which carry the model name as declared,
-// are left as they are.
+// publisherModelPath(model), including in matches that also carry the
+// model-routing header. When no model segment remains, the publisher path
+// matches without that header are removed. Header values, which carry the
+// model name as declared, are left as they are.
 func normalizePublisherPathMatches(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alpha2.LLMInferenceService, headerName string) []gwapiv1.HTTPRouteRule {
 	modelName := resolveModelName(llmSvc)
 	modelPath := publisherModelPath(modelName)
@@ -231,7 +227,7 @@ func normalizePublisherPathMatches(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alph
 	for i := range rules {
 		for j := range rules[i].Matches {
 			match := &rules[i].Matches[j]
-			if !isPerModelPathMatch(*match, renderedPrefix, headerName) {
+			if !isPerModelPathMatch(*match, renderedPrefix, "") {
 				continue
 			}
 			match.Path.Value = ptr.To(prefix + strings.TrimPrefix(*match.Path.Value, renderedPrefix[0]))

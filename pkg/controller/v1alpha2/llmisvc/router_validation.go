@@ -271,15 +271,18 @@ func (r *LLMISVCReconciler) validateManagedHTTPRouteSpec(ctx context.Context, ll
 }
 
 // findModelNameCollisions returns the names of LLMISVCs whose model-routing
-// header values overlap with self's. Compares self's effective model names
-// (from post-merge spec) against each peer's status.addresses[].models[].name
-// which reflects the peer's resolved state including baseRef overrides.
+// header values or publisher paths overlap with self's. Compares self's
+// effective model names (from post-merge spec) against each peer's
+// status.addresses[].models[].name which reflects the peer's resolved state
+// including baseRef overrides. Publisher paths are compared by
+// publisherModelPath of the names, so "a/b" and "/a/b" collide.
 // Falls back to spec.model.name for peers not yet reconciled (empty status).
 func findModelNameCollisions(self *v1alpha2.LLMInferenceService, others []v1alpha2.LLMInferenceService) []string {
 	selfModels := modelRoutingNames(self)
 	if len(selfModels) == 0 {
 		return nil
 	}
+	selfPath := publisherModelPath(ptr.Deref(self.Spec.Model.Name, self.Name))
 
 	var collisions []string
 	for i := range others {
@@ -289,7 +292,7 @@ func findModelNameCollisions(self *v1alpha2.LLMInferenceService, others []v1alph
 			sameRoutingGroup(self, other) {
 			continue
 		}
-		if otherModelNamesOverlap(selfModels, other) {
+		if otherModelNamesOverlap(selfModels, other) || otherPublisherPathOverlaps(selfPath, other) {
 			collisions = append(collisions, other.Name)
 		}
 	}
@@ -314,6 +317,29 @@ func otherModelNamesOverlap(selfModels map[string]struct{}, other *v1alpha2.LLMI
 				return true
 			}
 		}
+	}
+
+	return false
+}
+
+// otherPublisherPathOverlaps reports whether a publisher-qualified model name
+// of other has selfPath as its publisherModelPath. An empty selfPath, which
+// renders no publisher path, never overlaps.
+func otherPublisherPathOverlaps(selfPath string, other *v1alpha2.LLMInferenceService) bool {
+	if selfPath == "" {
+		return false
+	}
+	prefix := fullyQualifiedModelName(other.Namespace, "")
+	for _, addr := range other.Status.Addresses {
+		for _, m := range addr.Models {
+			if name, ok := strings.CutPrefix(m.Name, prefix); ok && publisherModelPath(name) == selfPath {
+				return true
+			}
+		}
+	}
+	// Fallback: peer not yet reconciled (empty status) - check spec directly.
+	if len(other.Status.Addresses) == 0 {
+		return publisherModelPath(ptr.Deref(other.Spec.Model.Name, other.Name)) == selfPath
 	}
 
 	return false
