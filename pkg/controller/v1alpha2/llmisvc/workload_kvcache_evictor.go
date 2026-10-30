@@ -750,43 +750,70 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 		// PVC evictors finish deletion even when the global ConfigMap is absent.
 		return r.cleanupPVCEvictorServiceAccount(ctx, llmSvc.Namespace, map[string]struct{}{}, map[string]struct{}{})
 	}
-	var (
-		config *Config
-		err    error
-	)
-	resolved := llmSvc
-	if !llmSvcReferencesPVCEvictors(llmSvc) && len(llmSvc.Spec.BaseRefs) > 0 {
-		resolved = llmSvc.DeepCopy()
-		config, err = r.loadConfig(ctx)
+	usedEvictor := llmSvcReferencesPVCEvictors(llmSvc)
+	if !usedEvictor {
+		// A service that stopped rendering the evictor keeps it while its old pods run,
+		// and is then left with neither the condition nor a target to show it.
+		hasPods, err := r.hasPVCEvictorConsumerPods(ctx, llmSvc, current.Items)
 		if err != nil {
-			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because configuration could not be loaded", "error", err)
-			return nil
+			return err
 		}
-		combined, err := r.combineBaseRefsConfig(ctx, resolved, config)
-		if err != nil {
-			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because references could not be resolved", "error", err)
-			return nil
-		}
-		resolved.Spec = combined.Config.Spec
+		usedEvictor = hasPods
 	}
-	if !llmSvcReferencesPVCEvictors(resolved) {
+	if !usedEvictor && len(llmSvc.Spec.BaseRefs) == 0 {
 		return nil
 	}
-	if config == nil {
-		config, err = r.loadConfig(ctx)
-		if err != nil {
-			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because configuration could not be loaded", "error", err)
-			return nil
+	// Resolved with the configuration reconcile renders with: a preset can template
+	// pvc.ref and container names from its globals, and any other rendering would
+	// count different evictor identities than the services that use them.
+	config, err := r.loadConfig(ctx)
+	var invalid invalidConfigError
+	switch {
+	case apierrors.IsNotFound(err):
+		r.skipPVCEvictorCleanup(ctx, llmSvc, fmt.Sprintf("the %s/%s ConfigMap does not exist", constants.KServeNamespace, constants.InferenceServiceConfigMapName))
+		return nil
+	case errors.As(err, &invalid):
+		r.skipPVCEvictorCleanup(ctx, llmSvc, fmt.Sprintf("the %s/%s ConfigMap is invalid: %v", constants.KServeNamespace, constants.InferenceServiceConfigMapName, err))
+		return nil
+	case err != nil:
+		// A failed read retries like the List and Delete calls of the cleanup.
+		return err
+	}
+	if !usedEvictor {
+		// Without a stored PVCEvictorReady, the spec merged with its baseRefs and presets
+		// decides whether this service used an evictor, and so whether to clean up. If it
+		// can't be merged, a missing baseRef for example, the cleanup runs anyway: it
+		// counts only the remaining services, so it can't remove an evictor still in use.
+		resolved := llmSvc.DeepCopy()
+		if combined, err := r.combineBaseRefsConfig(ctx, resolved, config); err == nil {
+			resolved.Spec = combined.Config.Spec
+			if !llmSvcReferencesPVCEvictors(resolved) {
+				return nil
+			}
 		}
 	}
 	if err := r.cleanupUnusedPVCEvictors(ctx, llmSvc.Namespace, config, nil, llmSvc.Name); err != nil {
 		if errors.Is(err, errPVCEvictorCleanupUnsafe) {
-			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because ownership could not be resolved", "error", err)
+			r.skipPVCEvictorCleanup(ctx, llmSvc, "another LLMInferenceService in the namespace could not be resolved")
 			return nil
 		}
 		return err
 	}
 	return nil
+}
+
+// skipPVCEvictorCleanup lets the deletion finish without removing shared evictors
+// when the configuration or a peer can't be resolved. Holding the finalizer instead
+// would keep the service Terminating until both are fixed. The cost: only the
+// reconcile of another LLMInferenceService in the namespace removes an evictor no
+// service uses, so with none left the Deployment and ServiceAccount stay until
+// deleted by hand, and the event says which. The deleted service's status is never
+// written again, hence an event rather than a condition.
+func (r *LLMISVCReconciler) skipPVCEvictorCleanup(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
+	log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization", "reason", reason)
+	r.Eventf(llmSvc, corev1.EventTypeWarning, "PVCEvictorCleanupSkipped",
+		"Skipped removing unused PVC evictors because %s. Once that is fixed, any remaining LLMInferenceService in the namespace removes them; "+
+			"with none left, delete the Deployments labelled %s=true and the %s ServiceAccount", reason, pvcEvictorLabel, pvcEvictorServiceAccount)
 }
 
 func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
@@ -1375,7 +1402,7 @@ func (r *LLMISVCReconciler) cleanupUnusedPVCEvictors(ctx context.Context, namesp
 }
 
 func (r *LLMISVCReconciler) cleanupUnusedPVCEvictorsWithResult(ctx context.Context, namespace string, config *Config, currentService *v1alpha2.LLMInferenceService, excludedService string) (map[string]struct{}, error) {
-	referenced, cleanupSafe, err := r.referencedPVCEvictorIdentities(ctx, namespace, config, currentService, excludedService)
+	referenced, live, cleanupSafe, err := r.referencedPVCEvictorKeys(ctx, namespace, config, currentService, excludedService)
 	if err != nil {
 		return nil, err
 	}
@@ -1397,11 +1424,21 @@ func (r *LLMISVCReconciler) cleanupUnusedPVCEvictorsWithResult(ctx context.Conte
 		if pvcName == "" {
 			continue
 		}
-		if _, ok := referenced[pvcEvictorIdentity(pvcName, pvcPath)]; ok {
+		if _, ok := referenced[pvcEvictorKey(pvcName, pvcPath)]; ok {
 			continue
 		}
 		if !deployment.DeletionTimestamp.IsZero() {
 			pendingPVCs[pvcName] = struct{}{}
+			continue
+		}
+		// Pods of a revision that rendered the evictor write to its cache root until they
+		// exit: during the rollout after a service drops the container or the pvc.ref, or
+		// for as long as its new pods can't start.
+		running, err := r.hasRunningPVCEvictorConsumers(ctx, namespace, pvcName, pvcPath, live)
+		if err != nil {
+			return nil, err
+		}
+		if running {
 			continue
 		}
 		if err := r.deletePVCEvictorDeployment(ctx, deployment); err != nil {
@@ -1458,18 +1495,25 @@ func (r *LLMISVCReconciler) cleanupPVCEvictorServiceAccount(ctx context.Context,
 	return nil
 }
 
-func (r *LLMISVCReconciler) referencedPVCEvictorIdentities(ctx context.Context, namespace string, config *Config, currentService *v1alpha2.LLMInferenceService, excludedService string) (map[string]struct{}, bool, error) {
+// referencedPVCEvictorKeys returns the keys of the evictors that live services render,
+// and the names of the services that aren't being deleted or excluded.
+func (r *LLMISVCReconciler) referencedPVCEvictorKeys(ctx context.Context, namespace string, config *Config, currentService *v1alpha2.LLMInferenceService, excludedService string) (referenced, live map[string]struct{}, cleanupSafe bool, err error) {
 	services := &v1alpha2.LLMInferenceServiceList{}
 	if err := r.List(ctx, services, client.InNamespace(namespace)); err != nil {
-		return nil, false, fmt.Errorf("failed to list LLMInferenceServices for PVC evictor ownership: %w", err)
+		return nil, nil, false, fmt.Errorf("failed to list LLMInferenceServices for PVC evictor ownership: %w", err)
 	}
 
-	referenced := make(map[string]struct{})
-	cleanupSafe := true
+	referenced = make(map[string]struct{})
+	live = make(map[string]struct{})
+	cleanupSafe = true
 	logger := log.FromContext(ctx)
 	for i := range services.Items {
 		service := services.Items[i].DeepCopy()
-		if !service.DeletionTimestamp.IsZero() || service.Name == excludedService || utils.GetForceStopRuntime(service) {
+		if !service.DeletionTimestamp.IsZero() || service.Name == excludedService {
+			continue
+		}
+		live[service.Name] = struct{}{}
+		if utils.GetForceStopRuntime(service) {
 			continue
 		}
 		if currentService != nil && service.Name == currentService.Name {
@@ -1486,11 +1530,67 @@ func (r *LLMISVCReconciler) referencedPVCEvictorIdentities(ctx context.Context, 
 		if utils.GetForceStopRuntime(service) {
 			continue
 		}
-		for identity := range collectPVCEvictorIdentities(service) {
-			referenced[identity] = struct{}{}
+		// Only workloads that run the pvc-evictor container count. One without it keeps
+		// its KV cache at a different root on the same PVC and path, so it gives no
+		// reason to keep the evictor or its ServiceAccount.
+		for _, target := range collectPVCEvictorTargets(service) {
+			referenced[pvcEvictorKey(target.claimName, target.subPath)] = struct{}{}
 		}
 	}
-	return referenced, cleanupSafe, nil
+	return referenced, live, cleanupSafe, nil
+}
+
+// hasRunningPVCEvictorConsumers reports whether a pod that hasn't finished, and names a
+// live service in app.kubernetes.io/name, still carries the consumer label of the
+// evictor for claimName and subPath. Terminating pods count, since they write until they
+// exit. A pod belongs to the service it names: that service's workload Service and
+// default InferencePool select it, and the pod's events requeue it.
+func (r *LLMISVCReconciler) hasRunningPVCEvictorConsumers(ctx context.Context, namespace, claimName, subPath string, live map[string]struct{}) (bool, error) {
+	pods, err := r.listPVCEvictorConsumerPods(ctx, namespace, claimName, subPath)
+	if err != nil {
+		return false, err
+	}
+	for i := range pods {
+		if pods[i].Status.Phase == corev1.PodSucceeded || pods[i].Status.Phase == corev1.PodFailed {
+			continue
+		}
+		if _, ok := live[pods[i].Labels[constants.KubernetesAppNameLabelKey]]; ok {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// hasPVCEvictorConsumerPods reports whether a pod of llmSvc, in any phase, carries the
+// consumer label of one of the evictors.
+func (r *LLMISVCReconciler) hasPVCEvictorConsumerPods(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, evictors []appsv1.Deployment) (bool, error) {
+	for i := range evictors {
+		claimName := evictors[i].Annotations[pvcEvictorPVCName]
+		if claimName == "" {
+			continue
+		}
+		pods, err := r.listPVCEvictorConsumerPods(ctx, llmSvc.Namespace, claimName, evictors[i].Annotations[pvcEvictorPVCPath])
+		if err != nil {
+			return false, err
+		}
+		for j := range pods {
+			if pods[j].Labels[constants.KubernetesAppNameLabelKey] == llmSvc.Name {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func (r *LLMISVCReconciler) listPVCEvictorConsumerPods(ctx context.Context, namespace, claimName, subPath string) ([]corev1.Pod, error) {
+	pods := &corev1.PodList{}
+	if err := r.List(ctx, pods,
+		client.InNamespace(namespace),
+		client.MatchingLabels{pvcEvictorConsumerLabelKey(claimName, subPath): "true"},
+	); err != nil {
+		return nil, fmt.Errorf("failed to list PVC evictor consumer Pods for PVC %q and path %q: %w", claimName, subPath, err)
+	}
+	return pods.Items, nil
 }
 
 func collectPVCEvictorIdentities(llmSvc *v1alpha2.LLMInferenceService) map[string]struct{} {

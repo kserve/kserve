@@ -26,9 +26,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -151,7 +154,7 @@ func TestFinalizePVCEvictorsSkipsConfigForUnrelatedDeletingService(t *testing.T)
 	})
 
 	scheme := runtime.NewScheme()
-	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, v1alpha2.AddToScheme} {
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
 		if err := addToScheme(scheme); err != nil {
 			t.Fatal(err)
 		}
@@ -226,7 +229,254 @@ func TestFinalizePVCEvictorsCleansDeploymentWithoutReadyStatus(t *testing.T) {
 	}
 }
 
-func TestFinalizePVCEvictorsAllowsDeletionWhenBaseRefsCannotResolve(t *testing.T) {
+func TestFinalizePVCEvictorsOnInferenceServiceConfigErrors(t *testing.T) {
+	evictorWorkload := func() v1alpha2.WorkloadSpec {
+		return v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+			}}}},
+		}
+	}
+	deletingService := func(spec v1alpha2.LLMInferenceServiceSpec) *v1alpha2.LLMInferenceService {
+		deletionTime := metav1.Now()
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "deleting",
+				Namespace:         "test",
+				DeletionTimestamp: &deletionTime,
+				Finalizers:        []string{"test.finalizer"},
+			},
+			Spec: spec,
+		}
+	}
+	users := []struct {
+		name     string
+		deleting func() *v1alpha2.LLMInferenceService
+	}{
+		{
+			name: "evictor user known from its status",
+			deleting: func() *v1alpha2.LLMInferenceService {
+				llmSvc := deletingService(v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: evictorWorkload()})
+				llmSvc.MarkPVCEvictorReady()
+				return llmSvc
+			},
+		},
+		{
+			name: "evictor user known only from its baseRefs",
+			deleting: func() *v1alpha2.LLMInferenceService {
+				return deletingService(v1alpha2.LLMInferenceServiceSpec{BaseRefs: []corev1.LocalObjectReference{{Name: "evictor-base"}}})
+			},
+		},
+	}
+	// A ConfigMap that is missing or does not parse skips the cleanup; a failed read
+	// returns the error, so the finalizer stays and the read is retried.
+	configMaps := []struct {
+		name       string
+		objects    func() []client.Object
+		readErr    error
+		wantErr    bool
+		wantReason string
+	}{
+		{
+			name:       "missing ConfigMap",
+			objects:    func() []client.Object { return nil },
+			wantReason: "the kserve/inferenceservice-config ConfigMap does not exist",
+		},
+		{
+			name: "unparseable ConfigMap",
+			objects: func() []client.Object {
+				unparseable := testInferenceServiceConfigMap()
+				unparseable.Data["ingress"] = "{"
+				return []client.Object{unparseable}
+			},
+			wantReason: "the kserve/inferenceservice-config ConfigMap is invalid: failed to convert InferenceServiceConfigMap to IngressConfig",
+		},
+		{
+			name:    "API server unavailable",
+			objects: func() []client.Object { return []client.Object{testInferenceServiceConfigMap()} },
+			readErr: apierrors.NewServiceUnavailable("etcd leader changed"),
+			wantErr: true,
+		},
+		{
+			name:    "informer not synced",
+			objects: func() []client.Object { return []client.Object{testInferenceServiceConfigMap()} },
+			readErr: errors.New("Timeout: failed waiting for *v1.ConfigMap Informer to sync"),
+			wantErr: true,
+		},
+	}
+	for _, configMap := range configMaps {
+		for _, user := range users {
+			t.Run(configMap.name+"/"+user.name, func(t *testing.T) {
+				deleting := user.deleting()
+				baseConfig := &v1alpha2.LLMInferenceServiceConfig{
+					ObjectMeta: metav1.ObjectMeta{Name: "evictor-base", Namespace: "test"},
+					Spec:       v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: evictorWorkload()},
+				}
+				preset := loadPresetConfig(t, "config-llm-template.yaml")
+				preset.Namespace = constants.KServeNamespace
+				evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+				serviceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+					Name:      pvcEvictorServiceAccount,
+					Namespace: "test",
+					Labels:    map[string]string{pvcEvictorLabel: "true"},
+				}}
+
+				scheme := runtime.NewScheme()
+				for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
+					if err := addToScheme(scheme); err != nil {
+						t.Fatal(err)
+					}
+				}
+				fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+					WithObjects(append(configMap.objects(), deleting, baseConfig, preset, evictor, serviceAccount)...).
+					WithInterceptorFuncs(interceptor.Funcs{Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if _, ok := obj.(*corev1.ConfigMap); ok && configMap.readErr != nil {
+							return configMap.readErr
+						}
+						return c.Get(ctx, key, obj, opts...)
+					}}).Build()
+				recorder := record.NewFakeRecorder(10)
+				reconciler := &LLMISVCReconciler{Client: fakeClient, Clientset: kubefake.NewSimpleClientset(), EventRecorder: recorder}
+
+				err := reconciler.finalizePVCEvictors(t.Context(), deleting)
+				if gotErr := err != nil; gotErr != configMap.wantErr {
+					t.Fatalf("finalizePVCEvictors() error = %v, want error %t", err, configMap.wantErr)
+				}
+				if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
+					t.Fatalf("PVC evictor Deployment was removed without the configuration reconcile renders with: %v", err)
+				}
+				if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(serviceAccount), &corev1.ServiceAccount{}); err != nil {
+					t.Fatalf("PVC evictor ServiceAccount was removed without the configuration reconcile renders with: %v", err)
+				}
+				if configMap.wantReason == "" {
+					if len(recorder.Events) != 0 {
+						t.Fatalf("finalizePVCEvictors() reported a skip for an error it returns: %s", <-recorder.Events)
+					}
+					return
+				}
+				expectPVCEvictorCleanupSkippedEvent(t, recorder, configMap.wantReason)
+			})
+		}
+	}
+}
+
+// Finalize resolves with the configuration reconcile renders with. A preset may
+// template pvc.ref or container names from its globals, and any other rendering
+// would see different evictor identities than the service that uses them.
+func TestFinalizePVCEvictorsResolvesWithInferenceServiceConfig(t *testing.T) {
+	pvcRefTier := func(path string) *v1alpha2.KVCacheOffloadingSpec {
+		return &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+			PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: path}},
+		}}}}
+	}
+	evictorTemplate := func(evictorName string) *corev1.PodSpec {
+		return &corev1.PodSpec{Containers: []corev1.Container{
+			{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+			{Name: evictorName},
+		}}
+	}
+	deletionTime := metav1.Now()
+	deletingMeta := metav1.ObjectMeta{
+		Name:              "deleting",
+		Namespace:         "test",
+		DeletionTimestamp: &deletionTime,
+		Finalizers:        []string{"test.finalizer"},
+	}
+
+	tests := []struct {
+		name        string
+		deleting    func() *v1alpha2.LLMInferenceService
+		objects     []client.Object
+		wantEvictor bool
+	}{
+		{
+			name: "a peer takes its pvc.ref path from a global",
+			deleting: func() *v1alpha2.LLMInferenceService {
+				llmSvc := &v1alpha2.LLMInferenceService{
+					ObjectMeta: *deletingMeta.DeepCopy(),
+					Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template:          evictorTemplate(pvcEvictorTemplateName),
+						KVCacheOffloading: pvcRefTier(constants.KServeNamespace + "-cache"),
+					}},
+				}
+				llmSvc.MarkPVCEvictorReady()
+				return llmSvc
+			},
+			objects: []client.Object{
+				&v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Name: "peer", Namespace: "test"},
+					Spec:       v1alpha2.LLMInferenceServiceSpec{BaseRefs: []corev1.LocalObjectReference{{Name: "templated-base"}}},
+				},
+				&v1alpha2.LLMInferenceServiceConfig{
+					ObjectMeta: metav1.ObjectMeta{Name: "templated-base", Namespace: "test"},
+					Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template:          evictorTemplate(pvcEvictorTemplateName),
+						KVCacheOffloading: pvcRefTier("{{ .GlobalConfig.SystemNamespace }}-cache"),
+					}},
+				},
+			},
+			wantEvictor: true,
+		},
+		{
+			name: "the deleting service names its pvc-evictor container through a global",
+			deleting: func() *v1alpha2.LLMInferenceService {
+				return &v1alpha2.LLMInferenceService{
+					ObjectMeta: *deletingMeta.DeepCopy(),
+					Spec:       v1alpha2.LLMInferenceServiceSpec{BaseRefs: []corev1.LocalObjectReference{{Name: "templated-base"}}},
+				}
+			},
+			objects: []client.Object{
+				&v1alpha2.LLMInferenceServiceConfig{
+					ObjectMeta: metav1.ObjectMeta{Name: "templated-base", Namespace: "test"},
+					Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template:          evictorTemplate("{{ if .GlobalConfig.SystemNamespace }}" + pvcEvictorTemplateName + "{{ else }}sidecar{{ end }}"),
+						KVCacheOffloading: pvcRefTier(constants.KServeNamespace + "-cache"),
+					}},
+				},
+			},
+			wantEvictor: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deleting := tt.deleting()
+			// The shipped template carries the pvc-evictor container, which would make
+			// every service an evictor user whatever the templated name renders to.
+			preset := llmTemplatePresetWithoutPVCEvictor(t)
+			evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{claimName: "shared-pvc", subPath: constants.KServeNamespace + "-cache"})
+
+			scheme := runtime.NewScheme()
+			for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
+				if err := addToScheme(scheme); err != nil {
+					t.Fatal(err)
+				}
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(append(tt.objects, deleting, preset, evictor, testInferenceServiceConfigMap())...).Build()
+			recorder := record.NewFakeRecorder(10)
+			reconciler := &LLMISVCReconciler{Client: fakeClient, EventRecorder: recorder}
+
+			if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+				t.Fatalf("finalizePVCEvictors() error = %v", err)
+			}
+			err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{})
+			if gotEvictor := err == nil; gotEvictor != tt.wantEvictor {
+				t.Fatalf("PVC evictor Deployment kept = %t, want %t (get: %v)", gotEvictor, tt.wantEvictor, err)
+			}
+			if len(recorder.Events) != 0 {
+				t.Fatalf("finalizePVCEvictors() skipped the cleanup: %s", <-recorder.Events)
+			}
+		})
+	}
+}
+
+// A service whose baseRefs don't resolve never reached the evictor pass, so its
+// deletion runs the cleanup like any other: nothing else uses this evictor.
+func TestFinalizePVCEvictorsCleansUpWhenBaseRefsCannotResolve(t *testing.T) {
 	deletionTime := metav1.Now()
 	deleting := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -253,13 +503,17 @@ func TestFinalizePVCEvictorsAllowsDeletionWhenBaseRefsCannotResolve(t *testing.T
 	}
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).
 		WithObjects(deleting, evictor, testInferenceServiceConfigMap()).Build()
-	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	recorder := record.NewFakeRecorder(1)
+	reconciler := &LLMISVCReconciler{Client: fakeClient, EventRecorder: recorder}
 
 	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
 		t.Fatalf("finalizePVCEvictors() error = %v, want deletion to continue", err)
 	}
-	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
-		t.Fatalf("PVC evictor Deployment was removed while ownership was unresolved: %v", err)
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err == nil {
+		t.Fatal("unused PVC evictor Deployment remains after finalization")
+	}
+	if len(recorder.Events) != 0 {
+		t.Fatalf("finalizePVCEvictors() skipped the cleanup: %s", <-recorder.Events)
 	}
 }
 
@@ -308,13 +562,51 @@ func TestFinalizePVCEvictorsAllowsDeletionWhenCleanupIsUnsafe(t *testing.T) {
 		WithScheme(scheme).
 		WithObjects(deleting, unresolved, evictor, testInferenceServiceConfigMap()).
 		Build()
-	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	recorder := record.NewFakeRecorder(1)
+	reconciler := &LLMISVCReconciler{Client: fakeClient, EventRecorder: recorder}
 
 	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
 		t.Fatalf("finalizePVCEvictors() error = %v, want deletion to continue", err)
 	}
 	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
 		t.Fatalf("PVC evictor Deployment was removed while cleanup was unsafe: %v", err)
+	}
+	expectPVCEvictorCleanupSkippedEvent(t, recorder, "another LLMInferenceService in the namespace could not be resolved")
+}
+
+// llmTemplatePresetWithoutPVCEvictor is the shipped kserve-config-llm-template, in the
+// system namespace, without the pvc-evictor container, as presets released before it.
+func llmTemplatePresetWithoutPVCEvictor(t *testing.T) *v1alpha2.LLMInferenceServiceConfig {
+	t.Helper()
+	preset := loadPresetConfig(t, "config-llm-template.yaml")
+	preset.Namespace = constants.KServeNamespace
+	containers := preset.Spec.Template.Containers[:0]
+	for _, container := range preset.Spec.Template.Containers {
+		if container.Name != pvcEvictorTemplateName {
+			containers = append(containers, container)
+		}
+	}
+	preset.Spec.Template.Containers = containers
+	return preset
+}
+
+// expectPVCEvictorCleanupSkippedEvent checks that a skipped cleanup is reported: the
+// service is gone right after, so its status can't say so.
+func expectPVCEvictorCleanupSkippedEvent(t *testing.T, recorder *record.FakeRecorder, reason string) {
+	t.Helper()
+	select {
+	case event := <-recorder.Events:
+		if !strings.HasPrefix(event, corev1.EventTypeWarning+" PVCEvictorCleanupSkipped ") || !strings.Contains(event, reason) {
+			t.Fatalf("event = %q, want a Warning PVCEvictorCleanupSkipped saying %q", event, reason)
+		}
+		// The deleted service may have been the last one, so the event names what to remove by hand.
+		for _, manual := range []string{pvcEvictorLabel + "=true", pvcEvictorServiceAccount + " ServiceAccount"} {
+			if !strings.Contains(event, manual) {
+				t.Fatalf("event = %q, want it to name %q", event, manual)
+			}
+		}
+	default:
+		t.Fatal("no event reports the skipped PVC evictor cleanup")
 	}
 }
 
@@ -2294,6 +2586,272 @@ func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 	}
 }
 
+func TestReconcilePVCEvictorsKeepsSharedEvictorWhileOldConsumerPodsRun(t *testing.T) {
+	dropContainer := func(s *v1alpha2.LLMInferenceService) { s.Spec.Template.Containers = s.Spec.Template.Containers[:1] }
+	tests := []struct {
+		name string
+		// appName overrides the pods' app.kubernetes.io/name through spec.labels.
+		appName string
+		// liveService is another live LLMInferenceService in the namespace.
+		liveService string
+		stopUsing   func(*v1alpha2.LLMInferenceService)
+		oldPodPhase corev1.PodPhase
+		terminating bool
+		wantKept    bool
+		// onlyEnding limits a kept case to one ending.
+		onlyEnding string
+	}{
+		{
+			name:        "preset without pvc-evictor keeps the pvc.ref",
+			stopUsing:   dropContainer,
+			oldPodPhase: corev1.PodRunning,
+			wantKept:    true,
+		},
+		{
+			name:        "pvc.ref tier removed",
+			stopUsing:   func(s *v1alpha2.LLMInferenceService) { s.Spec.KVCacheOffloading = nil },
+			oldPodPhase: corev1.PodRunning,
+			wantKept:    true,
+		},
+		{
+			name:        "old pod terminating",
+			stopUsing:   dropContainer,
+			oldPodPhase: corev1.PodRunning,
+			terminating: true,
+			wantKept:    true,
+		},
+		{
+			// No workload Service or default InferencePool selects the pod, so it gets no
+			// traffic to cache.
+			name:        "old pod names no service",
+			appName:     "custom-name",
+			stopUsing:   dropContainer,
+			oldPodPhase: corev1.PodRunning,
+		},
+		{
+			// The pod counts for the service it names, which stays live when first is deleted.
+			name:        "old pod names another live service",
+			appName:     "second",
+			liveService: "second",
+			stopUsing:   dropContainer,
+			oldPodPhase: corev1.PodRunning,
+			wantKept:    true,
+			onlyEnding:  "old pod exits",
+		},
+		{
+			name:        "old pod already failed",
+			stopUsing:   dropContainer,
+			oldPodPhase: corev1.PodFailed,
+		},
+	}
+	// A kept evictor goes when the old pod exits, or when the service is deleted while the
+	// old pod runs, since the pod then stops with its service.
+	endings := []string{"old pod exits", "service deleted"}
+	for _, tt := range tests {
+		for _, ending := range endings {
+			if (!tt.wantKept && ending != endings[0]) || (tt.onlyEnding != "" && ending != tt.onlyEnding) {
+				continue
+			}
+			t.Run(tt.name+"/"+ending, func(t *testing.T) {
+				svc := &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Name: "first", Namespace: "test"},
+					Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{Containers: []corev1.Container{
+							{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+							{Name: pvcEvictorTemplateName},
+						}},
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+							PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+						}}}},
+					}},
+				}
+				podAppName := svc.Name
+				if tt.appName != "" {
+					svc.Spec.Labels = map[string]string{constants.KubernetesAppNameLabelKey: tt.appName}
+					podAppName = tt.appName
+				}
+				pvc := &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+					Spec:       corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}},
+				}
+				scheme := runtime.NewScheme()
+				for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
+					if err := addToScheme(scheme); err != nil {
+						t.Fatal(err)
+					}
+				}
+				objects := []client.Object{svc, testInferenceServiceConfigMap()}
+				if tt.liveService != "" {
+					// Stopped, so the cleanup counts it as live without rendering its presets.
+					objects = append(objects, &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{
+						Name: tt.liveService, Namespace: "test",
+						Annotations: map[string]string{constants.StopAnnotationKey: "true"},
+					}})
+				}
+				fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+				reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()}
+				evictors := func() int {
+					deployments := &appsv1.DeploymentList{}
+					if err := fakeClient.List(t.Context(), deployments, client.InNamespace("test"), client.MatchingLabels{pvcEvictorLabel: "true"}); err != nil {
+						t.Fatal(err)
+					}
+					return len(deployments.Items)
+				}
+
+				// given a shared evictor and a pod of the revision that used it
+				if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err != nil {
+					t.Fatalf("reconcilePVCEvictors() error = %v", err)
+				}
+				if got := evictors(); got != 1 {
+					t.Fatalf("shared evictor Deployments = %d, want 1", got)
+				}
+				oldPod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: "first-old", Namespace: "test", Labels: map[string]string{
+						constants.KubernetesAppNameLabelKey:                  podAppName,
+						pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache"): "true",
+					}},
+					Spec:   corev1.PodSpec{NodeName: "node-a", Containers: []corev1.Container{{Name: mainContainerName}}},
+					Status: corev1.PodStatus{Phase: tt.oldPodPhase},
+				}
+				if tt.terminating {
+					oldPod.Finalizers = []string{"test.finalizer"}
+				}
+				if err := fakeClient.Create(t.Context(), oldPod); err != nil {
+					t.Fatal(err)
+				}
+				if tt.terminating {
+					if err := fakeClient.Delete(t.Context(), oldPod); err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				// when the service stops using the evictor
+				current := &v1alpha2.LLMInferenceService{}
+				if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(svc), current); err != nil {
+					t.Fatal(err)
+				}
+				tt.stopUsing(current)
+				if err := fakeClient.Update(t.Context(), current); err != nil {
+					t.Fatal(err)
+				}
+				if err := reconciler.reconcilePVCEvictors(t.Context(), current, &Config{}); err != nil {
+					t.Fatalf("reconcilePVCEvictors() after the switch error = %v", err)
+				}
+
+				// then the evictor stays while the old pod can still write to its cache root
+				if got, want := evictors(), map[bool]int{true: 1, false: 0}[tt.wantKept]; got != want {
+					t.Fatalf("shared evictor Deployments after the switch = %d, want %d", got, want)
+				}
+				if !tt.wantKept {
+					return
+				}
+
+				// and goes once the old pod is gone or its service is deleted
+				switch ending {
+				case "old pod exits":
+					if tt.terminating {
+						if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(oldPod), oldPod); err != nil {
+							t.Fatal(err)
+						}
+						oldPod.Finalizers = nil
+						if err := fakeClient.Update(t.Context(), oldPod); err != nil {
+							t.Fatal(err)
+						}
+					} else if err := fakeClient.Delete(t.Context(), oldPod); err != nil {
+						t.Fatal(err)
+					}
+					if err := reconciler.reconcilePVCEvictors(t.Context(), current, &Config{}); err != nil {
+						t.Fatalf("reconcilePVCEvictors() after the old pod stopped error = %v", err)
+					}
+				case "service deleted":
+					// The switch cleared PVCEvictorReady and left no target, so only the old pod
+					// shows the service used the evictor.
+					if current.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil {
+						t.Fatal("PVCEvictorReady still set after the switch")
+					}
+					current.Finalizers = []string{"test.finalizer"}
+					if err := fakeClient.Update(t.Context(), current); err != nil {
+						t.Fatal(err)
+					}
+					if err := fakeClient.Delete(t.Context(), current); err != nil {
+						t.Fatal(err)
+					}
+					deleting := &v1alpha2.LLMInferenceService{}
+					if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(current), deleting); err != nil {
+						t.Fatal(err)
+					}
+					if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+						t.Fatalf("finalizePVCEvictors() error = %v", err)
+					}
+				}
+				if got := evictors(); got != 0 {
+					t.Fatalf("shared evictor Deployments after %s = %d, want 0", ending, got)
+				}
+				if err := fakeClient.Get(t.Context(), client.ObjectKey{Namespace: "test", Name: pvcEvictorServiceAccount}, &corev1.ServiceAccount{}); !apierrors.IsNotFound(err) {
+					t.Fatalf("evictor ServiceAccount after %s: err = %v, want NotFound", ending, err)
+				}
+			})
+		}
+	}
+}
+
+func TestFinalizePVCEvictorsIgnoresPodsOfTheDeletingService(t *testing.T) {
+	deletionTime := metav1.Now()
+	deleting := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "deleting",
+			Namespace:         "test",
+			DeletionTimestamp: &deletionTime,
+			Finalizers:        []string{"test.finalizer"},
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+			}}}},
+		}},
+	}
+	evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{
+		claimName: "shared-pvc", subPath: "kv-cache",
+		containerTemplate: &corev1.Container{Name: pvcEvictorTemplateName, Image: "example.com/evictor:preset"},
+	})
+	// The finalizer runs before garbage collection removes the workload, so its pods still run.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "deleting-0", Namespace: "test", Labels: map[string]string{
+			constants.KubernetesAppNameLabelKey:                  "deleting",
+			pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache"): "true",
+		}},
+		Spec:   corev1.PodSpec{NodeName: "node-a", Containers: []corev1.Container{{Name: mainContainerName}}},
+		Status: corev1.PodStatus{Phase: corev1.PodRunning},
+	}
+	// A live service without KV offloading, so the cleanup inspects one service's pods.
+	bystander := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "bystander", Namespace: "test"}}
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, corev1.AddToScheme, v1alpha2.AddToScheme} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(deleting, bystander, evictor, pod, testInferenceServiceConfigMap(), func() *v1alpha2.LLMInferenceServiceConfig {
+			preset := loadPresetConfig(t, "config-llm-template.yaml")
+			preset.Namespace = constants.KServeNamespace
+			return preset
+		}()).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+		t.Fatalf("finalizePVCEvictors() error = %v", err)
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("PVC evictor Deployment after finalization: err = %v, want NotFound", err)
+	}
+}
+
 func TestPVCRequiresNodeAffinity(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -2512,6 +3070,17 @@ func TestReconcilePVCEvictorsSkipsPeerMergeWithoutEvictors(t *testing.T) {
 func TestReconcilePVCEvictorsRemovesLeftoverServiceAccount(t *testing.T) {
 	// The last evictor Deployment is gone but deleting the ServiceAccount failed on that pass.
 	service := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "plain", Namespace: "test"}}
+	// A peer on a preset without the pvc-evictor container still has a pvc.ref tier,
+	// and no evictor serves it.
+	legacyPeer := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+			}}}},
+		}},
+	}
+	legacyPreset := llmTemplatePresetWithoutPVCEvictor(t)
 	serviceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
 		Name:      pvcEvictorServiceAccount,
 		Namespace: "test",
@@ -2523,7 +3092,14 @@ func TestReconcilePVCEvictorsRemovesLeftoverServiceAccount(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(service, serviceAccount).Build()
+	serviceLists := 0
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(service, legacyPeer, legacyPreset, serviceAccount).
+		WithInterceptorFuncs(interceptor.Funcs{List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if _, ok := list.(*v1alpha2.LLMInferenceServiceList); ok {
+				serviceLists++
+			}
+			return c.List(ctx, list, opts...)
+		}}).Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient}
 
 	if err := reconciler.reconcilePVCEvictors(t.Context(), service, &Config{}); err != nil {
@@ -2531,6 +3107,14 @@ func TestReconcilePVCEvictorsRemovesLeftoverServiceAccount(t *testing.T) {
 	}
 	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(serviceAccount), &corev1.ServiceAccount{}); err == nil {
 		t.Fatal("leftover PVC evictor ServiceAccount was not removed")
+	}
+
+	serviceLists = 0
+	if err := reconciler.reconcilePVCEvictors(t.Context(), service, &Config{}); err != nil {
+		t.Fatalf("second reconcilePVCEvictors() error = %v", err)
+	}
+	if serviceLists != 0 {
+		t.Fatalf("second reconcilePVCEvictors() listed LLMInferenceServices %d times with nothing left to clean up, want 0", serviceLists)
 	}
 }
 

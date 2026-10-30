@@ -274,6 +274,12 @@ func LoadConfig(ctx context.Context, reader client.Reader) (*Config, error) {
 	return toConfig(isvcConfigMap)
 }
 
+// invalidConfigError marks an inferenceservice-config ConfigMap that was read but does
+// not parse, so a caller can tell it from a failed read.
+type invalidConfigError struct{ error }
+
+func (e invalidConfigError) Unwrap() error { return e.error }
+
 func (r *LLMISVCReconciler) loadConfig(ctx context.Context) (*Config, error) {
 	configMap, fallbackErr := Get(
 		ctx,
@@ -285,7 +291,11 @@ func (r *LLMISVCReconciler) loadConfig(ctx context.Context) (*Config, error) {
 	if fallbackErr != nil {
 		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", fallbackErr)
 	}
-	return toConfig(configMap)
+	config, err := toConfig(configMap)
+	if err != nil {
+		return nil, invalidConfigError{err}
+	}
+	return config, nil
 }
 
 func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
