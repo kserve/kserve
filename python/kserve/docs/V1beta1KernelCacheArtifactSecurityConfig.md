@@ -6,6 +6,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **cert** | [**V1beta1KernelCacheArtifactCertConfig**](V1beta1KernelCacheArtifactCertConfig.md) |  | [optional] 
 **failure_policy** | **str** |  | [optional] 
+**keyless** | [**V1beta1KernelCacheArtifactKeylessConfig**](V1beta1KernelCacheArtifactKeylessConfig.md) |  | [optional] 
 **mode** | **str** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

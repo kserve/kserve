@@ -4664,6 +4664,17 @@
         }
       }
     },
+    "v1beta1.KernelCacheArtifactKeylessConfig": {
+      "type": "object",
+      "properties": {
+        "issuer": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.KernelCacheArtifactSecurityConfig": {
       "description": "KernelCacheArtifactSecurityConfig configures signing of completed artifacts.",
       "type": "object",
@@ -4674,6 +4685,10 @@
         },
         "failurePolicy": {
           "type": "string"
+        },
+        "keyless": {
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheArtifactKeylessConfig"
         },
         "mode": {
           "type": "string"
