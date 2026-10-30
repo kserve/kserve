@@ -371,6 +371,108 @@ func TestModelcarNames(t *testing.T) {
 	})
 }
 
+func TestCreateModelcarContainersSecurityContext(t *testing.T) {
+	assertRestrictedProfile := func(g *gomega.WithT, sc *corev1.SecurityContext) {
+		g.Expect(sc).ToNot(gomega.BeNil())
+		g.Expect(sc.AllowPrivilegeEscalation).ToNot(gomega.BeNil())
+		g.Expect(*sc.AllowPrivilegeEscalation).To(gomega.BeFalse())
+		g.Expect(sc.Capabilities).ToNot(gomega.BeNil())
+		g.Expect(sc.Capabilities.Drop).To(gomega.Equal([]corev1.Capability{"ALL"}))
+		g.Expect(sc.SeccompProfile).ToNot(gomega.BeNil())
+		g.Expect(sc.SeccompProfile.Type).To(gomega.Equal(corev1.SeccompProfileTypeRuntimeDefault))
+	}
+
+	// Without a configured UID both user fields stay unset so pod-level
+	// policy decides; a configured UID sets runAsUser and derives
+	// runAsNonRoot from it (false for root).
+	assertUser := func(g *gomega.WithT, sc *corev1.SecurityContext, uid *int64) {
+		if uid == nil {
+			g.Expect(sc.RunAsUser).To(gomega.BeNil())
+			g.Expect(sc.RunAsNonRoot).To(gomega.BeNil())
+			return
+		}
+		g.Expect(sc.RunAsUser).ToNot(gomega.BeNil())
+		g.Expect(*sc.RunAsUser).To(gomega.Equal(*uid))
+		g.Expect(sc.RunAsNonRoot).ToNot(gomega.BeNil())
+		g.Expect(*sc.RunAsNonRoot).To(gomega.Equal(*uid != 0))
+	}
+
+	uid := int64(1000)
+	rootUID := int64(0)
+
+	t.Run("Sidecar container without UID", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		container := CreateModelcarContainer(
+			constants.ModelcarContainerName,
+			"registry.example.com/model:v1",
+			constants.DefaultModelLocalMountPath,
+			constants.StorageInitializerVolumeName,
+			&types.StorageInitializerConfig{},
+		)
+		assertRestrictedProfile(g, container.SecurityContext)
+		assertUser(g, container.SecurityContext, nil)
+	})
+
+	t.Run("Sidecar container with UID", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		container := CreateModelcarContainer(
+			constants.ModelcarContainerName,
+			"registry.example.com/model:v1",
+			constants.DefaultModelLocalMountPath,
+			constants.StorageInitializerVolumeName,
+			&types.StorageInitializerConfig{UidModelcar: &uid},
+		)
+		assertRestrictedProfile(g, container.SecurityContext)
+		assertUser(g, container.SecurityContext, &uid)
+	})
+
+	t.Run("Sidecar container with root UID", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		container := CreateModelcarContainer(
+			constants.ModelcarContainerName,
+			"registry.example.com/model:v1",
+			constants.DefaultModelLocalMountPath,
+			constants.StorageInitializerVolumeName,
+			&types.StorageInitializerConfig{UidModelcar: &rootUID},
+		)
+		assertRestrictedProfile(g, container.SecurityContext)
+		assertUser(g, container.SecurityContext, &rootUID)
+	})
+
+	t.Run("Init container without UID", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		container := CreateModelcarInitContainer(
+			constants.ModelcarInitContainerName,
+			"registry.example.com/model:v1",
+			&types.StorageInitializerConfig{},
+		)
+		assertRestrictedProfile(g, container.SecurityContext)
+		assertUser(g, container.SecurityContext, nil)
+	})
+
+	t.Run("Init container with UID", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		container := CreateModelcarInitContainer(
+			constants.ModelcarInitContainerName,
+			"registry.example.com/model:v1",
+			&types.StorageInitializerConfig{UidModelcar: &uid},
+		)
+		assertRestrictedProfile(g, container.SecurityContext)
+		assertUser(g, container.SecurityContext, &uid)
+	})
+
+	t.Run("Init container with root UID", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		container := CreateModelcarInitContainer(
+			constants.ModelcarInitContainerName,
+			"registry.example.com/model:v1",
+			&types.StorageInitializerConfig{UidModelcar: &rootUID},
+		)
+		assertRestrictedProfile(g, container.SecurityContext)
+		assertUser(g, container.SecurityContext, &rootUID)
+	})
+}
+
 func TestConfigureModelcarToContainerMultipleOCI(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	storageConfig := &types.StorageInitializerConfig{}
