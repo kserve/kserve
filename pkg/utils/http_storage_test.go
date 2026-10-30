@@ -60,6 +60,50 @@ func TestCheckHTTPStorageURI(t *testing.T) {
 	}
 }
 
+func TestCheckHTTPStorageURIWithAllowlist(t *testing.T) {
+	tests := []struct {
+		name      string
+		uri       string
+		allowlist []string
+		wantErr   bool
+	}{
+		{name: "private IP requires CIDR", uri: "http://10.20.1.4/model", wantErr: true},
+		{name: "private IP allowed by CIDR", uri: "http://10.20.1.4/model", allowlist: []string{"10.20.0.0/16"}},
+		{name: "private host allowed exactly", uri: "http://models.ml-platform.svc/model", allowlist: []string{"models.ml-platform.svc"}},
+		{name: "private host is not wildcard matched", uri: "http://other.ml-platform.svc/model", allowlist: []string{"models.ml-platform.svc"}, wantErr: true},
+		{name: "metadata stays blocked", uri: "http://169.254.169.254/latest/meta-data", allowlist: []string{"169.254.0.0/16"}, wantErr: true},
+		{name: "IPv6 metadata stays blocked", uri: "http://[fd00:ec2::254]/latest/meta-data", allowlist: []string{"fd00::/8"}, wantErr: true},
+		{name: "metadata CIDR is rejected", uri: "http://example.com/model", allowlist: []string{"169.254.0.0/16"}, wantErr: true},
+		{name: "invalid wildcard is rejected", uri: "http://example.com/model", allowlist: []string{"*.ml-platform.svc"}, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := CheckHTTPStorageURIWithAllowlist(test.uri, test.allowlist)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("CheckHTTPStorageURIWithAllowlist() error = %v, wantErr = %v", err, test.wantErr)
+			}
+		})
+	}
+}
+
+func TestCheckHTTPStorageURIResolvedWithAllowlist(t *testing.T) {
+	original := lookupIPFn
+	t.Cleanup(func() { lookupIPFn = original })
+	lookupIPFn = func(string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("10.20.1.4")}, nil
+	}
+
+	if err := CheckHTTPStorageURIResolvedWithAllowlist("http://models.example/model", []string{"10.20.0.0/16"}); err != nil {
+		t.Fatalf("allowlisted private resolution failed: %v", err)
+	}
+	if err := CheckHTTPStorageURIResolvedWithAllowlist("http://models.example/model", []string{"10.30.0.0/16"}); err == nil {
+		t.Fatal("expected private address outside the allowlist to be blocked")
+	}
+	if err := CheckHTTPStorageURIResolvedWithAllowlist("http://models.example/model", []string{"models.example"}); err != nil {
+		t.Fatalf("exact allowlisted host failed: %v", err)
+	}
+}
+
 func TestSafeHTTPClientDisablesProxy(t *testing.T) {
 	client := SafeHTTPClient(&http.Client{Transport: &http.Transport{Proxy: http.ProxyFromEnvironment}})
 	transport, ok := client.Transport.(*http.Transport)

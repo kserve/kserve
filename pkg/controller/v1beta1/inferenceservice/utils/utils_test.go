@@ -2378,7 +2378,11 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 		"",
 	}
 	s := runtime.NewScheme()
-	err := v1alpha1.AddToScheme(s)
+	err := corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("Failed to add corev1 to scheme %s", err)
+	}
+	err = v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
 	}
@@ -2404,12 +2408,44 @@ func TestValidateStorageURIRejectsInternalHTTP(t *testing.T) {
 	}
 }
 
+func TestValidateStorageURIUsesConfiguredHTTPAllowlist(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+		Data: map[string]string{
+			StorageInitializerConfigMapKeyName: `{"httpStorageUriAllowlist":["10.20.0.0/16"]}`,
+		},
+	}
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(configMap).Build()
+	uri := "http://10.20.1.4/model"
+	if err := ValidateStorageURI(t.Context(), &uri, client); err != nil {
+		t.Fatalf("configured private URI was rejected: %v", err)
+	}
+	uri = "http://10.30.1.4/model"
+	if err := ValidateStorageURI(t.Context(), &uri, client); err == nil {
+		t.Fatal("private URI outside the configured allowlist was accepted")
+	}
+}
+
 func TestValidateStorageURIForCustomPrefix(t *testing.T) {
 	invalidUris := []string{
 		"custom://custom.com/model",
 	}
 	s := runtime.NewScheme()
-	err := v1alpha1.AddToScheme(s)
+	err := corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("Failed to add corev1 to scheme %s", err)
+	}
+	err = v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
 	}
@@ -2447,7 +2483,11 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 		"custom://custom.com/model/",
 	}
 	s := runtime.NewScheme()
-	err := v1alpha1.AddToScheme(s)
+	err := corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("Failed to add corev1 to scheme %s", err)
+	}
+	err = v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
 	}

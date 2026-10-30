@@ -77,6 +77,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *corev1.Pod
 		expected *corev1.Pod
+		config   *kserveTypes.StorageInitializerConfig
 	}{
 		"MissingAnnotations": {
 			original: &corev1.Pod{
@@ -145,6 +146,9 @@ func TestStorageInitializerInjector(t *testing.T) {
 			},
 		},
 		"StorageInitializerInjected": {
+			config: &kserveTypes.StorageInitializerConfig{
+				HTTPStorageURIAllowlist: []string{"models.ml-platform.svc", "10.20.0.0/16"},
+			},
 			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -185,6 +189,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources: resourceRequirement,
 							Env: []corev1.EnvVar{
+								{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: `["models.ml-platform.svc","10.20.0.0/16"]`},
 								{Name: "HF_HUB_ENABLE_HF_TRANSFER", Value: "1"},
 								{Name: "HF_XET_HIGH_PERFORMANCE", Value: "1"},
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
@@ -536,11 +541,17 @@ func TestStorageInitializerInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
+		config := storageInitializerConfig
+		if scenario.config != nil {
+			configuredStorageInitializer := *storageInitializerConfig
+			configuredStorageInitializer.HTTPStorageURIAllowlist = scenario.config.HTTPStorageURIAllowlist
+			config = &configuredStorageInitializer
+		}
 		injector := &StorageInitializerInjector{
 			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
-			config: storageInitializerConfig,
+			config: config,
 			client: c,
 		}
 		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {

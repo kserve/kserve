@@ -31,6 +31,7 @@ from kserve_storage.kserve_storage import (
     _assert_http_storage_uri_allowed,
     _parse_patterns_from_env,
     _pinned_http_get,
+    _resolve_http_storage_uri,
     _should_download,
 )
 
@@ -79,6 +80,41 @@ def mock_public_http_dns(monkeypatch):
 def test_http_storage_uri_rejects_internal_targets(uri):
     with pytest.raises(RuntimeError, match="blocked host or IP"):
         _assert_http_storage_uri_allowed(uri)
+
+
+@pytest.mark.parametrize(
+    "allowlist,uri",
+    [
+        ('["models.ml-platform.svc"]', "http://models.ml-platform.svc/model"),
+        ('["10.20.0.0/16"]', "http://models.example/model"),
+    ],
+)
+def test_http_storage_uri_allows_configured_private_destinations(
+    monkeypatch, allowlist, uri
+):
+    monkeypatch.setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", allowlist)
+    monkeypatch.setattr(
+        f"{STORAGE_MODULE}.socket.getaddrinfo",
+        lambda *_args: [(2, 1, 6, "", ("10.20.1.4", 443))],
+    )
+
+    assert _resolve_http_storage_uri(uri) == ("10.20.1.4",)
+
+
+def test_http_storage_uri_allowlist_does_not_allow_metadata(monkeypatch):
+    monkeypatch.setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", '["10.0.0.0/8"]')
+    with pytest.raises(RuntimeError, match="blocked host or IP"):
+        _resolve_http_storage_uri("http://169.254.169.254/latest/meta-data")
+
+    monkeypatch.setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", '["fd00::/8"]')
+    with pytest.raises(RuntimeError, match="metadata endpoint"):
+        _resolve_http_storage_uri("http://[fd00:ec2::254]/latest/meta-data")
+
+
+def test_http_storage_uri_rejects_invalid_allowlist(monkeypatch):
+    monkeypatch.setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", '["*.svc"]')
+    with pytest.raises(RuntimeError, match="Invalid or blocked hostname"):
+        _resolve_http_storage_uri("http://models.ml-platform.svc/model")
 
 
 def test_http_storage_uri_rejects_private_dns(monkeypatch):

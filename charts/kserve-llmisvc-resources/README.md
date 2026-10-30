@@ -190,6 +190,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.storage.cpuModelcar | string | `"10m"` |  |
 | kserve.storage.enableModelcar | bool | `true` |  |
 | kserve.storage.enableOciModelSupport | bool | `false` |  |
+| kserve.storage.httpStorageUriAllowlist | list | `[]` |  |
 | kserve.storage.image | string | `"kserve/storage-initializer"` |  |
 | kserve.storage.memoryModelcar | string | `"15Mi"` |  |
 | kserve.storage.ociModelMode | string | `""` |  |

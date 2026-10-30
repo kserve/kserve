@@ -46,6 +46,8 @@ kserve:
     # carry no explicit suffix. One of: modelcar | native | fetch.
     # Only rendered into the storageInitializer config when non-empty.
     ociModelMode: ''
+    # Exact hostnames and CIDRs allowed to serve private HTTP(S) model storage URIs.
+    httpStorageUriAllowlist: []
     caBundleConfigMapName: ''
     caBundleVolumeMountPath: /etc/ssl/custom-certs
     storageSpecSecretName: storage-config
