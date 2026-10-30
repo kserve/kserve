@@ -935,6 +935,148 @@ func TestEnsurePVCEvictorServiceAccountRepairsTokenAutomount(t *testing.T) {
 	}
 }
 
+func TestEnsurePVCEvictorServiceAccountImagePullSecrets(t *testing.T) {
+	// openshift-controller-manager appends this entry to every ServiceAccount.
+	platform := corev1.LocalObjectReference{Name: pvcEvictorServiceAccount + "-dockercfg-abcde"}
+
+	tests := []struct {
+		name           string
+		current        []corev1.LocalObjectReference
+		copied         string
+		automountUnset bool
+		defaultSA      []corev1.LocalObjectReference
+		wantUpdates    int
+		want           []corev1.LocalObjectReference
+		wantCopied     string
+	}{
+		{
+			name:        "keeps an entry another writer added",
+			current:     []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			copied:      "default-dockercfg-xyz",
+			defaultSA:   []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}},
+			wantUpdates: 0,
+			want:        []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			wantCopied:  "default-dockercfg-xyz",
+		},
+		{
+			name:           "keeps an entry another writer added while repairing token automount",
+			current:        []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			copied:         "default-dockercfg-xyz",
+			automountUnset: true,
+			defaultSA:      []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}},
+			wantUpdates:    1,
+			want:           []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			wantCopied:     "default-dockercfg-xyz",
+		},
+		{
+			name:        "replaces an entry rotated on the default ServiceAccount",
+			current:     []corev1.LocalObjectReference{{Name: "old-pull"}, platform},
+			copied:      "old-pull",
+			defaultSA:   []corev1.LocalObjectReference{{Name: "new-pull"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{platform, {Name: "new-pull"}},
+			wantCopied:  "new-pull",
+		},
+		{
+			name:        "appends an entry added to the default ServiceAccount",
+			current:     []corev1.LocalObjectReference{{Name: "a-pull"}, platform},
+			copied:      "a-pull",
+			defaultSA:   []corev1.LocalObjectReference{{Name: "a-pull"}, {Name: "b-pull"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{{Name: "a-pull"}, platform, {Name: "b-pull"}},
+			wantCopied:  "a-pull,b-pull",
+		},
+		{
+			name:        "drops an entry removed from the end of the default ServiceAccount's list",
+			current:     []corev1.LocalObjectReference{{Name: "a-pull"}, {Name: "b-pull"}, platform},
+			copied:      "a-pull,b-pull",
+			defaultSA:   []corev1.LocalObjectReference{{Name: "a-pull"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{{Name: "a-pull"}, platform},
+			wantCopied:  "a-pull",
+		},
+		{
+			name:        "drops copied entries when the default ServiceAccount has none",
+			current:     []corev1.LocalObjectReference{{Name: "registry-pull"}, platform},
+			copied:      "registry-pull",
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{platform},
+		},
+		{
+			name:        "records the copies on a ServiceAccount written by an earlier release",
+			current:     []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			defaultSA:   []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			wantCopied:  "default-dockercfg-xyz",
+		},
+		{
+			name:        "keeps an entry removed from the default ServiceAccount before the first recorded sync",
+			current:     []corev1.LocalObjectReference{{Name: "old-pull"}, platform},
+			defaultSA:   []corev1.LocalObjectReference{{Name: "new-pull"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{{Name: "old-pull"}, platform, {Name: "new-pull"}},
+			wantCopied:  "new-pull",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			if err := corev1.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+			serviceAccount := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pvcEvictorServiceAccount,
+					Namespace: "test",
+					Labels:    map[string]string{pvcEvictorLabel: "true"},
+				},
+				AutomountServiceAccountToken: ptr.To(false),
+				ImagePullSecrets:             test.current,
+			}
+			if test.copied != "" {
+				serviceAccount.Annotations = map[string]string{pvcEvictorDefaultPullSecrets: test.copied}
+			}
+			if test.automountUnset {
+				serviceAccount.AutomountServiceAccountToken = nil
+			}
+			defaultServiceAccount := &corev1.ServiceAccount{
+				ObjectMeta:       metav1.ObjectMeta{Name: "default", Namespace: "test"},
+				ImagePullSecrets: test.defaultSA,
+			}
+			updates := 0
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(serviceAccount, defaultServiceAccount).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						updates++
+						return c.Update(ctx, obj, opts...)
+					},
+				}).
+				Build()
+			reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+			if err := reconciler.ensurePVCEvictorServiceAccount(t.Context(), "test"); err != nil {
+				t.Fatalf("ensurePVCEvictorServiceAccount() error = %v", err)
+			}
+			if updates != test.wantUpdates {
+				t.Errorf("updates = %d, want %d", updates, test.wantUpdates)
+			}
+			got := &corev1.ServiceAccount{}
+			if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(serviceAccount), got); err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(test.want, got.ImagePullSecrets); diff != "" {
+				t.Errorf("imagePullSecrets mismatch (-want +got):\n%s", diff)
+			}
+			if copied := got.Annotations[pvcEvictorDefaultPullSecrets]; copied != test.wantCopied {
+				t.Errorf("%s = %q, want %q", pvcEvictorDefaultPullSecrets, copied, test.wantCopied)
+			}
+		})
+	}
+}
+
 func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
 	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{

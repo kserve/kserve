@@ -66,6 +66,9 @@ const (
 	pvcEvictorContainerHash    = "serving.kserve.io/pvc-evictor-container-hash"
 	pvcEvictorPVCIndex         = "serving.kserve.io/pvc-evictor-pvc"
 	pvcEvictorBaseRefsIndex    = "serving.kserve.io/pvc-evictor-base-ref"
+	// pvcEvictorDefaultPullSecrets records the namespace default ServiceAccount's imagePullSecrets
+	// names, comma-separated, as of the last sync; later passes drop only those once they leave it.
+	pvcEvictorDefaultPullSecrets = "serving.kserve.io/pvc-evictor-default-pull-secrets"
 )
 
 var (
@@ -970,13 +973,15 @@ func (r *LLMISVCReconciler) ensurePVCEvictorServiceAccount(ctx context.Context, 
 	err := r.Get(ctx, types.NamespacedName{Name: pvcEvictorServiceAccount, Namespace: namespace}, serviceAccount)
 	if err == nil {
 		updated := serviceAccount.DeepCopy()
-		r.injectImagePullSecretsFromDefaultServiceAccount(ctx, updated)
+		r.syncPVCEvictorImagePullSecrets(ctx, updated)
 		if updated.Labels == nil {
 			updated.Labels = map[string]string{}
 		}
 		updated.Labels[pvcEvictorLabel] = "true"
 		updated.AutomountServiceAccountToken = ptr.To(false)
 		if !equality.Semantic.DeepEqual(serviceAccount, updated) {
+			log.FromContext(ctx).Info("Updating PVC evictor ServiceAccount", "namespace", namespace,
+				"imagePullSecrets", updated.ImagePullSecrets, "previousImagePullSecrets", serviceAccount.ImagePullSecrets)
 			if err := r.Update(ctx, updated); err != nil {
 				return fmt.Errorf("failed to repair PVC evictor ServiceAccount %s/%s: %w", namespace, pvcEvictorServiceAccount, err)
 			}
@@ -994,11 +999,58 @@ func (r *LLMISVCReconciler) ensurePVCEvictorServiceAccount(ctx context.Context, 
 		},
 		AutomountServiceAccountToken: ptr.To(false),
 	}
-	r.injectImagePullSecretsFromDefaultServiceAccount(ctx, expected)
+	r.syncPVCEvictorImagePullSecrets(ctx, expected)
 	if err := r.Create(ctx, expected); err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create PVC evictor ServiceAccount %s/%s: %w", namespace, pvcEvictorServiceAccount, err)
 	}
 	return nil
+}
+
+// syncPVCEvictorImagePullSecrets makes the evictor ServiceAccount carry the namespace default
+// ServiceAccount's imagePullSecrets and drops entries recorded by an earlier sync that are gone
+// there. Other entries stay: openshift-controller-manager appends <sa>-dockercfg-* to every
+// ServiceAccount and puts it back whenever it is missing, so removing it would loop with that controller.
+// A ServiceAccount written before the record existed starts with nothing recorded, so an entry
+// removed from the default ServiceAccount before that first sync stays.
+func (r *LLMISVCReconciler) syncPVCEvictorImagePullSecrets(ctx context.Context, serviceAccount *corev1.ServiceAccount) {
+	defaultSa := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: serviceAccount.Namespace}, defaultSa); err != nil {
+		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
+		return
+	}
+	var fromDefault []string
+	for _, ref := range defaultSa.ImagePullSecrets {
+		if !slices.Contains(fromDefault, ref.Name) {
+			fromDefault = append(fromDefault, ref.Name)
+		}
+	}
+	var copied []string
+	if value := serviceAccount.Annotations[pvcEvictorDefaultPullSecrets]; value != "" {
+		copied = strings.Split(value, ",")
+	}
+
+	var secrets []corev1.LocalObjectReference
+	for _, ref := range serviceAccount.ImagePullSecrets {
+		if slices.Contains(copied, ref.Name) && !slices.Contains(fromDefault, ref.Name) {
+			continue
+		}
+		secrets = append(secrets, ref)
+	}
+	for _, name := range fromDefault {
+		if !slices.ContainsFunc(secrets, func(ref corev1.LocalObjectReference) bool { return ref.Name == name }) {
+			secrets = append(secrets, corev1.LocalObjectReference{Name: name})
+		}
+	}
+	serviceAccount.ImagePullSecrets = secrets
+
+	if len(fromDefault) == 0 {
+		delete(serviceAccount.Annotations, pvcEvictorDefaultPullSecrets)
+		return
+	}
+	if serviceAccount.Annotations == nil {
+		serviceAccount.Annotations = map[string]string{}
+	}
+	serviceAccount.Annotations[pvcEvictorDefaultPullSecrets] = strings.Join(fromDefault, ",")
 }
 
 func (r *LLMISVCReconciler) getPVCEvictorDeployment(ctx context.Context, expected *appsv1.Deployment) (*appsv1.Deployment, error) {

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -450,6 +451,85 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 					client.MatchingLabels{"serving.kserve.io/pvc-evictor": "true"},
 				)).To(Succeed())
 				g.Expect(deployments.Items).To(BeEmpty())
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should keep pull secrets other controllers add to the evictor ServiceAccount", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-kvcache-pvc-ref-pull-secrets"
+			testNs := NewTestNamespace(ctx, envTest, WithDefaultServiceAccountImagePullSecrets(
+				corev1.LocalObjectReference{Name: "default-dockercfg-xyz"},
+				corev1.LocalObjectReference{Name: "registry-pull"},
+			))
+			pvcName := "shared-kv-cache-pull-secrets-pvc"
+
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")},
+					},
+				},
+			}
+			Expect(envTest.Client.Create(ctx, pvc)).To(Succeed())
+			defer func() { _ = envTest.Delete(ctx, pvc) }()
+
+			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
+			Expect(err).ToNot(HaveOccurred())
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: svcName, Namespace: testNs.Name},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("foo"), URI: *modelURL},
+					WorkloadSpec: v1alpha2.WorkloadSpec{KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						CPU: resource.MustParse("10Gi"),
+						Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+							PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: pvcName, Path: "kv/"}},
+						}}},
+					}},
+					Router:  &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{}, Gateway: &v1alpha2.GatewaySpec{}, Scheduler: &v1alpha2.SchedulerSpec{}},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() { testNs.DeleteAndWait(ctx, llmSvc) }()
+
+			evictorSA := types.NamespacedName{Name: "kserve-llm-isvc-kv-pvc-evictor", Namespace: testNs.Name}
+			Eventually(func(g Gomega, ctx context.Context) {
+				sa := &corev1.ServiceAccount{}
+				g.Expect(envTest.Get(ctx, evictorSA, sa)).To(Succeed())
+				g.Expect(sa.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, {Name: "registry-pull"}}))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when openshift-controller-manager appends the ServiceAccount's own pull secret
+			platform := corev1.LocalObjectReference{Name: "kserve-llm-isvc-kv-pvc-evictor-dockercfg-abcde"}
+			sa := &corev1.ServiceAccount{}
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				Expect(envTest.Get(ctx, evictorSA, sa)).To(Succeed())
+				sa.ImagePullSecrets = append(sa.ImagePullSecrets, platform)
+				return envTest.Update(ctx, sa)
+			})).To(Succeed())
+
+			// then the controller leaves the ServiceAccount alone
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &corev1.ServiceAccount{}
+				g.Expect(envTest.Get(ctx, evictorSA, current)).To(Succeed())
+				g.Expect(current.ResourceVersion).To(Equal(sa.ResourceVersion))
+			}).WithContext(ctx).WithTimeout(3 * time.Second).Should(Succeed())
+
+			// when a pull secret is removed from the default ServiceAccount
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				defaultSA := &corev1.ServiceAccount{}
+				Expect(envTest.Get(ctx, types.NamespacedName{Name: "default", Namespace: testNs.Name}, defaultSA)).To(Succeed())
+				defaultSA.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}}
+				return envTest.Update(ctx, defaultSA)
+			})).To(Succeed())
+
+			// then the controller drops only that entry
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &corev1.ServiceAccount{}
+				g.Expect(envTest.Get(ctx, evictorSA, current)).To(Succeed())
+				g.Expect(current.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform}))
 			}).WithContext(ctx).Should(Succeed())
 		})
 
