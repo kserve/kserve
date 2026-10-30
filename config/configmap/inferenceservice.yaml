@@ -312,6 +312,17 @@ data:
            "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"],
            "ingressClassName" : "istio",
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+
+           # annotationsTemplate specifies annotations added to the generated Kubernetes Ingress.
+           # Values are Go templates and can use {{ .Name }}, {{ .Namespace }}, {{ .IngressDomain }},
+           # {{ .Annotations.key }} and {{ .Labels.key }}.
+           # NOTE: This configuration only applicable for raw deployment.
+           # "annotationsTemplate": {"external-dns.alpha.kubernetes.io/hostname": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"},
+
+           # tlsTemplate specifies the TLS section of the generated Kubernetes Ingress.
+           # hosts and secretName are Go templates that accept the same variables as annotationsTemplate.
+           # NOTE: This configuration only applicable for raw deployment.
+           # "tlsTemplate": [{"hosts": ["{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"], "secretName": "{{ .Name }}-{{ .Namespace }}-tls"}],
            "urlScheme": "http",
            "disableIstioVirtualHost": false,
            "disableIngressCreation": false,
