@@ -1402,7 +1402,7 @@ func (r *LLMISVCReconciler) cleanupUnusedPVCEvictors(ctx context.Context, namesp
 }
 
 func (r *LLMISVCReconciler) cleanupUnusedPVCEvictorsWithResult(ctx context.Context, namespace string, config *Config, currentService *v1alpha2.LLMInferenceService, excludedService string) (map[string]struct{}, error) {
-	referenced, departing, cleanupSafe, err := r.referencedPVCEvictorKeys(ctx, namespace, config, currentService, excludedService)
+	referenced, live, cleanupSafe, err := r.referencedPVCEvictorKeys(ctx, namespace, config, currentService, excludedService)
 	if err != nil {
 		return nil, err
 	}
@@ -1434,7 +1434,7 @@ func (r *LLMISVCReconciler) cleanupUnusedPVCEvictorsWithResult(ctx context.Conte
 		// Pods of a revision that rendered the evictor write to its cache root until they
 		// exit: during the rollout after a service drops the container or the pvc.ref, or
 		// for as long as its new pods can't start.
-		running, err := r.hasRunningPVCEvictorConsumers(ctx, namespace, pvcName, pvcPath, departing)
+		running, err := r.hasRunningPVCEvictorConsumers(ctx, namespace, pvcName, pvcPath, live)
 		if err != nil {
 			return nil, err
 		}
@@ -1496,24 +1496,23 @@ func (r *LLMISVCReconciler) cleanupPVCEvictorServiceAccount(ctx context.Context,
 }
 
 // referencedPVCEvictorKeys returns the keys of the evictors that live services render,
-// and the app.kubernetes.io/name values of the pods of services being deleted or
-// excluded, which stop with their service and so keep no evictor.
-func (r *LLMISVCReconciler) referencedPVCEvictorKeys(ctx context.Context, namespace string, config *Config, currentService *v1alpha2.LLMInferenceService, excludedService string) (referenced, departing map[string]struct{}, cleanupSafe bool, err error) {
+// and the names of the services that aren't being deleted or excluded.
+func (r *LLMISVCReconciler) referencedPVCEvictorKeys(ctx context.Context, namespace string, config *Config, currentService *v1alpha2.LLMInferenceService, excludedService string) (referenced, live map[string]struct{}, cleanupSafe bool, err error) {
 	services := &v1alpha2.LLMInferenceServiceList{}
 	if err := r.List(ctx, services, client.InNamespace(namespace)); err != nil {
 		return nil, nil, false, fmt.Errorf("failed to list LLMInferenceServices for PVC evictor ownership: %w", err)
 	}
 
 	referenced = make(map[string]struct{})
-	departing = make(map[string]struct{})
+	live = make(map[string]struct{})
 	cleanupSafe = true
 	logger := log.FromContext(ctx)
 	for i := range services.Items {
 		service := services.Items[i].DeepCopy()
 		if !service.DeletionTimestamp.IsZero() || service.Name == excludedService {
-			maps.Copy(departing, pvcEvictorConsumerAppNames(service))
 			continue
 		}
+		live[service.Name] = struct{}{}
 		if utils.GetForceStopRuntime(service) {
 			continue
 		}
@@ -1538,15 +1537,15 @@ func (r *LLMISVCReconciler) referencedPVCEvictorKeys(ctx context.Context, namesp
 			referenced[pvcEvictorKey(target.claimName, target.subPath)] = struct{}{}
 		}
 	}
-	return referenced, departing, cleanupSafe, nil
+	return referenced, live, cleanupSafe, nil
 }
 
-// hasRunningPVCEvictorConsumers reports whether a pod that hasn't finished still carries
-// the consumer label of the evictor for claimName and subPath. Terminating pods count,
-// since they write until they exit; pods whose app.kubernetes.io/name is in departing
-// don't. Pods count whatever service they name, because spec.labels can override that
-// label.
-func (r *LLMISVCReconciler) hasRunningPVCEvictorConsumers(ctx context.Context, namespace, claimName, subPath string, departing map[string]struct{}) (bool, error) {
+// hasRunningPVCEvictorConsumers reports whether a pod that hasn't finished, and names a
+// live service in app.kubernetes.io/name, still carries the consumer label of the
+// evictor for claimName and subPath. Terminating pods count, since they write until they
+// exit. A pod belongs to the service it names: that service's workload Service and
+// default InferencePool select it, and the pod's events requeue it.
+func (r *LLMISVCReconciler) hasRunningPVCEvictorConsumers(ctx context.Context, namespace, claimName, subPath string, live map[string]struct{}) (bool, error) {
 	pods, err := r.listPVCEvictorConsumerPods(ctx, namespace, claimName, subPath)
 	if err != nil {
 		return false, err
@@ -1555,10 +1554,9 @@ func (r *LLMISVCReconciler) hasRunningPVCEvictorConsumers(ctx context.Context, n
 		if pods[i].Status.Phase == corev1.PodSucceeded || pods[i].Status.Phase == corev1.PodFailed {
 			continue
 		}
-		if _, ok := departing[pods[i].Labels[constants.KubernetesAppNameLabelKey]]; ok {
-			continue
+		if _, ok := live[pods[i].Labels[constants.KubernetesAppNameLabelKey]]; ok {
+			return true, nil
 		}
-		return true, nil
 	}
 	return false, nil
 }
@@ -1566,7 +1564,6 @@ func (r *LLMISVCReconciler) hasRunningPVCEvictorConsumers(ctx context.Context, n
 // hasPVCEvictorConsumerPods reports whether a pod of llmSvc, in any phase, carries the
 // consumer label of one of the evictors.
 func (r *LLMISVCReconciler) hasPVCEvictorConsumerPods(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, evictors []appsv1.Deployment) (bool, error) {
-	appNames := pvcEvictorConsumerAppNames(llmSvc)
 	for i := range evictors {
 		claimName := evictors[i].Annotations[pvcEvictorPVCName]
 		if claimName == "" {
@@ -1577,7 +1574,7 @@ func (r *LLMISVCReconciler) hasPVCEvictorConsumerPods(ctx context.Context, llmSv
 			return false, err
 		}
 		for j := range pods {
-			if _, ok := appNames[pods[j].Labels[constants.KubernetesAppNameLabelKey]]; ok {
+			if pods[j].Labels[constants.KubernetesAppNameLabelKey] == llmSvc.Name {
 				return true, nil
 			}
 		}
@@ -1594,18 +1591,6 @@ func (r *LLMISVCReconciler) listPVCEvictorConsumerPods(ctx context.Context, name
 		return nil, fmt.Errorf("failed to list PVC evictor consumer Pods for PVC %q and path %q: %w", claimName, subPath, err)
 	}
 	return pods.Items, nil
-}
-
-// pvcEvictorConsumerAppNames returns the app.kubernetes.io/name values the service's
-// workload pods can carry: its name, or a value set through spec.labels.
-func pvcEvictorConsumerAppNames(llmSvc *v1alpha2.LLMInferenceService) map[string]struct{} {
-	names := map[string]struct{}{llmSvc.Name: {}}
-	for _, labels := range []map[string]string{llmSvc.Spec.Labels, ptr.Deref(llmSvc.Spec.Prefill, v1alpha2.WorkloadSpec{}).Labels} {
-		if name := labels[constants.KubernetesAppNameLabelKey]; name != "" {
-			names[name] = struct{}{}
-		}
-	}
-	return names
 }
 
 func collectPVCEvictorIdentities(llmSvc *v1alpha2.LLMInferenceService) map[string]struct{} {

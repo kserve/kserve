@@ -2589,12 +2589,17 @@ func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 func TestReconcilePVCEvictorsKeepsSharedEvictorWhileOldConsumerPodsRun(t *testing.T) {
 	dropContainer := func(s *v1alpha2.LLMInferenceService) { s.Spec.Template.Containers = s.Spec.Template.Containers[:1] }
 	tests := []struct {
-		name        string
-		appName     string
+		name string
+		// appName overrides the pods' app.kubernetes.io/name through spec.labels.
+		appName string
+		// liveService is another live LLMInferenceService in the namespace.
+		liveService string
 		stopUsing   func(*v1alpha2.LLMInferenceService)
 		oldPodPhase corev1.PodPhase
 		terminating bool
 		wantKept    bool
+		// onlyEnding limits a kept case to one ending.
+		onlyEnding string
 	}{
 		{
 			name:        "preset without pvc-evictor keeps the pvc.ref",
@@ -2616,11 +2621,22 @@ func TestReconcilePVCEvictorsKeepsSharedEvictorWhileOldConsumerPodsRun(t *testin
 			wantKept:    true,
 		},
 		{
-			name:        "spec.labels sets the pods' app name",
+			// No workload Service or default InferencePool selects the pod, so it gets no
+			// traffic to cache.
+			name:        "old pod names no service",
 			appName:     "custom-name",
 			stopUsing:   dropContainer,
 			oldPodPhase: corev1.PodRunning,
+		},
+		{
+			// The pod counts for the service it names, which stays live when first is deleted.
+			name:        "old pod names another live service",
+			appName:     "second",
+			liveService: "second",
+			stopUsing:   dropContainer,
+			oldPodPhase: corev1.PodRunning,
 			wantKept:    true,
+			onlyEnding:  "old pod exits",
 		},
 		{
 			name:        "old pod already failed",
@@ -2633,7 +2649,7 @@ func TestReconcilePVCEvictorsKeepsSharedEvictorWhileOldConsumerPodsRun(t *testin
 	endings := []string{"old pod exits", "service deleted"}
 	for _, tt := range tests {
 		for _, ending := range endings {
-			if !tt.wantKept && ending != endings[0] {
+			if (!tt.wantKept && ending != endings[0]) || (tt.onlyEnding != "" && ending != tt.onlyEnding) {
 				continue
 			}
 			t.Run(tt.name+"/"+ending, func(t *testing.T) {
@@ -2664,7 +2680,15 @@ func TestReconcilePVCEvictorsKeepsSharedEvictorWhileOldConsumerPodsRun(t *testin
 						t.Fatal(err)
 					}
 				}
-				fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc, testInferenceServiceConfigMap()).Build()
+				objects := []client.Object{svc, testInferenceServiceConfigMap()}
+				if tt.liveService != "" {
+					// Stopped, so the cleanup counts it as live without rendering its presets.
+					objects = append(objects, &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{
+						Name: tt.liveService, Namespace: "test",
+						Annotations: map[string]string{constants.StopAnnotationKey: "true"},
+					}})
+				}
+				fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
 				reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()}
 				evictors := func() int {
 					deployments := &appsv1.DeploymentList{}
