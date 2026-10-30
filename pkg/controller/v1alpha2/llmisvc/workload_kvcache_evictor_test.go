@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -612,9 +613,16 @@ func TestValidatePVCEvictorCachePath(t *testing.T) {
 }
 
 func TestPVCEvictorRequiresNewPreset(t *testing.T) {
-	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
-		PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
-	}}}
+	// Targets and consumer labels come from pvc.ref tiers only, so the gate is
+	// observable on the second tier.
+	secondary := []v1alpha2.SecondaryTierSpec{
+		{FileSystem: &v1alpha2.FileSystemTierSpec{
+			PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+		}},
+		{FileSystem: &v1alpha2.FileSystemTierSpec{
+			PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+		}},
+	}
 	svc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			WorkloadSpec: v1alpha2.WorkloadSpec{
@@ -642,6 +650,209 @@ func TestPVCEvictorRequiresNewPreset(t *testing.T) {
 	labels := addPVCEvictorConsumerLabels(nil, secondary, false)
 	if len(labels) != 0 {
 		t.Fatalf("legacy preset consumer labels = %v, want none", labels)
+	}
+}
+
+// TestPVCEvictorConsumerLabelRequiresContainerTemplate covers the gate in the
+// workload builders: a pvc.ref tier labels pods as evictor consumers only when the
+// merged spec carries the preset's pvc-evictor container. A service on a preset
+// without it keeps the pod templates it runs with.
+func TestPVCEvictorConsumerLabelRequiresContainerTemplate(t *testing.T) {
+	modelURL, err := apis.ParseURL("pvc://test-model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	kv := func() *v1alpha2.KVCacheOffloadingSpec {
+		return &v1alpha2.KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+			}}},
+		}
+	}
+	pod := func(evictor bool) *corev1.PodSpec {
+		podSpec := &corev1.PodSpec{Containers: []corev1.Container{{
+			Name:  mainContainerName,
+			Image: "vllm:latest",
+			Env:   []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+		}}}
+		if evictor {
+			podSpec.Containers = append(podSpec.Containers, corev1.Container{Name: pvcEvictorTemplateName, Image: "example.com/evictor:preset"})
+		}
+		return podSpec
+	}
+
+	for _, tc := range []struct {
+		name        string
+		withEvictor bool
+		want        map[string]string
+	}{
+		{name: "preset without the pvc-evictor container", want: map[string]string{}},
+		{
+			name:        "preset with the pvc-evictor container",
+			withEvictor: true,
+			want:        map[string]string{pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache"): "true"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Only the main template carries the container; worker and prefill
+			// templates inherit it.
+			service := func(multiNode bool) *v1alpha2.LLMInferenceService {
+				svc := &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: disaggTestNamespace, UID: "llm-uid"},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model:        v1alpha2.LLMModelSpec{URI: *modelURL},
+						WorkloadSpec: v1alpha2.WorkloadSpec{Template: pod(tc.withEvictor), KVCacheOffloading: kv()},
+						Prefill:      &v1alpha2.WorkloadSpec{Template: pod(false), KVCacheOffloading: kv()},
+					},
+				}
+				if multiNode {
+					svc.Spec.Worker = pod(false)
+					svc.Spec.Parallelism = disaggTestParallelism()
+					svc.Spec.Prefill.Worker = pod(false)
+					svc.Spec.Prefill.Parallelism = disaggTestParallelism()
+				}
+				return svc
+			}
+
+			for name, template := range renderedWorkloadPodTemplates(t, service) {
+				got := map[string]string{}
+				for key, value := range template.Labels {
+					if strings.HasPrefix(key, pvcEvictorConsumerPrefix) {
+						got[key] = value
+					}
+				}
+				if diff := cmp.Diff(tc.want, got); diff != "" {
+					t.Errorf("%s consumer labels (-want +got):\n%s", name, diff)
+				}
+				if diff := cmp.Diff([]string{mainContainerName}, containerNames(&template.Spec)); diff != "" {
+					t.Errorf("%s containers (-want +got):\n%s", name, diff)
+				}
+			}
+		})
+	}
+}
+
+// renderedWorkloadPodTemplates renders a P/D service through the single-node
+// builders, service(false), and the multi-node builders, service(true), and returns
+// every pod template they produce by role.
+func renderedWorkloadPodTemplates(t *testing.T, service func(multiNode bool) *v1alpha2.LLMInferenceService) map[string]*corev1.PodTemplateSpec {
+	t.Helper()
+	r := disaggTestReconciler(t)
+
+	decode, err := r.expectedSingleNodeMainDeployment(t.Context(), service(false), disaggTestConfig())
+	if err != nil {
+		t.Fatalf("expectedSingleNodeMainDeployment() error = %v", err)
+	}
+	prefill, err := r.expectedPrefillMainDeployment(t.Context(), service(false), disaggTestConfig())
+	if err != nil {
+		t.Fatalf("expectedPrefillMainDeployment() error = %v", err)
+	}
+	decodeLWS, err := r.expectedMainMultiNodeLWS(t.Context(), service(true), disaggTestConfig())
+	if err != nil {
+		t.Fatalf("expectedMainMultiNodeLWS() error = %v", err)
+	}
+	prefillLWS, err := r.expectedPrefillMultiNodeLWS(t.Context(), service(true), disaggTestConfig())
+	if err != nil {
+		t.Fatalf("expectedPrefillMultiNodeLWS() error = %v", err)
+	}
+	if decodeLWS.Spec.LeaderWorkerTemplate.LeaderTemplate == nil || prefillLWS.Spec.LeaderWorkerTemplate.LeaderTemplate == nil {
+		t.Fatal("multi-node leader template not rendered")
+	}
+
+	return map[string]*corev1.PodTemplateSpec{
+		"single-node decode":        &decode.Spec.Template,
+		"single-node prefill":       &prefill.Spec.Template,
+		"multi-node decode leader":  decodeLWS.Spec.LeaderWorkerTemplate.LeaderTemplate,
+		"multi-node decode worker":  &decodeLWS.Spec.LeaderWorkerTemplate.WorkerTemplate,
+		"multi-node prefill leader": prefillLWS.Spec.LeaderWorkerTemplate.LeaderTemplate,
+		"multi-node prefill worker": &prefillLWS.Spec.LeaderWorkerTemplate.WorkerTemplate,
+	}
+}
+
+func containerNames(podSpec *corev1.PodSpec) []string {
+	names := make([]string, 0, len(podSpec.Containers))
+	for _, container := range podSpec.Containers {
+		names = append(names, container.Name)
+	}
+	return names
+}
+
+// TestReconcilePVCEvictorsRequiresContainerTemplate covers the same gate on the
+// evictor side: a pvc.ref tier gets the shared evictor Deployment and its
+// ServiceAccount only when the merged spec carries the pvc-evictor container.
+func TestReconcilePVCEvictorsRequiresContainerTemplate(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		containers         []corev1.Container
+		wantDeployments    int
+		wantServiceAccount bool
+	}{
+		{
+			name:       "preset without the pvc-evictor container",
+			containers: []corev1.Container{{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
+		},
+		{
+			name: "preset with the pvc-evictor container",
+			containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			},
+			wantDeployments:    1,
+			wantServiceAccount: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{Containers: tc.containers},
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+							PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+						}}},
+					},
+				}},
+			}
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+				},
+			}
+
+			scheme := runtime.NewScheme()
+			for _, addToScheme := range []func(*runtime.Scheme) error{
+				appsv1.AddToScheme,
+				corev1.AddToScheme,
+				v1alpha2.AddToScheme,
+			} {
+				if err := addToScheme(scheme); err != nil {
+					t.Fatal(err)
+				}
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc).Build()
+			pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+			reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
+
+			if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err != nil {
+				t.Fatalf("reconcilePVCEvictors() error = %v", err)
+			}
+			deployments := &appsv1.DeploymentList{}
+			if err := fakeClient.List(t.Context(), deployments,
+				client.InNamespace("test"),
+				client.MatchingLabels{pvcEvictorLabel: "true"},
+			); err != nil {
+				t.Fatal(err)
+			}
+			if got := len(deployments.Items); got != tc.wantDeployments {
+				t.Errorf("PVC evictor Deployment count = %d, want %d", got, tc.wantDeployments)
+			}
+			err := fakeClient.Get(t.Context(), client.ObjectKey{Namespace: "test", Name: pvcEvictorServiceAccount}, &corev1.ServiceAccount{})
+			if got := err == nil; got != tc.wantServiceAccount {
+				t.Errorf("PVC evictor ServiceAccount present = %t (get error: %v), want %t", got, err, tc.wantServiceAccount)
+			}
+		})
 	}
 }
 
@@ -2066,10 +2277,10 @@ func TestReconcilePVCEvictorsDeletesStaleDeploymentBeforeReplacement(t *testing.
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{Containers: []corev1.Container{{
-				Name: mainContainerName,
-				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-			}}},
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
@@ -2134,6 +2345,11 @@ func TestReconcilePVCEvictorsDeletesStaleDeploymentBeforeReplacement(t *testing.
 		Build()
 	pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
+	// Without a replacement to hold back, the creation checks below pass whatever
+	// the deletion does.
+	if got, want := len(collectPVCEvictorTargets(svc)), 1; got != want {
+		t.Fatalf("PVC evictor target count = %d, want %d", got, want)
+	}
 
 	if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err != nil {
 		t.Fatalf("reconcilePVCEvictors() error = %v", err)
