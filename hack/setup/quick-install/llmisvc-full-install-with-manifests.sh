@@ -2648,7 +2648,7 @@ spec:
   template:
     containers:
     - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       name: pvc-evictor
       resources:
         limits:
@@ -3031,7 +3031,7 @@ spec:
   template:
     containers:
     - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       name: pvc-evictor
       resources:
         limits:
@@ -3744,7 +3744,7 @@ spec:
   template:
     containers:
     - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       name: pvc-evictor
       resources:
         limits:
@@ -7008,7 +7008,7 @@ spec:
   template:
     containers:
     - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       name: pvc-evictor
       resources:
         limits:
@@ -7416,7 +7416,7 @@ spec:
   template:
     containers:
     - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       name: pvc-evictor
       resources:
         limits:
