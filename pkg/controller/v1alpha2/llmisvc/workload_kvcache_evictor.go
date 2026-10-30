@@ -800,6 +800,8 @@ func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
 }
 
 func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (err error) {
+	var expected map[string]*appsv1.Deployment
+	current := &appsv1.DeploymentList{}
 	// reconcileWorkload rolled up WorkloadsReady before this runs. Roll it up again on
 	// every exit, or the status write pairs the new PVCEvictorReady with a stale
 	// WorkloadsReady and Ready.
@@ -808,10 +810,15 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 		// renders evictors of its own is marked NotReady when that fails; any other keeps
 		// its condition, including a stale one that finalization reads as "had evictors".
 		ownsEvictors := !utils.GetForceStopRuntime(llmSvc) && len(collectPVCEvictorTargets(llmSvc)) > 0
-		// The evictor ServiceAccount and Deployments are shared with peer services and written by
-		// other controllers, so a conflict means another writer changed them since the cache read.
-		// The returned error requeues this service without reporting its evictor as broken.
-		if err != nil && ownsEvictors && !apierrors.IsConflict(err) {
+		if err != nil && ownsEvictors && apierrors.IsConflict(err) {
+			// The evictor ServiceAccount and Deployments are shared with peer services and
+			// written by other controllers, so a conflict means another writer changed them
+			// since the cache read, not that the evictor is broken. Report the evictors this
+			// pass listed, as a clean pass would, and requeue on the returned error. Keeping
+			// the previous condition instead would report Ready before the evictor was ever
+			// seen, or keep it Ready for a PVC path added since.
+			markPVCEvictorReadiness(llmSvc, expected, current.Items)
+		} else if err != nil && ownsEvictors {
 			reason := "ReconcilePVCEvictorError"
 			if errors.Is(err, errPVCEvictorUnsupportedAccessMode) {
 				reason = "UnsupportedPVCAccessMode"
@@ -823,22 +830,21 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 		llmSvc.DetermineWorkloadReadiness()
 	}()
 
-	expected, err := r.expectedPVCEvictorDeployments(ctx, llmSvc)
+	expected, err = r.expectedPVCEvictorDeployments(ctx, llmSvc)
 	if err != nil {
 		return err
 	}
-	if len(expected) > 0 {
-		if err := r.ensurePVCEvictorServiceAccount(ctx, llmSvc.Namespace); err != nil {
-			return err
-		}
-	}
-
-	current := &appsv1.DeploymentList{}
+	// Listed before the first write, so a conflict on any write below has the evictors to report.
 	if err := r.List(ctx, current,
 		client.InNamespace(llmSvc.Namespace),
 		client.MatchingLabels{pvcEvictorLabel: "true"},
 	); err != nil {
 		return fmt.Errorf("failed to list PVC evictor deployments: %w", err)
+	}
+	if len(expected) > 0 {
+		if err := r.ensurePVCEvictorServiceAccount(ctx, llmSvc.Namespace); err != nil {
+			return err
+		}
 	}
 	if len(expected) == 0 && len(current.Items) == 0 && !r.hasPVCEvictorServiceAccount(ctx, llmSvc.Namespace) {
 		// Nothing to render and nothing left to clean up, so skip resolving every peer in the namespace.

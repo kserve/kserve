@@ -20,8 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,7 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -476,64 +480,163 @@ func TestReconcilePVCEvictorsMarksReconcileError(t *testing.T) {
 	}
 }
 
-func TestReconcilePVCEvictorsKeepsReadinessOnServiceAccountConflict(t *testing.T) {
-	svc := &v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
-		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{Containers: []corev1.Container{
-				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
-				{Name: pvcEvictorTemplateName},
+func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
+	serviceWithPaths := func(paths ...string) *v1alpha2.LLMInferenceService {
+		tiers := make([]v1alpha2.SecondaryTierSpec, 0, len(paths))
+		for _, path := range paths {
+			tiers = append(tiers, v1alpha2.SecondaryTierSpec{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: path}},
+			}})
+		}
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: []corev1.Container{
+					{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+					{Name: pvcEvictorTemplateName},
+				}},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: tiers},
 			}},
-			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
-					PVC: &v1alpha2.PVCTierSpec{
-						Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
-					},
-				}}},
-			},
-		}},
-	}
-	svc.MarkPVCEvictorReady()
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
-		},
-	}
-	// Missing label and automount, so the ServiceAccount needs a write.
-	serviceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: pvcEvictorServiceAccount, Namespace: "test"}}
-
-	scheme := runtime.NewScheme()
-	for _, addToScheme := range []func(*runtime.Scheme) error{
-		appsv1.AddToScheme,
-		corev1.AddToScheme,
-		v1alpha2.AddToScheme,
-	} {
-		if err := addToScheme(scheme); err != nil {
-			t.Fatal(err)
 		}
 	}
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(svc, serviceAccount).
-		WithInterceptorFuncs(interceptor.Funcs{
-			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
-				if _, ok := obj.(*corev1.ServiceAccount); ok {
-					return apierrors.NewConflict(corev1.Resource("serviceaccounts"), obj.GetName(), errors.New("modified by a peer"))
-				}
-				return c.Update(ctx, obj, opts...)
-			},
-		}).
-		Build()
-	pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
-	reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
 
-	err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{})
-	if !apierrors.IsConflict(err) {
-		t.Fatalf("reconcilePVCEvictors() error = %v, want a conflict to requeue on", err)
+	tests := []struct {
+		name string
+		// paths the service uses now
+		paths []string
+		// paths whose evictor Deployment a peer created and is available
+		available []string
+		// PVCEvictorReady=True from an earlier pass
+		wasReady   bool
+		conflictOn client.Object
+		wantStatus corev1.ConditionStatus
+		wantReason string
+	}{
+		{
+			name:       "ServiceAccount conflict before any evictor exists",
+			paths:      []string{"a"},
+			conflictOn: &corev1.ServiceAccount{},
+			wantStatus: corev1.ConditionFalse,
+			wantReason: "PVCEvictorNotReady",
+		},
+		{
+			name:       "ServiceAccount conflict on joining a peer's available evictor",
+			paths:      []string{"a"},
+			available:  []string{"a"},
+			conflictOn: &corev1.ServiceAccount{},
+			wantStatus: corev1.ConditionTrue,
+		},
+		{
+			name:       "ServiceAccount conflict keeps a ready evictor ready",
+			paths:      []string{"a"},
+			available:  []string{"a"},
+			wasReady:   true,
+			conflictOn: &corev1.ServiceAccount{},
+			wantStatus: corev1.ConditionTrue,
+		},
+		{
+			name:       "ServiceAccount conflict after adding a path",
+			paths:      []string{"a", "b"},
+			available:  []string{"a"},
+			wasReady:   true,
+			conflictOn: &corev1.ServiceAccount{},
+			wantStatus: corev1.ConditionFalse,
+			wantReason: "PVCEvictorNotReady",
+		},
+		{
+			name:       "Deployment conflict after adding a path",
+			paths:      []string{"a", "b"},
+			available:  []string{"a"},
+			wasReady:   true,
+			conflictOn: &appsv1.Deployment{},
+			wantStatus: corev1.ConditionFalse,
+			wantReason: "PVCEvictorNotReady",
+		},
+		{
+			name:       "Deployment conflict on joining a peer's available evictor",
+			paths:      []string{"a"},
+			available:  []string{"a"},
+			conflictOn: &appsv1.Deployment{},
+			wantStatus: corev1.ConditionTrue,
+		},
 	}
-	if condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady); condition == nil || condition.Status != corev1.ConditionTrue {
-		t.Fatalf("PVCEvictorReady = %#v, want it to stay True", condition)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			for _, addToScheme := range []func(*runtime.Scheme) error{
+				appsv1.AddToScheme,
+				corev1.AddToScheme,
+				v1alpha2.AddToScheme,
+			} {
+				if err := addToScheme(scheme); err != nil {
+					t.Fatal(err)
+				}
+			}
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+				},
+			}
+			pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+
+			svc := serviceWithPaths(test.paths...)
+			svc.MarkMainWorkloadReady()
+			readySince := apis.VolatileTime{Inner: metav1.NewTime(time.Now().Add(-time.Hour).Truncate(time.Second))}
+			if test.wasReady {
+				svc.MarkPVCEvictorReady()
+				// GetCondition returns a copy.
+				for i := range svc.Status.Conditions {
+					if svc.Status.Conditions[i].Type == v1alpha2.PVCEvictorReady {
+						svc.Status.Conditions[i].LastTransitionTime = readySince
+					}
+				}
+			}
+			svc.DetermineWorkloadReadiness()
+
+			// Missing label and automount, so the ServiceAccount needs a write.
+			objects := []client.Object{svc, &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: pvcEvictorServiceAccount, Namespace: "test"}}}
+			if len(test.available) > 0 {
+				peer := &LLMISVCReconciler{APIReader: pvcReader}
+				deployments, err := peer.expectedPVCEvictorDeployments(t.Context(), serviceWithPaths(test.available...))
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, deployment := range deployments {
+					deployment.Status.Replicas = 1
+					deployment.Status.AvailableReplicas = 1
+					objects = append(objects, deployment)
+				}
+			}
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(objects...).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						if reflect.TypeOf(obj) == reflect.TypeOf(test.conflictOn) {
+							return apierrors.NewConflict(schema.GroupResource{}, obj.GetName(), errors.New("modified by a peer"))
+						}
+						return c.Update(ctx, obj, opts...)
+					},
+				}).
+				Build()
+			reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
+
+			err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{})
+			if !apierrors.IsConflict(err) {
+				t.Fatalf("reconcilePVCEvictors() error = %v, want a conflict to requeue on", err)
+			}
+			condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady)
+			if condition == nil || condition.Status != test.wantStatus || condition.Reason != test.wantReason {
+				t.Fatalf("PVCEvictorReady = %#v, want %s with reason %q", condition, test.wantStatus, test.wantReason)
+			}
+			if workloads := svc.Status.GetCondition(v1alpha2.WorkloadReady); workloads == nil || workloads.Status != test.wantStatus {
+				t.Fatalf("WorkloadsReady = %#v, want %s", workloads, test.wantStatus)
+			}
+			if test.wasReady && test.wantStatus == corev1.ConditionTrue && !condition.LastTransitionTime.Inner.Equal(&readySince.Inner) {
+				t.Errorf("PVCEvictorReady lastTransitionTime = %v, want it kept at %v", condition.LastTransitionTime.Inner, readySince.Inner)
+			}
+		})
 	}
 }
 
