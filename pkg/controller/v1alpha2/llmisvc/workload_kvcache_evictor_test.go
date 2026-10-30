@@ -856,6 +856,70 @@ func TestReconcilePVCEvictorsRequiresContainerTemplate(t *testing.T) {
 	}
 }
 
+// TestReservedPVCEvictorContainerIsRemovedFromEveryPod covers each builder that
+// takes the reserved container out of its pod spec. Presets declare it on the main
+// template only, but a spec may declare it on any pod spec, and each one renders
+// through its own take.
+func TestReservedPVCEvictorContainerIsRemovedFromEveryPod(t *testing.T) {
+	modelURL, err := apis.ParseURL("pvc://test-model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pod := func() *corev1.PodSpec {
+		return &corev1.PodSpec{Containers: []corev1.Container{
+			{Name: mainContainerName, Image: "vllm:latest", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+			{Name: pvcEvictorTemplateName, Image: "example.com/evictor:preset"},
+		}}
+	}
+
+	for _, tc := range []struct {
+		name string
+		kv   func() *v1alpha2.KVCacheOffloadingSpec
+	}{
+		{
+			name: "KV cache offloading not configured",
+			kv:   func() *v1alpha2.KVCacheOffloadingSpec { return nil },
+		},
+		{
+			name: "emptyDir tier only",
+			kv: func() *v1alpha2.KVCacheOffloadingSpec {
+				return &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("10Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+					}}},
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			service := func(multiNode bool) *v1alpha2.LLMInferenceService {
+				svc := &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: disaggTestNamespace, UID: "llm-uid"},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model:        v1alpha2.LLMModelSpec{URI: *modelURL},
+						WorkloadSpec: v1alpha2.WorkloadSpec{Template: pod(), KVCacheOffloading: tc.kv()},
+						Prefill:      &v1alpha2.WorkloadSpec{Template: pod(), KVCacheOffloading: tc.kv()},
+					},
+				}
+				if multiNode {
+					svc.Spec.Worker = pod()
+					svc.Spec.Parallelism = disaggTestParallelism()
+					svc.Spec.Prefill.Worker = pod()
+					svc.Spec.Prefill.Parallelism = disaggTestParallelism()
+				}
+				return svc
+			}
+
+			for name, template := range renderedWorkloadPodTemplates(t, service) {
+				if diff := cmp.Diff([]string{mainContainerName}, containerNames(&template.Spec)); diff != "" {
+					t.Errorf("%s containers (-want +got):\n%s", name, diff)
+				}
+			}
+		})
+	}
+}
+
 func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 	gpuToleration := corev1.Toleration{
 		Key:      "dedicated",

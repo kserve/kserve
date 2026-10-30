@@ -111,6 +111,7 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 				HaveField("Name", "kv-cache-secondary-0"),
 				HaveField("MountPath", "/mnt/kv-cache-0"),
 			)))
+			Expect(findContainer(deployment, "pvc-evictor")).To(BeNil())
 		})
 
 		It("should remove the reserved pvc-evictor container when KV-cache offloading is not configured", func(ctx SpecContext) {
@@ -143,7 +144,16 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 						Gateway:   &v1alpha2.GatewaySpec{},
 						Scheduler: &v1alpha2.SchedulerSpec{},
 					},
-					Prefill: &v1alpha2.WorkloadSpec{},
+					// The prefill presets do not declare the container, so only a spec
+					// that does reaches the prefill take.
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main"},
+								{Name: "pvc-evictor", Image: "example.com/evictor:v1.2.3"},
+							},
+						},
+					},
 				},
 			}
 
@@ -152,15 +162,17 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			deployment := &appsv1.Deployment{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve",
-					Namespace: testNs.Name,
-				}, deployment)
-			}).WithContext(ctx).Should(Succeed())
+			for _, name := range []string{svcName + "-kserve", svcName + "-kserve-prefill"} {
+				deployment := &appsv1.Deployment{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					return envTest.Get(ctx, types.NamespacedName{
+						Name:      name,
+						Namespace: testNs.Name,
+					}, deployment)
+				}).WithContext(ctx).Should(Succeed())
 
-			Expect(findContainer(deployment, "pvc-evictor")).To(BeNil())
+				Expect(findContainer(deployment, "pvc-evictor")).To(BeNil(), "Deployment %s", name)
+			}
 		})
 
 		It("should inject an ephemeral PVC volume for a secondary pvc.spec tier", func(ctx SpecContext) {
