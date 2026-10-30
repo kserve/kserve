@@ -323,15 +323,27 @@ func otherModelNamesOverlap(selfModels map[string]struct{}, other *v1alpha2.LLMI
 }
 
 // otherPublisherPathOverlaps reports whether a publisher-qualified model name
-// of other has selfPath as its publisherModelPath. An empty selfPath, which
-// renders no publisher path, never overlaps.
+// of other has selfPath as its publisherModelPath. Names of other's LoRA
+// adapters in spec are skipped, as adapters get no publisher path. An empty
+// selfPath, which renders no publisher path, never overlaps.
 func otherPublisherPathOverlaps(selfPath string, other *v1alpha2.LLMInferenceService) bool {
 	if selfPath == "" {
 		return false
 	}
+	adapters := map[string]struct{}{}
+	if other.Spec.Model.LoRA != nil {
+		for _, adapter := range other.Spec.Model.LoRA.Adapters {
+			if adapter.Name != nil {
+				adapters[fullyQualifiedModelName(other.Namespace, *adapter.Name)] = struct{}{}
+			}
+		}
+	}
 	prefix := fullyQualifiedModelName(other.Namespace, "")
 	for _, addr := range other.Status.Addresses {
 		for _, m := range addr.Models {
+			if _, ok := adapters[m.Name]; ok {
+				continue
+			}
 			if name, ok := strings.CutPrefix(m.Name, prefix); ok && publisherModelPath(name) == selfPath {
 				return true
 			}

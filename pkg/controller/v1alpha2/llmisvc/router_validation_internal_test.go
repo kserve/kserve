@@ -271,6 +271,29 @@ func TestFindModelNameCollisions(t *testing.T) {
 			},
 		},
 		{
+			name: "no publisher path collision with a peer lora adapter",
+			self: newLLMISVC("a", withModelName("x")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withModelName("base"), withLoRAAdapter("/x"),
+					withStatusModels(
+						"publishers/default/models/base",
+						"publishers/default/models//x",
+					)),
+			},
+		},
+		{
+			name: "publisher path collision with a peer base model next to its lora adapters",
+			self: newLLMISVC("a", withModelName("x")),
+			others: []v1alpha2.LLMInferenceService{
+				newLLMISVC("b", withModelName("/x"), withLoRAAdapter("adapter"),
+					withStatusModels(
+						"publishers/default/models//x",
+						"publishers/default/models/adapter",
+					)),
+			},
+			want: []string{"b"},
+		},
+		{
 			name: "no publisher path collision with a peer name outside the publisher prefix",
 			self: newLLMISVC("a", withModelName("a/b")),
 			others: []v1alpha2.LLMInferenceService{
