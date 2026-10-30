@@ -797,17 +797,23 @@ func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
 }
 
 func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (err error) {
+	// reconcileWorkload rolled up WorkloadsReady before this runs. Roll it up again on
+	// every exit, or the status write pairs the new PVCEvictorReady with a stale
+	// WorkloadsReady and Ready.
 	defer func() {
-		if err == nil {
-			return
+		// Every service also cleans up orphaned evictors in its namespace. Only one that
+		// renders evictors of its own is marked NotReady when that fails; any other keeps
+		// its condition, including a stale one that finalization reads as "had evictors".
+		ownsEvictors := !utils.GetForceStopRuntime(llmSvc) && len(collectPVCEvictorTargets(llmSvc)) > 0
+		if err != nil && ownsEvictors {
+			reason := "ReconcilePVCEvictorError"
+			if errors.Is(err, errPVCEvictorUnsupportedAccessMode) {
+				reason = "UnsupportedPVCAccessMode"
+			} else if errors.Is(err, reconcile.TerminalError(nil)) {
+				reason = "InvalidPVCEvictorConfiguration"
+			}
+			llmSvc.MarkPVCEvictorNotReady(reason, "%s", err.Error())
 		}
-		reason := "ReconcilePVCEvictorError"
-		if errors.Is(err, errPVCEvictorUnsupportedAccessMode) {
-			reason = "UnsupportedPVCAccessMode"
-		} else if errors.Is(err, reconcile.TerminalError(nil)) {
-			reason = "InvalidPVCEvictorConfiguration"
-		}
-		llmSvc.MarkPVCEvictorNotReady(reason, "%s", err.Error())
 		llmSvc.DetermineWorkloadReadiness()
 	}()
 
