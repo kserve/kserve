@@ -59,7 +59,8 @@ class V1beta1KernelCacheConfig(object):
         'mcv_image': 'str',
         'prefetch_image': 'str',
         'reconcile_interval_seconds': 'int',
-        'registry': 'V1beta1KernelCacheRegistryConfig'
+        'registry': 'V1beta1KernelCacheRegistryConfig',
+        'runtime_image_prefetch': 'V1beta1KernelCacheRuntimeImagePrefetchConfig'
     }
 
     attribute_map = {
@@ -75,10 +76,11 @@ class V1beta1KernelCacheConfig(object):
         'mcv_image': 'mcvImage',
         'prefetch_image': 'prefetchImage',
         'reconcile_interval_seconds': 'reconcileIntervalSeconds',
-        'registry': 'registry'
+        'registry': 'registry',
+        'runtime_image_prefetch': 'runtimeImagePrefetch'
     }
 
-    def __init__(self, abandoned_capture_policy=None, artifact_security=None, default_mount_type=None, default_node_group=None, default_sidecar_injection=False, enabled=False, job_namespace='', job_ttl_seconds_after_finished=None, mcv_capture_readiness_timeout_seconds=None, mcv_image=None, prefetch_image=None, reconcile_interval_seconds=None, registry=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, abandoned_capture_policy=None, artifact_security=None, default_mount_type=None, default_node_group=None, default_sidecar_injection=False, enabled=False, job_namespace='', job_ttl_seconds_after_finished=None, mcv_capture_readiness_timeout_seconds=None, mcv_image=None, prefetch_image=None, reconcile_interval_seconds=None, registry=None, runtime_image_prefetch=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1KernelCacheConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -97,6 +99,7 @@ class V1beta1KernelCacheConfig(object):
         self._prefetch_image = None
         self._reconcile_interval_seconds = None
         self._registry = None
+        self._runtime_image_prefetch = None
         self.discriminator = None
 
         if abandoned_capture_policy is not None:
@@ -122,6 +125,8 @@ class V1beta1KernelCacheConfig(object):
             self.reconcile_interval_seconds = reconcile_interval_seconds
         if registry is not None:
             self.registry = registry
+        if runtime_image_prefetch is not None:
+            self.runtime_image_prefetch = runtime_image_prefetch
 
     @property
     def abandoned_capture_policy(self):
@@ -401,6 +406,27 @@ class V1beta1KernelCacheConfig(object):
         """
 
         self._registry = registry
+
+    @property
+    def runtime_image_prefetch(self):
+        """Gets the runtime_image_prefetch of this V1beta1KernelCacheConfig.  # noqa: E501
+
+
+        :return: The runtime_image_prefetch of this V1beta1KernelCacheConfig.  # noqa: E501
+        :rtype: V1beta1KernelCacheRuntimeImagePrefetchConfig
+        """
+        return self._runtime_image_prefetch
+
+    @runtime_image_prefetch.setter
+    def runtime_image_prefetch(self, runtime_image_prefetch):
+        """Sets the runtime_image_prefetch of this V1beta1KernelCacheConfig.
+
+
+        :param runtime_image_prefetch: The runtime_image_prefetch of this V1beta1KernelCacheConfig.  # noqa: E501
+        :type: V1beta1KernelCacheRuntimeImagePrefetchConfig
+        """
+
+        self._runtime_image_prefetch = runtime_image_prefetch
 
     def to_dict(self):
         """Returns the model properties as a dict"""

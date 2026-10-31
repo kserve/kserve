@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
+
 from kserve import V1beta1IngressConfig
 from kserve.configuration import Configuration
 
@@ -41,3 +43,7 @@ def test_http_route_max_shards_is_keyword_only():
     config = V1beta1IngressConfig(http_route_max_shards=4)
 
     assert config.http_route_max_shards == 4
+def test_route_rule_naming_is_keyword_only():
+    parameter = inspect.signature(V1beta1IngressConfig).parameters["route_rule_naming"]
+
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY

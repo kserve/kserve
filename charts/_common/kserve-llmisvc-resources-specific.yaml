@@ -28,7 +28,6 @@ kserve:
         runAsUser: 1000
         seccompProfile:
           type: RuntimeDefault
-      metricsBindAddress: 127.0.0.1
       metricsBindPort: '8443'
       nodeSelector: {}
       tolerations: []
@@ -89,6 +88,7 @@ kserve:
       disableHTTPRouteTimeout: false
       loraModelRoutingStrategy: exact
       httpRouteMaxShards: 1
+      routeRuleNaming: preset
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local

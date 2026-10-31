@@ -47,15 +47,16 @@ java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -
 # New fields are keyword-only so generated clients cannot silently rebind existing
 # positional arguments when this model grows.
 INGRESS_CONFIG_MODEL="${SDK_OUTPUT_PATH}/kserve/models/v1beta1_ingress_config.py"
-INGRESS_TLS_KWONLY=", *, http_route_max_shards=None, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None):"
+INGRESS_KWONLY=", *, http_route_max_shards=None, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None, route_rule_naming=None):"
 sed -i'.bak' -e '/def __init__(.*, local_vars_configuration=None):/{
 s/, http_route_max_shards=None,/,/
 s/, llm_inference_service_tls_cipher_suites=None,/,/
 s/, llm_inference_service_tls_min_version=None,/,/
-s/, local_vars_configuration=None):/, local_vars_configuration=None'"${INGRESS_TLS_KWONLY}"'/
+s/, route_rule_naming=None,/,/
+s/, local_vars_configuration=None):/, local_vars_configuration=None'"${INGRESS_KWONLY}"'/
 }' "${INGRESS_CONFIG_MODEL}"
 rm -f "${INGRESS_CONFIG_MODEL}.bak"
-grep -qF "local_vars_configuration=None${INGRESS_TLS_KWONLY}" "${INGRESS_CONFIG_MODEL}" || {
+grep -qF "local_vars_configuration=None${INGRESS_KWONLY}" "${INGRESS_CONFIG_MODEL}" || {
     echo "client-gen: keyword-only patch did not apply to ${INGRESS_CONFIG_MODEL}" >&2
     exit 1
 }

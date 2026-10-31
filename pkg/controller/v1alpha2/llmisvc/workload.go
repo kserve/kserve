@@ -51,7 +51,7 @@ import (
 // where changing them would roll the pods. A key can only join before it ships:
 // dropping one that pod templates already carry changes their hash and rolls
 // every workload that has it on upgrade.
-var nonPropagatedSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy, AnnotationHTTPRouteMaxShards, constants.LLMDisaggregatedSetAnnotationKey}
+var nonPropagatedSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy, AnnotationHTTPRouteMaxShards, AnnotationRouteRuleNaming, constants.LLMDisaggregatedSetAnnotationKey}
 
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
 // These permissions are needed to discover and monitor inference pools and pods.

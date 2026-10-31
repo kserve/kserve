@@ -2407,8 +2407,12 @@
     "v1beta1.AuthenticationRef": {
       "type": "object",
       "properties": {
+        "kind": {
+          "description": "kind is the kind of the referenced authentication resource. Possible values are TriggerAuthentication and ClusterTriggerAuthentication. Defaults to TriggerAuthentication when empty.",
+          "type": "string"
+        },
         "name": {
-          "description": "name is the name of the authentication secret",
+          "description": "name is the name of the TriggerAuthentication or ClusterTriggerAuthentication",
           "type": "string",
           "default": ""
         }
@@ -4642,6 +4646,10 @@
         "pathTemplate": {
           "type": "string"
         },
+        "routeRuleNaming": {
+          "description": "RouteRuleNaming is \"preset\" (the default) or \"unique\", which suffixes the LLMInferenceService HTTPRoute rule names per service. An unsupported value sets HTTPRoutesReady=False on the services that use it.",
+          "type": "string"
+        },
         "urlScheme": {
           "type": "string"
         }
@@ -4738,6 +4746,10 @@
           "description": "Registry configures the OCI registry used by capture and prefetch operations.",
           "default": {},
           "$ref": "#/definitions/v1beta1.KernelCacheRegistryConfig"
+        },
+        "runtimeImagePrefetch": {
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheRuntimeImagePrefetchConfig"
         }
       }
     },
@@ -4824,6 +4836,18 @@
           "description": "Name is the name of the referenced Role or ClusterRole.",
           "type": "string",
           "default": ""
+        }
+      }
+    },
+    "v1beta1.KernelCacheRuntimeImagePrefetchConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },

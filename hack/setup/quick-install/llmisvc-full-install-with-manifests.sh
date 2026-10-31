@@ -659,9 +659,9 @@ ISTIO_VERSION=1.31.2
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v1.0.0
-GATEWAY_API_VERSION=v1.5.1
+GATEWAY_API_VERSION=v1.6.2
 GIE_VERSION=v1.6.2
-LLMD_ROUTER_VERSION=v0.11.0
+LLMD_ROUTER_VERSION=v1.0.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -2647,6 +2647,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -2944,7 +2960,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3014,6 +3030,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -3341,7 +3373,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3711,6 +3743,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -4079,7 +4127,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4528,7 +4576,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -6748,7 +6796,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.11.0
+        app.kubernetes.io/version: 1.0.0
       pool:
         spec:
           endpointPickerRef:
@@ -6784,6 +6832,8 @@ spec:
             end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
             }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--metrics-cert-dir=/var/run/kserve/tls{{-
+            end }}'
           - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion
             }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
           - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
@@ -6791,7 +6841,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -6872,7 +6922,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: approx-prefix-cache-producer
@@ -6895,7 +6945,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: always-disagg-pd-decider
@@ -6934,7 +6984,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: active-request-scorer
@@ -6957,6 +7007,22 @@ spec:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -7349,6 +7415,22 @@ spec:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -9027,6 +9109,15 @@ spec:
                 type: object
               model:
                 properties:
+                  confidential:
+                    properties:
+                      enabled:
+                        type: boolean
+                      resourceId:
+                        type: string
+                    required:
+                    - enabled
+                    type: object
                   criticality:
                     enum:
                     - Critical
@@ -18438,6 +18529,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -18447,7 +18539,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -18462,8 +18554,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -18482,6 +18572,7 @@ spec:
                                           type: string
                                       type: object
                                   type: object
+                                maxItems: 256
                                 type: array
                                 x-kubernetes-list-type: atomic
                               useDefaultGateways:
@@ -44203,6 +44294,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -44212,7 +44304,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -44227,8 +44319,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -44247,6 +44337,7 @@ spec:
                                           type: string
                                       type: object
                                   type: object
+                                maxItems: 256
                                 type: array
                                 x-kubernetes-list-type: atomic
                               useDefaultGateways:
@@ -60638,6 +60729,15 @@ spec:
                 type: object
               model:
                 properties:
+                  confidential:
+                    properties:
+                      enabled:
+                        type: boolean
+                      resourceId:
+                        type: string
+                    required:
+                    - enabled
+                    type: object
                   criticality:
                     enum:
                     - Critical
@@ -70185,6 +70285,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -70195,7 +70296,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -70211,9 +70312,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -70234,6 +70332,7 @@ spec:
                                           type: string
                                       type: object
                                   type: object
+                                maxItems: 256
                                 minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
@@ -96317,6 +96416,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -96327,7 +96427,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -96343,9 +96443,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -96366,6 +96463,7 @@ spec:
                                           type: string
                                       type: object
                                   type: object
+                                maxItems: 256
                                 minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
@@ -113007,6 +113105,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - persistentvolumeclaims
   - pods
   verbs:
   - get
@@ -113738,6 +113837,21 @@ data:
            # paths it relies on the gateway ranking a longer pattern first, as Istio and Envoy Gateway
            # do; on a gateway that ranks regexes another way, keep overlapping regex rules unsharded.
            "httpRouteMaxShards": 1,
+           # routeRuleNaming selects how LLMInferenceService managed HTTPRoutes name their rules.
+           # "preset" (the default when omitted) keeps the names the route spec carries, so every service
+           # rendered from the same preset has the same rule names. "unique" appends
+           # "-<first 8 hex of sha256(<namespace>/<service name>)>" to every named rule; unnamed rules and
+           # routes referenced through spec.router.route.http.refs are left alone. Gateway API only requires
+           # rule names to be unique within one route, but Istio before 1.29.9, 1.30.6 and 1.31.2 keys the
+           # InferencePool endpoint picker by bare rule name across every HTTPRoute on a gateway, so services
+           # sharing rule names get scheduled by each other's endpoint picker; "unique" avoids that on such an
+           # Istio. A change reaches every service on its next reconcile and renames the rules of its existing
+           # HTTPRoute in place. A policy that targets a rule by sectionName stops applying until it names the
+           # new rule, and under "unique" that name differs per service. A service pins its own value with the
+           # spec annotation serving.kserve.io/route-rule-naming, which a preset may carry. Any other value
+           # marks every service without its own value HTTPRoutesReady=False (RoutingPreconditionNotMet)
+           # and leaves its existing HTTPRoute as it is.
+           "routeRuleNaming": "preset",
 
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
@@ -114006,8 +114120,13 @@ data:
          "jobNamespace": "kserve-kernelcache-jobs",
          # mcvImage is the MCV container image used by cache capture and preparation flows.
          "mcvImage": "kserve/kserve-mcv:latest-minimal",
-         # prefetchImage is the lightweight image used by OCI prefetch Jobs.
+         # prefetchImage is the lightweight helper image used by prefetch Jobs.
          "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # runtimeImagePrefetch optionally pulls the captured workload's runtime image on each target node.
+         "runtimeImagePrefetch": {
+           "enabled": false,
+           "jobTTLSecondsAfterFinished": 86400
+         },
          # registry defines the OCI registry used by capture and prefetch.
          "registry": {
            # endpoint is required to identify the registry used by capture and prefetch operations.
@@ -114034,7 +114153,7 @@ data:
          # abandonedCapturePolicy controls generated captures whose producer Pod disappears
          # before completion. Supported values are retain and delete.
          "abandonedCapturePolicy": "retain",
-         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs(Downloading OCI image to the node) are retained.
+         # jobTTLSecondsAfterFinished controls how long completed KernelCache artifact prefetch Jobs are retained.
          "jobTTLSecondsAfterFinished": 600,
          # mcvCaptureReadinessTimeoutSeconds limits how long MCV waits for runtime readiness before capture. Larger models may require a longer timeout.
          "mcvCaptureReadinessTimeoutSeconds": 600,
@@ -114130,6 +114249,10 @@ data:
       "jobNamespace": "kserve-kernelcache-jobs",
       "mcvImage": "kserve/kserve-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "runtimeImagePrefetch": {
+        "enabled": false,
+        "jobTTLSecondsAfterFinished": 86400
+      },
       "registry": {
         "auth": {
           "type": "none"
@@ -114222,6 +114345,10 @@ metadata:
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    prometheus.io/port: "8443"
+    prometheus.io/scheme: https
+    prometheus.io/scrape: "true"
   labels:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
@@ -114278,7 +114405,7 @@ spec:
     spec:
       containers:
       - args:
-        - --metrics-addr=127.0.0.1:8443
+        - --metrics-addr=:8443
         - --leader-elect
         command:
         - /manager

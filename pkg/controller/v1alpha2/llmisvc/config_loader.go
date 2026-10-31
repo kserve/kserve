@@ -173,6 +173,9 @@ type Config struct {
 	// service; a service overrides it with AnnotationHTTPRouteMaxShards. The
 	// zero value behaves as constants.DefaultHTTPRouteMaxShards.
 	HTTPRouteMaxShards int `json:"httpRouteMaxShards,omitempty"`
+	// RouteRuleNaming is not validated at load; applyRouteRuleNaming rejects an
+	// unknown value per service.
+	RouteRuleNaming RouteRuleNaming `json:"routeRuleNaming,omitempty"`
 
 	// FeatureGates holds the opt-in behaviour switches from the "llmisvc" key of
 	// inferenceservice-config. The zero value leaves every gate off, so a directly
@@ -242,6 +245,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
 		LoRAModelRoutingStrategy:    LoRAModelRoutingStrategy(ingressConfig.LoRAModelRoutingStrategy),
 		HTTPRouteMaxShards:          maxShards,
+		RouteRuleNaming:             RouteRuleNaming(ingressConfig.RouteRuleNaming),
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,

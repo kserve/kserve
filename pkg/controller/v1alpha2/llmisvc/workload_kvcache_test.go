@@ -100,6 +100,48 @@ func TestApplyKVCacheCarriers(t *testing.T) {
 		}
 	})
 
+	t.Run("inherits the PVC evictor root directory into worker and prefill slots", func(t *testing.T) {
+		podWithSlotAndEvictor := func() *corev1.PodSpec {
+			return &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}}
+		}
+		template, worker, prefill := podWithSlotAndEvictor(), podWithSlot(), podWithSlot()
+		cfg := &v1alpha2.LLMInferenceServiceConfig{Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("10Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+					}}},
+				},
+				Template: template,
+				Worker:   worker,
+			},
+			Prefill: &v1alpha2.WorkloadSpec{
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("10Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+					}}},
+				},
+				Template: prefill,
+			},
+		}}
+		if err := applyKVCacheCarriers(cfg); err != nil {
+			t.Fatalf("applyKVCacheCarriers() error = %v", err)
+		}
+		for name, podSpec := range map[string]*corev1.PodSpec{
+			"template": template, "worker": worker, "prefill": prefill,
+		} {
+			got, _ := utils.GetEnvVarValue(podSpec.Containers[0].Env, kvTransferArgsEnvVar)
+			if !strings.Contains(got, "/mnt/kv-cache-0/"+pvcEvictorCacheDirectory) {
+				t.Errorf("%s: want inherited PVC evictor root directory, got %q", name, got)
+			}
+		}
+	})
+
 	// The upgrade contract: a preset that renders the argument itself must come
 	// out untouched, so pinning it pins the pod spec it produces.
 	t.Run("preset without the slot is bit-for-bit unchanged", func(t *testing.T) {
@@ -313,7 +355,7 @@ func TestApplyKVCacheCarriers(t *testing.T) {
 	})
 
 	t.Run("spec name follows the tiers, not the caller", func(t *testing.T) {
-		cpuOnly, err := kvTransferJSON(&v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})
+		cpuOnly, err := kvTransferJSON(&v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")}, false)
 		if err != nil {
 			t.Fatalf("kvTransferJSON() error = %v", err)
 		}
@@ -326,7 +368,7 @@ func TestApplyKVCacheCarriers(t *testing.T) {
 			Secondary: []v1alpha2.SecondaryTierSpec{{
 				FileSystem: &v1alpha2.FileSystemTierSpec{EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("100Gi")}},
 			}},
-		})
+		}, false)
 		if err != nil {
 			t.Fatalf("kvTransferJSON() error = %v", err)
 		}
@@ -545,7 +587,8 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 					{Name: "main"},
 				},
 			}
-			attachKVCacheSecondaryTiers(podSpec, tt.secondary, tt.containerName)
+			evictorTemplate := takePVCEvictorContainerTemplate(podSpec)
+			attachKVCacheSecondaryTiers(podSpec, tt.secondary, tt.containerName, evictorTemplate)
 
 			if diff := cmp.Diff(tt.wantVolumes, podSpec.Volumes); diff != "" {
 				t.Errorf("volumes mismatch (-want +got):\n%s", diff)

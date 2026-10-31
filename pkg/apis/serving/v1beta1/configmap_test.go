@@ -102,6 +102,9 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.JobNamespace).To(gomega.Equal(DefaultKernelCacheJobNamespace))
 		g.Expect(config.MCVImage).To(gomega.Equal(DefaultKernelCacheMCVImage))
 		g.Expect(config.PrefetchImage).To(gomega.Equal(DefaultKernelCachePrefetchImage))
+		g.Expect(config.RuntimeImagePrefetch.Enabled).To(gomega.BeFalse())
+		g.Expect(config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+		g.Expect(*config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds))
 		g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds))
 		g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal(DefaultKernelCacheAbandonedCapturePolicy))
 		g.Expect(config.Registry.Endpoint).To(gomega.BeEmpty())
@@ -417,6 +420,10 @@ func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
 			"mcvImage": "example/mcv:test",
 			"mcvCaptureReadinessTimeoutSeconds": 900,
 			"prefetchImage": "example/prefetch:test",
+			"runtimeImagePrefetch": {
+				"enabled": true,
+				"jobTTLSecondsAfterFinished": 7200
+			},
 			"jobTTLSecondsAfterFinished": 600,
 			"reconcileIntervalSeconds": 300,
 			"abandonedCapturePolicy": "delete"
@@ -433,6 +440,9 @@ func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
 	g.Expect(config.MCVImage).To(gomega.Equal("example/mcv:test"))
 	g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(int64(900)))
 	g.Expect(config.PrefetchImage).To(gomega.Equal("example/prefetch:test"))
+	g.Expect(config.RuntimeImagePrefetch.Enabled).To(gomega.BeTrue())
+	g.Expect(config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+	g.Expect(*config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).To(gomega.Equal(int32(7200)))
 	g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
 	g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(int32(600)))
 	g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
@@ -1232,6 +1242,35 @@ func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
 			}
 			g.Expect(err).ToNot(gomega.HaveOccurred())
 			g.Expect(cfg.LoRAModelRoutingStrategy).To(gomega.Equal(tt.want))
+		})
+	}
+}
+
+func TestNewIngressConfigRouteRuleNaming(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		value string // omitted from the ingress JSON when empty
+		want  string
+	}{
+		{name: "defaults to preset when omitted", want: constants.RouteRuleNamingPreset},
+		{name: "defaults to preset when blank", value: "  ", want: constants.RouteRuleNamingPreset},
+		{name: "keeps preset", value: "preset", want: constants.RouteRuleNamingPreset},
+		{name: "normalizes case and whitespace", value: " Unique ", want: constants.RouteRuleNamingUnique},
+		// Rejected per service by the llmisvc router; failing here would fail every reader of the ingress config.
+		{name: "keeps an unsupported value for the router to reject", value: " Suffixed ", want: "suffixed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			ingress := `{"ingressGateway": "knative-serving/knative-ingress-gateway"`
+			if tt.value != "" {
+				ingress += `, "routeRuleNaming": ` + strconv.Quote(tt.value)
+			}
+			ingress += `}`
+
+			cfg, err := NewIngressConfig(&corev1.ConfigMap{Data: map[string]string{IngressConfigKeyName: ingress}})
+
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(cfg.RouteRuleNaming).To(gomega.Equal(tt.want))
 		})
 	}
 }
