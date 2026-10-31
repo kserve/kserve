@@ -74,7 +74,7 @@ Install the [kserve](../kserve) package first. To install this package’s depen
 make dev_install
 ```
 
-**Note:** Backend libraries are pinned in `pyproject.toml` (see [Inference stack](#inference-stack-and-dependency-versions)). Use the same Python version as the Docker image when resolving dependencies (currently **3.12**). If you see an error like *"Distribution catboost can't be installed because it doesn't have a source distribution or wheel for the current platform"*, try Python 3.10 or 3.12 (e.g. `uv venv .venv --python 3.12`, activate it, then `make dev_install`). To install into an already-active virtualenv elsewhere (e.g. the repo root), use `uv sync --active --group test`.
+**Note:** Backend libraries are pinned in `pyproject.toml` (see [Inference stack](#inference-stack-and-dependency-versions)). Use the same Python version as the Docker image when resolving dependencies (currently **3.12**). If you see an error like *"Distribution catboost can't be installed because it doesn't have a source distribution or wheel for the current platform"*, try Python 3.11 or 3.12 (e.g. `uv venv .venv --python 3.12`, activate it, then `make dev_install`). To install into an already-active virtualenv elsewhere (e.g. the repo root), use `uv sync --active --group test`.
 
 Check that the server is available:
 
