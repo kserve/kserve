@@ -1069,3 +1069,45 @@ func TestAddModelMount_VolumeSource(t *testing.T) {
 		g.Expect(podSpec.Volumes[0].HostPath.Path).To(gomega.Equal("/mnt/fast-nvme/models"))
 	})
 }
+
+func TestCreateInitContainerWithConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	config := func(cpuRequest, cpuLimit string) *types.StorageInitializerConfig {
+		return &types.StorageInitializerConfig{
+			Image:         "kserve/storage-initializer:latest",
+			CpuRequest:    cpuRequest,
+			CpuLimit:      cpuLimit,
+			MemoryRequest: "100Mi",
+			MemoryLimit:   "1Gi",
+		}
+	}
+
+	t.Run("sets all cpu and memory resources when a cpu limit is configured", func(t *testing.T) {
+		c := CreateInitContainerWithConfig(config("100m", "1"), []string{"hf://model", "/mnt/models"})
+		g.Expect(c.Name).To(gomega.Equal(constants.StorageInitializerContainerName))
+		g.Expect(c.Image).To(gomega.Equal("kserve/storage-initializer:latest"))
+		cpuLimit, ok := c.Resources.Limits[corev1.ResourceCPU]
+		g.Expect(ok).To(gomega.BeTrue())
+		g.Expect(cpuLimit.String()).To(gomega.Equal("1"))
+		memLimit := c.Resources.Limits[corev1.ResourceMemory]
+		g.Expect(memLimit.String()).To(gomega.Equal("1Gi"))
+		cpuRequest := c.Resources.Requests[corev1.ResourceCPU]
+		g.Expect(cpuRequest.String()).To(gomega.Equal("100m"))
+		memRequest := c.Resources.Requests[corev1.ResourceMemory]
+		g.Expect(memRequest.String()).To(gomega.Equal("100Mi"))
+	})
+
+	t.Run("omits the cpu limit when no cpu limit is configured", func(t *testing.T) {
+		c := CreateInitContainerWithConfig(config("100m", ""), []string{"hf://model", "/mnt/models"})
+		_, ok := c.Resources.Limits[corev1.ResourceCPU]
+		g.Expect(ok).To(gomega.BeFalse())
+		g.Expect(c.Resources.Limits).To(gomega.HaveLen(1))
+		memLimit := c.Resources.Limits[corev1.ResourceMemory]
+		g.Expect(memLimit.String()).To(gomega.Equal("1Gi"))
+		cpuRequest := c.Resources.Requests[corev1.ResourceCPU]
+		g.Expect(cpuRequest.String()).To(gomega.Equal("100m"))
+		memRequest := c.Resources.Requests[corev1.ResourceMemory]
+		g.Expect(memRequest.String()).To(gomega.Equal("100Mi"))
+	})
+}
