@@ -342,16 +342,25 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 		storageInitializerImage = storageConfig.Image
 	}
 
+	// The CPU limit is optional: when CpuLimit is empty, the container runs
+	// without a CPU limit, matching the semantics of ordinary Kubernetes
+	// ResourceRequirements. CPU limits are commonly omitted on purpose
+	// because they cause CFS throttling; the request still bounds
+	// scheduling.
+	limits := map[corev1.ResourceName]resource.Quantity{
+		corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
+	}
+	if storageConfig.CpuLimit != "" {
+		limits[corev1.ResourceCPU] = resource.MustParse(storageConfig.CpuLimit)
+	}
+
 	return &corev1.Container{
 		Name:                     constants.StorageInitializerContainerName,
 		Image:                    storageInitializerImage,
 		Args:                     containerArgs,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Resources: corev1.ResourceRequirements{
-			Limits: map[corev1.ResourceName]resource.Quantity{
-				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
-				corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
-			},
+			Limits: limits,
 			Requests: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
 				corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
