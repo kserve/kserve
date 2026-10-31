@@ -97,7 +97,13 @@ model_dir = Storage.download("webhdfs://path/to/model")
 model_dir = Storage.download("hf://org-name/model-name")
 # With specific revision
 model_dir = Storage.download("hf://org-name/model-name:revision")
+# Download one file, preserving its path relative to the repository
+model_dir = Storage.download("hf://org-name/model-name:revision/quantized/model.gguf")
 ```
+
+Repository URIs download a snapshot and honor allow/ignore patterns. A file URI
+downloads that exact file instead; its filename must be a relative path without
+empty, `.` or `..` components.
 
 ## Environment Variables
 

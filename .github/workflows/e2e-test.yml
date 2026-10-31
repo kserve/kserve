@@ -1635,7 +1635,7 @@ jobs:
         timeout-minutes: 65
         run: |
           export PYTEST_MAXFAIL=3
-          ./test/scripts/gh-actions/run-e2e-tests.sh "vllm_runtime" "1"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "vllm_runtime or llamacpp_runtime" "1"
 
       - name: Check system status
         if: always()

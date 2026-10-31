@@ -166,6 +166,60 @@ def test_explicit_patterns_override_env(mock_snapshot_download):
 
 
 @mock.patch("huggingface_hub.snapshot_download")
+@mock.patch("huggingface_hub.hf_hub_download")
+@pytest.mark.parametrize(
+    "model_path, revision, filename",
+    [
+        ("model/model.gguf", None, "model.gguf"),
+        ("model:revision/model.gguf", "revision", "model.gguf"),
+        ("model:revision/quantized/model.gguf", "revision", "quantized/model.gguf"),
+    ],
+)
+def test_download_single_file(
+    mock_hf_hub_download,
+    mock_snapshot_download,
+    model_path,
+    revision,
+    filename,
+    tmp_path,
+):
+    result = Storage._download_hf(f"hf://owner/{model_path}", str(tmp_path))
+
+    assert result == str(tmp_path)
+    mock_hf_hub_download.assert_called_once_with(
+        repo_id="owner/model",
+        revision=revision,
+        filename=filename,
+        local_dir=str(tmp_path),
+    )
+    mock_snapshot_download.assert_not_called()
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+@mock.patch("huggingface_hub.hf_hub_download")
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "",
+        "/model.gguf",
+        "../model.gguf",
+        "sub/../model.gguf",
+        "./model.gguf",
+        "sub//model.gguf",
+        "sub\\model.gguf",
+    ],
+)
+def test_download_rejects_invalid_file_path(
+    mock_hf_hub_download, mock_snapshot_download, filename, tmp_path
+):
+    with pytest.raises(RuntimeError, match="Hugging Face filename"):
+        Storage._download_hf(f"hf://owner/model/{filename}", str(tmp_path))
+
+    mock_hf_hub_download.assert_not_called()
+    mock_snapshot_download.assert_not_called()
+
+
+@mock.patch("huggingface_hub.snapshot_download")
 @pytest.mark.parametrize(
     "invalid_uri, error_message",
     [
