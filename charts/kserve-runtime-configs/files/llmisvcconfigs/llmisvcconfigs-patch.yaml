@@ -1,0 +1,113 @@
+{{- if .Values.kserve.llmisvcConfigs.enabled }}
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-decode-template
+spec:
+  template:
+    containers:
+      - name: main
+        image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+    initContainers:
+      - name: llm-d-routing-sidecar
+        image: "{{ .Values.kserve.llmd.llmdRouterDisaggSidecar.image }}:{{ .Values.kserve.llmd.llmdRouterDisaggSidecar.tag }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-decode-worker-data-parallel
+spec:
+  template:
+    initContainers:
+      - name: llm-d-routing-sidecar
+        image: "{{ .Values.kserve.llmd.llmdRouterDisaggSidecar.image }}:{{ .Values.kserve.llmd.llmdRouterDisaggSidecar.tag }}"
+    containers:
+      - name: main
+        image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+  worker:
+    containers:
+      - name: main
+        image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-prefill-template
+spec:
+  prefill:
+    template:
+      containers:
+        - name: main
+          image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-prefill-worker-data-parallel
+spec:
+  prefill:
+    template:
+      containers:
+        - name: main
+          image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+    worker:
+      containers:
+        - name: main
+          image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            image: "{{ .Values.kserve.llmd.llmdRouterEndpointPicker.image }}:{{ .Values.kserve.llmd.llmdRouterEndpointPicker.tag }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-tokenizer
+spec:
+  router:
+    scheduler:
+      tokenizer:
+        template:
+          containers:
+            - name: main
+              image: "{{ .Values.kserve.llmd.llmdTokenizer.image }}:{{ .Values.kserve.llmd.llmdTokenizer.tag }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-template
+spec:
+  template:
+    containers:
+      - name: main
+        image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-worker-data-parallel
+spec:
+  template:
+    containers:
+      - name: main
+        image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+  worker:
+    containers:
+      - name: main
+        image: "{{ .Values.kserve.llmd.llmdCuda.image }}:{{ .Values.kserve.llmd.llmdCuda.tag }}"
+{{- end }}
