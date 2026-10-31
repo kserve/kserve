@@ -796,9 +796,20 @@ class InferRequest:
         """
         infer_inputs = []
         raw_input_contents = []
+        # The gRPC protocol requires raw contents for every input, in input order,
+        # whenever raw_input_contents is used.
+        use_raw_inputs = any(
+            infer_input._raw_data is not None
+            or isinstance(infer_input.data, np.ndarray)
+            for infer_input in self.inputs
+        )
         for infer_input in self.inputs:
             if isinstance(infer_input.data, np.ndarray):
                 infer_input.set_data_from_numpy(infer_input.data, binary_data=True)
+            if use_raw_inputs and infer_input._raw_data is None:
+                infer_input.set_data_from_numpy(
+                    infer_input.as_numpy(), binary_data=True
+                )
             infer_input_dict = {
                 "name": infer_input.name,
                 "shape": infer_input.shape,
