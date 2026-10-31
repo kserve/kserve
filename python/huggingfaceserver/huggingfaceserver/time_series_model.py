@@ -145,9 +145,10 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                 )
             )
         # check if the quantiles are valid
+        requested_quantiles = request.options.quantiles or []
         quantiles_idx = []
         model_quantiles = {q: i for i, q in enumerate(self.model_config.quantiles)}
-        for q in request.options.quantiles:
+        for q in requested_quantiles:
             if q not in model_quantiles:
                 return ErrorResponse(
                     error=Error(
@@ -204,7 +205,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
             ].tolist()
             # format and trim quantiles
             trimmed_quantile_forecast = {}
-            for j, q in enumerate(request.options.quantiles):
+            for j, q in enumerate(requested_quantiles):
                 trimmed_quantile_forecast[str(q)] = full_predictions[
                     i, : request.options.horizon, quantiles_idx[j]
                 ].tolist()
