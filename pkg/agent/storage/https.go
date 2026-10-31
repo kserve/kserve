@@ -31,6 +31,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kserve/kserve/pkg/constants"
 	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
 
@@ -73,7 +74,11 @@ type HTTPSDownloader struct {
 }
 
 func (h *HTTPSDownloader) Download(client http.Client) error {
-	if err := kserveutils.CheckHTTPStorageURIResolved(h.StorageUri); err != nil {
+	allowlist, err := httpStorageURIAllowlistFromEnv()
+	if err != nil {
+		return err
+	}
+	if err := kserveutils.CheckHTTPStorageURIResolvedWithAllowlist(h.StorageUri, allowlist); err != nil {
 		return err
 	}
 	// Create request
@@ -91,7 +96,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	}
 
 	// Query request
-	resp, err := kserveutils.SafeHTTPClient(&client).Do(req)
+	resp, err := kserveutils.SafeHTTPClientWithAllowlist(&client, allowlist).Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to make a request: %w", err)
 	}
@@ -137,6 +142,21 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	}
 
 	return nil
+}
+
+func httpStorageURIAllowlistFromEnv() ([]string, error) {
+	value := os.Getenv(constants.HTTPStorageURIAllowlistEnvVar)
+	if value == "" {
+		return nil, nil
+	}
+	var allowlist []string
+	if err := json.Unmarshal([]byte(value), &allowlist); err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", constants.HTTPStorageURIAllowlistEnvVar, err)
+	}
+	if err := kserveutils.ValidateHTTPStorageURIAllowlist(allowlist); err != nil {
+		return nil, fmt.Errorf("invalid %s: %w", constants.HTTPStorageURIAllowlistEnvVar, err)
+	}
+	return allowlist, nil
 }
 
 func (h *HTTPSDownloader) extractHeaders() (headers map[string]string, err error) {
