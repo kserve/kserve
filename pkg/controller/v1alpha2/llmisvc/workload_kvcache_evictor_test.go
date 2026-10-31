@@ -20,16 +20,22 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -472,6 +478,166 @@ func TestReconcilePVCEvictorsMarksReconcileError(t *testing.T) {
 	}
 	if condition.Status != corev1.ConditionFalse || condition.Reason != "ReconcilePVCEvictorError" {
 		t.Fatalf("PVCEvictorReady = %#v, want False/ReconcilePVCEvictorError", condition)
+	}
+}
+
+func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
+	serviceWithPaths := func(paths ...string) *v1alpha2.LLMInferenceService {
+		tiers := make([]v1alpha2.SecondaryTierSpec, 0, len(paths))
+		for _, path := range paths {
+			tiers = append(tiers, v1alpha2.SecondaryTierSpec{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: path}},
+			}})
+		}
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: []corev1.Container{
+					{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+					{Name: pvcEvictorTemplateName},
+				}},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: tiers},
+			}},
+		}
+	}
+
+	tests := []struct {
+		name string
+		// paths the service uses now
+		paths []string
+		// paths whose evictor Deployment a peer created and is available
+		available []string
+		// PVCEvictorReady=True from an earlier pass
+		wasReady   bool
+		conflictOn client.Object
+		wantStatus corev1.ConditionStatus
+		wantReason string
+	}{
+		{
+			name:       "ServiceAccount conflict before any evictor exists",
+			paths:      []string{"a"},
+			conflictOn: &corev1.ServiceAccount{},
+			wantStatus: corev1.ConditionFalse,
+			wantReason: "PVCEvictorNotReady",
+		},
+		{
+			name:       "ServiceAccount conflict on joining a peer's available evictor",
+			paths:      []string{"a"},
+			available:  []string{"a"},
+			conflictOn: &corev1.ServiceAccount{},
+			wantStatus: corev1.ConditionTrue,
+		},
+		{
+			name:       "ServiceAccount conflict keeps a ready evictor ready",
+			paths:      []string{"a"},
+			available:  []string{"a"},
+			wasReady:   true,
+			conflictOn: &corev1.ServiceAccount{},
+			wantStatus: corev1.ConditionTrue,
+		},
+		{
+			name:       "ServiceAccount conflict after adding a path",
+			paths:      []string{"a", "b"},
+			available:  []string{"a"},
+			wasReady:   true,
+			conflictOn: &corev1.ServiceAccount{},
+			wantStatus: corev1.ConditionFalse,
+			wantReason: "PVCEvictorNotReady",
+		},
+		{
+			name:       "Deployment conflict after adding a path",
+			paths:      []string{"a", "b"},
+			available:  []string{"a"},
+			wasReady:   true,
+			conflictOn: &appsv1.Deployment{},
+			wantStatus: corev1.ConditionFalse,
+			wantReason: "PVCEvictorNotReady",
+		},
+		{
+			name:       "Deployment conflict on joining a peer's available evictor",
+			paths:      []string{"a"},
+			available:  []string{"a"},
+			conflictOn: &appsv1.Deployment{},
+			wantStatus: corev1.ConditionTrue,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			for _, addToScheme := range []func(*runtime.Scheme) error{
+				appsv1.AddToScheme,
+				corev1.AddToScheme,
+				v1alpha2.AddToScheme,
+			} {
+				if err := addToScheme(scheme); err != nil {
+					t.Fatal(err)
+				}
+			}
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+				},
+			}
+			pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+
+			svc := serviceWithPaths(test.paths...)
+			svc.MarkMainWorkloadReady()
+			readySince := apis.VolatileTime{Inner: metav1.NewTime(time.Now().Add(-time.Hour).Truncate(time.Second))}
+			if test.wasReady {
+				svc.MarkPVCEvictorReady()
+				// GetCondition returns a copy.
+				for i := range svc.Status.Conditions {
+					if svc.Status.Conditions[i].Type == v1alpha2.PVCEvictorReady {
+						svc.Status.Conditions[i].LastTransitionTime = readySince
+					}
+				}
+			}
+			svc.DetermineWorkloadReadiness()
+
+			// Missing label and automount, so the ServiceAccount needs a write.
+			objects := []client.Object{svc, &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: pvcEvictorServiceAccount, Namespace: "test"}}}
+			if len(test.available) > 0 {
+				peer := &LLMISVCReconciler{APIReader: pvcReader}
+				deployments, err := peer.expectedPVCEvictorDeployments(t.Context(), serviceWithPaths(test.available...))
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, deployment := range deployments {
+					deployment.Status.Replicas = 1
+					deployment.Status.AvailableReplicas = 1
+					objects = append(objects, deployment)
+				}
+			}
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(objects...).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						if reflect.TypeOf(obj) == reflect.TypeOf(test.conflictOn) {
+							return apierrors.NewConflict(schema.GroupResource{}, obj.GetName(), errors.New("modified by a peer"))
+						}
+						return c.Update(ctx, obj, opts...)
+					},
+				}).
+				Build()
+			reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
+
+			err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{})
+			if !apierrors.IsConflict(err) {
+				t.Fatalf("reconcilePVCEvictors() error = %v, want a conflict to requeue on", err)
+			}
+			condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady)
+			if condition == nil || condition.Status != test.wantStatus || condition.Reason != test.wantReason {
+				t.Fatalf("PVCEvictorReady = %#v, want %s with reason %q", condition, test.wantStatus, test.wantReason)
+			}
+			if workloads := svc.Status.GetCondition(v1alpha2.WorkloadReady); workloads == nil || workloads.Status != test.wantStatus {
+				t.Fatalf("WorkloadsReady = %#v, want %s", workloads, test.wantStatus)
+			}
+			if test.wasReady && test.wantStatus == corev1.ConditionTrue && !condition.LastTransitionTime.Inner.Equal(&readySince.Inner) {
+				t.Errorf("PVCEvictorReady lastTransitionTime = %v, want it kept at %v", condition.LastTransitionTime.Inner, readySince.Inner)
+			}
+		})
 	}
 }
 
@@ -935,6 +1101,148 @@ func TestEnsurePVCEvictorServiceAccountRepairsTokenAutomount(t *testing.T) {
 	}
 }
 
+func TestEnsurePVCEvictorServiceAccountImagePullSecrets(t *testing.T) {
+	// openshift-controller-manager appends this entry to every ServiceAccount.
+	platform := corev1.LocalObjectReference{Name: pvcEvictorServiceAccount + "-dockercfg-abcde"}
+
+	tests := []struct {
+		name           string
+		current        []corev1.LocalObjectReference
+		copied         string
+		automountUnset bool
+		defaultSA      []corev1.LocalObjectReference
+		wantUpdates    int
+		want           []corev1.LocalObjectReference
+		wantCopied     string
+	}{
+		{
+			name:        "keeps an entry another writer added",
+			current:     []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			copied:      "default-dockercfg-xyz",
+			defaultSA:   []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}},
+			wantUpdates: 0,
+			want:        []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			wantCopied:  "default-dockercfg-xyz",
+		},
+		{
+			name:           "keeps an entry another writer added while repairing token automount",
+			current:        []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			copied:         "default-dockercfg-xyz",
+			automountUnset: true,
+			defaultSA:      []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}},
+			wantUpdates:    1,
+			want:           []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			wantCopied:     "default-dockercfg-xyz",
+		},
+		{
+			name:        "replaces an entry rotated on the default ServiceAccount",
+			current:     []corev1.LocalObjectReference{{Name: "old-pull"}, platform},
+			copied:      "old-pull",
+			defaultSA:   []corev1.LocalObjectReference{{Name: "new-pull"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{platform, {Name: "new-pull"}},
+			wantCopied:  "new-pull",
+		},
+		{
+			name:        "appends an entry added to the default ServiceAccount",
+			current:     []corev1.LocalObjectReference{{Name: "a-pull"}, platform},
+			copied:      "a-pull",
+			defaultSA:   []corev1.LocalObjectReference{{Name: "a-pull"}, {Name: "b-pull"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{{Name: "a-pull"}, platform, {Name: "b-pull"}},
+			wantCopied:  "a-pull,b-pull",
+		},
+		{
+			name:        "drops an entry removed from the end of the default ServiceAccount's list",
+			current:     []corev1.LocalObjectReference{{Name: "a-pull"}, {Name: "b-pull"}, platform},
+			copied:      "a-pull,b-pull",
+			defaultSA:   []corev1.LocalObjectReference{{Name: "a-pull"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{{Name: "a-pull"}, platform},
+			wantCopied:  "a-pull",
+		},
+		{
+			name:        "drops copied entries when the default ServiceAccount has none",
+			current:     []corev1.LocalObjectReference{{Name: "registry-pull"}, platform},
+			copied:      "registry-pull",
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{platform},
+		},
+		{
+			name:        "records the copies on a ServiceAccount written by an earlier release",
+			current:     []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			defaultSA:   []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{{Name: "default-dockercfg-xyz"}, platform},
+			wantCopied:  "default-dockercfg-xyz",
+		},
+		{
+			name:        "keeps an entry removed from the default ServiceAccount before the first recorded sync",
+			current:     []corev1.LocalObjectReference{{Name: "old-pull"}, platform},
+			defaultSA:   []corev1.LocalObjectReference{{Name: "new-pull"}},
+			wantUpdates: 1,
+			want:        []corev1.LocalObjectReference{{Name: "old-pull"}, platform, {Name: "new-pull"}},
+			wantCopied:  "new-pull",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			if err := corev1.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+			serviceAccount := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pvcEvictorServiceAccount,
+					Namespace: "test",
+					Labels:    map[string]string{pvcEvictorLabel: "true"},
+				},
+				AutomountServiceAccountToken: ptr.To(false),
+				ImagePullSecrets:             test.current,
+			}
+			if test.copied != "" {
+				serviceAccount.Annotations = map[string]string{pvcEvictorDefaultPullSecrets: test.copied}
+			}
+			if test.automountUnset {
+				serviceAccount.AutomountServiceAccountToken = nil
+			}
+			defaultServiceAccount := &corev1.ServiceAccount{
+				ObjectMeta:       metav1.ObjectMeta{Name: "default", Namespace: "test"},
+				ImagePullSecrets: test.defaultSA,
+			}
+			updates := 0
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(serviceAccount, defaultServiceAccount).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						updates++
+						return c.Update(ctx, obj, opts...)
+					},
+				}).
+				Build()
+			reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+			if err := reconciler.ensurePVCEvictorServiceAccount(t.Context(), "test"); err != nil {
+				t.Fatalf("ensurePVCEvictorServiceAccount() error = %v", err)
+			}
+			if updates != test.wantUpdates {
+				t.Errorf("updates = %d, want %d", updates, test.wantUpdates)
+			}
+			got := &corev1.ServiceAccount{}
+			if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(serviceAccount), got); err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(test.want, got.ImagePullSecrets); diff != "" {
+				t.Errorf("imagePullSecrets mismatch (-want +got):\n%s", diff)
+			}
+			if copied := got.Annotations[pvcEvictorDefaultPullSecrets]; copied != test.wantCopied {
+				t.Errorf("%s = %q, want %q", pvcEvictorDefaultPullSecrets, copied, test.wantCopied)
+			}
+		})
+	}
+}
+
 func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
 	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
@@ -984,6 +1292,62 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	}
 	if got.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] {
 		t.Fatalf("security hash = %q, want effective default hash %q", got.Annotations[pvcEvictorSecurityHash], expected.Annotations[pvcEvictorSecurityHash])
+	}
+}
+
+func TestReconcileExistingPVCEvictorDeploymentIgnoresStatusWritesSinceTheCacheRead(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	updates := 0
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(expected.DeepCopy()).
+		WithStatusSubresource(&appsv1.Deployment{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				if !slices.Contains(opts, client.UpdateOption(client.DryRunAll)) {
+					updates++
+					return c.Update(ctx, obj, opts...)
+				}
+				// The fake client skips dry-runs entirely. The apiserver still checks a
+				// resourceVersion it is given before it dry-runs (Store.Update in
+				// k8s.io/apiserver), and accepts none for a Deployment.
+				stored := &appsv1.Deployment{}
+				if err := c.Get(ctx, client.ObjectKeyFromObject(obj), stored); err != nil {
+					return err
+				}
+				if rv := obj.GetResourceVersion(); rv != "" && rv != stored.ResourceVersion {
+					return apierrors.NewConflict(appsv1.Resource("deployments"), obj.GetName(), errors.New("the object has been modified"))
+				}
+				return nil
+			},
+		}).
+		Build()
+	current := &appsv1.Deployment{}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), current); err != nil {
+		t.Fatal(err)
+	}
+	// The Deployment controller reports status after the cache read.
+	latest := current.DeepCopy()
+	latest.Status.AvailableReplicas = 1
+	if err := fakeClient.Status().Update(t.Context(), latest); err != nil {
+		t.Fatal(err)
+	}
+
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {agreed: true},
+	}
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err != nil {
+		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v, want the unchanged Deployment to compare equal", err)
+	}
+	if updates != 0 {
+		t.Errorf("updates = %d, want none for an unchanged Deployment", updates)
 	}
 }
 
