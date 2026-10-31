@@ -18,29 +18,54 @@ package logger
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 )
 
 var WorkerQueue chan chan LogRequest
 
-func StartDispatcher(nworkers int, workQueueSize int, store Store, batchStrategy BatchStrategy, logger *zap.SugaredLogger) {
+// DispatcherOption configures optional StartDispatcher behavior.
+type DispatcherOption func(*dispatcherConfig)
+
+type dispatcherConfig struct {
+	httpClientTimeout time.Duration
+}
+
+// WithLogClientTimeout sets the timeout each worker's HTTP client uses when
+// delivering CloudEvents to the logger URL.
+func WithLogClientTimeout(timeout time.Duration) DispatcherOption {
+	return func(c *dispatcherConfig) {
+		c.httpClientTimeout = timeout
+	}
+}
+
+func StartDispatcher(nworkers int, workQueueSize int, store Store, batchStrategy BatchStrategy, logger *zap.SugaredLogger, opts ...DispatcherOption) {
+	cfg := dispatcherConfig{httpClientTimeout: DefaultHTTPClientTimeout}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	if workQueueSize <= 0 {
 		workQueueSize = LoggerWorkerQueueSize
 	}
 
 	// Reinitialize WorkQueue so that any previous dispatcher goroutines
 	// (from prior calls, e.g. in tests) lose their channel reference and
-	// cannot compete for work items.
-	WorkQueue = make(chan LogRequest, workQueueSize)
+	// cannot compete for work items. workQueue/workerQueue are also
+	// captured by the goroutines below instead of read back from the
+	// package vars, since a previous call's goroutines aren't guaranteed
+	// to have exited yet and would otherwise race this reassignment.
+	workQueue := make(chan LogRequest, workQueueSize)
+	WorkQueue = workQueue
 
 	// Initialize the channel for workers to register their work channels.
-	WorkerQueue = make(chan chan LogRequest, nworkers)
+	workerQueue := make(chan chan LogRequest, nworkers)
+	WorkerQueue = workerQueue
 
 	// Create workers for HTTP CloudEvents processing.
 	for i := range nworkers {
 		logger.Info("Starting worker ", i+1)
-		worker := NewWorker(i+1, WorkerQueue, logger)
+		worker := NewWorker(i+1, workerQueue, logger, WithHTTPClientTimeout(cfg.httpClientTimeout))
 		worker.Start()
 	}
 
@@ -65,9 +90,9 @@ func StartDispatcher(nworkers int, workQueueSize int, store Store, batchStrategy
 		}
 	}()
 
-	// Dispatcher goroutine: read from WorkQueue, split HTTP vs blob.
+	// Dispatcher goroutine: read from workQueue, split HTTP vs blob.
 	go func() {
-		for work := range WorkQueue {
+		for work := range workQueue {
 			strategy := GetStorageStrategy(work.Url.String())
 
 			if strategy == HttpStorage {
@@ -75,7 +100,7 @@ func StartDispatcher(nworkers int, workQueueSize int, store Store, batchStrategy
 				// until a worker is free, so a slow/stuck log endpoint applies
 				// backpressure here instead of spawning an unbounded goroutine
 				// per event while waiting for a worker to become available.
-				worker := <-WorkerQueue
+				worker := <-workerQueue
 				worker <- work
 			} else {
 				// Send to batch pipeline for blob storage.
