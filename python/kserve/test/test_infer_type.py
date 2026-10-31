@@ -622,6 +622,85 @@ class TestInferRequest:
         assert infer_request.request_outputs is None
 
 
+def _text_input_from_rest_json():
+    body = orjson.dumps(
+        {
+            "inputs": [
+                {
+                    "name": "text",
+                    "shape": [2],
+                    "datatype": "BYTES",
+                    "data": ["hello", "world"],
+                }
+            ]
+        }
+    )
+    return InferRequest.from_bytes(body, len(body), "test_model").inputs[0]
+
+
+def _text_input_from_rest_binary():
+    infer_input = InferInput(name="text", shape=[2], datatype="BYTES")
+    infer_input.set_data_from_numpy(
+        np.array([b"hello", b"world"], dtype=np.object_), binary_data=True
+    )
+    infer_request = InferRequest(
+        model_name="test_model", infer_inputs=[infer_input], request_id="1"
+    )
+    body, json_length = infer_request.to_rest()
+    return InferRequest.from_bytes(body, json_length, "test_model").inputs[0]
+
+
+def _text_input_from_grpc_contents():
+    request = ModelInferRequest(
+        model_name="test_model",
+        inputs=[
+            {
+                "name": "text",
+                "shape": [2],
+                "datatype": "BYTES",
+                "contents": {"bytes_contents": [b"hello", b"world"]},
+            }
+        ],
+    )
+    return InferRequest.from_grpc(request).inputs[0]
+
+
+def _text_input_from_grpc_raw():
+    raw = serialize_byte_tensor(np.array([b"hello", b"world"], dtype=np.object_))
+    request = ModelInferRequest(
+        model_name="test_model",
+        inputs=[{"name": "text", "shape": [2], "datatype": "BYTES"}],
+        raw_input_contents=[raw.item()],
+    )
+    return InferRequest.from_grpc(request).inputs[0]
+
+
+class TestInferInputAsString:
+    @pytest.mark.parametrize(
+        "make_input",
+        [
+            _text_input_from_rest_json,
+            _text_input_from_rest_binary,
+            _text_input_from_grpc_contents,
+            _text_input_from_grpc_raw,
+        ],
+        ids=["rest_json", "rest_binary", "grpc_contents", "grpc_raw"],
+    )
+    def test_as_string(self, make_input):
+        assert make_input().as_string() == ["hello", "world"]
+
+    def test_as_string_nested_bytes(self):
+        infer_input = InferInput(
+            name="text", shape=[1, 2], datatype="BYTES", data=[[b"hello", b"world"]]
+        )
+        assert infer_input.as_string() == ["hello", "world"]
+
+    def test_as_string_invalid_datatype(self):
+        infer_input = InferInput(name="ints", shape=[2], datatype="INT32", data=[1, 2])
+        with pytest.raises(InvalidInput):
+            infer_input.as_string()
+
+
 class TestInferResponse:
     def test_to_grpc(self):
         infer_res = InferResponse(
