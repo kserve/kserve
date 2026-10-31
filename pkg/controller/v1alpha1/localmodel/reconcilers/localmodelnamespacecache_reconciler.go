@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -163,6 +164,29 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this model
 	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
 	return ctrl.Result{}, err
+}
+
+// cacheRequestsHandler enqueues the caches a watched object belongs to. An update can move
+// the object from one cache to another, so the old object is mapped as well: the cache it
+// left has to drop it and delete its serving claim.
+func cacheRequestsHandler(mapFunc func(context.Context, client.Object) []reconcile.Request) handler.Funcs {
+	enqueue := func(ctx context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+		for _, request := range mapFunc(ctx, obj) {
+			q.Add(request)
+		}
+	}
+	return handler.Funcs{
+		CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			enqueue(ctx, e.Object, q)
+		},
+		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			enqueue(ctx, e.ObjectOld, q)
+			enqueue(ctx, e.ObjectNew, q)
+		},
+		DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			enqueue(ctx, e.Object, q)
+		},
+	}
 }
 
 // Reconciles corresponding namespace model cache CR when we found an update on an isvc
@@ -381,25 +405,7 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		c.Log.Info("LLMInferenceService CRD not installed; skipping LocalModelNamespaceCache LLMInferenceService index and watch setup")
 	}
 
-	isvcPredicates := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldNsLabel := e.ObjectOld.GetLabels()[constants.LocalModelNamespaceLabel]
-			newNsLabel := e.ObjectNew.GetLabels()[constants.LocalModelNamespaceLabel]
-			return oldNsLabel != newNsLabel
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			if _, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]; !ok {
-				return false
-			}
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			if _, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]; !ok {
-				return false
-			}
-			return true
-		},
-	}
+	isvcPredicates := NamespaceCacheISVCPredicate()
 
 	nodePredicates := NodeReadyPredicate()
 
@@ -453,9 +459,9 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 	}
 
 	if !localModelConfig.DisableVolumeManagement {
-		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFuncNamespaceCache), builder.WithPredicates(isvcPredicates))
+		controllerBuilder.Watches(&v1beta1.InferenceService{}, cacheRequestsHandler(c.isvcFuncNamespaceCache), builder.WithPredicates(isvcPredicates))
 		if hasLLMISvcCRD {
-			controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, handler.EnqueueRequestsFromMapFunc(c.llmIsvcFuncNamespaceCache), builder.WithPredicates(llmIsvcPredicates))
+			controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, cacheRequestsHandler(c.llmIsvcFuncNamespaceCache), builder.WithPredicates(llmIsvcPredicates))
 		}
 	}
 
