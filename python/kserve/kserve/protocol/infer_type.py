@@ -242,7 +242,7 @@ class InferInput:
         """
         dtype = to_np_dtype(self.datatype)
         if dtype is None:
-            raise InvalidInput(f"invalid datatype {dtype} in the input")
+            raise InvalidInput(f"invalid datatype {self.datatype} in the input")
         if self._raw_data is not None:
             if self.datatype == "BYTES":
                 # String results contain a 4-byte string length
@@ -1023,7 +1023,7 @@ class InferOutput:
         """
         dtype = to_np_dtype(self.datatype)
         if dtype is None:
-            raise InvalidInput("invalid datatype in the input")
+            raise InvalidInput(f"invalid datatype {self.datatype} in the output")
         if self._raw_data is not None:
             if self.datatype == "BYTES":
                 # String results contain a 4-byte string length
