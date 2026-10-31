@@ -25,6 +25,8 @@ data:
 
 Hostnames are exact matches; wildcard entries are not supported. CIDRs allow matching resolved addresses. Loopback, link-local, and metadata service destinations remain blocked. Leave the list empty to keep the default policy. Helm users can set the same list with `kserve.storage.httpStorageUriAllowlist`.
 
+The policy is injected when pods are created. Recreate existing pods after changing the allowlist to apply the new policy to their downloaders.
+
 ## Create HTTP/HTTPS header Secret
 If you do not require headers in your HTTP/HTTPS service request then you can skip this step.
 You can define headers using the following format:

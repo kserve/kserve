@@ -348,16 +348,6 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		}
 	}
 	args = append(args, constants.AgentComponentPortArgName, componentPort)
-	if len(ag.agentConfig.HTTPStorageURIAllowlist) > 0 {
-		allowlistJSON, err := json.Marshal(ag.agentConfig.HTTPStorageURIAllowlist)
-		if err != nil {
-			return fmt.Errorf("failed to encode HTTP storage URI allowlist: %w", err)
-		}
-		agentEnvs = append(agentEnvs, corev1.EnvVar{
-			Name:  constants.HTTPStorageURIAllowlistEnvVar,
-			Value: string(allowlistJSON),
-		})
-	}
 
 	agentReadinessProbePath := "/"
 	if !queueProxyAvailable {
@@ -501,6 +491,10 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			return err
 		}
 		log.Info("Successfully created secret volume and env", "secret", saName)
+	}
+
+	if err := injectHTTPStorageURIAllowlist(agentContainer, ag.agentConfig.HTTPStorageURIAllowlist); err != nil {
+		return err
 	}
 
 	// Add container to the spec
