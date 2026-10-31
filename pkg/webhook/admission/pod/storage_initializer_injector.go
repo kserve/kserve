@@ -648,36 +648,8 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			*initContainer = merged
 		}
 
-		// The cluster-level HTTP storage URI policy takes precedence over any
-		// storage-container customization so workloads cannot widen the allowlist.
-		allowlist := []string{}
-		if params.Config != nil && params.Config.HTTPStorageURIAllowlist != nil {
-			allowlist = params.Config.HTTPStorageURIAllowlist
-		}
-		allowlistJSON, err := json.Marshal(allowlist)
-		if err != nil {
-			return fmt.Errorf("failed to encode HTTP storage URI allowlist: %w", err)
-		}
-		for i := range params.PodSpec.InitContainers {
-			container := &params.PodSpec.InitContainers[i]
-			if container.Name != constants.StorageInitializerContainerName {
-				continue
-			}
-			allowlistEnvSet := false
-			for envIdx := range container.Env {
-				if container.Env[envIdx].Name == constants.HTTPStorageURIAllowlistEnvVar {
-					container.Env[envIdx].Value = string(allowlistJSON)
-					container.Env[envIdx].ValueFrom = nil
-					allowlistEnvSet = true
-					break
-				}
-			}
-			if !allowlistEnvSet && len(allowlist) > 0 {
-				container.Env = append(container.Env, corev1.EnvVar{
-					Name:  constants.HTTPStorageURIAllowlistEnvVar,
-					Value: string(allowlistJSON),
-				})
-			}
+		if err := injectHTTPStorageURIAllowlist(initContainer, params.Config.HTTPStorageURIAllowlist); err != nil {
+			return err
 		}
 
 		// Add CA bundle env vars and volume mount after merge to avoid conflicts with user-defined env vars
