@@ -120,6 +120,23 @@ func Reconcile[O client.Object, T client.Object](ctx context.Context, c clientWi
 // Update modifies an existing Kubernetes resource to match the expected state
 // It validates ownership and only updates if the resource has actually changed
 func Update[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, curr, expected T, isEqual SemanticEqual[T], opts ...UpdateOption[T]) error {
+	changed, err := PrepareUpdate(ctx, c, owner, curr, expected, isEqual, opts...)
+	if err != nil || !changed {
+		return err
+	}
+	log.FromContext(ctx).V(2).Info("Updating "+logLineForObject(expected),
+		"expected", expected,
+		"curr", curr,
+	)
+	return CommitUpdate(ctx, c, owner, expected)
+}
+
+// PrepareUpdate is the first half of Update: it checks ownership, dry-runs
+// expected against the API server so it carries the server defaults, and
+// reports whether it differs from curr. expected is left ready for
+// CommitUpdate. Callers that update several objects together use it to
+// validate all of them, with one dry-run each, before writing any.
+func PrepareUpdate[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, curr, expected T, isEqual SemanticEqual[T], opts ...UpdateOption[T]) (bool, error) {
 	options := &updateOptions[T]{}
 	for _, opt := range opts {
 		opt(options)
@@ -134,10 +151,10 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	}
 
 	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil {
-		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
+		return false, fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
 	} else if isNamespaced && !isOwnerNil {
 		if !metav1.IsControlledBy(curr, owner) {
-			return fmt.Errorf("failed to update %s %s/%s: it is not controlled by %s %s/%s",
+			return false, fmt.Errorf("failed to update %s %s/%s: it is not controlled by %s %s/%s",
 				typeLogLine,
 				curr.GetNamespace(), curr.GetName(),
 				ownerLogLine,
@@ -153,12 +170,12 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	// Apply before dry-run mutations (e.g., carry over immutable fields from curr)
 	for _, fn := range options.beforeDryRunFns {
 		if err := fn(expected, curr); err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	if err := c.Update(ctx, expected, client.DryRunAll); err != nil {
-		return fmt.Errorf("failed to get defaults for %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
+		return false, fmt.Errorf("failed to get defaults for %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 	}
 
 	// Apply after dry-run mutations (e.g., preserve fields from curr)
@@ -166,20 +183,18 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 		fn(expected, expectedGiven, curr)
 	}
 
-	if isEqual(expected, curr) {
-		return nil
-	}
+	return !isEqual(expected, curr), nil
+}
 
-	log.FromContext(ctx).V(2).Info("Updating "+typeLogLine,
-		"expected", expected,
-		"curr", curr,
-	)
-
+// CommitUpdate writes an object PrepareUpdate reported as changed and emits
+// an event on the owner.
+func CommitUpdate[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, expected T) error {
+	typeLogLine := logLineForObject(expected)
 	if err := c.Update(ctx, expected); err != nil {
 		return fmt.Errorf("failed to update %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 	}
 
-	if !isOwnerNil {
+	if !reflect.ValueOf(owner).IsNil() {
 		c.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
 	}
 

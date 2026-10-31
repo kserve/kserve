@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -26,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1346,5 +1349,129 @@ func TestValidateModelExpress(t *testing.T) {
 				assert.Equal(t, tt.wantFields[i], e.Field)
 			}
 		})
+	}
+}
+
+func TestValidateHTTPRouteMaxShardsAnnotation(t *testing.T) {
+	path := field.NewPath("spec", "annotations")
+	for _, tt := range []struct {
+		name    string
+		ann     map[string]string
+		wantErr bool
+	}{
+		{name: "absent", ann: nil},
+		{name: "one", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "1"}},
+		{name: "trimmed upper bound", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: " 16 "}},
+		{name: "zero", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "0"}, wantErr: true},
+		{name: "above bound", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "17"}, wantErr: true},
+		{name: "not a number", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "many"}, wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateHTTPRouteMaxShardsAnnotation(tt.ann, path)
+			if (len(errs) > 0) != tt.wantErr {
+				t.Fatalf("got %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPRoutePaths(t *testing.T) {
+	path := field.NewPath("spec")
+	match := func(t gwapiv1.PathMatchType, v string) gwapiv1.HTTPRouteMatch {
+		return gwapiv1.HTTPRouteMatch{Path: &gwapiv1.HTTPPathMatch{Type: ptr.To(t), Value: ptr.To(v)}}
+	}
+	for _, tt := range []struct {
+		name    string
+		m       gwapiv1.HTTPRouteMatch
+		wantErr string
+	}{
+		{name: "valid prefix", m: match(gwapiv1.PathMatchPathPrefix, "/v1/completions")},
+		{name: "valid percent encoding", m: match(gwapiv1.PathMatchExact, "/a%20b")},
+		{name: "regex is not checked", m: match(gwapiv1.PathMatchRegularExpression, "/a b.*")},
+		{name: "space", m: match(gwapiv1.PathMatchPathPrefix, "/a b"), wantErr: "valid characters"},
+		{name: "relative", m: match(gwapiv1.PathMatchExact, "a"), wantErr: "start with '/'"},
+		{name: "double slash", m: match(gwapiv1.PathMatchPathPrefix, "/a//b"), wantErr: "'//'"},
+		{name: "encoded slash", m: match(gwapiv1.PathMatchPathPrefix, "/a%2Fb"), wantErr: "encoded"},
+		{name: "dot segment", m: match(gwapiv1.PathMatchPathPrefix, "/a/.."), wantErr: "must not end"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := &gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{Matches: []gwapiv1.HTTPRouteMatch{tt.m}}}}
+			errs := ValidateHTTPRoutePaths(spec, path)
+			if tt.wantErr == "" {
+				require.Empty(t, errs)
+				return
+			}
+			require.Len(t, errs, 1)
+			assert.Contains(t, errs[0].Error(), tt.wantErr)
+			assert.Contains(t, errs[0].Field, "spec.rules[0].matches[0].path.value")
+		})
+	}
+}
+
+func TestValidateHTTPRouteSize(t *testing.T) {
+	path := field.NewPath("spec")
+	rules := func(n, matches int) []gwapiv1.HTTPRouteRule {
+		out := make([]gwapiv1.HTTPRouteRule, n)
+		for i := range out {
+			out[i].Matches = make([]gwapiv1.HTTPRouteMatch, matches)
+		}
+		return out
+	}
+	for _, tt := range []struct {
+		name    string
+		rules   []gwapiv1.HTTPRouteRule
+		wantErr string
+	}{
+		{name: "256 rules of 8 matches fit", rules: rules(256, 8)},
+		{name: "a rule without matches counts as one", rules: rules(256, 0)},
+		{name: "rules split for the per rule match limit count", rules: rules(129, 65), wantErr: "Too many: 258"},
+		{name: "too many matches", rules: rules(32, 65), wantErr: "2080 matches"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateHTTPRouteSize(&gwapiv1.HTTPRouteSpec{Rules: tt.rules}, path)
+			if tt.wantErr == "" {
+				if len(errs) != 0 {
+					t.Fatalf("unexpected errors: %v", errs)
+				}
+				return
+			}
+			if !strings.Contains(errs.ToAggregate().Error(), tt.wantErr) {
+				t.Fatalf("want %q in %v", tt.wantErr, errs)
+			}
+		})
+	}
+}
+
+func TestDryRunInlineRoute(t *testing.T) {
+	path := field.NewPath("spec")
+	router := &RouterSpec{Route: &GatewayRoutesSpec{HTTP: &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{
+		Rules: []gwapiv1.HTTPRouteRule{{}},
+	}}}}
+	calls := 0
+	accept := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error { calls++; return nil }
+	reject := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error {
+		return &InlineRouteRejectedError{Err: errors.New("bad header")}
+	}
+	unavailable := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error {
+		return errors.New("etcdserver: request timed out")
+	}
+
+	if errs, err := DryRunInlineRoute(context.Background(), nil, "ns", "svc", router, path); len(errs) != 0 || err != nil {
+		t.Fatalf("no dry-run func means no check: %v %v", errs, err)
+	}
+	if errs, err := DryRunInlineRoute(context.Background(), accept, "ns", "svc", router, path); len(errs) != 0 || err != nil || calls != 1 {
+		t.Fatalf("accepted route: errs=%v err=%v calls=%d", errs, err, calls)
+	}
+	empty := &RouterSpec{Route: &GatewayRoutesSpec{HTTP: &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{}}}}
+	if _, _ = DryRunInlineRoute(context.Background(), accept, "ns", "svc", empty, path); calls != 1 {
+		t.Fatalf("a route without rules is not sent")
+	}
+	errs, err := DryRunInlineRoute(context.Background(), reject, "ns", "svc", router, path)
+	if err != nil || len(errs) != 1 || !strings.Contains(errs[0].Error(), "bad header") {
+		t.Fatalf("rejection must surface as a field error: %v %v", errs, err)
+	}
+	errs, err = DryRunInlineRoute(context.Background(), unavailable, "ns", "svc", router, path)
+	if len(errs) != 0 || !apierrors.IsInternalError(err) || apierrors.IsInvalid(err) {
+		t.Fatalf("a failure to check must be a retryable internal error, not a field error: %v %v", errs, err)
 	}
 }

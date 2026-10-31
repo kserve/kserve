@@ -240,6 +240,7 @@ kserve:
       disableIngressCreation: false
       disableHTTPRouteTimeout: false
       loraModelRoutingStrategy: exact
+      httpRouteMaxShards: 1
       routeRuleNaming: preset
       localGateway:
         gateway: knative-serving/knative-local-gateway

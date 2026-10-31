@@ -88,6 +88,10 @@ const AnnotationModelBasedRoutingOnly = "serving.kserve.io/model-based-routing-o
 // carry it; absent or empty means the ConfigMap value applies.
 const AnnotationLoRAModelRoutingStrategy = constants.LoRAModelRoutingStrategyAnnotationKey
 
+// AnnotationHTTPRouteMaxShards caps, for one service, how many managed
+// HTTPRoutes the inline route may be sharded into, overriding the cluster-wide
+// httpRouteMaxShards. Read from spec.annotations so a preset can carry it.
+const AnnotationHTTPRouteMaxShards = constants.HTTPRouteMaxShardsAnnotationKey
 const AnnotationRouteRuleNaming = constants.RouteRuleNamingAnnotationKey
 
 // ErrPreconditionNotMet indicates a non-transient routing precondition failure
@@ -220,6 +224,9 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
 			return nil, err
 		}
+		if err := r.deleteStaleHTTPRouteShards(ctx, llmSvc, 0); err != nil {
+			return nil, err
+		}
 		r.EvaluateHTTPRouteConditions(ctx, llmSvc, nil)
 		return nil, nil
 	}
@@ -271,6 +278,9 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
 			return nil, err
 		}
+		if err := r.deleteStaleHTTPRouteShards(ctx, llmSvc, 0); err != nil {
+			return nil, err
+		}
 	}
 
 	if route.HTTP.HasSpec() {
@@ -291,16 +301,25 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 				llmSvc.Namespace, llmSvc.Name)
 		}
 
-		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
-			var invalid *apierrors.StatusError
-			if apierrors.IsInvalid(err) && errors.As(err, &invalid) {
-				// Report the API server's own field errors rather than Update's
-				// "failed to get defaults for" wrapper.
-				err = invalid
-			}
-			return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
+		// The logical route may hold more rules and matches than one HTTPRoute
+		// allows, so it is written as one or more resources that each fit.
+		// A route that cannot fit the cap however it is packed is rejected
+		// before the pairwise grouping in shardHTTPRoute runs.
+		limit, source := httpRouteMaxShardsFor(llmSvc, cfg)
+		if err := checkHTTPRouteShardCapacity(expectedHTTPRoute.Spec.Rules, limit, source); err != nil {
+			return nil, err
 		}
-		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
+		shards, sources, err := shardHTTPRouteWithSources(llmSvc, expectedHTTPRoute)
+		if err != nil {
+			return nil, err
+		}
+		if len(shards) > limit {
+			return nil, httpRouteShardCapError(fmt.Sprintf("%d HTTPRoutes", len(shards)), limit, source)
+		}
+		if err := r.reconcileHTTPRouteShards(ctx, llmSvc, shards, sources); err != nil {
+			return nil, err
+		}
+		referencedRoutes = append(referencedRoutes, shards...)
 	}
 
 	// After the route write, so the condition describes the stored route; any
@@ -358,7 +377,7 @@ func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc 
 func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) (*gwapiv1.HTTPRoute, error) {
 	httpRoute := &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-route"),
+			Name:      managedHTTPRouteName(llmSvc.GetName(), 0),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -403,19 +422,16 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 
 	logger := log.FromContext(ctx).WithValues("migration", "InferencePool")
 
-	curr := &gwapiv1.HTTPRoute{}
-	routeExists := r.Get(ctx, client.ObjectKeyFromObject(httpRoute), curr) == nil
+	// Every stored shard counts: the gateway may report v1 support or a
+	// v1alpha2 rejection on any of them, and a migrated shard keeps the
+	// whole route migrated.
+	stored, err := managedHTTPRoutes(ctx, r, llmSvc)
+	if err != nil {
+		logger.Error(err, "failed to list stored HTTPRoute shards for the InferencePool migration check")
+	}
 
 	const v1MigrationValue = "v1"
-	var isMigrated bool
-	var infPoolV1Alpha2Support, infPoolV1Support metav1.ConditionStatus
-
-	if routeExists {
-		migrationValue, hasMigrationAnnotation := curr.Annotations[AnnotationInferencePoolMigrated]
-		isMigrated = hasMigrationAnnotation && migrationValue == v1MigrationValue
-		infPoolV1Alpha2Support = IsInferencePoolV1Alpha2Supported(curr)
-		infPoolV1Support = IsInferencePoolV1Supported(curr)
-	}
+	isMigrated, infPoolV1Alpha2Support, infPoolV1Support := inferencePoolMigrationState(stored, v1MigrationValue)
 
 	// Multiple target ports require v1 even before the gateway reports support.
 	// Single-port pools retain the migration path for older gateway controllers.
@@ -442,8 +458,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			"isMigrated", isMigrated,
 			"infPoolV1Support", infPoolV1Support,
 			"infPoolV1Alpha2Support", infPoolV1Alpha2Support,
-			"httproute.curr.spec", curr.Spec,
-			"httproute.curr.status", curr.Status,
+			"httproute.stored.shards", len(stored),
 			"httproute.expected.spec", httpRoute.Spec,
 		)
 	} else {
@@ -460,8 +475,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			"isMigrated", isMigrated,
 			"infPoolV1Support", infPoolV1Support,
 			"infPoolV1Alpha2Support", infPoolV1Alpha2Support,
-			"httproute.curr.spec", curr.Spec,
-			"httproute.curr.status", curr.Status,
+			"httproute.stored.shards", len(stored),
 			"httproute.expected.spec", httpRoute.Spec,
 		)
 	}
@@ -508,7 +522,9 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	var discovered []DiscoveredURL
 	var allResolved []ResolvedGateway
-	for _, route := range routes {
+	// The shards of the inline route are read as the one route they came
+	// from, so the paths are picked across all of them together.
+	for _, route := range mergeManagedHTTPRouteShards(llmSvc, routes) {
 		resolvedGWs, err := DiscoverGateways(ctx, r.Client, route)
 		if err != nil {
 			return nil, fmt.Errorf("failed to discover gateways for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
@@ -520,6 +536,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		}
 		discovered = append(discovered, urls...)
 	}
+	discovered = dedupeDiscoveredURLs(discovered)
 
 	if len(routes) > 0 {
 		if llmSvc.Status.Router == nil {
@@ -634,6 +651,7 @@ func hasStaleControllerLabels(expected, current map[string]string) bool {
 
 var controllerManagedLabelKeys = []string{
 	constants.LLMRoutingGroupLabelKey,
+	constants.LLMHTTPRouteShardLabelKey,
 }
 
 // EvaluateGatewayConditions evaluates the readiness of all Gateways referenced by the LLMInferenceService
@@ -1101,4 +1119,37 @@ func BuildObservedGateways(routes []*gwapiv1.HTTPRoute) []v1alpha2.ObservedGatew
 	}
 
 	return result
+}
+
+// inferencePoolMigrationState folds the InferencePool migration signals of
+// every stored shard of a route: migrated when any shard carries the
+// migration annotation, v1 supported when any shard reports it, and
+// v1alpha2 unsupported when any shard reports that.
+func inferencePoolMigrationState(stored []*gwapiv1.HTTPRoute, v1MigrationValue string) (bool, metav1.ConditionStatus, metav1.ConditionStatus) {
+	isMigrated := false
+	v1Alpha2 := make([]metav1.ConditionStatus, 0, len(stored))
+	v1 := make([]metav1.ConditionStatus, 0, len(stored))
+	for _, route := range stored {
+		if route.Annotations[AnnotationInferencePoolMigrated] == v1MigrationValue {
+			isMigrated = true
+		}
+		v1Alpha2 = append(v1Alpha2, IsInferencePoolV1Alpha2Supported(route))
+		v1 = append(v1, IsInferencePoolV1Supported(route))
+	}
+	return isMigrated, foldConditionStatus(v1Alpha2, metav1.ConditionFalse), foldConditionStatus(v1, metav1.ConditionTrue)
+}
+
+// foldConditionStatus returns decisive when any status is decisive, else
+// the other definite status when any shard reports one, else Unknown.
+func foldConditionStatus(statuses []metav1.ConditionStatus, decisive metav1.ConditionStatus) metav1.ConditionStatus {
+	out := metav1.ConditionUnknown
+	for _, s := range statuses {
+		switch s {
+		case decisive:
+			return decisive
+		case metav1.ConditionTrue, metav1.ConditionFalse:
+			out = s
+		}
+	}
+	return out
 }

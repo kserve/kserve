@@ -89,6 +89,7 @@ data:
         "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }},
         "disableHTTPRouteTimeout": {{ .Values.kserve.controller.gateway.disableHTTPRouteTimeout }},
         "loraModelRoutingStrategy": "{{ .Values.kserve.controller.gateway.loraModelRoutingStrategy }}",
+        "httpRouteMaxShards": {{ .Values.kserve.controller.gateway.httpRouteMaxShards | default 1 }},
         "routeRuleNaming": "{{ .Values.kserve.controller.gateway.routeRuleNaming }}"
     }
   logger: |-

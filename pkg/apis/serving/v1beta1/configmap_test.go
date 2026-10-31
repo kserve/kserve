@@ -1274,3 +1274,31 @@ func TestNewIngressConfigRouteRuleNaming(t *testing.T) {
 		})
 	}
 }
+
+func TestNewIngressConfigHTTPRouteMaxShards(t *testing.T) {
+	// llmisvc defaults and bounds the value in its own config loader, so the
+	// shared ingress config passes it through untouched.
+	for _, tt := range []struct {
+		name  string
+		value string // omitted from the ingress JSON when empty
+		want  int
+	}{
+		{name: "zero when omitted", want: 0},
+		{name: "passes a value in range through", value: "4", want: 4},
+		{name: "does not fail the InferenceService manager on out of range values", value: "17", want: 17},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			ingress := `{"ingressGateway": "knative-serving/knative-ingress-gateway"`
+			if tt.value != "" {
+				ingress += `, "httpRouteMaxShards": ` + tt.value
+			}
+			ingress += `}`
+
+			cfg, err := NewIngressConfig(&corev1.ConfigMap{Data: map[string]string{IngressConfigKeyName: ingress}})
+
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(cfg.HTTPRouteMaxShards).To(gomega.Equal(tt.want))
+		})
+	}
+}
