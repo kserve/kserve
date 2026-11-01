@@ -245,7 +245,7 @@ def test_files_with_no_extension(mock_storage):
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
 
-    # Download only the exact file if found; otherwise, download all files with the given prefix
+    # Prefer the exact file; otherwise, download only keys under the directory prefix
     assert arg_list[0] == expected_call_args_list("test", "dest_path", paths)[0]
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="test/churn-pickle")
@@ -882,3 +882,54 @@ def test_s3_no_patterns_downloads_all(mock_storage):
 
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
     assert len(arg_list) == 3
+
+
+@mock.patch("boto3.resource")
+def test_s3_prefix_does_not_match_sibling_directory(mock_storage):
+    bucket_name = "foo"
+    object_paths = ["models/bert/config.json", "models/bert-v2/weights"]
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+
+    Storage._download_s3(f"s3://{bucket_name}/models/bert", "dest_path")
+
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list == [("models/bert/config.json", "dest_path/config.json")]
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix="models/bert")
+
+
+@mock.patch("boto3.resource")
+def test_s3_prefix_with_trailing_slash(mock_storage):
+    bucket_name = "foo"
+    object_paths = ["models/bert/config.json", "models/bert/1/model.pt"]
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+
+    Storage._download_s3(f"s3://{bucket_name}/models/bert/", "dest_path")
+
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list == [
+        ("models/bert/config.json", "dest_path/config.json"),
+        ("models/bert/1/model.pt", "dest_path/1/model.pt"),
+    ]
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix="models/bert/")
+
+
+@mock.patch("boto3.resource")
+def test_s3_exact_file_does_not_match_sibling_file(mock_storage):
+    bucket_name = "foo"
+    object_paths = ["models/model.pt", "models/model.pt.bak"]
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+
+    Storage._download_s3(f"s3://{bucket_name}/models/model.pt", "dest_path")
+
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert arg_list == [("models/model.pt", "dest_path/model.pt")]
+
+
+@mock.patch("boto3.resource")
+def test_s3_prefix_only_sibling_matches(mock_storage):
+    bucket_name = "foo"
+    object_paths = ["models/bert-v2/weights"]
+    create_mock_boto3_bucket(mock_storage, object_paths)
+
+    with pytest.raises(RuntimeError, match="No model found"):
+        Storage._download_s3(f"s3://{bucket_name}/models/bert", "dest_path")
