@@ -21,6 +21,8 @@ KServe is a Kubernetes-native platform for serving machine learning models. The 
 
 ## Commands
 
+`make help` lists the targets you run directly, when to run each and what it rewrites or needs.
+
 Prerequisites: Go (version pinned in `go.mod`) and `make`.
 
 ```
@@ -29,12 +31,14 @@ make test-qpext                 # qpext tests (separate Go module under qpext/)
 make precommit                  # formatting, linting, codegen, manifest sync
 ```
 
-For faster iteration on a specific package, run `make setup-envtest` once, then:
+To iterate, run a subset with `make test-focus`. It uses the envtest assets of `make test` but skips its `fmt`, `vet`, `manifests` and `qpext` steps, and it fails when no test or spec ran:
 
 ```
-KUBEBUILDER_ASSETS="$(./bin/setup-envtest use $(go list -m -f '{{ .Version }}' k8s.io/api | awk -F'[v.]' '{printf "1.%d", $3}') -p path)" \
-  go test ./pkg/controller/v1beta1/... -run TestSpecificName -v
+make test-focus PKG=./pkg/utils RUN='^TestUnionUtil$'
+make test-focus PKG=./pkg/controller/v1alpha2/llmisvc RUN=TestLLMInferenceServiceController FOCUS='TLS Toggle'
 ```
+
+`PKG` takes package patterns, `RUN` a `go test -run` regex and `FOCUS` a Ginkgo focus regex. With `FOCUS`, packages without a Ginkgo suite are skipped. A Ginkgo suite runs from one `Test*` function, so naming it in `RUN` skips the plain tests in the same package. After an API type change, run `make manifests` first: envtest loads the CRDs from `test/crds/`.
 
 ## Testing
 

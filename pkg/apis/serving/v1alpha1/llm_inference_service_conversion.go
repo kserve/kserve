@@ -342,6 +342,13 @@ func convertModelSpecToV1Alpha2(src *LLMModelSpec) v1alpha2.LLMModelSpec {
 		dst.LoRA = convertLoRASpecToV1Alpha2(src.LoRA)
 	}
 
+	if src.Confidential != nil {
+		dst.Confidential = &v1alpha2.ConfidentialSpec{
+			Enabled:    src.Confidential.Enabled,
+			ResourceId: src.Confidential.ResourceId,
+		}
+	}
+
 	return dst
 }
 
@@ -354,6 +361,13 @@ func convertModelSpecFromV1Alpha2(src *v1alpha2.LLMModelSpec) LLMModelSpec {
 
 	if src.LoRA != nil {
 		dst.LoRA = convertLoRASpecFromV1Alpha2(src.LoRA)
+	}
+
+	if src.Confidential != nil {
+		dst.Confidential = &ConfidentialSpec{
+			Enabled:    src.Confidential.Enabled,
+			ResourceId: src.Confidential.ResourceId,
+		}
 	}
 
 	return dst
