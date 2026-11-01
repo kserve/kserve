@@ -1603,11 +1603,8 @@ func TestBundledLLMInferenceServiceConfigsRenderValidates(t *testing.T) {
 	// Include the release bundles modified by this fix, not only their sources.
 	manifests := []string{
 		"charts/kserve-runtime-configs/files/llmisvcconfigs/resources.yaml",
-	}
-	for _, version := range []string{"v0.21.0", "v0.21.0-rc1"} {
-		for _, filename := range []string{"kserve-cluster-resources.yaml"} {
-			manifests = append(manifests, filepath.Join("install", version, filename))
-		}
+		"install/v0.21.0/kserve-cluster-resources.yaml",
+		"install/v0.21.0-rc1/kserve-cluster-resources.yaml",
 	}
 	for _, manifest := range manifests {
 		t.Run(manifest, func(t *testing.T) {
