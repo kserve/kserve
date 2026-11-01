@@ -122,7 +122,8 @@ class InferenceGRPCClient:
                         # Apply retry to all methods
                         "name": [{}],
                         "retryPolicy": {
-                            "maxAttempts": retries,
+                            # maxAttempts counts the first call too.
+                            "maxAttempts": retries + 1,
                             "initialBackoff": "0.1s",
                             "maxBackoff": "1s",
                             "backoffMultiplier": 2,

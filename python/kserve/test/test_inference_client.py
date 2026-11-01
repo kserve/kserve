@@ -14,15 +14,17 @@
 
 import re
 
+import grpc
 import httpx
 import numpy as np
 import pytest
 import pytest_asyncio
 
-from kserve import InferenceRESTClient, InferRequest, InferInput
+from kserve import InferenceGRPCClient, InferenceRESTClient, InferRequest, InferInput
 from kserve.model_server import app as kserve_app
 from kserve.errors import UnsupportedProtocol
 from kserve.inference_client import RESTConfig
+from kserve.protocol.grpc import grpc_predict_v2_pb2, grpc_predict_v2_pb2_grpc
 from kserve.protocol.infer_type import RequestedOutput
 from test.test_server import DummyModel
 
@@ -562,3 +564,48 @@ class TestInferenceRESTClient:
                 headers={"Host": "test-server.com"},
                 timeout=1.3,
             )
+
+
+class FlakyLiveServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
+    """Answers ServerLive with UNAVAILABLE for the first `failures` calls."""
+
+    def __init__(self, failures):
+        self.failures = failures
+        self.calls = 0
+
+    async def ServerLive(self, request, context):
+        self.calls += 1
+        if self.calls <= self.failures:
+            await context.abort(grpc.StatusCode.UNAVAILABLE, "not yet")
+        return grpc_predict_v2_pb2.ServerLiveResponse(live=True)
+
+
+@pytest.mark.asyncio
+class TestInferenceGRPCClientRetries:
+    @staticmethod
+    async def call_server_live(servicer, retries):
+        server = grpc.aio.server()
+        grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
+            servicer, server
+        )
+        port = server.add_insecure_port("127.0.0.1:0")
+        await server.start()
+        client = InferenceGRPCClient(f"127.0.0.1:{port}", retries=retries, timeout=5)
+        try:
+            return await client.is_server_live()
+        finally:
+            await client.close()
+            await server.stop(0)
+
+    @pytest.mark.parametrize("retries", [1, 2, 3])
+    async def test_retries_cover_that_many_failures(self, retries):
+        servicer = FlakyLiveServicer(failures=retries)
+        assert await self.call_server_live(servicer, retries) is True
+        assert servicer.calls == retries + 1
+
+    async def test_stops_after_retries_are_used_up(self):
+        servicer = FlakyLiveServicer(failures=2)
+        with pytest.raises(grpc.RpcError) as exc_info:
+            await self.call_server_live(servicer, retries=1)
+        assert exc_info.value.code() == grpc.StatusCode.UNAVAILABLE
+        assert servicer.calls == 2
