@@ -609,3 +609,16 @@ class TestInferenceGRPCClientRetries:
             await self.call_server_live(servicer, retries=1)
         assert exc_info.value.code() == grpc.StatusCode.UNAVAILABLE
         assert servicer.calls == 2
+
+    @pytest.mark.parametrize(
+        "channel_args",
+        [
+            [("grpc.enable_retries", 0)],
+            [("grpc.service_config", '{"methodConfig": []}')],
+        ],
+    )
+    async def test_retries_none_with_custom_channel_args(self, channel_args):
+        client = InferenceGRPCClient(
+            "127.0.0.1:1", retries=None, channel_args=channel_args
+        )
+        await client.close()
