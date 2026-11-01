@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock
 
 import pytest
-from kserve import AsyncModel, Model, ModelRepository, ModelServer, model_server
+from kserve import Model, ModelRepository, ModelServer, model_server
 
 UNKNOWN_MODEL_TYPE_ERR_MESSAGE = "Unknown model collection type"
 
@@ -36,8 +36,8 @@ def test_model_server_start_no_models():
 @pytest.mark.parametrize("configured_workers", [1, 2, None])
 def test_start_configures_executor_on_serving_loop(monkeypatch, configured_workers):
     monkeypatch.delenv("ASYNC_MODEL_WORKERS", raising=False)
-    monkeypatch.setattr(AsyncModel, "_shared_executor", None)
-    monkeypatch.setattr(AsyncModel, "_max_workers", None)
+    monkeypatch.setattr(Model, "_shared_executor", None)
+    monkeypatch.setattr(Model, "_max_workers", None)
     monkeypatch.setattr(model_server.utils, "cpu_count", lambda: 0)
     expected_workers = configured_workers if configured_workers is not None else 4
     count = expected_workers + 1
@@ -50,7 +50,7 @@ def test_start_configures_executor_on_serving_loop(monkeypatch, configured_worke
     all_submitted = None
     original_submit = ThreadPoolExecutor.submit
 
-    class BlockingModel(AsyncModel):
+    class BlockingModel(Model):
         def predict(self, payload, headers=None):
             nonlocal active, peak
             with state_lock:
@@ -73,7 +73,7 @@ def test_start_configures_executor_on_serving_loop(monkeypatch, configured_worke
             all_submitted.set()
         return future
 
-    model = BlockingModel("blocking")
+    model = BlockingModel("blocking", offload_sync_predict=True)
     model.ready = True
     previous_config = model_server.kserve_context.get_predictor_config()
     server = ModelServer(max_asyncio_workers=configured_workers, enable_grpc=False)
@@ -107,7 +107,7 @@ def test_start_configures_executor_on_serving_loop(monkeypatch, configured_worke
         server.start([model])
         assert serving_loop is not previous_loop
         assert peak <= expected_workers
-        assert AsyncModel._shared_executor is None
+        assert Model._shared_executor is None
     finally:
         release.set()
         previous_loop.run_until_complete(previous_loop.shutdown_default_executor())
