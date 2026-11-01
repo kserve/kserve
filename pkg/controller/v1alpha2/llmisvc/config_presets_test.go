@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -1599,37 +1600,50 @@ func TestBundledLLMInferenceServiceConfigsRenderValidates(t *testing.T) {
 		t.Fatal("No presets checked in config/llmisvcconfig")
 	}
 
-	// 2. Validate all multi-document configs bundled in Helm chart resources.yaml
-	chartManifestPath := filepath.Join(root, "charts", "kserve-runtime-configs", "files", "llmisvcconfigs", "resources.yaml")
-	chartData, err := os.ReadFile(filepath.Clean(chartManifestPath))
-	if err != nil {
-		t.Fatalf("Failed to read chart manifest %s: %v", chartManifestPath, err)
+	// Include the release bundles modified by this fix, not only their sources.
+	manifests := []string{
+		"charts/kserve-runtime-configs/files/llmisvcconfigs/resources.yaml",
 	}
-
-	decoder := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(chartData), 4096)
-	var checkedChartConfigs int
-	for {
-		cfg := &v1alpha2.LLMInferenceServiceConfig{}
-		err := decoder.Decode(cfg)
-		if errors.Is(err, io.EOF) {
-			break
+	for _, version := range []string{"v0.21.0", "v0.21.0-rc1"} {
+		for _, filename := range []string{"kserve-cluster-resources.yaml"} {
+			manifests = append(manifests, filepath.Join("install", version, filename))
 		}
-		if err != nil {
-			t.Fatalf("Failed to decode document from %s: %v", chartManifestPath, err)
-		}
-		if cfg.Kind != v1alpha2.LLMInferenceServiceConfigGVK.Kind || cfg.Name == "" {
-			continue
-		}
-
-		t.Run("chart/"+cfg.Name, func(t *testing.T) {
-			if _, err := llmisvc.ReplaceVariables(llmSvc, cfg, &kserveSystemConfig); err != nil {
-				t.Errorf("ReplaceVariables failed for chart resource %s: %v", cfg.Name, err)
+	}
+	for _, manifest := range manifests {
+		t.Run(manifest, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Clean(filepath.Join(root, manifest)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoder := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), 4096)
+			checked := 0
+			for {
+				var document json.RawMessage
+				err := decoder.Decode(&document)
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				var header metav1.TypeMeta
+				if err := json.Unmarshal(document, &header); err != nil {
+					t.Fatal(err)
+				}
+				if header.Kind != v1alpha2.LLMInferenceServiceConfigGVK.Kind {
+					continue
+				}
+				cfg := loadConfig(t, document, manifest)
+				t.Run(cfg.Name, func(t *testing.T) {
+					if _, err := llmisvc.ReplaceVariables(llmSvc, cfg, &kserveSystemConfig); err != nil {
+						t.Errorf("ReplaceVariables failed: %v", err)
+					}
+				})
+				checked++
+			}
+			if checked == 0 {
+				t.Fatal("No LLMInferenceServiceConfigs checked")
 			}
 		})
-		checkedChartConfigs++
-	}
-
-	if checkedChartConfigs == 0 {
-		t.Fatal("No configs checked in chart resources.yaml")
 	}
 }
