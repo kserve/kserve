@@ -210,7 +210,9 @@ func scrape(ctx context.Context, url string, header http.Header, logger *zap.Log
 		return nil, cancel, "", err
 	}
 
-	applyHeaders(req.Header, header, "Accept",
+	// handleStats writes text and parses the app metrics as text, so ask for text whatever the scraper accepts.
+	req.Header.Set("Accept", string(expfmt.NewFormat(expfmt.TypeTextPlain)))
+	applyHeaders(req.Header, header,
 		"User-Agent",
 		prometheusTimeoutHeader,
 	)
