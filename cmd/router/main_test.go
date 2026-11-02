@@ -1117,3 +1117,227 @@ func TestCryptoRandIntUpperBoundWithFix(t *testing.T) {
 			"rand.Int(100) returned out-of-range value %d on iteration %d", n.Int64(), i)
 	}
 }
+
+const nestedGraphShape = "NestedSequenceEnsemble"
+
+// newTestMux returns a mux configured with the same routes as the router server.
+func newTestMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	registerHandlers(mux)
+	return mux
+}
+
+// newUnexpectedStep starts a graph step that fails the test if it receives any request.
+func newUnexpectedStep(t *testing.T) string {
+	t.Helper()
+	step := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		t.Errorf("graph step must not be called, got %s %s", req.Method, req.URL.Path)
+		rw.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(step.Close)
+	return step.URL
+}
+
+// newPredictionStep starts a graph step that answers every request with the given prediction.
+func newPredictionStep(t *testing.T, prediction string) string {
+	t.Helper()
+	step := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if _, err := io.ReadAll(req.Body); err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		responseBytes, err := json.Marshal(map[string]interface{}{"predictions": prediction})
+		if err != nil {
+			t.Errorf("failed to marshal response: %v", err)
+		}
+		_, _ = rw.Write(responseBytes)
+	}))
+	t.Cleanup(step.Close)
+	return step.URL
+}
+
+// useGraph sets the graph served by graphHandler for the duration of the test.
+func useGraph(t *testing.T, graphSpec v1alpha1.InferenceGraphSpec) {
+	t.Helper()
+	previous := inferenceGraph
+	inferenceGraph = &graphSpec
+	t.Cleanup(func() { inferenceGraph = previous })
+}
+
+// setShuttingDown sets the router shutdown state for the duration of the test.
+func setShuttingDown(t *testing.T, shuttingDown bool) {
+	t.Helper()
+	previous := isShuttingDown
+	isShuttingDown = shuttingDown
+	t.Cleanup(func() { isShuttingDown = previous })
+}
+
+// healthTestGraph builds a graph of the given shape whose two model steps call url1 and url2.
+func healthTestGraph(t *testing.T, shape string, url1 string, url2 string) v1alpha1.InferenceGraphSpec {
+	t.Helper()
+	model1 := v1alpha1.InferenceStep{StepName: "model1", InferenceTarget: v1alpha1.InferenceTarget{ServiceURL: url1}}
+	model2 := v1alpha1.InferenceStep{StepName: "model2", InferenceTarget: v1alpha1.InferenceTarget{ServiceURL: url2}}
+	root := v1alpha1.InferenceRouter{RouterType: v1alpha1.InferenceRouterType(shape)}
+	nodes := map[string]v1alpha1.InferenceRouter{}
+	switch shape {
+	case string(v1alpha1.Sequence):
+		model2.Data = "$response"
+	case string(v1alpha1.Splitter):
+		model1.Weight = Int64Ptr(50)
+		model2.Weight = Int64Ptr(50)
+	case string(v1alpha1.Ensemble):
+	case string(v1alpha1.Switch):
+		model1.Condition = "instances"
+		model2.Condition = "inputs"
+	case nestedGraphShape:
+		root.RouterType = v1alpha1.Sequence
+		root.Steps = []v1alpha1.InferenceStep{
+			{StepName: "child", InferenceTarget: v1alpha1.InferenceTarget{NodeName: "child"}},
+		}
+		nodes["child"] = v1alpha1.InferenceRouter{
+			RouterType: v1alpha1.Ensemble,
+			Steps:      []v1alpha1.InferenceStep{model1, model2},
+		}
+		nodes[v1alpha1.GraphRootNodeName] = root
+		return v1alpha1.InferenceGraphSpec{Nodes: nodes}
+	default:
+		t.Fatalf("unknown graph shape %q", shape)
+	}
+	root.Steps = []v1alpha1.InferenceStep{model1, model2}
+	nodes[v1alpha1.GraphRootNodeName] = root
+	return v1alpha1.InferenceGraphSpec{Nodes: nodes}
+}
+
+func TestV2HealthEndpointsAreServedByRouter(t *testing.T) {
+	readyPath, livePath := constants.RouterV2HealthReadyEndpoint, constants.RouterV2HealthLiveEndpoint
+	readyBody, liveBody := `{"ready":true}`, `{"live":true}`
+	testCases := []struct {
+		name         string
+		graphShape   string
+		method       string
+		path         string
+		expectedBody string // empty when the response carries no body
+	}{
+		{name: "sequence node", graphShape: string(v1alpha1.Sequence), method: http.MethodGet, path: readyPath, expectedBody: readyBody},
+		{name: "splitter node", graphShape: string(v1alpha1.Splitter), method: http.MethodGet, path: readyPath, expectedBody: readyBody},
+		{name: "ensemble node", graphShape: string(v1alpha1.Ensemble), method: http.MethodGet, path: readyPath, expectedBody: readyBody},
+		{name: "switch node", graphShape: string(v1alpha1.Switch), method: http.MethodGet, path: readyPath, expectedBody: readyBody},
+		{name: "nested nodes", graphShape: nestedGraphShape, method: http.MethodGet, path: readyPath, expectedBody: readyBody},
+		{name: "server live endpoint", graphShape: string(v1alpha1.Ensemble), method: http.MethodGet, path: livePath, expectedBody: liveBody},
+		// The HTTP server omits the body of a HEAD response, so only the status is checked.
+		{name: "head request", graphShape: string(v1alpha1.Ensemble), method: http.MethodHead, path: readyPath},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			setShuttingDown(t, false)
+			useGraph(t, healthTestGraph(t, testCase.graphShape, newUnexpectedStep(t), newUnexpectedStep(t)))
+
+			recorder := httptest.NewRecorder()
+			newTestMux().ServeHTTP(recorder, httptest.NewRequest(testCase.method, testCase.path, nil))
+
+			assert.Equal(t, http.StatusOK, recorder.Code)
+			assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
+			if testCase.expectedBody != "" {
+				assert.JSONEq(t, testCase.expectedBody, recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestV2HealthEndpointsWhileShuttingDown(t *testing.T) {
+	testCases := []struct {
+		name           string
+		path           string
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:           "server live stays live while draining",
+			path:           constants.RouterV2HealthLiveEndpoint,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"live":true}`,
+		},
+		{
+			name:           "server ready reports not ready",
+			path:           constants.RouterV2HealthReadyEndpoint,
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedBody:   `{"error":"Router is not ready","cause":"shutting down"}`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			setShuttingDown(t, true)
+			useGraph(t, healthTestGraph(t, string(v1alpha1.Ensemble), newUnexpectedStep(t), newUnexpectedStep(t)))
+
+			recorder := httptest.NewRecorder()
+			newTestMux().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, testCase.path, nil))
+
+			assert.Equal(t, testCase.expectedStatus, recorder.Code)
+			assert.JSONEq(t, testCase.expectedBody, recorder.Body.String())
+		})
+	}
+}
+
+func TestRequestsOutsideHealthRoutesStillRunGraph(t *testing.T) {
+	testCases := []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodPost, path: "/"},
+		{method: http.MethodPost, path: constants.RouterV2HealthReadyEndpoint},
+		{method: http.MethodPut, path: constants.RouterV2HealthReadyEndpoint},
+		{method: http.MethodPost, path: constants.RouterV2HealthLiveEndpoint},
+		{method: http.MethodPost, path: "/v1/models/model:predict"},
+		{method: http.MethodPost, path: "/v2/models/model/infer"},
+		{method: http.MethodGet, path: "/"},
+		{method: http.MethodGet, path: constants.RouterV2HealthReadyEndpoint + "/"},
+	}
+	expectedResponse := map[string]interface{}{
+		"model1": map[string]interface{}{"predictions": "1"},
+		"model2": map[string]interface{}{"predictions": "2"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.method+" "+testCase.path, func(t *testing.T) {
+			setShuttingDown(t, false)
+			useGraph(t, healthTestGraph(t, string(v1alpha1.Ensemble), newPredictionStep(t, "1"), newPredictionStep(t, "2")))
+
+			request := httptest.NewRequest(testCase.method, testCase.path, bytes.NewBufferString(`{"instances":["test","test2"]}`))
+			recorder := httptest.NewRecorder()
+			newTestMux().ServeHTTP(recorder, request)
+
+			require.Equal(t, http.StatusOK, recorder.Code)
+			var response map[string]interface{}
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+			assert.Equal(t, expectedResponse, response)
+		})
+	}
+}
+
+func TestReadinessProbeEndpointUnchanged(t *testing.T) {
+	testCases := []struct {
+		name           string
+		method         string
+		shuttingDown   bool
+		expectedStatus int
+		expectedBody   string
+	}{
+		{name: "GET while serving", method: http.MethodGet, expectedStatus: http.StatusOK},
+		{name: "POST while serving", method: http.MethodPost, expectedStatus: http.StatusOK},
+		{name: "GET while shutting down", method: http.MethodGet, shuttingDown: true, expectedStatus: http.StatusServiceUnavailable, expectedBody: "shutting down\n"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			setShuttingDown(t, testCase.shuttingDown)
+			useGraph(t, healthTestGraph(t, string(v1alpha1.Ensemble), newUnexpectedStep(t), newUnexpectedStep(t)))
+
+			recorder := httptest.NewRecorder()
+			newTestMux().ServeHTTP(recorder, httptest.NewRequest(testCase.method, constants.RouterReadinessEndpoint, nil))
+
+			assert.Equal(t, testCase.expectedStatus, recorder.Code)
+			assert.Equal(t, testCase.expectedBody, recorder.Body.String())
+		})
+	}
+}

@@ -475,6 +475,41 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func writeHealthResponse(w http.ResponseWriter, statusCode int, body []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	if _, err := w.Write(body); err != nil {
+		log.Error(err, "failed to write health response")
+	}
+}
+
+// v2LiveHandler implements the Open Inference Protocol server live endpoint. The router is
+// live while it can respond, including while it drains connections during shutdown.
+func v2LiveHandler(w http.ResponseWriter, _ *http.Request) {
+	writeHealthResponse(w, http.StatusOK, []byte(`{"live":true}`))
+}
+
+// v2ReadyHandler implements the Open Inference Protocol server ready endpoint. Like
+// readyHandler, it reports not ready once the router is shutting down.
+func v2ReadyHandler(w http.ResponseWriter, _ *http.Request) {
+	if isShuttingDown {
+		writeHealthResponse(w, http.StatusServiceUnavailable,
+			prepareErrorResponse(errors.New("shutting down"), "Router is not ready"))
+		return
+	}
+	writeHealthResponse(w, http.StatusOK, []byte(`{"ready":true}`))
+}
+
+// registerHandlers configures the router's HTTP routes. The health endpoints are answered by
+// the router itself; otherwise the catch-all graphHandler would run them through the graph as
+// inference requests. They match GET and HEAD only, so other methods still reach graphHandler.
+func registerHandlers(mux *http.ServeMux) {
+	mux.HandleFunc("/", graphHandler)
+	mux.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
+	mux.HandleFunc(http.MethodGet+" "+constants.RouterV2HealthLiveEndpoint, v2LiveHandler)
+	mux.HandleFunc(http.MethodGet+" "+constants.RouterV2HealthReadyEndpoint, v2ReadyHandler)
+}
+
 var (
 	jsonGraph                                           = flag.String("graph-json", "", "serialized json graph def")
 	inferenceGraph         *v1alpha1.InferenceGraphSpec = nil
@@ -507,8 +542,7 @@ func main() {
 	}
 	initTimeouts(*inferenceGraph)
 
-	http.HandleFunc("/", graphHandler)
-	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
+	registerHandlers(http.DefaultServeMux)
 
 	server := &http.Server{
 		Addr:         ":" + strconv.Itoa(constants.RouterPort),
