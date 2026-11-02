@@ -45,10 +45,6 @@ const maxRuleNameLength = 253
 // applyRouteRuleNaming hashes the service name rather than the model name, since
 // canary members and other services in a namespace can share a model name.
 // Unnamed rules stay unnamed: Istio already derives a per-route name for them.
-// A name already ending in the suffix is kept, so a spec copied from a rendered
-// route is not suffixed twice; a spec holding both "x" and "x-<suffix>" then
-// ends up with two rules of that name, as can two over-long names that are equal
-// once cut to fit.
 func applyRouteRuleNaming(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) error {
 	naming, source := routeRuleNamingFor(llmSvc, cfg)
 	switch naming {
@@ -72,15 +68,17 @@ func applyRouteRuleNaming(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alpha2.LLMInf
 	}
 }
 
-// uniqueRuleName drops trailing dots and hyphens after a cut, as a dot right
-// before the suffix's hyphen breaks the SectionName pattern.
+// uniqueRuleName suffixes every name, including one already ending in the suffix,
+// so names that fit stay apart. A name too long to take the suffix is cut and keeps
+// a digest of the full name, so names differing only past the cut stay apart too; a
+// name spelled exactly like another's cut form still collides with it. Trailing dots
+// and hyphens go after the cut, as a dot right before a hyphen breaks the SectionName
+// pattern.
 func uniqueRuleName(name gwapiv1.SectionName, suffix string) gwapiv1.SectionName {
 	stem := string(name)
-	if strings.HasSuffix(stem, suffix) {
-		return name
-	}
 	if budget := maxRuleNameLength - len(suffix); len(stem) > budget {
-		stem = strings.TrimRight(stem[:budget], ".-")
+		digest := "-" + utils.ShortHash(stem)
+		stem = strings.TrimRight(stem[:budget-len(digest)], ".-") + digest
 	}
 	return gwapiv1.SectionName(stem + suffix)
 }

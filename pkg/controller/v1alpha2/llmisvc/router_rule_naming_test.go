@@ -53,8 +53,9 @@ func TestExpectedHTTPRouteRuleNaming(t *testing.T) {
 	presetRules := func() []gwapiv1.HTTPRouteRule { return rules("") }
 	uniqueRules := func(hash string) []gwapiv1.HTTPRouteRule { return rules("-" + hash) }
 	// 253 characters, the SectionName maximum; cutting it to make room for the
-	// suffix lands right after the dot.
-	longName := strings.Repeat("a", 243) + "." + strings.Repeat("b", 9)
+	// digest and the suffix lands right after the dot.
+	longName := strings.Repeat("a", 234) + "." + strings.Repeat("b", 18)
+	sharedPrefix := strings.Repeat("a", 245)
 
 	for _, tt := range []struct {
 		name        string
@@ -75,7 +76,11 @@ func TestExpectedHTTPRouteRuleNaming(t *testing.T) {
 		{name: "empty annotation defers to the ConfigMap", naming: RouteRuleNamingUnique, annotations: map[string]string{AnnotationRouteRuleNaming: ""}, want: uniqueRules("76372607")},
 		{name: "same service name in another namespace gets another suffix", namespace: "other-ns", naming: RouteRuleNamingUnique, want: uniqueRules("a39f440c")},
 		{name: "another service in the same namespace gets another suffix", svcName: "other-svc", naming: RouteRuleNamingUnique, want: uniqueRules("6ac037dd")},
-		{name: "a name already carrying the suffix is not suffixed again", naming: RouteRuleNamingUnique, rules: uniqueRules("76372607"), want: uniqueRules("76372607")},
+		{
+			name: "a name already carrying the suffix stays apart from the name without it", naming: RouteRuleNamingUnique,
+			rules: []gwapiv1.HTTPRouteRule{named("x", "/ns/svc/v1/completions"), named("x-76372607", "/ns/svc/v1/chat/completions")},
+			want:  []gwapiv1.HTTPRouteRule{named("x-76372607", "/ns/svc/v1/completions"), named("x-76372607-76372607", "/ns/svc/v1/chat/completions")},
+		},
 		{
 			name: "an empty name stays empty", naming: RouteRuleNamingUnique,
 			rules: []gwapiv1.HTTPRouteRule{named("", "/ns/svc/v1/completions")},
@@ -84,7 +89,37 @@ func TestExpectedHTTPRouteRuleNaming(t *testing.T) {
 		{
 			name: "an over-long name is cut to fit a SectionName", naming: RouteRuleNamingUnique,
 			rules: []gwapiv1.HTTPRouteRule{named(longName, "/ns/svc/v1/completions")},
-			want:  []gwapiv1.HTTPRouteRule{named(strings.Repeat("a", 243)+"-76372607", "/ns/svc/v1/completions")},
+			want:  []gwapiv1.HTTPRouteRule{named(strings.Repeat("a", 234)+"-3036acde-76372607", "/ns/svc/v1/completions")},
+		},
+		{
+			name: "over-long names differing past the cut stay apart", naming: RouteRuleNamingUnique,
+			rules: []gwapiv1.HTTPRouteRule{named(sharedPrefix+"b", "/ns/svc/v1/completions"), named(sharedPrefix+"c", "/ns/svc/v1/chat/completions")},
+			want: []gwapiv1.HTTPRouteRule{
+				named(strings.Repeat("a", 235)+"-42b6e86a-76372607", "/ns/svc/v1/completions"),
+				named(strings.Repeat("a", 235)+"-3d01e4f4-76372607", "/ns/svc/v1/chat/completions"),
+			},
+		},
+		{
+			name: "244 characters take the suffix whole and 245 are cut", naming: RouteRuleNamingUnique,
+			rules: []gwapiv1.HTTPRouteRule{named(strings.Repeat("a", 244), "/ns/svc/v1/completions"), named(strings.Repeat("a", 245), "/ns/svc/v1/chat/completions")},
+			want: []gwapiv1.HTTPRouteRule{
+				named(strings.Repeat("a", 244)+"-76372607", "/ns/svc/v1/completions"),
+				named(strings.Repeat("a", 235)+"-5553f055-76372607", "/ns/svc/v1/chat/completions"),
+			},
+		},
+		{
+			name: "a hyphen left at the cut is dropped", naming: RouteRuleNamingUnique,
+			rules: []gwapiv1.HTTPRouteRule{named(strings.Repeat("a", 234)+"-"+strings.Repeat("b", 18), "/ns/svc/v1/completions")},
+			want:  []gwapiv1.HTTPRouteRule{named(strings.Repeat("a", 234)+"-a34c363e-76372607", "/ns/svc/v1/completions")},
+		},
+		{
+			// Takes intent: the short name has to embed the long name's digest.
+			name: "a name spelled like another's cut form collides with it", naming: RouteRuleNamingUnique,
+			rules: []gwapiv1.HTTPRouteRule{named(strings.Repeat("a", 235)+"-3f3e35e0", "/ns/svc/v1/completions"), named(strings.Repeat("a", 250), "/ns/svc/v1/chat/completions")},
+			want: []gwapiv1.HTTPRouteRule{
+				named(strings.Repeat("a", 235)+"-3f3e35e0-76372607", "/ns/svc/v1/completions"),
+				named(strings.Repeat("a", 235)+"-3f3e35e0-76372607", "/ns/svc/v1/chat/completions"),
+			},
 		},
 		{name: "unsupported annotation fails closed naming the annotation", naming: RouteRuleNamingPreset, annotations: map[string]string{AnnotationRouteRuleNaming: "bogus"}, wantErrFrom: "annotation " + AnnotationRouteRuleNaming},
 		{name: "unsupported cluster value fails closed naming the ConfigMap", naming: "bogus", wantErrFrom: "ConfigMap"},
@@ -92,24 +127,21 @@ func TestExpectedHTTPRouteRuleNaming(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			render := func(rules []gwapiv1.HTTPRouteRule) (*gwapiv1.HTTPRoute, error) {
-				svc := &v1alpha2.LLMInferenceService{
-					ObjectMeta: metav1.ObjectMeta{Name: cmp.Or(tt.svcName, "svc"), Namespace: cmp.Or(tt.namespace, "ns")},
-					Spec: v1alpha2.LLMInferenceServiceSpec{
-						WorkloadSpec: v1alpha2.WorkloadSpec{Annotations: tt.annotations},
-						Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{
-							HTTP: &v1alpha2.HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{Rules: rules}},
-						}},
-					},
-				}
-				return (&LLMISVCReconciler{}).expectedHTTPRoute(t.Context(), svc, &Config{RouteRuleNaming: tt.naming})
-			}
 			input := tt.rules
 			if input == nil {
 				input = presetRules()
 			}
+			svc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: cmp.Or(tt.svcName, "svc"), Namespace: cmp.Or(tt.namespace, "ns")},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{Annotations: tt.annotations},
+					Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{
+						HTTP: &v1alpha2.HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{Rules: input}},
+					}},
+				},
+			}
 
-			got, err := render(input)
+			got, err := (&LLMISVCReconciler{}).expectedHTTPRoute(t.Context(), svc, &Config{RouteRuleNaming: tt.naming})
 
 			if tt.wantErrFrom != "" {
 				require.ErrorIs(t, err, ErrPreconditionNotMet)
@@ -124,10 +156,6 @@ func TestExpectedHTTPRouteRuleNaming(t *testing.T) {
 					assert.LessOrEqual(t, len(name), 253, "SectionName maximum length")
 				}
 			}
-
-			again, err := render(got.Spec.Rules)
-			require.NoError(t, err)
-			assert.Equal(t, got.Spec.Rules, again.Spec.Rules, "rendering a rendered route again must not rename it")
 		})
 	}
 }
