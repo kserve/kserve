@@ -1868,7 +1868,7 @@ func TestGetArgValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			val, ok := getArgValue(tt.args, tt.flag)
+			val, ok := isvcutils.GetArgValue(tt.args, tt.flag)
 			assert.Equal(t, tt.wantOk, ok)
 			if ok {
 				assert.Equal(t, tt.wantVal, val)
@@ -1972,7 +1972,7 @@ func TestSetArgValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := setArgValue(tt.args, tt.flag, tt.value)
+			result := isvcutils.SetArgValue(tt.args, tt.flag, tt.value)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

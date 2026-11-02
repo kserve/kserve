@@ -24,6 +24,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestInjectSchedulerTracing_NilSpec(t *testing.T) {
@@ -102,6 +103,27 @@ func TestInjectSchedulerTracing_PreservesExistingEnv(t *testing.T) {
 
 	envMap := envToMap(container.Env)
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "user-override"))
+}
+
+func TestInjectSchedulerTracing_CommandOverrideCompatibility(t *testing.T) {
+	for _, version := range []string{"", "1", "2"} {
+		t.Run("version="+version, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			command := []string{"epp", "--tracing=false"}
+			container := &corev1.Container{Name: "main", Command: command}
+			if version != "" {
+				container.Env = []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: version}}
+			}
+			injectSchedulerTracing(&v1alpha2.TracingSpec{}, "ns", "svc", container)
+			// Legacy controllers appended this flag even when Command supplied it.
+			want := []string{"--tracing=true"}
+			if version == "1" {
+				want = nil
+			}
+			g.Expect(container.Args).To(Equal(want))
+			g.Expect(container.Command).To(Equal(command))
+		})
+	}
 }
 
 func TestInjectServerTracing_NilSpec(t *testing.T) {
@@ -207,6 +229,26 @@ func TestInjectServerTracing_PreservesExistingEnv(t *testing.T) {
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", "user-sampler"))
 }
 
+func TestInjectServerTracing_CommandOverrideCompatibility(t *testing.T) {
+	for _, version := range []string{"", "1", "2"} {
+		t.Run("version="+version, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			command := []string{"vllm", "serve", "model", "--otlp-traces-endpoint=http://custom:4317"}
+			container := &corev1.Container{Name: "main", Command: command}
+			if version != "" {
+				container.Env = []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: version}}
+			}
+			injectServerTracing(&v1alpha2.TracingSpec{ExporterEndpoint: ptr.To("http://collector:4317")}, "ns", "svc", "-decode", container)
+			want := []string{"--collect-detailed-traces", "all"}
+			if version != "1" {
+				want = append([]string{"--otlp-traces-endpoint", "http://collector:4317"}, want...)
+			}
+			g.Expect(container.Args).To(Equal(want))
+			g.Expect(container.Command).To(Equal(command))
+		})
+	}
+}
+
 func TestInjectServerTracingIntoPodSpec_FindsMainContainer(t *testing.T) {
 	g := NewGomegaWithT(t)
 	podSpec := &corev1.PodSpec{
@@ -237,6 +279,75 @@ func TestInjectServerTracingIntoPodSpec_NoMainContainer(t *testing.T) {
 	mutated := injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{}, "ns", "svc", "-decode", podSpec)
 	g.Expect(mutated).To(BeFalse())
 	g.Expect(podSpec.Containers[0].Env).To(BeEmpty())
+}
+
+func TestInjectServerTracingIntoPodSpec_RoutingSidecar(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		version      string
+		command      []string
+		args         []string
+		expectedArgs []string
+	}{
+		{name: "legacy preset", command: []string{"/app/pd-sidecar", "--port=8000"}},
+		{name: "unknown version", version: "2"},
+		{name: "enabled", version: "1", command: []string{"/app/pd-sidecar", "--port=8000"}, expectedArgs: []string{"--tracing=true"}},
+		{name: "command override", version: "1", command: []string{"/app/pd-sidecar", "--tracing=false"}},
+		{name: "args override", version: "1", args: []string{"--tracing=false"}, expectedArgs: []string{"--tracing=false"}},
+		{name: "split args override", version: "1", args: []string{"--tracing", "false"}, expectedArgs: []string{"--tracing", "false"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			sampler := corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "tracing"}, Key: "sampler"},
+			}}
+			pod := &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: "main"}, {Name: "unrelated"}},
+				InitContainers: []corev1.Container{{Name: "storage-initializer"}, {
+					Name: constants.LLMISVCRoutingSidecarContainerName, Command: tt.command, Args: tt.args,
+					Env: []corev1.EnvVar{sampler},
+				}},
+			}
+			sidecar := &pod.InitContainers[1]
+			if tt.version != "" {
+				sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: tt.version})
+			}
+			original := sidecar.DeepCopy()
+			spec := &v1alpha2.TracingSpec{
+				ExporterEndpoint: ptr.To("http://collector:4317"), Sampler: ptr.To("always_on"),
+			}
+			g.Expect(injectServerTracingIntoPodSpec(spec, "ns", "svc", "-decode", pod)).To(BeTrue())
+			g.Expect(sidecar.Command).To(Equal(tt.command))
+			g.Expect(sidecar.Args).To(Equal(tt.expectedArgs))
+			g.Expect(sidecar.Env).To(ContainElement(sampler))
+			if tt.version == "1" {
+				g.Expect(envToMap(sidecar.Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "routing-sidecar"))
+				g.Expect(envToMap(sidecar.Env)).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317"))
+			} else {
+				g.Expect(sidecar).To(Equal(original), "old presets must not roll out on controller upgrade")
+			}
+			g.Expect(envToMap(pod.Containers[0].Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "inference-server-decode"))
+			g.Expect(pod.InitContainers[0].Env).To(BeEmpty())
+			g.Expect(pod.Containers[1].Env).To(BeEmpty())
+			before := pod.DeepCopy()
+			injectServerTracingIntoPodSpec(spec, "ns", "svc", "-decode", pod)
+			g.Expect(pod).To(Equal(before))
+		})
+	}
+}
+
+func TestInjectServerTracingIntoPodSpec_RoutingSidecarDisabled(t *testing.T) {
+	g := NewGomegaWithT(t)
+	pod := &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "main"}},
+		InitContainers: []corev1.Container{{
+			Name: constants.LLMISVCRoutingSidecarContainerName,
+			Env:  []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: "1"}},
+		}},
+	}
+	before := pod.DeepCopy()
+	g.Expect(injectServerTracingIntoPodSpec(nil, "ns", "svc", "-decode", pod)).To(BeFalse())
+	g.Expect(pod).To(Equal(before))
 }
 
 func TestOtelResourceAttributeEnvVars(t *testing.T) {

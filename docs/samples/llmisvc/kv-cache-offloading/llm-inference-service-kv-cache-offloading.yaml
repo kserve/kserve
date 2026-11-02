@@ -54,6 +54,17 @@ spec:
       # pvc.ref: pre-existing user-managed PVC. The PVC must exist before the
       # service is created. For a cache shared across replicas, provision an
       # RWX PVC; for per-pod persistent cache, provision a separate PVC per pod.
+      # pvc.spec uses one evictor sidecar per vLLM pod, while pvc.ref creates
+      # one evictor Deployment for the referenced PVC and path.
+      # Add a container named pvc-evictor under spec.template.containers to pin
+      # the evictor image, resources, pull policy, or security context.
+      # Prefill workloads and multi-node workers inherit it unless they define
+      # their own pvc-evictor container.
+      # Do not use the evictor with a pvc.ref claim using ReadWriteOncePod;
+      # use ReadWriteOnce or ReadWriteMany instead.
+      # The standalone evictor uses the effective vLLM PodSecurityContext.
+      # Services sharing this PVC and path must resolve matching PodSecurityContext
+      # values and pvc-evictor container templates.
       # - fileSystem:
       #     pvc:
       #       ref:

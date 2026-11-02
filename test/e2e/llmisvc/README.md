@@ -59,6 +59,13 @@ When adding a new test file, decide which group it belongs to:
   the controller) or asserts on traffic through the shared ingress gateway → add
   the file to `_LLMISVC_CORE_EXCLUDED` and mark it `llmisvc_serial`. CI runs `llmisvc_core` on two xdist workers, then
   `llmisvc_serial` one test at a time.
+- Needs an llmisvc feature gate → keep it in its own CI job. Feature gates are
+  cluster-wide (the `llmisvc` key of the `inferenceservice-config` ConfigMap),
+  so tests must not flip them. `test_llm_disaggregated_set.py` carries
+  `llmisvc_disaggregated_set` and runs only in the
+  `test-llmisvc-disaggregated-set` job, which enables the gate with
+  `test/scripts/gh-actions/enable-llmisvc-feature-gates.sh disaggregatedSet`
+  before the tests. Each test fails fast if the gate is off.
 
 ### Cluster capability markers (explicit, per test param)
 

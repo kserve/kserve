@@ -18,6 +18,7 @@ package pod
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -708,6 +709,12 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// InferenceService env is applied to the serving container. hf:// downloads
 		// run here, so copy auth variables the initializer does not already have.
 		propagateStorageAuthEnvVars(params.StorageURIs, params.PodSpec, initContainer)
+
+		// The AWS pod identity webhook can run before this webhook and is not
+		// reinvoked after KServe adds the storage initializer. Copy the IRSA
+		// configuration from an already-mutated serving container so the init
+		// container can also obtain credentials for model download.
+		propagateIRSAConfig(params.PodSpec, initContainer, params.IsvcAnnotations)
 	}
 
 	return nil
@@ -772,6 +779,282 @@ func hasStorageAuthEnvVar(envVars []corev1.EnvVar) bool {
 			if envVar.Name == authEnvName {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// Each AWS identity webhook sets its credential pair on every container
+// present when it runs. The KServe pod mutator adds the storage-initializer
+// after them, so its credentials come from copying a serving container's
+// pair together with the mount of its token file (see propagateIRSAConfig).
+const (
+	// The IRSA webhook sets the web identity pair (the role and its token
+	// file) together with the region and STS regional endpoint variables.
+	irsaRoleArnEnv = "AWS_ROLE_ARN"
+	// #nosec G101 -- the env var name is not a credential value.
+	irsaWebIdentityTokenFileEnv = "AWS_WEB_IDENTITY_TOKEN_FILE"
+	irsaRegionEnv               = "AWS_REGION"
+	irsaDefaultRegionEnv        = "AWS_DEFAULT_REGION"
+	irsaSTSRegionalEndpointsEnv = "AWS_STS_REGIONAL_ENDPOINTS"
+
+	// The container credentials pair, set by the EKS Pod Identity webhook.
+	// The AWS SDK credential chain resolves the web identity pair before
+	// this one, so when a container carries both pairs, the web identity
+	// pair decides which token mount to copy.
+	// #nosec G101 -- the env var name is not a credential value.
+	podIdentityCredentialsFullURIEnv = "AWS_CONTAINER_CREDENTIALS_FULL_URI"
+	// #nosec G101 -- the env var name is not a credential value.
+	podIdentityAuthorizationTokenFileEnv = "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE"
+
+	// The AWS_ENDPOINT_URL* variables are user-set endpoint overrides, not
+	// identity webhook output. The storage-initializer's AWS SDK clients
+	// resolve them natively to route S3 and STS traffic, for example to VPC
+	// endpoints, and the static-secret storage configuration already emits
+	// AWS_ENDPOINT_URL for the same purpose. Copying them from the serving
+	// container closes the same gap for workloads whose credentials come from
+	// IRSA or EKS Pod Identity.
+	awsEndpointURLEnv    = "AWS_ENDPOINT_URL"
+	awsEndpointURLSTSEnv = "AWS_ENDPOINT_URL_STS"
+	awsEndpointURLS3Env  = "AWS_ENDPOINT_URL_S3"
+
+	// AWS_USE_FIPS_ENDPOINT is a user-set compliance flag, not identity
+	// webhook output: it makes AWS SDK clients use FIPS endpoints. Copying
+	// it keeps the model download on the same compliance posture as the
+	// serving container. AWS provides FIPS endpoints only in some regions,
+	// and the SDK fails to connect rather than falls back where they are
+	// missing, so the flag surfaces the gap loudly instead of silently
+	// downgrading the download to standard endpoints. The AWS_ENDPOINT_URL*
+	// overrides take precedence over it, giving workloads a per-service
+	// opt-out.
+	awsUseFIPSEndpointEnv = "AWS_USE_FIPS_ENDPOINT"
+
+	// awsSkipContainersAnnotation is the pod annotation that lists containers
+	// the AWS pod identity webhook must not configure.
+	awsSkipContainersAnnotation = credentials.AwsIrsaAnnotationPrefix + "skip-containers"
+)
+
+// irsaEnvNames are the AWS credential and client environment variables that
+// the AWS identity webhooks inject into containers present at admission time
+// (the web identity pair from the IRSA webhook and the container credentials
+// pair from the EKS Pod Identity webhook), plus the user-set AWS_ENDPOINT_URL*
+// endpoint overrides and AWS_USE_FIPS_ENDPOINT compliance flag. They are
+// copied onto the storage-initializer so its AWS clients resolve credentials
+// and endpoints like the serving container's.
+var irsaEnvNames = []string{
+	irsaRoleArnEnv,
+	irsaWebIdentityTokenFileEnv,
+	irsaRegionEnv,
+	irsaDefaultRegionEnv,
+	irsaSTSRegionalEndpointsEnv,
+	podIdentityCredentialsFullURIEnv,
+	podIdentityAuthorizationTokenFileEnv,
+	awsEndpointURLEnv,
+	awsEndpointURLSTSEnv,
+	awsEndpointURLS3Env,
+	awsUseFIPSEndpointEnv,
+}
+
+// propagateIRSAConfig copies the AWS credential environment variables and the
+// projected token mount from a serving container onto the storage-initializer.
+// On clusters where an AWS identity webhook (IRSA or EKS Pod Identity) runs
+// before the KServe pod mutator, the init container is added after the
+// identity webhook has completed and would otherwise have no AWS credentials.
+//
+// The eks.amazonaws.com/skip-containers pod annotation is honored. A token
+// mount the init container already carries is reused rather than duplicated.
+// The helper is a no-op when no serving container carries a complete AWS
+// credential environment or when the token mount cannot be provided, so KServe
+// never manufactures an incomplete credential configuration.
+func propagateIRSAConfig(podSpec *corev1.PodSpec, initContainer *corev1.Container, podAnnotations map[string]string) {
+	if podSpec == nil || initContainer == nil {
+		return
+	}
+	if awsSkipContainersContains(podAnnotations[awsSkipContainersAnnotation], initContainer.Name) {
+		log.V(1).Info("Skipping IRSA propagation: container is listed in the skip-containers annotation",
+			"container", initContainer.Name)
+		return
+	}
+
+	var source *corev1.Container
+	var tokenFile string
+	for _, containerName := range storageAuthEnvSources {
+		container := utils.GetContainerWithName(podSpec, containerName)
+		if container == nil {
+			continue
+		}
+		roleArn := ""
+		tokenFilePath := ""
+		credentialsFullURI := ""
+		authorizationTokenFile := ""
+		for i := range container.Env {
+			switch container.Env[i].Name {
+			case irsaRoleArnEnv:
+				roleArn = container.Env[i].Value
+			case irsaWebIdentityTokenFileEnv:
+				tokenFilePath = container.Env[i].Value
+			case podIdentityCredentialsFullURIEnv:
+				credentialsFullURI = container.Env[i].Value
+			case podIdentityAuthorizationTokenFileEnv:
+				authorizationTokenFile = container.Env[i].Value
+			}
+		}
+		// The AWS SDK credential chain resolves the web identity pair before
+		// the container credentials pair (boto3 checks assume-role-with-
+		// web-identity before container credentials), so when a container
+		// carries both pairs, the web identity pair decides which token mount
+		// to copy: copying the EKS Pod Identity mount instead would leave the
+		// mechanism the SDK actually uses without its token file.
+		if roleArn != "" && tokenFilePath != "" {
+			source = container
+			tokenFile = tokenFilePath
+			break
+		}
+		if credentialsFullURI != "" && authorizationTokenFile != "" {
+			source = container
+			tokenFile = authorizationTokenFile
+			break
+		}
+	}
+	if source == nil {
+		log.V(1).Info("Skipping IRSA propagation: no serving container carries a complete AWS credential environment",
+			"container", initContainer.Name)
+		return
+	}
+
+	// The token file lives on a projected volume that the identity webhook
+	// added at pod level. Copy the source container's most specific mount
+	// that exposes the token file, so the init container can read the token
+	// at the path the environment names. The environment is copied only when
+	// the mount can be provided: an environment that names a token file the
+	// init container cannot read is an incomplete credential configuration.
+	mount := mostSpecificTokenMount(source.VolumeMounts, tokenFile)
+	if mount == nil {
+		log.V(1).Info("Skipping IRSA propagation: serving container has no readable mount for the token file",
+			"container", initContainer.Name, "tokenFile", tokenFile)
+		return
+	}
+
+	// The init container can already carry the token mount, for example when
+	// a custom storage-initializer patch pre-mounts the token volume without
+	// the IRSA environment. A mount with the same volume, mount path and sub
+	// path exposes the token file exactly as on the source container, so it
+	// is reused and only the environment is copied; appending the mount
+	// again would duplicate it. Any other volume at the same path cannot be
+	// replaced, and the environment is not copied because that volume does
+	// not provide the source container's token file.
+	if !hasSameVolumeMount(initContainer.VolumeMounts, mount) {
+		if hasVolumeMountAt(initContainer.VolumeMounts, mount.MountPath) {
+			log.V(1).Info("Skipping IRSA propagation: a different volume is already mounted at the token file path",
+				"container", initContainer.Name, "mountPath", mount.MountPath)
+			return
+		}
+		initContainer.VolumeMounts = append(initContainer.VolumeMounts, *mount.DeepCopy())
+	} else {
+		log.V(1).Info("Reusing the token mount the container already carries",
+			"container", initContainer.Name, "mountPath", mount.MountPath)
+	}
+
+	// The AWS pod identity webhook sets AWS_REGION and AWS_DEFAULT_REGION as a
+	// pair and leaves both alone when either is already set. The storage
+	// configuration can set AWS_DEFAULT_REGION from the storage region
+	// annotation, so copying only the missing variable of the pair would set
+	// the region from two sources. The AWS SDKs give AWS_REGION precedence,
+	// so copy the pair only when the init container has neither.
+	skipRegionEnvs := hasRegionEnv(initContainer.Env)
+	envs := make([]corev1.EnvVar, 0, len(irsaEnvNames))
+	for _, envName := range irsaEnvNames {
+		if skipRegionEnvs && (envName == irsaRegionEnv || envName == irsaDefaultRegionEnv) {
+			continue
+		}
+		for i := range source.Env {
+			if source.Env[i].Name == envName {
+				envs = append(envs, *source.Env[i].DeepCopy())
+				break
+			}
+		}
+	}
+	utils.AddEnvVars(initContainer, envs)
+}
+
+// hasRegionEnv reports whether the container already defines AWS_REGION or
+// AWS_DEFAULT_REGION.
+func hasRegionEnv(envs []corev1.EnvVar) bool {
+	for i := range envs {
+		if envs[i].Name == irsaRegionEnv || envs[i].Name == irsaDefaultRegionEnv {
+			return true
+		}
+	}
+	return false
+}
+
+// mostSpecificTokenMount returns the most specific volume mount whose mount
+// path exposes the token file, or nil when no mount covers it. The identity
+// webhook mounts its projected volume at the token file's directory; a mount
+// at an ancestor path is accepted only when no more specific mount exists,
+// which covers token files supplied through a user-managed volume.
+func mostSpecificTokenMount(volumeMounts []corev1.VolumeMount, tokenFile string) *corev1.VolumeMount {
+	var best *corev1.VolumeMount
+	bestLength := -1
+	for i := range volumeMounts {
+		mountPath := strings.TrimSuffix(volumeMounts[i].MountPath, "/")
+		if mountPath == "" {
+			continue
+		}
+		if mountPath != tokenFile && !strings.HasPrefix(tokenFile, mountPath+"/") {
+			continue
+		}
+		if len(mountPath) > bestLength {
+			best = &volumeMounts[i]
+			bestLength = len(mountPath)
+		}
+	}
+	return best
+}
+
+// hasVolumeMountAt reports whether any volume is already mounted at the given
+// path. The check is by path, not by volume name: one volume may be mounted
+// twice at different paths, but two volumes cannot share one path.
+func hasVolumeMountAt(volumeMounts []corev1.VolumeMount, mountPath string) bool {
+	for i := range volumeMounts {
+		if volumeMounts[i].MountPath == mountPath {
+			return true
+		}
+	}
+	return false
+}
+
+// hasSameVolumeMount reports whether the container already mounts the given
+// volume at the same mount path with the same sub path. Such a mount exposes
+// the same files as on the container the mount was taken from, so it can be
+// reused instead of being appended a second time.
+func hasSameVolumeMount(volumeMounts []corev1.VolumeMount, mount *corev1.VolumeMount) bool {
+	for i := range volumeMounts {
+		if volumeMounts[i].Name == mount.Name &&
+			volumeMounts[i].MountPath == mount.MountPath &&
+			volumeMounts[i].SubPath == mount.SubPath {
+			return true
+		}
+	}
+	return false
+}
+
+// awsSkipContainersContains reports whether the eks.amazonaws.com/skip-containers
+// pod annotation lists the container. The value is parsed as a single CSV
+// record, mirroring the AWS pod identity webhook: names must match exactly
+// (the webhook does not trim whitespace), and a value that cannot be parsed
+// skips no containers.
+func awsSkipContainersContains(annotationValue, containerName string) bool {
+	if annotationValue == "" || containerName == "" {
+		return false
+	}
+	names, err := csv.NewReader(strings.NewReader(annotationValue)).Read()
+	if err != nil {
+		return false
+	}
+	for _, name := range names {
+		if name == containerName {
+			return true
 		}
 	}
 	return false

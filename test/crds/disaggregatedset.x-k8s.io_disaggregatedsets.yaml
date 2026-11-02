@@ -11,6 +11,9 @@ spec:
     kind: DisaggregatedSet
     listKind: DisaggregatedSetList
     plural: disaggregatedsets
+    shortNames:
+    - dset
+    - disaggset
     singular: disaggregatedset
   scope: Namespaced
   versions:
@@ -64,7 +67,7 @@ spec:
                 type: object
               roles:
                 description: |-
-                  Roles defines the list of roles (at least 2 required).
+                  Roles defines the list of roles (at least 1 required).
                   Each role has a unique name and its own configuration.
                 items:
                   description: |-
@@ -9287,6 +9290,22 @@ spec:
                                   - containers
                                   type: object
                               type: object
+                            maxGroupRestarts:
+                              description: |-
+                                maxGroupRestarts bounds how many times the controller can recreate a group
+                                under RecreateGroupOnPodRestart or RecreateGroupAfterStart. Once exhausted,
+                                the controller terminates the group, retains Pod API objects that can still
+                                receive finalizers, and stops automatic group recreation. Setting
+                                leaderworkerset.sigs.k8s.io/recover=true on the retained leader Pod resets
+                                that revision/group's budget and allows recovery. Changing this value does
+                                not resume an exhausted group. It is opt-in: when unset (nil), group
+                                recreation is unlimited.
+                                Budget exhaustion handling requires Kubernetes 1.27 or later because it
+                                relies on deleted Pods reaching a terminal phase while finalizers retain
+                                their API objects.
+                              format: int32
+                              minimum: 0
+                              type: integer
                             persistentVolumeClaimRetentionPolicy:
                               description: |-
                                 persistentVolumeClaimRetentionPolicy describes the policy used for PVCs created from
@@ -9307,6 +9326,34 @@ spec:
                                     `Delete` policy causes the associated PVCs for any excess pods above
                                     the replica count to be deleted.
                                   type: string
+                              type: object
+                            restartBackoff:
+                              description: |-
+                                restartBackoff bounds group restart frequency under RecreateGroupOnPodRestart
+                                or RecreateGroupAfterStart. When specified, the controller applies an exponential
+                                backoff delay between group recreations.
+                                The semantic is that a group must have existed for at least min(baseSeconds * 2^count, capSeconds)
+                                before it can be recreated. The delay is measured from leader pod creation time,
+                                not from the failure time, so a group that has run stably for longer than the backoff
+                                delay recovers immediately on failure.
+                                It is opt-in: when unset (nil), group recreation happens immediately.
+                              properties:
+                                baseSeconds:
+                                  default: 10
+                                  description: |-
+                                    baseSeconds is the initial backoff delay in seconds before group recreation.
+                                    Defaults to 10.
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                                capSeconds:
+                                  default: 300
+                                  description: |-
+                                    capSeconds is the maximum backoff delay in seconds before group recreation.
+                                    Defaults to 300.
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
                               type: object
                             restartPolicy:
                               default: RecreateGroupOnPodRestart
@@ -19012,6 +19059,19 @@ spec:
                           required:
                           - subdomainPolicy
                           type: object
+                        podTerminationPolicy:
+                          default: Sequential
+                          description: |-
+                            podTerminationPolicy determines the termination policy for pods in a group.
+                            Sequential (default) keeps the sequential termination behavior: worker pods wait for the
+                            leader pod to be fully deleted before terminating.
+                            Parallel terminates leader and worker pods concurrently when a group is deleted,
+                            recreated, or when the LeaderWorkerSet is deleted.
+                            This field is immutable.
+                          enum:
+                          - Sequential
+                          - Parallel
+                          type: string
                         replicas:
                           default: 1
                           description: |-
@@ -19027,13 +19087,19 @@ spec:
                           minimum: 0
                           type: integer
                         rolloutStrategy:
+                          default:
+                            type: RollingUpdate
                           description: |-
                             rolloutStrategy defines the strategy that will be applied to update replicas
-                            when a revision is made to the leaderWorkerTemplate.
+                            when a revision is made to the leaderWorkerTemplate. It defaults to a
+                            RollingUpdate strategy whose configuration takes its own defaults.
                           properties:
                             rollingUpdateConfiguration:
-                              description: rollingUpdateConfiguration defines the
-                                parameters to be used when type is RollingUpdateStrategyType.
+                              default: {}
+                              description: |-
+                                rollingUpdateConfiguration defines the parameters to be used when type is RollingUpdateStrategyType.
+                                It defaults to an object whose fields take their own defaults: maxUnavailable 1,
+                                maxSurge 0 and partition 0.
                               properties:
                                 maxSurge:
                                   anyOf:
@@ -19460,15 +19526,98 @@ spec:
                       required:
                       - leaderWorkerTemplate
                       type: object
+                    subRoles:
+                      description: |-
+                        SubRoles partitions one LWS into pools sharing its templates.
+                        Child targets sum to parent replicas; omit parent scaling. Parent spec.replicas is ignored.
+                      items:
+                        description: DisaggregatedSubRoleSpec defines a scaling and
+                          routing pool sharing its parent's templates.
+                        properties:
+                          maxSurge:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              MaxSurge overrides the parent's rollout surge budget for this sub-role.
+                              Accepts a non-negative integer or a percentage up to 100%, rounded up
+                              against this sub-role's replica target. Omitted values inherit the parent;
+                              with no parent rollout configuration, the default is 0.
+                            x-kubernetes-int-or-string: true
+                          maxUnavailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              MaxUnavailable overrides the parent's rollout unavailability budget for
+                              this sub-role. Accepts a non-negative integer or a percentage up to 100%,
+                              rounded down against this sub-role's replica target. Omitted values inherit
+                              the parent; with no parent rollout configuration, the default is 1. Zero is explicit.
+                            x-kubernetes-int-or-string: true
+                          name:
+                            description: Name is unique within the parent role.
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          replicas:
+                            description: 'Replicas counts groups (Static default:
+                              1); omit it for External scaling.'
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          scaling:
+                            description: Scaling selects this pool's replica source.
+                            properties:
+                              mode:
+                                default: Static
+                                description: |-
+                                  Mode controls the source of the replica count. Static (default) uses
+                                  inline spec.replicas; External uses the auto-created scaler CR.
+                                enum:
+                                - Static
+                                - External
+                                type: string
+                            type: object
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-validations:
+                        - message: replicas must be omitted when scaling.mode is External
+                          rule: '!has(self.scaling) || self.scaling.mode != ''External''
+                            || !has(self.replicas)'
+                      maxItems: 32
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                   required:
                   - name
                   type: object
                 maxItems: 10
-                minItems: 2
+                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              scalingPolicy:
+                description: |-
+                  ScalingPolicy controls scale-down during rolling updates. Omit it to
+                  preserve the default Deferred behavior.
+                properties:
+                  scaleDownDuringRollout:
+                    default: Deferred
+                    description: |-
+                      ScaleDownDuringRollout controls demand-driven target replica reductions.
+                      Deferred waits until old revisions finish draining. Immediate considers
+                      reductions during the rollout, preferring safe old-revision drains.
+                      Both policies allow scale-up and old-revision drains within rollout bounds.
+                    enum:
+                    - Deferred
+                    - Immediate
+                    type: string
+                type: object
               slices:
                 default: 1
                 description: |-
@@ -19483,12 +19632,13 @@ spec:
             - roles
             type: object
             x-kubernetes-validations:
-            - message: replicas must be zero for all non-External roles or non-zero
-                for all non-External roles
-              rule: self.roles.filter(r, !has(r.scaling) || r.scaling.mode != 'External').all(r,
-                !has(r.spec.replicas) || r.spec.replicas == 0) || self.roles.filter(r,
-                !has(r.scaling) || r.scaling.mode != 'External').all(r, has(r.spec.replicas)
-                && r.spec.replicas > 0)
+            - message: replicas must be zero for all non-External unpartitioned roles
+                or non-zero for all non-External unpartitioned roles
+              rule: self.roles.filter(r, (!has(r.subRoles) || size(r.subRoles) ==
+                0) && (!has(r.scaling) || r.scaling.mode != 'External')).all(r, !has(r.spec.replicas)
+                || r.spec.replicas == 0) || self.roles.filter(r, (!has(r.subRoles)
+                || size(r.subRoles) == 0) && (!has(r.scaling) || r.scaling.mode !=
+                'External')).all(r, has(r.spec.replicas) && r.spec.replicas > 0)
           status:
             description: status defines the observed state of DisaggregatedSet
             properties:
@@ -19567,18 +19717,30 @@ spec:
                 type: integer
               roleStatuses:
                 description: |-
-                  RoleStatuses contains the status for each role currently in spec.roles.
-                  The order matches spec.roles. A role removed from spec.roles has no entry
-                  here, even if LeaderWorkerSets for that role still exist while draining.
+                  RoleStatuses lists current parent roles in spec order, with nested sub-role statuses.
+                  Parent counts include historical layouts and may exceed the visible child sum.
+                  Removed roles are omitted even while their groups drain.
                 items:
-                  description: RoleStatus defines the observed state of a single role.
+                  description: RoleStatus defines the observed state of a single parent
+                    role.
                   properties:
+                    desiredReplicas:
+                      description: |-
+                        DesiredReplicas is the number of replicas the controller is driving this role
+                        toward, totalled across slices: its replicas, or the target of its
+                        DisaggregatedSetRoleScaler when its scaling mode is External. A partitioned
+                        role reports the sum of its sub-role targets. It is unset while any of those
+                        targets is unknown, for example before the scaler exists, so it is never
+                        mistaken for a requested zero. The Available condition is judged against it.
+                      format: int32
+                      type: integer
                     name:
-                      description: Name is the name of the role (matches spec.roles[].name).
+                      description: Name is the parent role name.
                       type: string
                     readyReplicas:
-                      description: ReadyReplicas is the number of ready replicas for
-                        this role.
+                      description: |-
+                        ReadyReplicas is the number of ready replicas for this role.
+                        Sub-role readiness requires a coherent assignment across the whole group.
                       format: int32
                       type: integer
                     replicas:
@@ -19586,6 +19748,49 @@ spec:
                         role.
                       format: int32
                       type: integer
+                    subRoleStatuses:
+                      description: |-
+                        SubRoleStatuses lists the current sub-roles in spec order.
+                        Removed sub-roles are omitted, but their groups remain in the parent counts
+                        while draining. Do not add child counts to their parent aggregate.
+                      items:
+                        description: SubRoleStatus defines the observed state of a
+                          sub-role within its parent.
+                        properties:
+                          desiredReplicas:
+                            description: |-
+                              DesiredReplicas is the number of replica groups the controller is driving
+                              this sub-role toward, totalled across slices: its replicas, or the target of
+                              its DisaggregatedSetRoleScaler when its scaling mode is External. It is unset
+                              while that target is unknown.
+                            format: int32
+                            type: integer
+                          name:
+                            description: Name is the sub-role name, without the parent
+                              prefix.
+                            type: string
+                          readyReplicas:
+                            description: ReadyReplicas counts Ready groups with a
+                              coherent whole-group assignment.
+                            format: int32
+                            type: integer
+                          replicas:
+                            description: Replicas is the number of replica groups
+                              assigned to this sub-role.
+                            format: int32
+                            type: integer
+                          updatedReplicas:
+                            description: UpdatedReplicas counts groups belonging to
+                              the latest revision.
+                            format: int32
+                            type: integer
+                        required:
+                        - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     updatedReplicas:
                       description: UpdatedReplicas is the number of replicas updated
                         to the latest revision.

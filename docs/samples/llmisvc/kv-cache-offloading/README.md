@@ -156,6 +156,58 @@ secondary:
           path: kv-cache/
 ```
 
+The PVC evictor is created automatically for PVC-backed tiers:
+
+```yaml
+secondary:
+  - fileSystem:
+      pvc:
+        ref:
+          name: my-cephfs-pvc
+          path: kv-cache/
+```
+
+For `pvc.spec`, KServe runs one evictor sidecar in each vLLM pod. For `pvc.ref`,
+KServe creates one evictor Deployment for each referenced PVC and path, avoiding
+multiple evictors deleting the same files. For an RWO PVC, the Deployment uses
+pod affinity to match a vLLM pod using the same PVC and path. It also merges the
+tolerations from all vLLM Pods using that PVC and path, including tolerations
+added by cluster admission, so the evictor can follow them onto tainted nodes.
+For an RWX PVC, the evictor has no same-node affinity
+and receives no workload tolerations; it may run on a CPU node.
+
+PVC-backed tiers must use a writable PVC access mode. Read-only PVCs are not
+supported because the evictor deletes cache files. The evictor runs as a non-root user.
+The referenced cache directory must allow
+that user or its group to read and delete files. The standalone evictor copies
+the effective vLLM PodSecurityContext from `spec.template.securityContext`.
+On OpenShift, leave UID/GID values unset unless they are allowed by the cluster
+security policy. Every service sharing the same PVC and path must resolve
+matching PodSecurityContext values and `pvc-evictor` container templates.
+
+Both evictor forms use a reserved container template named `pvc-evictor`.
+Define that container in `spec.template.containers` to pin its image, image pull
+policy, resources, security context, command, or extra environment variables.
+Prefill workloads and multi-node workers inherit a template from
+`spec.template.containers` unless their own template or worker PodSpec defines
+a `pvc-evictor` container. Omitted image, pull policy, and security context use the KServe
+defaults. If no resources are set, KServe also uses its default requests and
+limits; any resources you set are used as written.
+Omitted fields inside a custom container securityContext are filled with the
+same hardened defaults.
+KServe still owns the final container name, `PVC_MOUNT_PATH`,
+`CACHE_DIRECTORY`, and the cache volume mount. The template is removed from
+the vLLM pod and used only for generated evictor containers.
+Standalone `pvc.ref` evictors use only that generated cache volume mount.
+Workloads sharing the same `pvc.ref` PVC and path must use the same full
+`pvc-evictor` container template. Separate PVC identities are independent.
+
+`pvc.spec` may use `ReadWriteOncePod` because its evictor is a sidecar in the
+same vLLM pod. Do not use `pvc.ref` with a
+`ReadWriteOncePod` PVC. Its evictor uses a separate Deployment, while
+`ReadWriteOncePod` permits only one pod to mount the claim. Use `ReadWriteOnce`
+or `ReadWriteMany` instead.
+
 ### I have a single replica and don't need the cache to survive pod restarts
 
 Use **`emptyDir`**. No StorageClass required; the node provides the disk. The

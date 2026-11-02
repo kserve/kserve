@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -34,6 +35,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/utils"
 
 	kservetesting "github.com/kserve/kserve/pkg/testing"
 
@@ -102,7 +104,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0",
+									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
@@ -117,6 +119,7 @@ func TestPresetFiles(t *testing.T) {
 										"",
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: "1"},
 										{
 											Name: "INFERENCE_POOL_NAMESPACE",
 											ValueFrom: &corev1.EnvVarSource{
@@ -743,6 +746,9 @@ func TestPresetFiles(t *testing.T) {
 		},
 	}
 
+	addExpectedPVCEvictorPresetOutput(tt["config-llm-template.yaml"].expected, false)
+	addExpectedPVCEvictorPresetOutput(tt["config-llm-decode-worker-data-parallel.yaml"].expected, false)
+
 	remaining := llmisvc.WellKnownDefaultConfigs.Union(llmisvc.WellKnownBaseRefConfigs)
 
 	_ = filepath.Walk(presetsDir, func(path string, info os.FileInfo, err error) error {
@@ -765,6 +771,16 @@ func TestPresetFiles(t *testing.T) {
 			}
 
 			config := loadConfig(t, data, filePath)
+
+			rolePodSpecs := []*corev1.PodSpec{config.Spec.Worker}
+			if config.Spec.Prefill != nil {
+				rolePodSpecs = append(rolePodSpecs, config.Spec.Prefill.Template, config.Spec.Prefill.Worker)
+			}
+			for _, podSpec := range rolePodSpecs {
+				if podSpec != nil && utils.GetContainerWithName(podSpec, "pvc-evictor") != nil {
+					t.Errorf("%s: pvc-evictor must be declared only on spec.template", filename)
+				}
+			}
 
 			name := config.Name
 			if !llmisvc.WellKnownDefaultConfigs.Has(name) && !llmisvc.WellKnownBaseRefConfigs.Has(name) {
@@ -886,7 +902,7 @@ func TestSingleNodeTensorParallelRendered(t *testing.T) {
 				t.Fatal("expected at least one container")
 			}
 
-			cmd := strings.Join(containers[0].Command, " ")
+			cmd := strings.Join(findMainContainerForPresetTest(t, containers).Command, " ")
 			if tt.wantFlag != "" {
 				if !strings.Contains(cmd, tt.wantFlag) {
 					t.Errorf("rendered command does not contain %q:\n%s", tt.wantFlag, cmd)
@@ -970,6 +986,63 @@ func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferen
 	return config
 }
 
+func findMainContainerForPresetTest(t *testing.T, containers []corev1.Container) *corev1.Container {
+	t.Helper()
+	for i := range containers {
+		if containers[i].Name == "main" {
+			return &containers[i]
+		}
+	}
+	t.Fatalf("main container not found in %v", containers)
+	return nil
+}
+
+func addExpectedPVCEvictorPresetOutput(config *v1alpha2.LLMInferenceServiceConfig, hasWorker bool) {
+	config.Annotations = map[string]string{
+		"internal.serving.kserve.io/kv-cache-shm-percent-of-cpu": "120",
+	}
+	config.Spec.Annotations = map[string]string{
+		"serving.kserve.io/model-based-routing-enabled": "true",
+	}
+	if hasWorker {
+		config.Spec.Labels = map[string]string{
+			"serving.kserve.io/llmisvc-revision": "placeholder",
+		}
+		config.Spec.Annotations["serving.kserve.io/enable-disaggregated-set"] = "true"
+	}
+	addExpectedPVCEvictorContainer(config.Spec.Template)
+	if hasWorker {
+		addExpectedPVCEvictorContainer(config.Spec.Worker)
+	}
+}
+
+func addExpectedPVCEvictorContainer(podSpec *corev1.PodSpec) {
+	if podSpec == nil {
+		return
+	}
+	evictor := corev1.Container{
+		Name:            "pvc-evictor",
+		Image:           "ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499",
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("1Gi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("4"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: ptr.To(false),
+			Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+			RunAsNonRoot:             ptr.To(true),
+		},
+	}
+	podSpec.Containers = append([]corev1.Container{evictor}, podSpec.Containers...)
+}
+
 // TestDataParallelPresetsWithoutParallelism guards the data-parallel presets
 // against a nil .spec.parallelism. The controller only selects them when
 // parallelism is set, but nothing stops a user from listing one in baseRefs
@@ -1017,7 +1090,7 @@ func TestDataParallelPresetsWithoutParallelism(t *testing.T) {
 				t.Fatal("expected at least one container")
 			}
 
-			cmd := strings.Join(containers[0].Command, " ")
+			cmd := strings.Join(findMainContainerForPresetTest(t, containers).Command, " ")
 			for _, want := range []string{"--data-parallel-size 1", "--data-parallel-size-local 1", "--data-parallel-rpc-port 5555"} {
 				if !strings.Contains(cmd, want) {
 					t.Errorf("rendered command does not contain %q", want)
@@ -1159,6 +1232,13 @@ func TestPresetRenderingInvariants(t *testing.T) {
 			// preset carrying anything else would change --shutdown-timeout for every
 			// service that relies on that fallback.
 			for path, pod := range podSpecs(config) {
+				for _, container := range pod.InitContainers {
+					if container.Name == constants.LLMISVCRoutingSidecarContainerName {
+						if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_TRACING_CONFIG_VERSION"); version != "1" {
+							t.Errorf("%s routing sidecar must opt in to tracing injection", path)
+						}
+					}
+				}
 				if pod.TerminationGracePeriodSeconds == nil {
 					continue
 				}
@@ -1222,7 +1302,7 @@ func TestSGLangTemplateNilParallelism(t *testing.T) {
 	}
 
 	// --tp flag must be absent when Parallelism.Tensor is zero/nil
-	cmd := out.Spec.Template.Containers[0].Command[2]
+	cmd := findMainContainerForPresetTest(t, out.Spec.Template.Containers).Command[2]
 	if strings.Contains(cmd, "--tp") {
 		t.Errorf("Expected no --tp flag when Parallelism.Tensor is unset, got command: %q", cmd)
 	}
@@ -1271,12 +1351,61 @@ func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
 		t.Fatalf("ReplaceVariables() returned unexpected error: %v", err)
 	}
 
-	container := out.Spec.Template.Containers[0]
+	container := findMainContainerForPresetTest(t, out.Spec.Template.Containers)
 	if strings.Contains(container.Command[2], "--trust-remote-code") {
 		t.Errorf("Expected no automatically injected --trust-remote-code flag, got command: %q", container.Command[2])
 	}
 	if diff := cmp.Diff([]string{"--trust-remote-code"}, container.Args); diff != "" {
 		t.Errorf("Expected explicit container args to be forwarded (-want, +got):\n%s", diff)
+	}
+}
+
+func TestTokenizerPresetOptsInToImagePullSecretInheritance(t *testing.T) {
+	filePath := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig", "config-llm-tokenizer.yaml")
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := loadConfig(t, data, filePath)
+	container := config.Spec.Router.Scheduler.Tokenizer.Template.Containers[0]
+	if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_PULL_SECRETS_CONFIG_VERSION"); version != "1" {
+		t.Fatal("tokenizer preset must opt in to image pull secret inheritance")
+	}
+}
+
+func TestTokenizerPresetForwardsTracingArgs(t *testing.T) {
+	filePath := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig", "config-llm-tokenizer.yaml")
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tls := range []bool{false, true} {
+		t.Run(map[bool]string{false: "HTTP", true: "HTTPS"}[tls], func(t *testing.T) {
+			config := loadConfig(t, data, filePath)
+			out, err := llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, &llmisvc.Config{EnableTLS: tls})
+			if err != nil {
+				t.Fatal(err)
+			}
+			container := out.Spec.Router.Scheduler.Tokenizer.Template.Containers[0]
+			if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_TRACING_CONFIG_VERSION"); version != "1" {
+				t.Fatal("tokenizer preset must opt in to tracing injection")
+			}
+			// Capture the actual shell argv without starting a model server.
+			script := strings.Replace(container.Command[2], "exec vllm ", "printf '%s\\n' ", 1)
+			args := append([]string{container.Command[1], script}, container.Command[3:]...)
+			endpoint := "http://collector:4317/?value=$trace_value"
+			args = append(args, "--otlp-traces-endpoint", endpoint)
+			output, err := exec.CommandContext(t.Context(), container.Command[0], args...).CombinedOutput() // #nosec G204 -- repository preset and fixed test input, not user data
+			if err != nil {
+				t.Fatalf("render command failed: %v\n%s", err, output)
+			}
+			if !strings.Contains(string(output), "--otlp-traces-endpoint\n"+endpoint+"\n") {
+				t.Fatalf("tracing args were not forwarded verbatim:\n%s", output)
+			}
+			if strings.Contains(string(output), "--ssl-keyfile\n") != tls {
+				t.Fatalf("TLS flags changed unexpectedly:\n%s", output)
+			}
+		})
 	}
 }
 

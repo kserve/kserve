@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"slices"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -181,8 +180,10 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 		},
 	}
 
+	var evictorTemplate *corev1.Container
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		template.Spec = *llmSvc.Spec.Template.DeepCopy()
+		evictorTemplate = takePVCEvictorContainerTemplate(&template.Spec)
 
 		var serviceAccount *corev1.ServiceAccount = nil
 		if hasRoutingSidecar(template.Spec) || config.ModelExpress != nil {
@@ -215,7 +216,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 			return nil, fmt.Errorf("failed to attach model artifacts to main pod template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main", evictorTemplate)
 		}
 		if err := attachModelExpress(llmSvc, &template.Spec, config.ModelExpress); err != nil {
 			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -226,15 +227,13 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &template.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
+	if llmSvc.Spec.KVCacheOffloading != nil {
+		template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, evictorTemplate != nil)
+	}
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
-		mainIdx := slices.IndexFunc(template.Spec.Containers, func(c corev1.Container) bool {
-			return c.Name == "main"
-		})
-		if mainIdx >= 0 {
-			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &template.Spec.Containers[mainIdx])
-		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &template.Spec)
 	}
 
 	applyWorkloadRevision(&template, config)
@@ -334,15 +333,45 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 		template.Labels = maps.Clone(labels)
 	}
 
+	var evictorTemplate *corev1.Container
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
+		evictorTemplate = takePVCEvictorContainerTemplate(&template.Spec)
+		if evictorTemplate == nil {
+			evictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
+		} else {
+			evictorTemplate = inheritPVCEvictorImage(evictorTemplate, findPVCEvictorContainerTemplate(llmSvc.Spec.Template))
+		}
+
+		// A prefill workload that already runs keeps the ServiceAccount it
+		// runs with — including none — whichever backend deploys it: the
+		// Deployment of the single-node path or a role of a DisaggregatedSet,
+		// both of which pass the deployed pod spec in. A controller upgrade
+		// therefore never rewrites the prefill identity and never rolls the
+		// workload. A pod spec without containers is no deployed workload,
+		// so the main-workload fallback below applies at creation only: it
+		// makes prefill pods run with the same identity as the main
+		// workload, including IRSA annotations for model download. In a
+		// mixed topology the main workload is multi-node and can name its
+		// ServiceAccount on the worker spec, so fall back to it the same
+		// way the tokenizer does.
+		if template.Spec.ServiceAccountName == "" {
+			switch {
+			case len(deployed.Containers) > 0:
+				template.Spec.ServiceAccountName = deployed.ServiceAccountName
+			case llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "":
+				template.Spec.ServiceAccountName = llmSvc.Spec.Template.ServiceAccountName
+			case llmSvc.Spec.Worker != nil && llmSvc.Spec.Worker.ServiceAccountName != "":
+				template.Spec.ServiceAccountName = llmSvc.Spec.Worker.ServiceAccountName
+			}
+		}
 
 		var existingServiceAccount *corev1.ServiceAccount = nil
-		if llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
+		if template.Spec.ServiceAccountName != "" {
 			existingServiceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Prefill.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: template.Spec.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 			if err != nil {
-				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Prefill.Template.ServiceAccountName, err)
+				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, template.Spec.ServiceAccountName, err)
 			}
 		} else if config.ModelExpress != nil {
 			var err error
@@ -357,7 +386,7 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill pod template: %w", err)
 		}
 		if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main", evictorTemplate)
 		}
 		if err := attachModelExpress(llmSvc, &template.Spec, config.ModelExpress); err != nil {
 			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -369,16 +398,14 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 	if llmSvc.Spec.Prefill != nil {
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &template.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
+		if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+			template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, evictorTemplate != nil)
+		}
 	}
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
-		mainIdx := slices.IndexFunc(template.Spec.Containers, func(c corev1.Container) bool {
-			return c.Name == "main"
-		})
-		if mainIdx >= 0 {
-			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &template.Spec.Containers[mainIdx])
-		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &template.Spec)
 	}
 
 	applyWorkloadRevision(&template, config)

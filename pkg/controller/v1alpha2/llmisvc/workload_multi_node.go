@@ -235,6 +235,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
 	}
 
+	var leaderEvictorTemplate, workerEvictorTemplate *corev1.Container
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, leaderLabels)
 		if err != nil {
@@ -247,6 +248,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 			},
 			Spec: *llmSvc.Spec.Template.DeepCopy(),
 		}
+		leaderEvictorTemplate = takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
@@ -258,7 +260,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 			return nil, fmt.Errorf("failed to attach model artifacts to main leader template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main", leaderEvictorTemplate)
 		}
 		if err := attachModelExpress(llmSvc, &group.LeaderTemplate.Spec, config.ModelExpress); err != nil {
 			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -278,6 +280,12 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 	}
 	if llmSvc.Spec.Worker != nil && !utils.GetForceStopRuntime(llmSvc) {
 		group.WorkerTemplate.Spec = *llmSvc.Spec.Worker.DeepCopy()
+		workerEvictorTemplate = takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
+		if workerEvictorTemplate == nil {
+			workerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
+		} else {
+			workerEvictorTemplate = inheritPVCEvictorImage(workerEvictorTemplate, findPVCEvictorContainerTemplate(llmSvc.Spec.Template))
+		}
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
@@ -289,7 +297,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 			return nil, fmt.Errorf("failed to attach model artifacts to main worker template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main", workerEvictorTemplate)
 		}
 		if err := attachModelExpress(llmSvc, &group.WorkerTemplate.Spec, config.ModelExpress); err != nil {
 			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -313,9 +321,15 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 	if group.LeaderTemplate != nil {
 		utils.PropagateMap(llmSvc.Spec.Labels, &group.LeaderTemplate.Labels)
 		utils.PropagateMap(llmSvc.Spec.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
+		if llmSvc.Spec.KVCacheOffloading != nil {
+			group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, leaderEvictorTemplate != nil)
+		}
 	}
 	utils.PropagateMap(llmSvc.Spec.Labels, &group.WorkerTemplate.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
+	if llmSvc.Spec.KVCacheOffloading != nil {
+		group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, workerEvictorTemplate != nil)
+	}
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
@@ -414,6 +428,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
 	}
 
+	var prefillLeaderEvictorTemplate, prefillWorkerEvictorTemplate *corev1.Container
 	if llmSvc.Spec.Prefill != nil && !utils.GetForceStopRuntime(llmSvc) {
 		group.Size = llmSvc.Spec.Prefill.Parallelism.GetSize()
 
@@ -434,6 +449,12 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 				},
 				Spec: *llmSvc.Spec.Prefill.Template.DeepCopy(),
 			}
+			prefillLeaderEvictorTemplate = takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
+			if prefillLeaderEvictorTemplate == nil {
+				prefillLeaderEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
+			} else {
+				prefillLeaderEvictorTemplate = inheritPVCEvictorImage(prefillLeaderEvictorTemplate, findPVCEvictorContainerTemplate(llmSvc.Spec.Template))
+			}
 
 			group.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
@@ -441,7 +462,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-				attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+				attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main", prefillLeaderEvictorTemplate)
 			}
 			if err := attachModelExpress(llmSvc, &group.LeaderTemplate.Spec, config.ModelExpress); err != nil {
 				return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -449,6 +470,16 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			group.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
+			prefillWorkerEvictorTemplate = takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
+			if prefillWorkerEvictorTemplate == nil {
+				prefillWorkerEvictorTemplate = inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, findPVCEvictorContainerTemplate(llmSvc.Spec.Template))
+			} else {
+				prefillWorkerEvictorTemplate = inheritPVCEvictorImage(
+					prefillWorkerEvictorTemplate,
+					findPVCEvictorContainerTemplate(llmSvc.Spec.Prefill.Template),
+					findPVCEvictorContainerTemplate(llmSvc.Spec.Template),
+				)
+			}
 
 			group.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
@@ -456,7 +487,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-				attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+				attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main", prefillWorkerEvictorTemplate)
 			}
 			if err := attachModelExpress(llmSvc, &group.WorkerTemplate.Spec, config.ModelExpress); err != nil {
 				return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -484,9 +515,15 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		if group.LeaderTemplate != nil {
 			utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.LeaderTemplate.Labels)
 			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
+			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+				group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, prefillLeaderEvictorTemplate != nil)
+			}
 		}
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.WorkerTemplate.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
+		if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+			group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, prefillWorkerEvictorTemplate != nil)
+		}
 	}
 
 	applyLeaderWorkerSetWorkloadRevision(&group, config)
@@ -520,14 +557,31 @@ func (r *LLMISVCReconciler) reconcileMultiNodePrefillServiceAccount(ctx context.
 	if err != nil {
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
 	}
-	if !useExistingServiceAccount {
-		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
-			return Delete(ctx, r, llmSvc, serviceAccount)
+	if useExistingServiceAccount {
+		// The prefill workload runs with an existing ServiceAccount. Delete
+		// the managed ServiceAccount that an earlier reconcile may have
+		// created, so that switching to the existing ServiceAccount does not
+		// leave a stale one behind. Delete is a no-op when it does not
+		// exist.
+		managedServiceAccount := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      prefillLWSName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
 		}
+		return r.deleteManagedPrefillServiceAccount(ctx, llmSvc, managedServiceAccount)
+	}
+	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
+		// The prefill workload is gone. The managed ServiceAccount it ran
+		// with is deleted through the same guarded path: the prefill
+		// LeaderWorkerSet is deleted after this step, so the workload and
+		// the pods of a slow or failed shutdown must not lose the
+		// ServiceAccount they still run with.
+		return r.deleteManagedPrefillServiceAccount(ctx, llmSvc, serviceAccount)
+	}
 
-		if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
-			return fmt.Errorf("failed to reconcile multi node service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
-		}
+	if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
+		return fmt.Errorf("failed to reconcile multi node service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
 	}
 
 	return nil
@@ -618,12 +672,22 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 	useExistingServiceAccount := false
 	expectedServiceAccountName := prefillLWSName(llmSvc)
 
-	// An existing service account attached to the prefill leader template takes precedence over any attached to the prefill worker template.
-	var existingServiceAccountName string
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
-		existingServiceAccountName = llmSvc.Spec.Prefill.Template.ServiceAccountName
-	} else if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Worker != nil && llmSvc.Spec.Prefill.Worker.ServiceAccountName != "" {
-		existingServiceAccountName = llmSvc.Spec.Prefill.Worker.ServiceAccountName
+	existingServiceAccountName, prefillSpecifiesServiceAccount := prefillServiceAccount(llmSvc)
+
+	// A prefill workload that already runs keeps the ServiceAccount it runs
+	// with: switching it on a controller upgrade would roll the workload.
+	// The main-workload fallback in prefillServiceAccount applies at
+	// creation only; an explicit prefill ServiceAccount always wins. The
+	// deployed workload is read from whichever backend deploys it: the
+	// prefill role of a DisaggregatedSet or the standalone LeaderWorkerSet.
+	if !prefillSpecifiesServiceAccount {
+		deployed, deployedFound, err := r.deployedPrefillSpecs(ctx, llmSvc)
+		if err != nil {
+			return nil, useExistingServiceAccount, err
+		}
+		if deployedFound {
+			existingServiceAccountName = deployedPrefillSpecsServiceAccountName(deployed)
+		}
 	}
 
 	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
@@ -657,6 +721,175 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 	expectedServiceAccount.Labels[constants.KubernetesPartOfLabelKey] = constants.LLMInferenceServicePartOfValue
 
 	return expectedServiceAccount, useExistingServiceAccount, nil
+}
+
+// prefillServiceAccount returns the ServiceAccount name the prefill
+// workload should run with and whether the prefill spec names one
+// explicitly. An explicit prefill ServiceAccount (prefill template or
+// prefill worker) always wins over the one the deployed workload runs
+// with and over the main workload's: the main-workload fallback applies
+// at creation only, while a prefill workload that already runs keeps the
+// ServiceAccount it runs with (see expectedMultiNodePrefillServiceAccount).
+func prefillServiceAccount(llmSvc *v1alpha2.LLMInferenceService) (name string, specified bool) {
+	prefill := llmSvc.Spec.Prefill
+	if prefill == nil {
+		return "", false
+	}
+
+	switch {
+	case prefill.Template != nil && prefill.Template.ServiceAccountName != "":
+		specified = true
+		name = prefill.Template.ServiceAccountName
+	case prefill.Worker != nil && prefill.Worker.ServiceAccountName != "":
+		specified = true
+		name = prefill.Worker.ServiceAccountName
+	case llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "":
+		name = llmSvc.Spec.Template.ServiceAccountName
+	case llmSvc.Spec.Worker != nil && llmSvc.Spec.Worker.ServiceAccountName != "":
+		name = llmSvc.Spec.Worker.ServiceAccountName
+	}
+
+	// A name is resolved only while the prefill workload exists, so a
+	// prefill spec without a worker resolves no name: the generated
+	// prefill ServiceAccount stays on the delete path. The spec can still
+	// name a ServiceAccount (specified) even when no workload exists to
+	// run with it.
+	if prefill.Worker == nil {
+		return "", specified
+	}
+	return name, specified
+}
+
+// deployedPrefillLWS returns the LeaderWorkerSet currently deployed for the
+// prefill workload, or nil when no prefill workload is deployed.
+func (r *LLMISVCReconciler) deployedPrefillLWS(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*lwsapi.LeaderWorkerSet, error) {
+	key := types.NamespacedName{Name: prefillLWSName(llmSvc), Namespace: llmSvc.GetNamespace()}
+	curr := &lwsapi.LeaderWorkerSet{}
+	if err := r.Get(ctx, key, curr); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get current prefill leader worker set %s/%s: %w", key.Namespace, key.Name, err)
+	}
+	return curr, nil
+}
+
+// deployedPrefillSpecs returns the pod specs the prefill workload currently
+// runs with, from whichever backend deploys it: the prefill role of a
+// DisaggregatedSet, or the standalone prefill LeaderWorkerSet of the
+// multi-node path. The second return value reports whether a prefill
+// workload is deployed at all.
+func (r *LLMISVCReconciler) deployedPrefillSpecs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (deployedRoleSpecs, bool, error) {
+	ds, err := r.currentDisaggregatedSet(ctx, llmSvc)
+	if err != nil {
+		return deployedRoleSpecs{}, false, err
+	}
+	if ds != nil && findDisaggregatedRole(ds, constants.LLMDRolePrefill) != nil {
+		return deployedDisaggregatedRole(ds, constants.LLMDRolePrefill), true, nil
+	}
+	lws, err := r.deployedPrefillLWS(ctx, llmSvc)
+	if err != nil {
+		return deployedRoleSpecs{}, false, err
+	}
+	return deployedPrefillLWSRoleSpecs(lws), lws != nil, nil
+}
+
+// deployedPrefillLWSRoleSpecs returns the pod specs the deployed prefill
+// LeaderWorkerSet runs with.
+func deployedPrefillLWSRoleSpecs(lws *lwsapi.LeaderWorkerSet) deployedRoleSpecs {
+	if lws == nil {
+		return deployedRoleSpecs{}
+	}
+	specs := deployedRoleSpecs{Worker: lws.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec}
+	if lws.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+		specs.Leader = &lws.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
+	}
+	return specs
+}
+
+// deployedPrefillSpecsServiceAccountName returns the ServiceAccount name the
+// deployed prefill workload runs with.
+func deployedPrefillSpecsServiceAccountName(deployed deployedRoleSpecs) string {
+	name := deployed.Worker.ServiceAccountName
+	if name == "" && deployed.Leader != nil {
+		name = deployed.Leader.ServiceAccountName
+	}
+	return name
+}
+
+// deployedPrefillSpecsReferenceServiceAccount reports whether any deployed
+// prefill pod spec runs with the named ServiceAccount.
+func deployedPrefillSpecsReferenceServiceAccount(deployed deployedRoleSpecs, name string) bool {
+	if deployed.Worker.ServiceAccountName == name {
+		return true
+	}
+	return deployed.Leader != nil && deployed.Leader.ServiceAccountName == name
+}
+
+// managedPrefillServiceAccountInUse reports whether any pod of the
+// LLMInferenceService still runs with the managed prefill ServiceAccount.
+// Pods of a LeaderWorkerSet rollout keep the ServiceAccount they were created
+// with until they are replaced, so the deployed LeaderWorkerSet no longer
+// referencing the ServiceAccount does not mean the pods that still run with it
+// are gone. Every pod the controller creates carries the app-name label, and
+// terminated pods no longer refresh their projected tokens, so they do not
+// block deletion.
+func (r *LLMISVCReconciler) managedPrefillServiceAccountInUse(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
+	pods := &corev1.PodList{}
+	err := r.List(ctx, pods,
+		client.InNamespace(llmSvc.GetNamespace()),
+		client.MatchingLabels{constants.KubernetesAppNameLabelKey: llmSvc.GetName()},
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to list pods of %s/%s: %w", llmSvc.GetNamespace(), llmSvc.GetName(), err)
+	}
+	managedServiceAccountName := prefillLWSName(llmSvc)
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.Spec.ServiceAccountName != managedServiceAccountName {
+			continue
+		}
+		switch pod.Status.Phase {
+		case corev1.PodSucceeded, corev1.PodFailed:
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+// deleteManagedPrefillServiceAccount deletes the managed prefill
+// ServiceAccount once nothing that still runs references it. The prefill
+// workload switching to an existing ServiceAccount, the prefill spec being
+// removed, and a force stop all reach this path. ServiceAccount
+// reconciliation runs before the prefill workload — a role of a
+// DisaggregatedSet or a standalone LeaderWorkerSet — is updated or deleted,
+// and a rollout replaces pods progressively, so the deployed workload and
+// the pods of a slow or failed rollout or shutdown must not lose the
+// ServiceAccount they still run with. Delete is a no-op when the
+// ServiceAccount does not exist.
+func (r *LLMISVCReconciler) deleteManagedPrefillServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, managedServiceAccount *corev1.ServiceAccount) error {
+	deployed, deployedFound, err := r.deployedPrefillSpecs(ctx, llmSvc)
+	if err != nil {
+		return err
+	}
+	if deployedFound && deployedPrefillSpecsReferenceServiceAccount(deployed, prefillLWSName(llmSvc)) {
+		return nil
+	}
+	// The deployed LeaderWorkerSet can already run with another
+	// ServiceAccount while pods of its previous revision still run with
+	// the managed one: a LeaderWorkerSet rollout replaces pods
+	// progressively, and every pod keeps the ServiceAccount it was
+	// created with. Keep the managed ServiceAccount until the last of
+	// them is gone.
+	inUse, err := r.managedPrefillServiceAccountInUse(ctx, llmSvc)
+	if err != nil {
+		return err
+	}
+	if inUse {
+		return nil
+	}
+	return Delete(ctx, r, llmSvc, managedServiceAccount)
 }
 
 func (r *LLMISVCReconciler) expectedMultiNodeMainRole(llmSvc *v1alpha2.LLMInferenceService) *rbacv1.Role {

@@ -47,8 +47,10 @@ var _ = Describe("Inference Graph controller test", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
 		timeout  = time.Second * 10
-		interval = time.Millisecond * 250
+		interval = time.Millisecond * 50
 		domain   = "example.com"
+		// Match the InferenceService suite's fastTimeout for negative checks.
+		absenceWindow = time.Second * 3
 	)
 
 	configs := map[string]string{
@@ -258,7 +260,6 @@ var _ = Describe("Inference Graph controller test", func() {
 	})
 	Context("with knative configured to allow zero initial scale", func() {
 		BeforeEach(func() {
-			time.Sleep(10 * time.Second)
 			// Patch the existing config-autoscaler configmap to set allow-zero-initial-scale to true
 			configAutoscaler := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -272,7 +273,6 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout).Should(Succeed())
 		})
 		AfterEach(func() {
-			time.Sleep(10 * time.Second)
 			// Restore the default autoscaling configuration
 			configAutoscaler := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1098,12 +1098,13 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
 		}
 
-		// Checks that any Kubernetes object to be not found.
-		expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
-			Consistently(func() bool {
-				err := k8sClient.Get(ctx, objKey, obj)
-				return apierr.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+		// Use one window so checking multiple resources does not extend the wait.
+		expectResourceIsDeleted := func(ctx context.Context, objKey types.NamespacedName, objs ...client.Object) {
+			Consistently(func(g Gomega) {
+				for _, obj := range objs {
+					g.Expect(apierr.IsNotFound(k8sClient.Get(ctx, objKey, obj))).To(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+				}
+			}, absenceWindow, interval).Should(Succeed())
 		}
 
 		// Wait for any Kubernetes object to be not found.
@@ -1205,7 +1206,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the knative service was not created
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &knservingv1.Service{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1269,7 +1270,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the knative service was not created
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &knservingv1.Service{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1414,8 +1415,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the service and deployment were not created
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
-				expectResourceIsDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &corev1.Service{}, &appsv1.Deployment{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1482,8 +1482,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the service and deployment were not created
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
-				expectResourceIsDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &corev1.Service{}, &appsv1.Deployment{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
