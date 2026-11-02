@@ -29,6 +29,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -747,7 +748,13 @@ func validateKEDAConfig(keda *KEDAScalingConfig, minReplicas *int32) error {
 		if keda.Fallback.Replicas < 0 {
 			return errors.New("fallback.replicas must be >= 0")
 		}
-		// Behavior is validated by kubebuilder enum validation
+		// The enum is enforced by the CRD schema, but KEDA additionally requires a
+		// scaling modifiers formula for the scalingModifiers behavior, which an enum
+		// cannot express.
+		if keda.Fallback.Behavior == kedav1alpha1.FallbackBehaviorScalingModifiers &&
+			(keda.Advanced == nil || keda.Advanced.ScalingModifiers.Formula == "") {
+			return errors.New("fallback.behavior scalingModifiers requires advanced.scalingModifiers.formula to be set")
+		}
 	}
 
 	// Validate advanced configuration
@@ -762,6 +769,10 @@ func validateKEDAConfig(keda *KEDAScalingConfig, minReplicas *int32) error {
 		sm := keda.Advanced.ScalingModifiers
 		if (sm.Target != "" || sm.ActivationTarget != "" || sm.MetricType != "") && sm.Formula == "" {
 			return errors.New("advanced.scalingModifiers.formula must be set when using scaling modifiers")
+		}
+		// KEDA always turns a formula into a composite scaler, which needs a target.
+		if sm.Formula != "" && sm.Target == "" {
+			return errors.New("advanced.scalingModifiers.target must be set when a formula is given")
 		}
 	}
 

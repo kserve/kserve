@@ -3211,6 +3211,45 @@ func TestValidateKEDAConfig(t *testing.T) {
 			minReplicas: ptr.To(int32(1)),
 			errMatcher:  gomega.BeNil(),
 		},
+		"Scaling modifiers formula without target - should error": {
+			keda: &KEDAScalingConfig{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					ScalingModifiers: kedav1alpha1.ScalingModifiers{
+						Formula: "trigger_one",
+					},
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("advanced.scalingModifiers.target must be set when a formula is given")),
+		},
+		"Fallback behavior scalingModifiers without formula - should error": {
+			keda: &KEDAScalingConfig{
+				Fallback: &kedav1alpha1.Fallback{
+					FailureThreshold: 3,
+					Replicas:         2,
+					Behavior:         kedav1alpha1.FallbackBehaviorScalingModifiers,
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("fallback.behavior scalingModifiers requires advanced.scalingModifiers.formula")),
+		},
+		"Fallback behavior scalingModifiers with formula - should pass": {
+			keda: &KEDAScalingConfig{
+				Fallback: &kedav1alpha1.Fallback{
+					FailureThreshold: 3,
+					Replicas:         2,
+					Behavior:         kedav1alpha1.FallbackBehaviorScalingModifiers,
+				},
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					ScalingModifiers: kedav1alpha1.ScalingModifiers{
+						Formula: "trigger_one",
+						Target:  "10",
+					},
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.BeNil(),
+		},
 		"Nil KEDA config - should pass": {
 			keda:        nil,
 			minReplicas: ptr.To(int32(1)),
@@ -3509,6 +3548,9 @@ func TestValidateScalingKedaCompExtension_WithKEDAConfig(t *testing.T) {
 					Metrics: []MetricsSpec{
 						{
 							Type: ResourceMetricSourceType,
+							// KEDA compiles the formula against trigger names, so the
+							// trigger must be named and referenced by that name.
+							Name: "cpu_trigger",
 							Resource: &ResourceMetricSource{
 								Name: ResourceMetricCPU,
 								Target: MetricTarget{
@@ -3525,7 +3567,7 @@ func TestValidateScalingKedaCompExtension_WithKEDAConfig(t *testing.T) {
 						},
 						Advanced: &kedav1alpha1.AdvancedConfig{
 							ScalingModifiers: kedav1alpha1.ScalingModifiers{
-								Formula: "cpu_metric",
+								Formula: "cpu_trigger",
 								Target:  "50",
 							},
 						},

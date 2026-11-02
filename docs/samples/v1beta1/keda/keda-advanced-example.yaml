@@ -12,14 +12,14 @@ spec:
     autoScaling:
       metrics:
         - type: Resource
-          name: cpu-scaler
+          name: cpu_scaler
           resource:
             name: cpu
             target:
               type: Utilization
               averageUtilization: 80
         - type: External
-          name: custom-prometheus-metric
+          name: custom_prometheus_metric
           external:
             metric:
               backend: prometheus
@@ -70,9 +70,10 @@ spec:
                     value: 4
                     periodSeconds: 15
                 selectPolicy: Max
-          # Scaling modifiers for custom formulas (advanced use case)
+          # Scaling modifiers for custom formulas (advanced use case).
+          # The formula refers to triggers by name, so names must be valid identifiers.
           # scalingModifiers:
-          #   formula: "desired_replicas"
+          #   formula: "custom_prometheus_metric"
           #   target: "100"
           #   metricType: "AverageValue"
     sklearn:
