@@ -24,7 +24,7 @@ spec:
             metric:
               backend: prometheus
               serverAddress: "http://prometheus.monitoring.svc.cluster.local:9090"
-              query: "sum(rate(istio_requests_total{destination_workload=\"sklearn-iris-keda-advanced-predictor-default\"}[2m]))"
+              query: "sum(rate(istio_requests_total{destination_workload=\"sklearn-iris-keda-advanced-predictor\"}[2m]))"
             target:
               type: Value
               value: "100"
