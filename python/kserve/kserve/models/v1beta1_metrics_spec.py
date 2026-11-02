@@ -64,7 +64,7 @@ class V1beta1MetricsSpec(object):
         'use_cached_metrics': 'useCachedMetrics'
     }
 
-    def __init__(self, external=None, name=None, podmetric=None, resource=None, type='', use_cached_metrics=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, external=None, podmetric=None, resource=None, type='', local_vars_configuration=None, *, name=None, use_cached_metrics=None):  # noqa: E501
         """V1beta1MetricsSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
