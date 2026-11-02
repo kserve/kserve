@@ -5,7 +5,7 @@ authors = [
     {name = "The KServe Authors", email = "hejinchi@cn.ibm.com"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = ">=3.11,<=3.14"
+requires-python = ">=3.11,<3.15"
 dependencies = [
     "uvicorn[standard]<1.0.0,>=0.30.6",
     "watchfiles<2.0.0,>=1.0.4",
