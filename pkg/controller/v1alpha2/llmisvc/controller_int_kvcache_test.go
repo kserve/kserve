@@ -610,12 +610,14 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 			}
 			Expect(envTest.Create(ctx, blocker)).To(Succeed())
 
-			current := &v1alpha2.LLMInferenceService{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)
-			}).WithContext(ctx).Should(Succeed())
-			current.Spec.KVCacheOffloading.Secondary[0].FileSystem.PVC.Ref.Path = "new-cache"
-			Expect(envTest.Update(ctx, current)).To(Succeed())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current); err != nil {
+					return err
+				}
+				current.Spec.KVCacheOffloading.Secondary[0].FileSystem.PVC.Ref.Path = "new-cache"
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
 
 			Eventually(func(g Gomega, ctx context.Context) error {
 				updated := &appsv1.Deployment{}
