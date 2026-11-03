@@ -39,6 +39,7 @@ concurrency:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
     steps:
@@ -75,6 +76,7 @@ jobs:
 
   kserve-image-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -139,6 +141,14 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Upload kernelcache agent image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.KERNELCACHE_AGENT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.KERNELCACHE_AGENT_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
       - name: Upload storage initializer image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -157,6 +167,7 @@ jobs:
 
   llmisvc-image-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -199,6 +210,7 @@ jobs:
 
   predictor-runtime-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 70
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -249,6 +261,7 @@ jobs:
 
   test-modelcache:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs: [detect-changes, kserve-image-build, llmisvc-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -335,6 +348,7 @@ jobs:
             "${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}"
@@ -413,16 +427,20 @@ jobs:
         run: |
           kubectl create ns kserve-localmodel-jobs
 
+      - name: Setup RWX storage (csi-driver-nfs) for shared-PVC modelcache
+        run: |
+          ./test/scripts/gh-actions/setup-nfs-csi.sh
+
       - name: Label worker nodes for modelcache
         run: |
           kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker
 
-      - name: Enable nodeselector in knative
+      - name: Enable pod scheduling features in knative
         run: |
-          kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled"}}'
+          kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled", "kubernetes.podspec-affinity": "enabled"}}'
 
       - name: Run E2E tests
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "modelcache" "1"
 
@@ -430,7 +448,7 @@ jobs:
         if: always()
         run: |
           echo "::group::Minikube tunnel logs"
-          cat minikube-tunnel.log
+          cat minikube-tunnel.log 2>/dev/null || echo "No minikube tunnel log found"
           echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh
 

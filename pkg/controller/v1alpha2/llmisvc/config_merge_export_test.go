@@ -16,6 +16,12 @@ limitations under the License.
 
 package llmisvc
 
+import (
+	"context"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+)
+
 // SetUseVersionedConfigForTest overrides the useVersionedConfig flag for testing
 // and returns a cleanup function that restores the original value.
 func SetUseVersionedConfigForTest(enabled bool) func() {
@@ -24,4 +30,32 @@ func SetUseVersionedConfigForTest(enabled bool) func() {
 	return func() {
 		useVersionedConfig = original
 	}
+}
+
+// SelectSingleNodeTemplateNames exposes selectSingleNodeTemplateNames for testing.
+var SelectSingleNodeTemplateNames = selectSingleNodeTemplateNames
+
+// IsOmniRuntimeForTest exposes isOmniRuntime for testing.
+var IsOmniRuntimeForTest = isOmniRuntime
+
+// StripModalityRouteRules exposes stripModalityRouteRules for testing.
+var StripModalityRouteRules = stripModalityRouteRules
+
+// IsModalityEndpointPathForTest exposes isModalityEndpointPath for testing.
+var IsModalityEndpointPathForTest = isModalityEndpointPath
+
+// InjectOmniRuntimeArgs exposes injectOmniRuntimeArgs for testing.
+var InjectOmniRuntimeArgs = injectOmniRuntimeArgs
+
+// ResolveRuntimeSpec exposes (*LLMISVCReconciler).resolveRuntimeSpec for testing.
+func (r *LLMISVCReconciler) ResolveRuntimeSpec(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*v1alpha2.LLMInferenceServiceSpec, error) {
+	return r.resolveRuntimeSpec(ctx, llmSvc)
+}
+
+// KVTransferArgsEnvVarForTest exposes the transfer-argument slot name.
+const KVTransferArgsEnvVarForTest = kvTransferArgsEnvVar
+
+// ApplyKVCacheCarriersForTest exposes applyKVCacheCarriers.
+func ApplyKVCacheCarriersForTest(cfg *v1alpha2.LLMInferenceServiceConfig) error {
+	return applyKVCacheCarriers(cfg)
 }

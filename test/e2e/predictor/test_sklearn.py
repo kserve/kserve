@@ -1,3 +1,4 @@
+# Copyright 2019 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +15,10 @@
 import asyncio
 import json
 import os
+from urllib.parse import quote
 
+import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 import pytest
-from kubernetes import client
-from kubernetes.client import V1ContainerPort, V1ResourceRequirements
-
 from kserve import (
     KServeClient,
     V1beta1InferenceService,
@@ -29,20 +29,20 @@ from kserve import (
     V1beta1SKLearnSpec,
     constants,
 )
-
-import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
+from kubernetes import client
+from kubernetes.client import V1ContainerPort, V1ResourceRequirements
 
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
-    predict_isvc,
+    get_container_worker_count,
     predict_grpc,
-    extract_process_ids_from_logs,
+    predict_isvc,
+    wait_for_pod_logs,
 )
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_kserve(rest_v1_client, network_layer):
+async def test_sklearn_kserve(rest_v1_client, network_layer, test_namespace):
     service_name = "isvc-sklearn"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -58,9 +58,7 @@ async def test_sklearn_kserve(rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -68,20 +66,34 @@ async def test_sklearn_kserve(rest_v1_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     res = await predict_isvc(
         rest_v1_client,
         service_name,
         "./data/iris_input.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+    pods = kserve_client.core_api.list_namespaced_pod(
+        test_namespace,
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+    )
+    assert len(pods.items) == 1
+    logs = await wait_for_pod_logs(
+        kserve_client.core_api,
+        pods.items[0].metadata.name,
+        test_namespace,
+        expected_substring=f"POST /v1/models/{service_name}:predict",
+    )
+    assert f"POST {quote(f'/v1/models/{service_name}:predict')}" in logs
+    assert '"telemetry.sdk.name": "opentelemetry"' not in logs
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_mlserver(rest_v2_client, network_layer):
+async def test_sklearn_v2_mlserver(rest_v2_client, network_layer, test_namespace):
     service_name = "sklearn-v2-mlserver"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -105,9 +117,7 @@ async def test_sklearn_v2_mlserver(rest_v2_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -115,23 +125,22 @@ async def test_sklearn_v2_mlserver(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.kourier
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_runtime_kserve(rest_v1_client, network_layer):
+async def test_sklearn_runtime_kserve(rest_v1_client, network_layer, test_namespace):
     service_name = "isvc-sklearn-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -151,9 +160,7 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -162,13 +169,28 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer):
     )
 
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
+
+    pods = kserve_client.core_api.list_namespaced_pod(
+        test_namespace,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
+    worker_count = get_container_worker_count(
+        kserve_client.core_api,
+        pods.items[0].metadata.name,
+        test_namespace,
+    )
+    assert worker_count == 2, (
+        f"Expected 2 multiprocessing workers but found {worker_count}"
+    )
+
     tasks = [
         predict_isvc(
             rest_v1_client,
             service_name,
             "./data/news_grouping_input_v1.json",
             network_layer=network_layer,
+            namespace=test_namespace,
         )
         for _ in range(25)
     ]
@@ -176,25 +198,12 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer):
     for res in responses:
         assert res["predictions"] == [19]
 
-    pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
-    )
-    # Wait for logs to be available
-    await asyncio.sleep(5)
-    logs = kserve_client.core_api.read_namespaced_pod_log(
-        name=pods.items[0].metadata.name,
-        namespace=pods.items[0].metadata.namespace,
-        container="kserve-container",
-    )
-    process_ids = extract_process_ids_from_logs(logs)
-    assert len(process_ids) == 2
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_runtime_mlserver(rest_v2_client, network_layer):
+async def test_sklearn_v2_runtime_mlserver(
+    rest_v2_client, network_layer, test_namespace
+):
     service_name = "isvc-sklearn-v2-runtime"
     protocol_version = "v2"
 
@@ -223,9 +232,7 @@ async def test_sklearn_v2_runtime_mlserver(rest_v2_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -233,22 +240,21 @@ async def test_sklearn_v2_runtime_mlserver(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2(rest_v2_client, network_layer):
+async def test_sklearn_v2(rest_v2_client, network_layer, test_namespace):
     service_name = "isvc-sklearn-v2"
 
     predictor = V1beta1PredictorSpec(
@@ -269,9 +275,7 @@ async def test_sklearn_v2(rest_v2_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -279,13 +283,14 @@ async def test_sklearn_v2(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
 
@@ -294,6 +299,7 @@ async def test_sklearn_v2(rest_v2_client, network_layer):
         service_name,
         "./data/iris_input_v2_binary.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
 
@@ -302,15 +308,14 @@ async def test_sklearn_v2(rest_v2_client, network_layer):
         service_name,
         "./data/iris_input_v2_all_binary.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_grpc():
+async def test_sklearn_v2_grpc(test_namespace):
     service_name = "isvc-sklearn-v2-grpc"
     model_name = "sklearn"
     predictor = V1beta1PredictorSpec(
@@ -333,9 +338,7 @@ async def test_sklearn_v2_grpc():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -343,23 +346,24 @@ async def test_sklearn_v2_grpc():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     with open("./data/iris_input_v2_grpc.json") as json_file:
         payload = json.load(json_file)["inputs"]
 
     response = await predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
+        namespace=test_namespace,
     )
     prediction = response.outputs[0].data
     assert prediction == [1, 1]
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_mixed(rest_v2_client, network_layer):
+async def test_sklearn_v2_mixed(rest_v2_client, network_layer, test_namespace):
     service_name = "isvc-sklearn-v2-mixed"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -379,9 +383,7 @@ async def test_sklearn_v2_mixed(rest_v2_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -389,22 +391,21 @@ async def test_sklearn_v2_mixed(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     response = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/sklearn_mixed_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert response.outputs[0].data == [12.202832815138274]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_mixed_grpc():
+async def test_sklearn_v2_mixed_grpc(test_namespace):
     service_name = "isvc-sklearn-v2-mixed-grpc"
     model_name = "sklearn"
     predictor = V1beta1PredictorSpec(
@@ -427,9 +428,7 @@ async def test_sklearn_v2_mixed_grpc():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -437,10 +436,10 @@ async def test_sklearn_v2_mixed_grpc():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-    json_file = open("./data/sklearn_mixed.json")
-    data = json.load(json_file)
+    with open("./data/sklearn_mixed.json") as json_file:
+        data = json.load(json_file)
     payload = []
     for key, val in data.items():
         if isinstance(val, int):
@@ -467,8 +466,7 @@ async def test_sklearn_v2_mixed_grpc():
         payload=payload,
         model_name=model_name,
         parameters=parameters,
+        namespace=test_namespace,
     )
     prediction = list(response.outputs[0].data)
     assert prediction == [12.202832815138274]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

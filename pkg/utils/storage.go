@@ -35,6 +35,15 @@ type StorageMountParams struct {
 	VolumeName string
 	PVCName    string
 	ReadOnly   bool
+	// DefaultVolumeSource overrides the emptyDir used when PVCName is empty.
+	// When nil, emptyDir is used (backward-compatible default).
+	DefaultVolumeSource *corev1.VolumeSource
+	// MountsPerPath identifies an existing mount by (VolumeName, MountPath, SubPath) rather
+	// than by VolumeName alone, so one volume can be mounted at several paths in the same
+	// container. Leave it unset unless the caller owns every mount on the volume: with the
+	// default, a mount that already carries the volume name suppresses this one, which is
+	// how a workload overrides an injected volume by declaring its own.
+	MountsPerPath bool
 }
 
 // ParsePvcURI parses a PVC URI of the form "pvc://<name>[/path]" into its components.
@@ -72,11 +81,19 @@ func ParsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	return pvcName, pvcPath, nil
 }
 
-// addVolumeMountToContainer adds a volume mount to a specific container
+// addVolumeMountToContainer adds a volume mount to a specific container.
+//
+// By default a mount is identified by its volume name alone, so an existing mount with that
+// name suppresses this one. StorageMountParams.MountsPerPath widens the identity to the
+// mount path and sub path, allowing several mounts of one volume in the same container.
 func addVolumeMountToContainer(container *corev1.Container, storageMountParams StorageMountParams) bool {
 	// Check if mount already exists
 	for _, mount := range container.VolumeMounts {
-		if mount.Name == storageMountParams.VolumeName {
+		if mount.Name != storageMountParams.VolumeName {
+			continue
+		}
+		if !storageMountParams.MountsPerPath ||
+			(mount.MountPath == storageMountParams.MountPath && mount.SubPath == storageMountParams.SubPath) {
 			return false // Mount already exists
 		}
 	}
@@ -94,7 +111,9 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 }
 
 // AddModelMount adds a mount to the specified container in the given PodSpec based on the provided modelUri.
-// If the mount or volume already exists, it will not be duplicated.
+// The volume is added at most once per name. A mount already carrying that volume name
+// suppresses this one, unless StorageMountParams.MountsPerPath is set, in which case only a
+// mount at the same path and sub path does.
 //
 // Parameters:
 //   - modelUri: The URI specifying the PVC and optional sub-path to mount.
@@ -106,14 +125,16 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 //   - error: An error if the modelUri is invalid or if any other issue occurs; otherwise, nil.
 func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec) error {
 	var volumeSource corev1.VolumeSource
-
-	if storageMountParams.PVCName != "" {
+	switch {
+	case storageMountParams.PVCName != "":
 		volumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: storageMountParams.PVCName,
 			},
 		}
-	} else {
+	case storageMountParams.DefaultVolumeSource != nil:
+		volumeSource = *storageMountParams.DefaultVolumeSource
+	default:
 		volumeSource = corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		}
@@ -232,10 +253,16 @@ func FindCommonParentPath(paths []string) string {
 	return "/" + strings.Join(commonComponents, "/")
 }
 
-// Helper function to generate volume name from path
+// GetVolumeNameFromPath generates a volume name from a mount path. Path
+// segments may carry characters that are valid in paths but not in volume
+// names (dots, uppercase), and distinct paths must not collapse into the same
+// name, so the joined segments go through SafeObjectName. Joining slashes here
+// rather than delegating to SafeObjectName is deliberate: it reproduces the
+// historical name, which SafeObjectName then keeps when valid, so existing
+// pods are not restarted by a rename. An empty path yields an empty name;
+// callers keep their own fallbacks.
 func GetVolumeNameFromPath(path string) string {
-	// Convert path to valid volume name (remove slashes, etc.)
-	return strings.ReplaceAll(strings.Trim(path, "/"), "/", "-")
+	return SafeObjectName(strings.ReplaceAll(strings.Trim(path, "/"), "/", "-"))
 }
 
 // AddDefaultHuggingFaceEnvVars adds default HuggingFace optimization environment variables
@@ -333,12 +360,30 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 	}
 }
 
-// shellQuote wraps s in single quotes for safe interpolation into a sh -c
-// command string. Any embedded single quotes are escaped using the standard
-// POSIX sequence: close the current quote, emit an escaped literal quote,
-// and re-open a new quoted segment ('\\"). This is safe for all byte values.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+// ShellQuote returns s quoted for safe interpolation into a sh -c command
+// string. Strings that consist entirely of shell-safe characters (letters,
+// digits, '/', '.', '_', '-') are returned unchanged to avoid altering
+// previously generated command strings (which would cause unnecessary pod
+// restarts on upgrade). All other strings are wrapped in single quotes with
+// embedded single quotes escaped via the standard POSIX sequence.
+func ShellQuote(s string) string {
+	if len(s) == 0 {
+		return "''"
+	}
+	for _, c := range s {
+		if !isShellSafe(c) {
+			return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+		}
+	}
+	return s
+}
+
+// isShellSafe reports whether c can appear unquoted in a sh -c command string.
+// Kept as a named predicate: inlined into ShellQuote it makes staticcheck QF1001
+// emit two conflicting fixes, and golangci-lint --fix then skips the whole file.
+func isShellSafe(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+		c == '/' || c == '.' || c == '_' || c == '-'
 }
 
 // modelcarCommand returns the shell command for the modelcar container.
@@ -347,16 +392,16 @@ func shellQuote(s string) string {
 // the command is kept identical to the original to avoid unnecessary pod restarts
 // on upgrade.
 //
-// Paths are shell-quoted using shellQuote to prevent metacharacter injection.
+// Paths are shell-quoted using ShellQuote to prevent metacharacter injection.
 // The upstream validation (validateStorageURISpec) ensures paths are absolute
 // and contain no "..", but quoting provides defense-in-depth.
 func modelcarCommand(modelPath string) string {
 	// $$$$ gets escaped by YAML to $$, which is the current PID
 	if modelPath != constants.DefaultModelLocalMountPath {
 		return fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
-			shellQuote(path.Dir(modelPath)), shellQuote(modelPath))
+			ShellQuote(path.Dir(modelPath)), ShellQuote(modelPath))
 	}
-	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", shellQuote(modelPath))
+	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", ShellQuote(modelPath))
 }
 
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
@@ -483,16 +528,37 @@ func ModelcarNames(ociIndex int) (sidecarName, initName, volumeName string) {
 }
 
 // ValidateOCIMountPaths checks that the given OCI mount paths will not cause volume
-// mount shadowing when injected. Each modelcar sidecar mounts an emptyDir at the
-// *parent directory* of its modelPath (via GetParentDirectory). If two OCI URIs share
-// the same parent directory, their volumes would be mounted at the same path on the
-// target container, causing the last mount to shadow all previous ones.
+// mount collisions when injected. The collision rules differ by mode:
+//
+//   - OciModelModeNative: the container runtime mounts OCI images directly at the
+//     requested path, so only exact-path duplicates are invalid; siblings under the
+//     same parent directory are perfectly fine.
+//
+//   - OciModelModeModelcar (and any other/empty mode, defensively): each modelcar
+//     sidecar mounts an emptyDir at the *parent directory* of its modelPath (via
+//     GetParentDirectory). Two URIs sharing a parent would mount volumes at the same
+//     path on the target container, causing the last mount to shadow all previous ones.
 //
 // Returns an error if a collision is detected.
-func ValidateOCIMountPaths(mountPaths []string) error {
+func ValidateOCIMountPaths(mountPaths []string, mode string) error {
 	if len(mountPaths) <= 1 {
 		return nil
 	}
+	if mode == types.OciModelModeNative {
+		// Native mode: only exact-path duplicates are invalid.
+		seen := make(map[string]struct{}, len(mountPaths))
+		for _, mp := range mountPaths {
+			if _, exists := seen[mp]; exists {
+				return fmt.Errorf(
+					"OCI mount path %q is specified more than once; each native ImageVolume must have a unique mount path",
+					mp,
+				)
+			}
+			seen[mp] = struct{}{}
+		}
+		return nil
+	}
+	// Modelcar mode (and defensive default): parent-directory collision check.
 	parentDirSeen := make(map[string]string, len(mountPaths)) // parentDir -> first modelPath that used it
 	for _, mp := range mountPaths {
 		parentDir := GetParentDirectory(mp)
@@ -579,6 +645,93 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 	// Enable process namespace sharing so that the modelcar's root filesystem
 	// can be reached by the user container
 	podSpec.ShareProcessNamespace = ptr.To(true)
+
+	return nil
+}
+
+// ParseOciScheme splits any OCI storageUri into its mode, a normalized oci:// URI, and
+// whether it is an OCI URI at all.
+//
+//   - "oci+native://reg/img:tag" → ("native", "oci://reg/img:tag", true)
+//   - "oci+modelcar://reg/img:tag" → ("modelcar", "oci://reg/img:tag", true)
+//   - "oci+fetch://reg/img:tag"   → ("fetch",    "oci://reg/img:tag", true)
+//   - "oci://reg/img:tag"         → ("",         "oci://reg/img:tag", true)  // mode resolved later
+//   - "s3://bucket/key"           → ("",         "s3://bucket/key",  false)
+func ParseOciScheme(uri string) (mode string, normalizedURI string, isOci bool) {
+	const ociPlus = "oci+"
+	if strings.HasPrefix(uri, ociPlus) {
+		rest := uri[len(ociPlus):]
+		sepIdx := strings.Index(rest, "://")
+		if sepIdx > 0 {
+			return rest[:sepIdx], constants.OciURIPrefix + rest[sepIdx+3:], true
+		}
+	}
+	if strings.HasPrefix(uri, constants.OciURIPrefix) {
+		return "", uri, true
+	}
+	return "", uri, false
+}
+
+// ConfigureOciNativeToContainer mounts a Kubernetes ImageVolume (alpha/beta gated by
+// +featureGate=ImageVolume) for an oci:// storageUri onto targetContainerName at modelPath.
+//
+// The volume name is derived from modelPath so that multiple adapters at different paths
+// can coexist without collision (each path produces a unique name via GetVolumeNameFromPath).
+// If another VolumeMount already uses modelPath the call is rejected to avoid silent
+// mount shadowing.
+//
+// The mount uses subPath="models" so that existing modelcar OCI images (which store model
+// files under /models/ inside the image) continue to work without re-building. K8s 1.31–1.32
+// alpha does not support subPath on ImageVolume VolumeMounts; the controller's warn helper
+// surfaces an advisory condition on those clusters.
+func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, _ *types.StorageInitializerConfig) error {
+	targetContainer := GetContainerWithName(podSpec, targetContainerName)
+	if targetContainer == nil {
+		return fmt.Errorf("no container found with name %s", targetContainerName)
+	}
+
+	imageRef := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
+
+	volName := GetVolumeNameFromPath(modelPath)
+	if volName == "" {
+		volName = "oci-model"
+	}
+
+	// Reject if modelPath is already claimed by a different mount.
+	for _, m := range targetContainer.VolumeMounts {
+		if m.MountPath == modelPath && m.Name != volName {
+			return fmt.Errorf("mountPath %q already used by volume %q", modelPath, m.Name)
+		}
+	}
+
+	// Guard against duplicate pod-level Volume entries (the API server rejects them).
+	// There is no shared helper for pod-level Volumes; AddVolumeMountIfNotPresent only
+	// covers per-container VolumeMounts. Unlike the previous early-return, we always
+	// call AddVolumeMountIfNotPresent below so that a second call for a different
+	// targetContainer (e.g., transformer) gets its VolumeMount even when the Volume
+	// already exists from the first call.
+	volumeExists := false
+	for _, v := range podSpec.Volumes {
+		if v.Name == volName {
+			volumeExists = true
+			break
+		}
+	}
+	if !volumeExists {
+		podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
+			Name: volName,
+			VolumeSource: corev1.VolumeSource{
+				Image: &corev1.ImageVolumeSource{
+					Reference:  imageRef,
+					PullPolicy: corev1.PullIfNotPresent,
+				},
+			},
+		})
+	}
+
+	// Always add the VolumeMount; the helper skips if this container already has it.
+	// subPath="models" matches the modelcar OCI image layout convention (/models/ inside the image).
+	AddVolumeMountIfNotPresentWithSubPath(targetContainer, volName, modelPath, "models", true)
 
 	return nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -25,6 +26,107 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/types"
 )
+
+func TestShellQuote(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		input    string
+		expected string
+	}{
+		"SafeAbsolutePath": {
+			input:    "/mnt/models",
+			expected: "/mnt/models",
+		},
+		"SafeNestedPath": {
+			input:    "/mnt/models/base",
+			expected: "/mnt/models/base",
+		},
+		"SafePathWithDash": {
+			input:    "/mnt/my-models/v1.0",
+			expected: "/mnt/my-models/v1.0",
+		},
+		"SafePathWithUnderscore": {
+			input:    "/mnt/my_models",
+			expected: "/mnt/my_models",
+		},
+		"PathWithSpace": {
+			input:    "/mnt/my models",
+			expected: "'/mnt/my models'",
+		},
+		"PathWithSingleQuote": {
+			input:    "/mnt/it's",
+			expected: "'/mnt/it'\\''s'",
+		},
+		"PathWithSemicolon": {
+			input:    "/mnt/models;rm -rf /",
+			expected: "'/mnt/models;rm -rf /'",
+		},
+		"PathWithPlus": {
+			input:    "/mnt/models/llama-3.1+quant",
+			expected: "'/mnt/models/llama-3.1+quant'",
+		},
+		"PathWithTilde": {
+			input:    "~/models",
+			expected: "'~/models'",
+		},
+		"EmptyString": {
+			input:    "",
+			expected: "''",
+		},
+		"PathWithDollarParens": {
+			input:    "/mnt/$(rm -rf /)",
+			expected: "'/mnt/$(rm -rf /)'",
+		},
+		"PathWithBackticks": {
+			input:    "/mnt/`id`",
+			expected: "'/mnt/`id`'",
+		},
+		"PathWithPipe": {
+			input:    "/mnt/models|cat /etc/passwd",
+			expected: "'/mnt/models|cat /etc/passwd'",
+		},
+		"PathWithAmpersand": {
+			input:    "/mnt/models&rm -rf /",
+			expected: "'/mnt/models&rm -rf /'",
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			result := ShellQuote(scenario.input)
+			g.Expect(result).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
+func TestModelcarCommand(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("DefaultPath produces unquoted command", func(t *testing.T) {
+		cmd := modelcarCommand(constants.DefaultModelLocalMountPath)
+		g.Expect(cmd).To(gomega.Equal(
+			"ln -sf /proc/$$$$/root/models /mnt/models && sleep infinity"))
+	})
+
+	t.Run("NonDefaultSafePath produces mkdir with unquoted paths", func(t *testing.T) {
+		cmd := modelcarCommand("/mnt/models/base")
+		g.Expect(cmd).To(gomega.Equal(
+			"mkdir -p /mnt/models && ln -sf /proc/$$$$/root/models /mnt/models/base && sleep infinity"))
+	})
+
+	t.Run("NonDefaultUnsafePath produces mkdir with quoted paths", func(t *testing.T) {
+		cmd := modelcarCommand("/mnt/my models/base")
+		g.Expect(cmd).To(gomega.Equal(
+			"mkdir -p '/mnt/my models' && ln -sf /proc/$$$$/root/models '/mnt/my models/base' && sleep infinity"))
+	})
+
+	t.Run("NonDefaultPathWithSingleQuote produces correctly escaped command", func(t *testing.T) {
+		cmd := modelcarCommand("/mnt/it's/model")
+		g.Expect(cmd).To(gomega.Equal(
+			"mkdir -p '/mnt/it'\\''s' && ln -sf /proc/$$$$/root/models '/mnt/it'\\''s/model' && sleep infinity"))
+	})
+}
 
 func TestFindCommonParentPath(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -112,6 +214,15 @@ func TestGetVolumeNameFromPath(t *testing.T) {
 			g.Expect(result).To(gomega.Equal(scenario.expected))
 		})
 	}
+
+	// Path segments may carry characters that are valid in paths but not in
+	// volume names; the result must still be a valid name and distinct paths
+	// must not collapse into the same one.
+	validLabel := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	for _, path := range []string{"/mnt/lora/Qwen2.5-SQL", "/mnt/lora/adapter.v1"} {
+		g.Expect(GetVolumeNameFromPath(path)).To(gomega.MatchRegexp(validLabel.String()), "path %s", path)
+	}
+	g.Expect(GetVolumeNameFromPath("/mnt/a/b")).ToNot(gomega.Equal(GetVolumeNameFromPath("/mnt/a.b")))
 }
 
 func TestAddDefaultHuggingFaceEnvVars(t *testing.T) {
@@ -449,12 +560,12 @@ func TestValidateOCIMountPaths(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	t.Run("Single path is always valid", func(t *testing.T) {
-		err := ValidateOCIMountPaths([]string{"/mnt/models"})
+		err := ValidateOCIMountPaths([]string{"/mnt/models"}, types.OciModelModeModelcar)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
 	t.Run("Empty paths are valid", func(t *testing.T) {
-		err := ValidateOCIMountPaths(nil)
+		err := ValidateOCIMountPaths(nil, types.OciModelModeModelcar)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
@@ -462,7 +573,7 @@ func TestValidateOCIMountPaths(t *testing.T) {
 		err := ValidateOCIMountPaths([]string{
 			"/mnt/model-a/data",
 			"/mnt/model-b/data",
-		})
+		}, types.OciModelModeModelcar)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
@@ -470,7 +581,7 @@ func TestValidateOCIMountPaths(t *testing.T) {
 		err := ValidateOCIMountPaths([]string{
 			"/mnt/models/model-a",
 			"/mnt/models/model-b",
-		})
+		}, types.OciModelModeModelcar)
 		g.Expect(err).To(gomega.HaveOccurred())
 		g.Expect(err.Error()).To(gomega.ContainSubstring("volume mount shadowing"))
 		g.Expect(err.Error()).To(gomega.ContainSubstring("/mnt/models"))
@@ -481,7 +592,7 @@ func TestValidateOCIMountPaths(t *testing.T) {
 			"/mnt/alpha/data",
 			"/mnt/beta/model-x",
 			"/mnt/beta/model-y", // collides with previous
-		})
+		}, types.OciModelModeModelcar)
 		g.Expect(err).To(gomega.HaveOccurred())
 		g.Expect(err.Error()).To(gomega.ContainSubstring("/mnt/beta"))
 	})
@@ -490,8 +601,34 @@ func TestValidateOCIMountPaths(t *testing.T) {
 		err := ValidateOCIMountPaths([]string{
 			constants.DefaultModelLocalMountPath,
 			constants.DefaultModelLocalMountPath,
-		})
+		}, types.OciModelModeModelcar)
 		g.Expect(err).To(gomega.HaveOccurred())
+	})
+
+	// Native mode: siblings under the same parent are fine; only exact duplicates fail.
+	t.Run("Native mode allows shared parent directory", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			"/mnt/models/adapter-a",
+			"/mnt/models/adapter-b",
+		}, types.OciModelModeNative)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	})
+
+	t.Run("Native mode rejects exact path duplicate", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			"/mnt/models/adapter-a",
+			"/mnt/models/adapter-a",
+		}, types.OciModelModeNative)
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("unique mount path"))
+	})
+
+	t.Run("Native mode allows DefaultModelLocalMountPath used once with sibling", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			constants.DefaultModelLocalMountPath,
+			constants.DefaultModelLocalMountPath + "/adapter",
+		}, types.OciModelModeNative)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 }
 
@@ -500,4 +637,435 @@ func TestMaxOCISourcesPerPod(t *testing.T) {
 	// Ensure the constant is reasonable and matches documented limit
 	g.Expect(MaxOCISourcesPerPod).To(gomega.Equal(10),
 		"MaxOCISourcesPerPod should be 10 — each URI adds 2 containers + 1 volume")
+}
+
+func TestParseOciScheme(t *testing.T) {
+	cases := []struct {
+		uri       string
+		wantMode  string
+		wantNorm  string
+		wantIsOci bool
+	}{
+		{
+			uri:       "oci+native://registry.io/image:tag",
+			wantMode:  "native",
+			wantNorm:  "oci://registry.io/image:tag",
+			wantIsOci: true,
+		},
+		{
+			uri:       "oci+modelcar://registry.io/image:tag",
+			wantMode:  "modelcar",
+			wantNorm:  "oci://registry.io/image:tag",
+			wantIsOci: true,
+		},
+		{
+			uri:       "oci+fetch://registry.io/image:tag",
+			wantMode:  "fetch",
+			wantNorm:  "oci://registry.io/image:tag",
+			wantIsOci: true,
+		},
+		{
+			uri:       "oci://registry.io/image:tag",
+			wantMode:  "",
+			wantNorm:  "oci://registry.io/image:tag",
+			wantIsOci: true,
+		},
+		{
+			uri:       "s3://bucket/path/to/model",
+			wantMode:  "",
+			wantNorm:  "s3://bucket/path/to/model",
+			wantIsOci: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.uri, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			gotMode, gotNorm, gotIsOci := ParseOciScheme(tc.uri)
+			g.Expect(gotMode).To(gomega.Equal(tc.wantMode), "mode")
+			g.Expect(gotNorm).To(gomega.Equal(tc.wantNorm), "normalizedURI")
+			g.Expect(gotIsOci).To(gomega.Equal(tc.wantIsOci), "isOci")
+		})
+	}
+}
+
+func TestConfigureOciNativeToContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cfg := &types.StorageInitializerConfig{}
+
+	t.Run("happy path: ImageVolume and VolumeMount added", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "kserve-container"},
+			},
+		}
+		err := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/mymodel:v1",
+			podSpec, "kserve-container",
+			constants.DefaultModelLocalMountPath, cfg,
+		)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].VolumeSource.Image).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].VolumeSource.Image.Reference).To(gomega.Equal("registry.io/mymodel:v1"))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].ReadOnly).To(gomega.BeTrue())
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].SubPath).To(gomega.Equal("models"))
+	})
+
+	t.Run("idempotent: second call with same path is a no-op", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "kserve-container"},
+			},
+		}
+		uri := constants.OciURIPrefix + "registry.io/mymodel:v1"
+		_ = ConfigureOciNativeToContainer(uri, podSpec, "kserve-container", constants.DefaultModelLocalMountPath, cfg)
+		err := ConfigureOciNativeToContainer(uri, podSpec, "kserve-container", constants.DefaultModelLocalMountPath, cfg)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1), "volume should not be duplicated")
+	})
+
+	t.Run("multi-adapter: two adapters at different paths coexist", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "kserve-container"},
+			},
+		}
+		err1 := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/adapter-a:v1",
+			podSpec, "kserve-container", "/mnt/models/adapter-a", cfg,
+		)
+		err2 := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/adapter-b:v1",
+			podSpec, "kserve-container", "/mnt/models/adapter-b", cfg,
+		)
+		g.Expect(err1).ToNot(gomega.HaveOccurred())
+		g.Expect(err2).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(2))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(2))
+		for _, vm := range podSpec.Containers[0].VolumeMounts {
+			g.Expect(vm.SubPath).To(gomega.Equal("models"), "each ImageVolume mount should use subPath=models")
+		}
+	})
+
+	t.Run("mountPath collision: different volume already claims modelPath", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "kserve-container",
+					VolumeMounts: []corev1.VolumeMount{
+						{Name: "other-volume", MountPath: constants.DefaultModelLocalMountPath},
+					},
+				},
+			},
+		}
+		err := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/mymodel:v1",
+			podSpec, "kserve-container", constants.DefaultModelLocalMountPath, cfg,
+		)
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("already used by volume"))
+	})
+
+	t.Run("missing container: returns error", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "some-other-container"},
+			},
+		}
+		err := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/mymodel:v1",
+			podSpec, "kserve-container", constants.DefaultModelLocalMountPath, cfg,
+		)
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("no container found"))
+	})
+
+	t.Run("multi-container: same image volume mounted on two target containers", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+				{Name: constants.TransformerContainerName},
+			},
+		}
+		uri := constants.OciURIPrefix + "registry.io/mymodel:v1"
+		err1 := ConfigureOciNativeToContainer(uri, podSpec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, cfg)
+		err2 := ConfigureOciNativeToContainer(uri, podSpec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, cfg)
+		g.Expect(err1).ToNot(gomega.HaveOccurred())
+		g.Expect(err2).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1), "shared volume should appear exactly once")
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(1), "kserve-container should have the mount")
+		g.Expect(podSpec.Containers[1].VolumeMounts).To(gomega.HaveLen(1), "transformer should have the mount")
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
+		g.Expect(podSpec.Containers[1].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].SubPath).To(gomega.Equal("models"))
+		g.Expect(podSpec.Containers[1].VolumeMounts[0].SubPath).To(gomega.Equal("models"))
+	})
+
+	_ = g // suppress unused warning from outer scope
+}
+
+// TestAddModelMount pins the mount identity AddModelMount dedupes on. By default an
+// existing mount carrying the volume name suppresses the new one, which is how a workload
+// overrides an injected volume by declaring its own. MountsPerPath widens the identity to
+// the path, so one volume can carry a mount per path - how N LoRA adapters share one claim
+// without fanning out into N pod Volumes.
+func TestAddModelMount(t *testing.T) {
+	t.Run("default: a mount with the volume name suppresses an injected one", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name: "main",
+				VolumeMounts: []corev1.VolumeMount{
+					{Name: "shared", MountPath: "/workload/owns/this"},
+				},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "shared",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "workload-claim"},
+				},
+			}},
+		}
+
+		g.Expect(AddModelMount(StorageMountParams{
+			MountPath:  "/mnt/models",
+			VolumeName: "shared",
+			PVCName:    "injected-claim",
+			ReadOnly:   true,
+		}, "main", podSpec)).To(gomega.Succeed())
+
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.ConsistOf(
+			corev1.VolumeMount{Name: "shared", MountPath: "/workload/owns/this"},
+		), "the workload's own mount must stand")
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal("workload-claim"))
+	})
+
+	t.Run("MountsPerPath: same volume, different paths, one mount each", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+
+		for _, sub := range []string{"adapters/a", "adapters/b"} {
+			g.Expect(AddModelMount(StorageMountParams{
+				MountPath:     "/mnt/lora/" + sub,
+				VolumeName:    "shared",
+				SubPath:       sub,
+				PVCName:       "claim",
+				ReadOnly:      true,
+				MountsPerPath: true,
+			}, "main", podSpec)).To(gomega.Succeed())
+		}
+
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal("claim"))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.ConsistOf(
+			corev1.VolumeMount{Name: "shared", MountPath: "/mnt/lora/adapters/a", SubPath: "adapters/a", ReadOnly: true},
+			corev1.VolumeMount{Name: "shared", MountPath: "/mnt/lora/adapters/b", SubPath: "adapters/b", ReadOnly: true},
+		))
+	})
+
+	t.Run("MountsPerPath: an identical mount is still deduped", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+		params := StorageMountParams{
+			MountPath:     "/mnt/models",
+			VolumeName:    "shared",
+			SubPath:       "base",
+			PVCName:       "claim",
+			ReadOnly:      true,
+			MountsPerPath: true,
+		}
+
+		g.Expect(AddModelMount(params, "main", podSpec)).To(gomega.Succeed())
+		g.Expect(AddModelMount(params, "main", podSpec)).To(gomega.Succeed())
+
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(1))
+	})
+
+	t.Run("init container target gets a writable mount", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{
+			InitContainers: []corev1.Container{{Name: "storage-initializer"}},
+			Containers:     []corev1.Container{{Name: "main"}},
+		}
+
+		g.Expect(AddModelMount(StorageMountParams{
+			MountPath:  "/mnt/models",
+			VolumeName: "shared",
+			ReadOnly:   true,
+		}, "storage-initializer", podSpec)).To(gomega.Succeed())
+
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.BeEmpty())
+		g.Expect(podSpec.InitContainers[0].VolumeMounts).To(gomega.ConsistOf(
+			corev1.VolumeMount{Name: "shared", MountPath: "/mnt/models", ReadOnly: false},
+		))
+	})
+
+	t.Run("unknown container adds nothing", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+
+		g.Expect(AddModelMount(StorageMountParams{
+			MountPath:  "/mnt/models",
+			VolumeName: "shared",
+		}, "absent", podSpec)).To(gomega.Succeed())
+
+		g.Expect(podSpec.Volumes).To(gomega.BeEmpty())
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.BeEmpty())
+	})
+}
+
+func TestAddModelMount_VolumeSource(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	containerName := "kserve-container"
+	mountPath := constants.DefaultModelLocalMountPath
+	volumeName := constants.StorageInitializerVolumeName
+
+	newPodSpec := func() *corev1.PodSpec {
+		return &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: containerName},
+			},
+		}
+	}
+
+	t.Run("nil DefaultVolumeSource uses emptyDir", func(t *testing.T) {
+		podSpec := newPodSpec()
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			DefaultVolumeSource: nil,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].EmptyDir).ToNot(gomega.BeNil(), "should default to emptyDir")
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim).To(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].Ephemeral).To(gomega.BeNil())
+	})
+
+	t.Run("PVCName takes precedence over DefaultVolumeSource", func(t *testing.T) {
+		podSpec := newPodSpec()
+		ephemeral := &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					},
+				},
+			},
+		}
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			PVCName:             "my-pvc",
+			DefaultVolumeSource: ephemeral,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal("my-pvc"))
+		g.Expect(podSpec.Volumes[0].Ephemeral).To(gomega.BeNil())
+	})
+
+	t.Run("dedicated PVC via PVCName", func(t *testing.T) {
+		podSpec := newPodSpec()
+		err := AddModelMount(StorageMountParams{
+			MountPath:  mountPath,
+			VolumeName: volumeName,
+			PVCName:    "model-cache-pvc",
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].PersistentVolumeClaim.ClaimName).To(gomega.Equal("model-cache-pvc"))
+	})
+
+	t.Run("ephemeral VolumeClaimTemplate via DefaultVolumeSource", func(t *testing.T) {
+		podSpec := newPodSpec()
+		storageClassName := "fast-nvme"
+		ephemeral := &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &storageClassName,
+					},
+				},
+			},
+		}
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			DefaultVolumeSource: ephemeral,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].Ephemeral).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].Ephemeral.VolumeClaimTemplate.Spec.StorageClassName).To(
+			gomega.HaveValue(gomega.Equal("fast-nvme")),
+		)
+		g.Expect(podSpec.Volumes[0].EmptyDir).To(gomega.BeNil())
+	})
+
+	t.Run("existing volume with same name is not replaced (per-service override)", func(t *testing.T) {
+		storageClassName := "user-sc"
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{{Name: containerName}},
+			Volumes: []corev1.Volume{
+				{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						Ephemeral: &corev1.EphemeralVolumeSource{
+							VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+								Spec: corev1.PersistentVolumeClaimSpec{
+									StorageClassName: &storageClassName,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			DefaultVolumeSource: nil,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].Ephemeral).ToNot(gomega.BeNil(), "user-supplied ephemeral volume must not be overwritten")
+		g.Expect(podSpec.Volumes[0].Ephemeral.VolumeClaimTemplate.Spec.StorageClassName).To(
+			gomega.HaveValue(gomega.Equal("user-sc")),
+		)
+	})
+
+	t.Run("hostPath via DefaultVolumeSource", func(t *testing.T) {
+		podSpec := newPodSpec()
+		dirOrCreate := corev1.HostPathDirectoryOrCreate
+		hostPath := &corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/mnt/fast-nvme/models",
+				Type: &dirOrCreate,
+			},
+		}
+		err := AddModelMount(StorageMountParams{
+			MountPath:           mountPath,
+			VolumeName:          volumeName,
+			DefaultVolumeSource: hostPath,
+		}, containerName, podSpec)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes[0].HostPath).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].HostPath.Path).To(gomega.Equal("/mnt/fast-nvme/models"))
+	})
 }

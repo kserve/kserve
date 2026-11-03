@@ -144,7 +144,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	// update URL and Address fo TrainedModel
+	// update URL and Address of TrainedModel
 	if err := r.updateStatus(ctx, req, tm); err != nil {
 		return ctrl.Result{}, err
 	}

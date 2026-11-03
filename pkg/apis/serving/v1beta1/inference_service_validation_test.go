@@ -334,6 +334,222 @@ func TestAutoscalerClassHPA(t *testing.T) {
 			},
 			errMatcher: gomega.BeNil(),
 		},
+		"HPA CPU metrics with target=0 (invalid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricCPU),
+							ScaleTarget: ptr.To(int32(0)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
+		"HPA CPU metrics with target=1 (valid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricCPU),
+							ScaleTarget: ptr.To(int32(1)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"HPA CPU metrics with target=100 (valid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricCPU),
+							ScaleTarget: ptr.To(int32(100)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"HPA CPU metrics with target=101 (invalid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricCPU),
+							ScaleTarget: ptr.To(int32(101)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
+		"HPA Memory metrics with target=0 (invalid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(0)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
+		"HPA Memory metrics with target=1 (valid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(1)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"HPA Memory metrics with target=100 (valid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(100)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"HPA Memory metrics with target=101 (invalid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(101)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
 		"Invalid autoscaler class": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -564,6 +780,105 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://testbucket/testmodel"),
 								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Reject KEDA without any autoScaling spec": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "keda",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("requires at least one component")),
+		},
+		"Reject KEDA with transformer but no autoScaling on any component": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "keda",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{Image: "some-transformer:latest"},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("requires at least one component")),
+		},
+		"Valid KEDA with autoScaling on transformer only": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "keda",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							AutoScaling: &AutoScalingSpec{
+								Metrics: []MetricsSpec{
+									{
+										Type: ResourceMetricSourceType,
+										Resource: &ResourceMetricSource{
+											Name: ResourceMetricCPU,
+											Target: MetricTarget{
+												Type:               UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(80)),
+											},
+										},
+									},
+								},
+							},
+						},
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{Image: "some-transformer:latest"},
 							},
 						},
 					},
@@ -1471,6 +1786,86 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	// During deletion, deploymentMode mismatch should be allowed
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a non-Standard annotation should be accepted.
+	// This is the first-reconcile finalizer patch case: the controller adds a finalizer via
+	// r.Patch(...) before updateStatus runs, so oldIsvc.Status.DeploymentMode is "". The
+	// validator must treat that as "no prior state" and not synthesize "Standard" from it.
+	// Regression test for issue #5793.
+	oldIsvcEmptyStatus := makeTestInferenceService()
+	oldIsvcEmptyStatus.Status = InferenceServiceStatus{
+		DeploymentMode: "",
+	}
+	updatedIsvcKnativeAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcKnativeAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcKnativeAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a legacy Serverless annotation should also be accepted.
+	updatedIsvcLegacySlAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcLegacySlAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcLegacySlAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a Standard annotation should also be accepted.
+	updatedIsvcStandardAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcStandardAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Standard),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcStandardAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with no deploymentMode annotation should be accepted.
+	updatedIsvcNoAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcNoAnnotation.Annotations = map[string]string{}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcNoAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: unchanged legacy alias annotation ("Serverless") should be accepted once the
+	// controller has normalized the status to "Knative". Regression test for issue #5885:
+	// the annotation here is untouched by the user, but the raw string differs from the
+	// normalized status, so the pre-fix comparison rejected the update anyway.
+	oldIsvcNormalizedStatus := makeTestInferenceService()
+	oldIsvcNormalizedStatus.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Knative),
+	}
+	oldIsvcNormalizedStatus.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	unchangedIsvcLegacySl := oldIsvcNormalizedStatus.DeepCopy()
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStatus, unchangedIsvcLegacySl)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: same as above for the "RawDeployment" / "Standard" legacy pair.
+	oldIsvcNormalizedStandard := makeTestInferenceService()
+	oldIsvcNormalizedStandard.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Standard),
+	}
+	oldIsvcNormalizedStandard.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	unchangedIsvcLegacyRaw := oldIsvcNormalizedStandard.DeepCopy()
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStandard, unchangedIsvcLegacyRaw)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: a legacy alias annotation that genuinely changes mode must still be rejected.
+	changedIsvcLegacySl := oldIsvcNormalizedStandard.DeepCopy()
+	changedIsvcLegacySl.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStandard, changedIsvcLegacySl)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
 }
 
 func TestValidateUpdateDuringDeletion(t *testing.T) {
@@ -1522,14 +1917,6 @@ func TestValidateDelete(t *testing.T) {
 		isvc := makeTestInferenceService()
 		warnings, err := validator.ValidateDelete(t.Context(), &isvc)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		g.Expect(warnings).Should(gomega.BeEmpty())
-	})
-
-	t.Run("Invalid object type", func(t *testing.T) {
-		// Use a valid runtime.Object type but not an InferenceService
-		notIsvc := &corev1.Pod{}
-		warnings, err := validator.ValidateDelete(t.Context(), notIsvc)
-		g.Expect(err).Should(gomega.HaveOccurred())
 		g.Expect(warnings).Should(gomega.BeEmpty())
 	})
 }
@@ -1680,6 +2067,46 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 			},
 		},
 	}
+	validExternalWithoutType := validExternal.DeepCopy()
+	validExternalWithoutType.AutoScaling.Metrics[0].External.Target.Type = ""
+	validExternalAverageValue := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: NewMetricQuantity("10"),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidExternalUtilization := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:               UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(50)),
+						},
+					},
+				},
+			},
+		},
+	}
 	invalidPodMetric := &ComponentExtensionSpec{
 		AutoScaling: &AutoScalingSpec{
 			Metrics: []MetricsSpec{
@@ -1718,6 +2145,46 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 			},
 		},
 	}
+	validPodMetricWithoutType := validPodMetric.DeepCopy()
+	validPodMetricWithoutType.AutoScaling.Metrics[0].PodMetric.Target.Type = ""
+	validPodMetricAverageValue := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: NewMetricQuantity("5"),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidPodMetricUtilization := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:               UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(50)),
+						},
+					},
+				},
+			},
+		},
+	}
 	unknownMetricType := &ComponentExtensionSpec{
 		AutoScaling: &AutoScalingSpec{
 			Metrics: []MetricsSpec{
@@ -1743,8 +2210,14 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 		{"invalid: unsupported resource", unsupportedResource, "resource type disk is not supported"},
 		{"invalid: external metric missing query/value", invalidExternal, "the query should not be empty"},
 		{"valid: external metric", validExternal, ""},
+		{"valid: external metric without target type", validExternalWithoutType, ""},
+		{"valid: external AverageValue metric", validExternalAverageValue, ""},
+		{"invalid: external Utilization metric", invalidExternalUtilization, "Utilization is not supported"},
 		{"invalid: pod metric missing query/value", invalidPodMetric, "the query should not be empty"},
 		{"valid: pod metric", validPodMetric, ""},
+		{"valid: pod metric without target type", validPodMetricWithoutType, ""},
+		{"valid: pod AverageValue metric", validPodMetricAverageValue, ""},
+		{"invalid: pod Utilization metric", invalidPodMetricUtilization, "Utilization is not supported"},
 		{"invalid: unknown metric type", unknownMetricType, "unknown KEDA metric type with value [UnknownType].Valid types are Resource,External,PodMetric"},
 	}
 
@@ -2324,6 +2797,434 @@ func TestValidateConfidential(t *testing.T) {
 			warnings, err := validator.ValidateCreate(t.Context(), &scenario.isvc)
 			g.Expect(err).To(scenario.expectedErr)
 			g.Expect(warnings).To(scenario.expectedWarnings)
+		})
+	}
+}
+
+func TestValidateCanarySpecs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+
+	makeISVC := func(canaries []CanarySpec) *InferenceService {
+		return &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo", Namespace: "default",
+				Annotations: map[string]string{
+					constants.DeploymentMode: string(constants.Standard),
+				},
+			},
+			Spec: InferenceServiceSpec{
+				Predictor: PredictorSpec{
+					ComponentExtensionSpec: ComponentExtensionSpec{
+						MinReplicas: proto.Int32(4),
+					},
+					Model: &ModelSpec{
+						ModelFormat: ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							StorageURI: proto.String("gs://test/model-v1"),
+						},
+					},
+				},
+				Canary: canaries,
+			},
+		}
+	}
+
+	validCanary := func(name string, traffic int32) CanarySpec {
+		return CanarySpec{
+			TrafficPercent: traffic,
+			Predictor: PredictorSpec{
+				Name: name,
+				Model: &ModelSpec{
+					ModelFormat: ModelFormat{Name: "sklearn"},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://test/model-" + name),
+					},
+				},
+			},
+		}
+	}
+
+	scenarios := map[string]struct {
+		isvc       *InferenceService
+		errMatcher gomega.OmegaMatcher
+	}{
+		"No canaries passes validation": {
+			isvc:       makeISVC(nil),
+			errMatcher: gomega.BeNil(),
+		},
+		"Single valid canary": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 10)}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Multiple valid canaries": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 25), validCanary("v3", 25)}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Traffic sum = 100 accepted": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 50), validCanary("v3", 50)}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Traffic percent = 0 accepted (dark launch)": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 0)}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary rejected in Knative mode": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://test/model-v1"),
+							},
+						},
+					},
+					Canary: []CanarySpec{validCanary("v2", 10)},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("only supported in Standard deployment mode")),
+		},
+		"Missing predictor.name rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("predictor.name is required")),
+		},
+		"Duplicate predictor.name rejected": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 10), validCanary("v2", 20)}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("duplicated")),
+		},
+		"Canary name conflicts with stable name rejected": {
+			isvc: func() *InferenceService {
+				isvc := makeISVC([]CanarySpec{validCanary("stable", 10)})
+				isvc.Spec.Predictor.Name = "stable"
+				return isvc
+			}(),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("conflicts with stable")),
+		},
+		"Traffic sum > 100 rejected": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 60), validCanary("v3", 50)}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must be <= 100")),
+		},
+		"Canary with maxReplicas rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:                   "v2",
+					ComponentExtensionSpec: ComponentExtensionSpec{MaxReplicas: 5},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not set maxReplicas")),
+		},
+		"Canary minReplicas equal to stable accepted": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:                   "v2",
+					ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(4)},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary minReplicas exceeds stable rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:                   "v2",
+					ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(5)},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not exceed stable")),
+		},
+		"Canary minReplicas equal to default stable accepted": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{{
+						TrafficPercent: 10,
+						Predictor: PredictorSpec{
+							Name:                   "v2",
+							ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(1)},
+							Model: &ModelSpec{
+								ModelFormat:            ModelFormat{Name: "sklearn"},
+								PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+							},
+						},
+					}},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary minReplicas exceeds default stable rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{{
+						TrafficPercent: 10,
+						Predictor: PredictorSpec{
+							Name:                   "v2",
+							ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(2)},
+							Model: &ModelSpec{
+								ModelFormat:            ModelFormat{Name: "sklearn"},
+								PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+							},
+						},
+					}},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not exceed stable")),
+		},
+		"Canary minReplicas accepted when nil (derived from traffic)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{validCanary("v2", 10)},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary with workerSpec rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:       "v2",
+					WorkerSpec: &WorkerSpec{},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not set workerSpec")),
+		},
+		"Canary rejected when stable uses custom container (no model)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{{
+								Name:  "kserve-container",
+								Image: "custom-server:latest",
+							}},
+						},
+					},
+					Canary: []CanarySpec{validCanary("v2", 10)},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("requires a stable predictor with a model")),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			_, err := validator.ValidateCreate(t.Context(), scenario.isvc)
+			g.Expect(err).Should(scenario.errMatcher)
+		})
+	}
+}
+
+func TestValidatePredictorNameChange(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+
+	makeISVC := func(name, storageURI string) *InferenceService {
+		return &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo", Namespace: "default",
+				Annotations: map[string]string{
+					constants.DeploymentMode: string(constants.Standard),
+				},
+			},
+			Spec: InferenceServiceSpec{
+				Predictor: PredictorSpec{
+					Name: name,
+					Model: &ModelSpec{
+						ModelFormat: ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							StorageURI: proto.String(storageURI),
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("Name change with model change accepted (promotion)", func(t *testing.T) {
+		oldISVC := makeISVC("", "gs://test/model-v1")
+		newISVC := makeISVC("v2", "gs://test/model-v2")
+		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	})
+
+	t.Run("Name change without model change rejected", func(t *testing.T) {
+		oldISVC := makeISVC("", "gs://test/model-v1")
+		newISVC := makeISVC("v2", "gs://test/model-v1")
+		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
+		g.Expect(err).Should(gomega.MatchError(gomega.ContainSubstring("predictor.name change requires a model change")))
+	})
+
+	t.Run("Model change without name change accepted (normal update)", func(t *testing.T) {
+		oldISVC := makeISVC("v2", "gs://test/model-v1")
+		newISVC := makeISVC("v2", "gs://test/model-v2")
+		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	})
+
+	t.Run("No changes accepted", func(t *testing.T) {
+		oldISVC := makeISVC("v2", "gs://test/model-v1")
+		newISVC := makeISVC("v2", "gs://test/model-v1")
+		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	})
+}
+
+func TestValidateInferenceServiceTracing(t *testing.T) {
+	tests := map[string]struct {
+		tracing    *TracingSpec
+		errorField string
+	}{
+		"omitted tracing is valid": {
+			tracing: nil,
+		},
+		"empty tracing is valid": {
+			tracing: &TracingSpec{},
+		},
+		"default tracing values are valid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String(DefaultTracingExporterEndpoint),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+		},
+		"unsupported sampler is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String(DefaultTracingExporterEndpoint),
+				Sampler:          proto.String("sometimes"),
+			},
+			errorField: "spec.tracing.sampler",
+		},
+		"endpoint without scheme is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("otel-collector:4317"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"endpoint with unsupported scheme is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("grpc://otel-collector:4317"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"endpoint without host is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("http:///v1/traces"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"malformed endpoint is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("://collector"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+	}
+	for _, sampler := range []string{
+		"always_on",
+		"always_off",
+		"traceidratio",
+		"parentbased_always_on",
+		"parentbased_always_off",
+		"parentbased_traceidratio",
+	} {
+		tests["supported sampler "+sampler] = struct {
+			tracing    *TracingSpec
+			errorField string
+		}{
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("https://collector.example.com:4317/v1/traces"),
+				Sampler:          proto.String(sampler),
+			},
+		}
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			isvc := makeTestInferenceService()
+			isvc.Spec.Tracing = tt.tracing
+
+			_, err := (&InferenceServiceValidator{}).ValidateCreate(t.Context(), &isvc)
+			if tt.errorField == "" {
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				return
+			}
+
+			g.Expect(err).To(gomega.HaveOccurred())
+			g.Expect(err.Error()).To(gomega.ContainSubstring(tt.errorField))
 		})
 	}
 }

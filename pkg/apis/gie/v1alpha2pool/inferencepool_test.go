@@ -92,7 +92,7 @@ func TestConvertFrom_RoundTrip(t *testing.T) {
 				},
 			},
 			TargetPorts: []v1.Port{{Number: 8000}},
-			EndpointPickerRef: v1.EndpointPickerRef{
+			EndpointPickerRef: &v1.EndpointPickerRef{
 				Group:       ptr.To(v1.Group("")),
 				Kind:        v1.Kind("Service"),
 				Name:        "my-epp",
@@ -120,6 +120,36 @@ func TestConvertFrom_RoundTrip(t *testing.T) {
 	assert.Equal(t, original.Spec.TargetPorts[0].Number, roundTripped.Spec.TargetPorts[0].Number)
 	assert.Equal(t, original.Spec.EndpointPickerRef.Name, roundTripped.Spec.EndpointPickerRef.Name)
 	assert.Equal(t, original.Spec.EndpointPickerRef.FailureMode, roundTripped.Spec.EndpointPickerRef.FailureMode)
+}
+
+func TestConvertFrom_NilEndpointPickerRef(t *testing.T) {
+	original := &v1.InferencePool{
+		Spec: v1.InferencePoolSpec{
+			TargetPorts: []v1.Port{{Number: 8000}},
+		},
+	}
+
+	converted := &InferencePool{}
+	err := converted.ConvertFrom(original)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "endpointPickerRef cannot be nil")
+	assert.Equal(t, InferencePoolSpec{}, converted.Spec)
+}
+
+func TestConvertTo_EmptyExtensionRef(t *testing.T) {
+	original := &InferencePool{
+		Spec: InferencePoolSpec{
+			TargetPortNumber: 8000,
+		},
+	}
+
+	converted := &v1.InferencePool{}
+	err := original.ConvertTo(converted)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "extensionRef name cannot be empty")
+	assert.Equal(t, v1.InferencePoolSpec{}, converted.Spec)
 }
 
 func TestSchemeRegistration(t *testing.T) {
@@ -271,6 +301,95 @@ func TestConvertTo_ObjectMetaDeepCopy(t *testing.T) {
 
 	original.Labels["key"] = "mutated"
 	assert.Equal(t, "value", v1Pool.Labels["key"])
+}
+
+func TestConvertTo_NilPortDefaultsTo9002WhenKindIsService(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Kind:        ptr.To(Kind("Service")),
+				Name:        "my-epp",
+				FailureMode: ptr.To(FailOpen),
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	require.NotNil(t, v1Pool.Spec.EndpointPickerRef.Port)
+	assert.Equal(t, v1.PortNumber(9002), v1Pool.Spec.EndpointPickerRef.Port.Number)
+}
+
+func TestConvertTo_NilPortDefaultsTo9002WhenKindIsNil(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Kind:        nil,
+				Name:        "my-epp",
+				FailureMode: ptr.To(FailClose),
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	assert.Equal(t, v1.Kind("Service"), v1Pool.Spec.EndpointPickerRef.Kind)
+	require.NotNil(t, v1Pool.Spec.EndpointPickerRef.Port)
+	assert.Equal(t, v1.PortNumber(9002), v1Pool.Spec.EndpointPickerRef.Port.Number)
+}
+
+func TestConvertTo_ExplicitPortIsPreserved(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Kind:        ptr.To(Kind("Service")),
+				Name:        "my-epp",
+				PortNumber:  ptr.To(PortNumber(8080)),
+				FailureMode: ptr.To(FailClose),
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	require.NotNil(t, v1Pool.Spec.EndpointPickerRef.Port)
+	assert.Equal(t, v1.PortNumber(8080), v1Pool.Spec.EndpointPickerRef.Port.Number)
 }
 
 func TestDeepCopy(t *testing.T) {

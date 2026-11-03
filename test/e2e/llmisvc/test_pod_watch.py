@@ -33,11 +33,12 @@ from kubernetes import client
 
 from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 
+from .diagnostic import strip_managed_fields
 from .fixtures import (
-    KSERVE_TEST_NAMESPACE,
     OPT_125M_MODEL_URI,
     UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT,
     UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
+    VLLM_CPU_IMAGE,
     inject_k8s_proxy,
 )
 from .logging import logger
@@ -57,7 +58,7 @@ KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 
 
 def get_llmisvc_resource_version(
-    kserve_client: KServeClient, name: str, namespace: str = KSERVE_TEST_NAMESPACE
+    kserve_client: KServeClient, name: str, namespace: str
 ) -> str:
     """Get the resourceVersion of an LLMInferenceService."""
     llmisvc = get_llmisvc(kserve_client, name, namespace)
@@ -68,7 +69,7 @@ def get_llmisvc_resource_version(
 
 
 def get_llmisvc_conditions(
-    kserve_client: KServeClient, name: str, namespace: str = KSERVE_TEST_NAMESPACE
+    kserve_client: KServeClient, name: str, namespace: str
 ) -> list:
     """Get conditions from LLMInferenceService status."""
     llmisvc = get_llmisvc(kserve_client, name, namespace)
@@ -95,7 +96,7 @@ def get_pods_for_llmisvc(name: str, namespace: str) -> list[dict]:
             namespace=namespace,
             label_selector=f"{LLMISVC_POD_LABEL_PART_OF}={LLMISVC_POD_LABEL_PART_OF_VALUE},{LLMISVC_POD_LABEL_NAME}={name}",
         )
-        return [pod.to_dict() for pod in pods.items]
+        return [strip_managed_fields(pod.to_dict()) for pod in pods.items]
     except Exception as e:
         return [{"error": f"Failed to list pods for LLMISVC {name}: {e}"}]
 
@@ -108,7 +109,7 @@ def get_deployments_for_llmisvc(name: str, namespace: str) -> list[dict]:
             namespace=namespace,
             label_selector=f"{LLMISVC_POD_LABEL_PART_OF}={LLMISVC_POD_LABEL_PART_OF_VALUE},{LLMISVC_POD_LABEL_NAME}={name}",
         )
-        return [dep.to_dict() for dep in deployments.items]
+        return [strip_managed_fields(dep.to_dict()) for dep in deployments.items]
     except Exception as e:
         return [{"error": f"Failed to list deployments for LLMISVC {name}: {e}"}]
 
@@ -240,7 +241,7 @@ def wait_for_llmisvc_condition_false(
     kserve_client: KServeClient,
     name: str,
     condition_type: str,
-    namespace: str = KSERVE_TEST_NAMESPACE,
+    namespace: str,
     timeout_seconds: int = 180,
     poll_interval: float = 5.0,
 ) -> dict | None:
@@ -311,9 +312,8 @@ def delete_llmisvc_config(kserve_client: KServeClient, name: str, namespace: str
         pass
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.asyncio(scope="session")
-async def test_event_storm_prevention_init_container_isolation():
+async def test_event_storm_prevention_init_container_isolation(test_namespace):
     """
     Test that init container status changes on one LLMISVC don't cause unwanted modifications
     to unrelated LLMISVCs (event storm prevention).
@@ -355,20 +355,20 @@ async def test_event_storm_prevention_init_container_isolation():
         create_llmisvc_config(
             kserve_client,
             model_config_name,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             {"model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"}},
         )
 
         create_llmisvc_config(
             kserve_client,
             workload_config_name,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             {
                 "template": {
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -384,7 +384,7 @@ async def test_event_storm_prevention_init_container_isolation():
         create_llmisvc_config(
             kserve_client,
             router_config_name,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             {"router": {"route": {}, "gateway": {}}},
         )
 
@@ -392,9 +392,7 @@ async def test_event_storm_prevention_init_container_isolation():
         primary_llmisvc = V1alpha1LLMInferenceService(
             api_version="serving.kserve.io/v1alpha1",
             kind="LLMInferenceService",
-            metadata=client.V1ObjectMeta(
-                name=primary_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
+            metadata=client.V1ObjectMeta(name=primary_name, namespace=test_namespace),
             spec={
                 "baseRefs": [
                     {"name": model_config_name},
@@ -412,22 +410,22 @@ async def test_event_storm_prevention_init_container_isolation():
 
             # Record baseline resourceVersion
             primary_rv_before = get_llmisvc_resource_version(
-                kserve_client, primary_name, KSERVE_TEST_NAMESPACE
+                kserve_client, primary_name, test_namespace
             )
             logger.info("Baseline recorded - resourceVersion: %s", primary_rv_before)
 
             # Step 2: Create invalid S3 credentials
             logger.info("Creating invalid S3 secret and service account")
-            create_invalid_s3_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
+            create_invalid_s3_secret(test_namespace, invalid_secret_name)
             create_service_account_with_secret(
-                KSERVE_TEST_NAMESPACE, invalid_sa_name, invalid_secret_name
+                test_namespace, invalid_sa_name, invalid_secret_name
             )
 
             # Create config with invalid S3 model
             create_llmisvc_config(
                 kserve_client,
                 invalid_model_config_name,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 {
                     "model": {
                         "uri": "s3://nonexistent-bucket-12345/invalid/path/model",
@@ -441,7 +439,7 @@ async def test_event_storm_prevention_init_container_isolation():
                 api_version="serving.kserve.io/v1alpha1",
                 kind="LLMInferenceService",
                 metadata=client.V1ObjectMeta(
-                    name=secondary_name, namespace=KSERVE_TEST_NAMESPACE
+                    name=secondary_name, namespace=test_namespace
                 ),
                 spec={
                     "baseRefs": [
@@ -464,6 +462,7 @@ async def test_event_storm_prevention_init_container_isolation():
                     kserve_client,
                     secondary_name,
                     "WorkloadsReady",
+                    namespace=test_namespace,
                     timeout_seconds=180,
                 )
                 if failure_condition:
@@ -476,7 +475,7 @@ async def test_event_storm_prevention_init_container_isolation():
 
                 # Step 5: Verify primary LLMISVC was not modified
                 primary_rv_after = get_llmisvc_resource_version(
-                    kserve_client, primary_name, KSERVE_TEST_NAMESPACE
+                    kserve_client, primary_name, test_namespace
                 )
                 logger.info(
                     "Primary LLMISVC resourceVersion: before=%s, after=%s",
@@ -498,21 +497,16 @@ async def test_event_storm_prevention_init_container_isolation():
 
     finally:
         # Cleanup non-LLMISVC resources
-        delete_service_account(KSERVE_TEST_NAMESPACE, invalid_sa_name)
-        delete_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
-        delete_llmisvc_config(kserve_client, model_config_name, KSERVE_TEST_NAMESPACE)
-        delete_llmisvc_config(
-            kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE
-        )
-        delete_llmisvc_config(kserve_client, router_config_name, KSERVE_TEST_NAMESPACE)
-        delete_llmisvc_config(
-            kserve_client, invalid_model_config_name, KSERVE_TEST_NAMESPACE
-        )
+        delete_service_account(test_namespace, invalid_sa_name)
+        delete_secret(test_namespace, invalid_secret_name)
+        delete_llmisvc_config(kserve_client, model_config_name, test_namespace)
+        delete_llmisvc_config(kserve_client, workload_config_name, test_namespace)
+        delete_llmisvc_config(kserve_client, router_config_name, test_namespace)
+        delete_llmisvc_config(kserve_client, invalid_model_config_name, test_namespace)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.asyncio(scope="session")
-async def test_quick_reconciliation_on_init_container_failure():
+async def test_quick_reconciliation_on_init_container_failure(test_namespace):
     """
     Test that when an init container fails (e.g., invalid storage credentials),
     the owning LLMInferenceService quickly reconciles and reflects the failure in its status.
@@ -543,16 +537,16 @@ async def test_quick_reconciliation_on_init_container_failure():
     try:
         # Create invalid S3 credentials
         logger.info("Creating invalid S3 secret and service account")
-        create_invalid_s3_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
+        create_invalid_s3_secret(test_namespace, invalid_secret_name)
         create_service_account_with_secret(
-            KSERVE_TEST_NAMESPACE, invalid_sa_name, invalid_secret_name
+            test_namespace, invalid_sa_name, invalid_secret_name
         )
 
         # Create configs
         create_llmisvc_config(
             kserve_client,
             invalid_model_config_name,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             {
                 "model": {
                     "uri": "s3://nonexistent-bucket-xyz123/invalid/model",
@@ -564,13 +558,13 @@ async def test_quick_reconciliation_on_init_container_failure():
         create_llmisvc_config(
             kserve_client,
             workload_config_name,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             {
                 "template": {
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -586,7 +580,7 @@ async def test_quick_reconciliation_on_init_container_failure():
         create_llmisvc_config(
             kserve_client,
             router_config_name,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             {"router": {"route": {}, "gateway": {}}},
         )
 
@@ -594,9 +588,7 @@ async def test_quick_reconciliation_on_init_container_failure():
         llmisvc = V1alpha1LLMInferenceService(
             api_version="serving.kserve.io/v1alpha1",
             kind="LLMInferenceService",
-            metadata=client.V1ObjectMeta(
-                name=llmisvc_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
+            metadata=client.V1ObjectMeta(name=llmisvc_name, namespace=test_namespace),
             spec={
                 "baseRefs": [
                     {"name": invalid_model_config_name},
@@ -616,6 +608,7 @@ async def test_quick_reconciliation_on_init_container_failure():
                 kserve_client,
                 llmisvc_name,
                 "WorkloadsReady",
+                namespace=test_namespace,
                 timeout_seconds=180,
                 poll_interval=5.0,
             )
@@ -637,7 +630,7 @@ async def test_quick_reconciliation_on_init_container_failure():
 
             # Check Ready condition as well
             conditions = get_llmisvc_conditions(
-                kserve_client, llmisvc_name, KSERVE_TEST_NAMESPACE
+                kserve_client, llmisvc_name, test_namespace
             )
             ready_condition = get_condition_by_type(conditions, "Ready")
 
@@ -661,12 +654,8 @@ async def test_quick_reconciliation_on_init_container_failure():
 
     finally:
         # Cleanup non-LLMISVC resources
-        delete_service_account(KSERVE_TEST_NAMESPACE, invalid_sa_name)
-        delete_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
-        delete_llmisvc_config(
-            kserve_client, invalid_model_config_name, KSERVE_TEST_NAMESPACE
-        )
-        delete_llmisvc_config(
-            kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE
-        )
-        delete_llmisvc_config(kserve_client, router_config_name, KSERVE_TEST_NAMESPACE)
+        delete_service_account(test_namespace, invalid_sa_name)
+        delete_secret(test_namespace, invalid_secret_name)
+        delete_llmisvc_config(kserve_client, invalid_model_config_name, test_namespace)
+        delete_llmisvc_config(kserve_client, workload_config_name, test_namespace)
+        delete_llmisvc_config(kserve_client, router_config_name, test_namespace)

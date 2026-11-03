@@ -18,14 +18,13 @@ package pod
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/credentials/hf"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
@@ -206,9 +206,30 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 		return nil
 	}
 
-	// Only inject modelcar if requested
-	if !strings.HasPrefix(srcURI, constants.OciURIPrefix) {
+	parsedMode, normalizedURI, isOci := utils.ParseOciScheme(srcURI)
+	if !isOci {
 		return nil
+	}
+
+	// Determine effective mode: explicit suffix wins; bare oci:// falls back to config.
+	// ResolveOciModelMode is guaranteed non-empty here: InjectModelcar is only registered
+	// when ResolveOciModelMode(config) != "" at the mutator setup site (mutator.go), so
+	// the else branch (defaulting to OciModelModeModelcar) is unreachable.
+	effectiveMode := parsedMode
+	if effectiveMode == "" {
+		effectiveMode = types.ResolveOciModelMode(mi.config)
+	}
+
+	// configureForContainer dispatches to the right materializer for a single container.
+	configureForContainer := func(containerName string) error {
+		switch effectiveMode {
+		case types.OciModelModeNative:
+			return utils.ConfigureOciNativeToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config)
+		case types.OciModelModeFetch:
+			return ConfigureOciFetchToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config, pod.Namespace)
+		default:
+			return utils.ConfigureModelcarToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config, 0)
+		}
 	}
 
 	// Find the kserve-container (this is the model inference server) and worker-container
@@ -218,21 +239,19 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 	if userContainer == nil {
 		if workerContainer == nil {
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
-		} else {
-			// Use worker container for multi-node scenarios
-			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
-				return err
-			}
+		}
+		if err := configureForContainer(constants.WorkerContainerName); err != nil {
+			return err
 		}
 	} else {
-		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
+		if err := configureForContainer(constants.InferenceServiceContainerName); err != nil {
 			return err
 		}
 	}
 
-	// Configure modelcar for transformer container if it exists
+	// Configure for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
-		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0)
+		return configureForContainer(constants.TransformerContainerName)
 	}
 
 	return nil
@@ -279,17 +298,26 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		return nil
 	}
 
-	// Handle OCI URIs via modelcar injection instead of init-containers
-	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 {
+	// Handle OCI URIs via OCI-mode injection instead of init-containers.
+	// Covers both oci+native:// (explicit native mode) and oci:// (mode from config).
+	if len(params.StorageURIs) > 0 {
 		hasOciUri := false
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+			parsedMode, _, isOci := utils.ParseOciScheme(storageUri.Uri)
+			if !isOci {
+				continue
+			}
+			effectiveMode := parsedMode
+			if effectiveMode == "" {
+				effectiveMode = types.ResolveOciModelMode(params.Config)
+			}
+			if effectiveMode != "" {
 				hasOciUri = true
 				break
 			}
 		}
 		if hasOciUri {
-			// For the storageUris path (IsLegacyURI == false), inject modelcar directly.
+			// For the storageUris path (IsLegacyURI == false), inject directly.
 			// For the legacy path (IsLegacyURI == true), the webhook's InjectModelcar() handles it via annotations.
 			if params.IsLegacyURI {
 				return nil
@@ -305,32 +333,65 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			// Collect OCI mount paths for collision check and count validation
 			var ociMountPaths []string
 			for _, storageUri := range params.StorageURIs {
-				if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				// Match any OCI variant (bare oci://, oci+native://, oci+fetch://) so the
+				// collision/count checks below cover fetch sources too, not just bare oci://.
+				if _, _, isOci := utils.ParseOciScheme(storageUri.Uri); isOci {
 					ociMountPaths = append(ociMountPaths, storageUri.MountPath)
 				}
 			}
 			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
 				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
 			}
-			if err := utils.ValidateOCIMountPaths(ociMountPaths); err != nil {
+			configMode := types.ResolveOciModelMode(params.Config)
+			if err := utils.ValidateOCIMountPaths(ociMountPaths, configMode); err != nil {
 				return err
 			}
 
 			for _, storageUri := range params.StorageURIs {
-				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				parsedMode, normalizedURI, isOci := utils.ParseOciScheme(storageUri.Uri)
+				if !isOci {
 					continue
 				}
+				effectiveMode := parsedMode
+				if effectiveMode == "" {
+					effectiveMode = types.ResolveOciModelMode(params.Config)
+				}
+				if effectiveMode == "" {
+					continue
+				}
+
 				targetContainerName := constants.InferenceServiceContainerName
 				if userContainer == nil {
 					targetContainerName = constants.WorkerContainerName
 				}
-				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
-					return err
-				}
-				// Also configure for transformer if present
-				if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
-					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+
+				switch effectiveMode {
+				case types.OciModelModeNative:
+					if err := utils.ConfigureOciNativeToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config); err != nil {
 						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := utils.ConfigureOciNativeToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config); err != nil {
+							return err
+						}
+					}
+				case types.OciModelModeFetch:
+					if err := ConfigureOciFetchToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, params.Namespace); err != nil {
+						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := ConfigureOciFetchToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, params.Namespace); err != nil {
+							return err
+						}
+					}
+				default: // "modelcar"
+					if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+							return err
+						}
 					}
 				}
 				ociIndex++
@@ -387,8 +448,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// - PVC URIs are mounted directly as volumes (no download needed)
 		// - Other URIs require init container to download artifacts first
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
-				// OCI URIs are already handled by modelcar injection above; skip.
+			if _, _, isOci := utils.ParseOciScheme(storageUri.Uri); isOci {
+				// All OCI-scheme URIs (oci://, oci+native://, oci+fetch://, …) are
+				// already handled by the dispatch block above; skip here.
 				continue
 			}
 			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {
@@ -445,11 +507,12 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 			// Create shared volume mount for non-PVC storage URIs
 			storageMountParams := utils.StorageMountParams{
-				MountPath:  nonPVCMountPath,
-				SubPath:    "",
-				VolumeName: utils.GetVolumeNameFromPath(nonPVCMountPath),
-				PVCName:    "",
-				ReadOnly:   params.IsReadOnly,
+				MountPath:           nonPVCMountPath,
+				SubPath:             "",
+				VolumeName:          utils.GetVolumeNameFromPath(nonPVCMountPath),
+				PVCName:             "",
+				ReadOnly:            params.IsReadOnly,
+				DefaultVolumeSource: params.Config.ModelVolumeSource,
 			}
 
 			// Apply volume mount to all relevant containers
@@ -464,11 +527,12 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		storageURI := params.StorageURIs[0]
 
 		storageMountParams := utils.StorageMountParams{
-			MountPath:  constants.DefaultModelLocalMountPath,
-			SubPath:    "",
-			VolumeName: constants.StorageInitializerVolumeName,
-			PVCName:    "",
-			ReadOnly:   params.IsReadOnly,
+			MountPath:           constants.DefaultModelLocalMountPath,
+			SubPath:             "",
+			VolumeName:          constants.StorageInitializerVolumeName,
+			PVCName:             "",
+			ReadOnly:            params.IsReadOnly,
+			DefaultVolumeSource: params.Config.ModelVolumeSource,
 		}
 
 		mountContainerNames = append(mountContainerNames, userContainer.Name)
@@ -577,10 +641,11 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 		// Merge any customizations from the storage container spec into the init container
 		if params.StorageContainerSpec != nil {
-			err := mergeContainerSpecs(initContainer, &params.StorageContainerSpec.Container)
+			merged, err := utils.MergeContainerWithPatch(*initContainer, params.StorageContainerSpec.Container)
 			if err != nil {
 				return err
 			}
+			*initContainer = merged
 		}
 
 		// Add CA bundle env vars and volume mount after merge to avoid conflicts with user-defined env vars
@@ -640,9 +705,359 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 		// Apply confidential model serving configuration if enabled via annotations
 		applyConfidentialConfig(initContainer, params.IsvcAnnotations)
+
+		// InferenceService env is applied to the serving container. hf:// downloads
+		// run here, so copy auth variables the initializer does not already have.
+		propagateStorageAuthEnvVars(params.StorageURIs, params.PodSpec, initContainer)
+
+		// The AWS pod identity webhook can run before this webhook and is not
+		// reinvoked after KServe adds the storage initializer. Copy the IRSA
+		// configuration from an already-mutated serving container so the init
+		// container can also obtain credentials for model download.
+		propagateIRSAConfig(params.PodSpec, initContainer, params.IsvcAnnotations)
 	}
 
 	return nil
+}
+
+// storageAuthEnvNames are equivalent Hugging Face authentication variables read
+// by the storage-initializer, in the same priority order used by huggingface_hub.
+// ClusterStorageContainer and service-account credential injection take precedence
+// when either name is already present on the init container.
+var storageAuthEnvNames = []string{
+	hf.HFTokenKey,
+	"HUGGING_FACE_HUB_TOKEN",
+}
+
+// storageAuthEnvSources is the order serving containers are searched.
+// The predictor container is where InferenceService env is set.
+var storageAuthEnvSources = []string{
+	constants.InferenceServiceContainerName,
+	constants.WorkerContainerName,
+	constants.TransformerContainerName,
+}
+
+// propagateStorageAuthEnvVars copies one Hugging Face credential from serving
+// containers onto the storage-initializer when an hf:// source needs it.
+// ValueFrom (including secretKeyRef) is preserved. An existing credential on
+// the init container is left unchanged, including one using the legacy alias.
+func propagateStorageAuthEnvVars(storageURIs []v1beta1.StorageUri, podSpec *corev1.PodSpec, initContainer *corev1.Container) {
+	if podSpec == nil || initContainer == nil {
+		return
+	}
+
+	hasHuggingFaceURI := false
+	for _, storageURI := range storageURIs {
+		if strings.HasPrefix(storageURI.Uri, constants.HfURIPrefix) {
+			hasHuggingFaceURI = true
+			break
+		}
+	}
+	if !hasHuggingFaceURI || hasStorageAuthEnvVar(initContainer.Env) {
+		return
+	}
+
+	for _, containerName := range storageAuthEnvSources {
+		source := utils.GetContainerWithName(podSpec, containerName)
+		if source == nil {
+			continue
+		}
+		for _, authEnvName := range storageAuthEnvNames {
+			for i := range source.Env {
+				if source.Env[i].Name == authEnvName {
+					initContainer.Env = append(initContainer.Env, *source.Env[i].DeepCopy())
+					return
+				}
+			}
+		}
+	}
+}
+
+func hasStorageAuthEnvVar(envVars []corev1.EnvVar) bool {
+	for _, envVar := range envVars {
+		for _, authEnvName := range storageAuthEnvNames {
+			if envVar.Name == authEnvName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Each AWS identity webhook sets its credential pair on every container
+// present when it runs. The KServe pod mutator adds the storage-initializer
+// after them, so its credentials come from copying a serving container's
+// pair together with the mount of its token file (see propagateIRSAConfig).
+const (
+	// The IRSA webhook sets the web identity pair (the role and its token
+	// file) together with the region and STS regional endpoint variables.
+	irsaRoleArnEnv = "AWS_ROLE_ARN"
+	// #nosec G101 -- the env var name is not a credential value.
+	irsaWebIdentityTokenFileEnv = "AWS_WEB_IDENTITY_TOKEN_FILE"
+	irsaRegionEnv               = "AWS_REGION"
+	irsaDefaultRegionEnv        = "AWS_DEFAULT_REGION"
+	irsaSTSRegionalEndpointsEnv = "AWS_STS_REGIONAL_ENDPOINTS"
+
+	// The container credentials pair, set by the EKS Pod Identity webhook.
+	// The AWS SDK credential chain resolves the web identity pair before
+	// this one, so when a container carries both pairs, the web identity
+	// pair decides which token mount to copy.
+	// #nosec G101 -- the env var name is not a credential value.
+	podIdentityCredentialsFullURIEnv = "AWS_CONTAINER_CREDENTIALS_FULL_URI"
+	// #nosec G101 -- the env var name is not a credential value.
+	podIdentityAuthorizationTokenFileEnv = "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE"
+
+	// The AWS_ENDPOINT_URL* variables are user-set endpoint overrides, not
+	// identity webhook output. The storage-initializer's AWS SDK clients
+	// resolve them natively to route S3 and STS traffic, for example to VPC
+	// endpoints, and the static-secret storage configuration already emits
+	// AWS_ENDPOINT_URL for the same purpose. Copying them from the serving
+	// container closes the same gap for workloads whose credentials come from
+	// IRSA or EKS Pod Identity.
+	awsEndpointURLEnv    = "AWS_ENDPOINT_URL"
+	awsEndpointURLSTSEnv = "AWS_ENDPOINT_URL_STS"
+	awsEndpointURLS3Env  = "AWS_ENDPOINT_URL_S3"
+
+	// AWS_USE_FIPS_ENDPOINT is a user-set compliance flag, not identity
+	// webhook output: it makes AWS SDK clients use FIPS endpoints. Copying
+	// it keeps the model download on the same compliance posture as the
+	// serving container. AWS provides FIPS endpoints only in some regions,
+	// and the SDK fails to connect rather than falls back where they are
+	// missing, so the flag surfaces the gap loudly instead of silently
+	// downgrading the download to standard endpoints. The AWS_ENDPOINT_URL*
+	// overrides take precedence over it, giving workloads a per-service
+	// opt-out.
+	awsUseFIPSEndpointEnv = "AWS_USE_FIPS_ENDPOINT"
+
+	// awsSkipContainersAnnotation is the pod annotation that lists containers
+	// the AWS pod identity webhook must not configure.
+	awsSkipContainersAnnotation = credentials.AwsIrsaAnnotationPrefix + "skip-containers"
+)
+
+// irsaEnvNames are the AWS credential and client environment variables that
+// the AWS identity webhooks inject into containers present at admission time
+// (the web identity pair from the IRSA webhook and the container credentials
+// pair from the EKS Pod Identity webhook), plus the user-set AWS_ENDPOINT_URL*
+// endpoint overrides and AWS_USE_FIPS_ENDPOINT compliance flag. They are
+// copied onto the storage-initializer so its AWS clients resolve credentials
+// and endpoints like the serving container's.
+var irsaEnvNames = []string{
+	irsaRoleArnEnv,
+	irsaWebIdentityTokenFileEnv,
+	irsaRegionEnv,
+	irsaDefaultRegionEnv,
+	irsaSTSRegionalEndpointsEnv,
+	podIdentityCredentialsFullURIEnv,
+	podIdentityAuthorizationTokenFileEnv,
+	awsEndpointURLEnv,
+	awsEndpointURLSTSEnv,
+	awsEndpointURLS3Env,
+	awsUseFIPSEndpointEnv,
+}
+
+// propagateIRSAConfig copies the AWS credential environment variables and the
+// projected token mount from a serving container onto the storage-initializer.
+// On clusters where an AWS identity webhook (IRSA or EKS Pod Identity) runs
+// before the KServe pod mutator, the init container is added after the
+// identity webhook has completed and would otherwise have no AWS credentials.
+//
+// The eks.amazonaws.com/skip-containers pod annotation is honored. A token
+// mount the init container already carries is reused rather than duplicated.
+// The helper is a no-op when no serving container carries a complete AWS
+// credential environment or when the token mount cannot be provided, so KServe
+// never manufactures an incomplete credential configuration.
+func propagateIRSAConfig(podSpec *corev1.PodSpec, initContainer *corev1.Container, podAnnotations map[string]string) {
+	if podSpec == nil || initContainer == nil {
+		return
+	}
+	if awsSkipContainersContains(podAnnotations[awsSkipContainersAnnotation], initContainer.Name) {
+		log.V(1).Info("Skipping IRSA propagation: container is listed in the skip-containers annotation",
+			"container", initContainer.Name)
+		return
+	}
+
+	var source *corev1.Container
+	var tokenFile string
+	for _, containerName := range storageAuthEnvSources {
+		container := utils.GetContainerWithName(podSpec, containerName)
+		if container == nil {
+			continue
+		}
+		roleArn := ""
+		tokenFilePath := ""
+		credentialsFullURI := ""
+		authorizationTokenFile := ""
+		for i := range container.Env {
+			switch container.Env[i].Name {
+			case irsaRoleArnEnv:
+				roleArn = container.Env[i].Value
+			case irsaWebIdentityTokenFileEnv:
+				tokenFilePath = container.Env[i].Value
+			case podIdentityCredentialsFullURIEnv:
+				credentialsFullURI = container.Env[i].Value
+			case podIdentityAuthorizationTokenFileEnv:
+				authorizationTokenFile = container.Env[i].Value
+			}
+		}
+		// The AWS SDK credential chain resolves the web identity pair before
+		// the container credentials pair (boto3 checks assume-role-with-
+		// web-identity before container credentials), so when a container
+		// carries both pairs, the web identity pair decides which token mount
+		// to copy: copying the EKS Pod Identity mount instead would leave the
+		// mechanism the SDK actually uses without its token file.
+		if roleArn != "" && tokenFilePath != "" {
+			source = container
+			tokenFile = tokenFilePath
+			break
+		}
+		if credentialsFullURI != "" && authorizationTokenFile != "" {
+			source = container
+			tokenFile = authorizationTokenFile
+			break
+		}
+	}
+	if source == nil {
+		log.V(1).Info("Skipping IRSA propagation: no serving container carries a complete AWS credential environment",
+			"container", initContainer.Name)
+		return
+	}
+
+	// The token file lives on a projected volume that the identity webhook
+	// added at pod level. Copy the source container's most specific mount
+	// that exposes the token file, so the init container can read the token
+	// at the path the environment names. The environment is copied only when
+	// the mount can be provided: an environment that names a token file the
+	// init container cannot read is an incomplete credential configuration.
+	mount := mostSpecificTokenMount(source.VolumeMounts, tokenFile)
+	if mount == nil {
+		log.V(1).Info("Skipping IRSA propagation: serving container has no readable mount for the token file",
+			"container", initContainer.Name, "tokenFile", tokenFile)
+		return
+	}
+
+	// The init container can already carry the token mount, for example when
+	// a custom storage-initializer patch pre-mounts the token volume without
+	// the IRSA environment. A mount with the same volume, mount path and sub
+	// path exposes the token file exactly as on the source container, so it
+	// is reused and only the environment is copied; appending the mount
+	// again would duplicate it. Any other volume at the same path cannot be
+	// replaced, and the environment is not copied because that volume does
+	// not provide the source container's token file.
+	if !hasSameVolumeMount(initContainer.VolumeMounts, mount) {
+		if hasVolumeMountAt(initContainer.VolumeMounts, mount.MountPath) {
+			log.V(1).Info("Skipping IRSA propagation: a different volume is already mounted at the token file path",
+				"container", initContainer.Name, "mountPath", mount.MountPath)
+			return
+		}
+		initContainer.VolumeMounts = append(initContainer.VolumeMounts, *mount.DeepCopy())
+	} else {
+		log.V(1).Info("Reusing the token mount the container already carries",
+			"container", initContainer.Name, "mountPath", mount.MountPath)
+	}
+
+	// The AWS pod identity webhook sets AWS_REGION and AWS_DEFAULT_REGION as a
+	// pair and leaves both alone when either is already set. The storage
+	// configuration can set AWS_DEFAULT_REGION from the storage region
+	// annotation, so copying only the missing variable of the pair would set
+	// the region from two sources. The AWS SDKs give AWS_REGION precedence,
+	// so copy the pair only when the init container has neither.
+	skipRegionEnvs := hasRegionEnv(initContainer.Env)
+	envs := make([]corev1.EnvVar, 0, len(irsaEnvNames))
+	for _, envName := range irsaEnvNames {
+		if skipRegionEnvs && (envName == irsaRegionEnv || envName == irsaDefaultRegionEnv) {
+			continue
+		}
+		for i := range source.Env {
+			if source.Env[i].Name == envName {
+				envs = append(envs, *source.Env[i].DeepCopy())
+				break
+			}
+		}
+	}
+	utils.AddEnvVars(initContainer, envs)
+}
+
+// hasRegionEnv reports whether the container already defines AWS_REGION or
+// AWS_DEFAULT_REGION.
+func hasRegionEnv(envs []corev1.EnvVar) bool {
+	for i := range envs {
+		if envs[i].Name == irsaRegionEnv || envs[i].Name == irsaDefaultRegionEnv {
+			return true
+		}
+	}
+	return false
+}
+
+// mostSpecificTokenMount returns the most specific volume mount whose mount
+// path exposes the token file, or nil when no mount covers it. The identity
+// webhook mounts its projected volume at the token file's directory; a mount
+// at an ancestor path is accepted only when no more specific mount exists,
+// which covers token files supplied through a user-managed volume.
+func mostSpecificTokenMount(volumeMounts []corev1.VolumeMount, tokenFile string) *corev1.VolumeMount {
+	var best *corev1.VolumeMount
+	bestLength := -1
+	for i := range volumeMounts {
+		mountPath := strings.TrimSuffix(volumeMounts[i].MountPath, "/")
+		if mountPath == "" {
+			continue
+		}
+		if mountPath != tokenFile && !strings.HasPrefix(tokenFile, mountPath+"/") {
+			continue
+		}
+		if len(mountPath) > bestLength {
+			best = &volumeMounts[i]
+			bestLength = len(mountPath)
+		}
+	}
+	return best
+}
+
+// hasVolumeMountAt reports whether any volume is already mounted at the given
+// path. The check is by path, not by volume name: one volume may be mounted
+// twice at different paths, but two volumes cannot share one path.
+func hasVolumeMountAt(volumeMounts []corev1.VolumeMount, mountPath string) bool {
+	for i := range volumeMounts {
+		if volumeMounts[i].MountPath == mountPath {
+			return true
+		}
+	}
+	return false
+}
+
+// hasSameVolumeMount reports whether the container already mounts the given
+// volume at the same mount path with the same sub path. Such a mount exposes
+// the same files as on the container the mount was taken from, so it can be
+// reused instead of being appended a second time.
+func hasSameVolumeMount(volumeMounts []corev1.VolumeMount, mount *corev1.VolumeMount) bool {
+	for i := range volumeMounts {
+		if volumeMounts[i].Name == mount.Name &&
+			volumeMounts[i].MountPath == mount.MountPath &&
+			volumeMounts[i].SubPath == mount.SubPath {
+			return true
+		}
+	}
+	return false
+}
+
+// awsSkipContainersContains reports whether the eks.amazonaws.com/skip-containers
+// pod annotation lists the container. The value is parsed as a single CSV
+// record, mirroring the AWS pod identity webhook: names must match exactly
+// (the webhook does not trim whitespace), and a value that cannot be parsed
+// skips no containers.
+func awsSkipContainersContains(annotationValue, containerName string) bool {
+	if annotationValue == "" || containerName == "" {
+		return false
+	}
+	names, err := csv.NewReader(strings.NewReader(annotationValue)).Read()
+	if err != nil {
+		return false
+	}
+	for _, name := range names {
+		if name == containerName {
+			return true
+		}
+	}
+	return false
 }
 
 // applyConfidentialConfig injects environment variables for confidential model
@@ -849,71 +1264,6 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 
 			log.V(1).Info("Storage initializer UID is set", "pod", pod.Name, "uid", storageInitializerContainer.SecurityContext.RunAsUser)
 		}
-	}
-
-	return nil
-}
-
-// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
-// Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
-func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
-	if targetContainer == nil {
-		return errors.New("targetContainer is nil")
-	}
-
-	containerName := targetContainer.Name
-
-	defaultContainerJson, err := json.Marshal(*targetContainer)
-	if err != nil {
-		return err
-	}
-
-	overrides, err := json.Marshal(*crdContainer)
-	if err != nil {
-		return err
-	}
-
-	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, corev1.Container{})
-	if err != nil {
-		return err
-	}
-
-	// Unmarshal into a fresh Container rather than the existing targetContainer:
-	// json.Unmarshal does not clear struct fields absent from the JSON, so reusing
-	// the target's existing EnvVar slice elements lets stale Value/ValueFrom fields
-	// bleed into merged-in entries (issue #5516).
-	merged := corev1.Container{}
-	if err := json.Unmarshal(jsonResult, &merged); err != nil {
-		return err
-	}
-
-	// For env entries whose name is overridden by the ClusterStorageContainer, strategic
-	// merge patch performs a field-wise merge keyed on name, which can leave both
-	// Value and ValueFrom populated on a single entry — a state Kubernetes
-	// admission rejects. Reconcile by deferring to the ClusterStorageContainer's intent.
-	crdEnvByName := make(map[string]corev1.EnvVar, len(crdContainer.Env))
-	for _, e := range crdContainer.Env {
-		crdEnvByName[e.Name] = e
-	}
-	for i := range merged.Env {
-		e := &merged.Env[i]
-		if e.Value == "" || e.ValueFrom == nil {
-			continue
-		}
-		crdEntry, ok := crdEnvByName[e.Name]
-		if !ok {
-			continue
-		}
-		if crdEntry.ValueFrom != nil {
-			e.Value = ""
-		} else if crdEntry.Value != "" {
-			e.ValueFrom = nil
-		}
-	}
-
-	*targetContainer = merged
-	if targetContainer.Name == "" {
-		targetContainer.Name = containerName
 	}
 
 	return nil

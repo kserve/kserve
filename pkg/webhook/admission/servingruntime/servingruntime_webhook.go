@@ -163,9 +163,9 @@ func validateModelFormatPrioritySame(newSpec *v1alpha1.ServingRuntimeSpec) error
 	nameToPriority := make(map[string]*int32)
 
 	// Validate when same model format has same priority under same runtime.
-	// If the same model format has different prority value then throws the error
+	// If the same model format has different priority value then throws the error
 	for _, newModelFormat := range newSpec.SupportedModelFormats {
-		// Only validate priority if autoselect is ture
+		// Only validate priority if autoselect is true
 		if newModelFormat.IsAutoSelectEnabled() {
 			if existingPriority, ok := nameToPriority[newModelFormat.Name]; ok {
 				if existingPriority != nil && newModelFormat.Priority != nil && (*existingPriority != *newModelFormat.Priority) {
@@ -195,7 +195,7 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 	if isTheProtocolSame {
 		for _, existingModelFormat := range existingSpec.SupportedModelFormats {
 			for _, newModelFormat := range newSpec.SupportedModelFormats {
-				// Only validate priority if autoselect is ture
+				// Only validate priority if autoselect is true
 				if existingModelFormat.IsAutoSelectEnabled() && newModelFormat.IsAutoSelectEnabled() && areSupportedModelFormatsEqual(existingModelFormat, newModelFormat) {
 					if existingModelFormat.Priority != nil && newModelFormat.Priority != nil && *existingModelFormat.Priority == *newModelFormat.Priority {
 						return fmt.Errorf(InvalidPriorityError, newModelFormat.Name)

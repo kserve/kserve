@@ -13,6 +13,7 @@ jobs:
   base-image-scan:
     name: scan images
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -62,6 +63,7 @@ jobs:
   predictor-image-scan:
     name: scan predictor images
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -111,6 +113,7 @@ jobs:
   explainer-image-scan:
     name: scan explainer images
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:

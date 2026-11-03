@@ -18,8 +18,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	crand "crypto/rand"
 	"encoding/json"
+	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -32,6 +34,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/apis"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -814,9 +817,11 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 		"Test-Header-1": {"Test-Header-1"},
 		"Test-Header-2": {"Test-Header-2"},
 		"Test-Header-3": {"Test-Header-3"},
+		"X-Request-Id":  {"12345"},
+		"X-B3-Trace-Id": {"67890"},
 	}
 	// Propagating multiple headers "Test-Header-Key"
-	headersToPropagate := []string{"Test-Header-*", "Auth*"}
+	headersToPropagate := []string{"Test-Header-*", "Auth*", ".*Trace-Id.*"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
 	require.NoError(t, err)
 
@@ -835,6 +840,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 		"Test-Header-2": "Test-Header-2",
 		"Test-Header-3": "Test-Header-3",
 		"Authorization": "Bearer Token",
+		"X-B3-Trace-Id": "67890",
 	}
 	t.Logf("final response:%v", response)
 	require.Equal(t, expectedResponse, response)
@@ -926,7 +932,7 @@ func TestServerTimeout(t *testing.T) {
 		{
 			name:                "timeout",
 			serverTimeout:       Int64Ptr(1),
-			serviceStepDuration: 500 * time.Millisecond,
+			serviceStepDuration: 1 * time.Second,
 			expectError:         true,
 		},
 		{
@@ -940,6 +946,7 @@ func TestServerTimeout(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			drainSleepDuration = 0 * time.Millisecond // instant shutdown
+			isShuttingDown = false
 
 			// Setup and start dummy models
 			model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -1018,20 +1025,35 @@ func TestServerTimeout(t *testing.T) {
 				time.Sleep(100 * time.Millisecond)        // wait for server to release port before next subtest
 			})
 
-			// Call the InferenceGraph
+			// Retry until the server is up instead of a fixed sleep.
 			client := &http.Client{}
-			time.Sleep(1 * time.Second) // prevent race condition
-			req, _ := http.NewRequest(http.MethodPost, "http://localhost:"+strconv.Itoa(constants.RouterPort), bytes.NewBuffer(nil))
-			resp, err := client.Do(req)
-			if resp != nil {
-				defer resp.Body.Close()
-			}
+			url := "http://localhost:" + strconv.Itoa(constants.RouterPort)
+			var statusCode int
+			var lastErr error
+			err = wait.PollUntilContextTimeout(t.Context(), 50*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(nil))
+				if err != nil {
+					return false, err
+				}
+				resp, reqErr := client.Do(req)
+				if resp != nil {
+					defer resp.Body.Close()
+					statusCode = resp.StatusCode
+				}
+				lastErr = reqErr
+				if reqErr != nil && errors.Is(reqErr, syscall.ECONNREFUSED) {
+					return false, nil
+				}
+				return true, nil
+			})
+			require.NoError(t, err, "server did not become ready")
 
 			if testCase.expectError {
-				assert.Contains(t, err.Error(), "EOF")
+				require.Error(t, lastErr)
+				assert.Contains(t, lastErr.Error(), "EOF")
 			} else {
-				require.NoError(t, err)
-				assert.Equal(t, http.StatusOK, resp.StatusCode)
+				require.NoError(t, lastErr)
+				assert.Equal(t, http.StatusOK, statusCode)
 			}
 		})
 	}

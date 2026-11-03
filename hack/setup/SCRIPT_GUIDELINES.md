@@ -104,7 +104,7 @@ For code that must be included in generated scripts (conditionals, helper functi
 # INCLUDE_IN_GENERATED_SCRIPT_START
 if [ "${ENABLE_LLMISVC}" = "true" ]; then
     CRD_DIR="${REPO_ROOT}/config/crd/llmisvc"
-    CONFIG_DIR="${REPO_ROOT}/config/overlays/llmisvc"
+    CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/llmisvc"
 fi
 # INCLUDE_IN_GENERATED_SCRIPT_END
 ```

@@ -23,6 +23,8 @@ from autogluonserver.tabular_model import (
     _determine_prediction_datatype,
 )
 
+pytestmark = pytest.mark.autogluon
+
 
 class DummyFeatureMetadata:
     def __init__(self, type_map_raw=None):
@@ -85,7 +87,8 @@ def test_load_success_sets_ready_and_output_datatype(monkeypatch, tmp_path):
         "autogluonserver.tabular_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.tabular_model.TabularPredictor.load", lambda _: predictor
+        "autogluonserver.tabular_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, _: predictor,
     )
 
     model = AutoGluonTabularModel("model", "s3://bucket/path")

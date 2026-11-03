@@ -21,7 +21,7 @@ from fastapi.responses import ORJSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
-from vllm.entrypoints.utils import with_cancellation
+from vllm.entrypoints.serve.utils.api_utils import with_cancellation
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,

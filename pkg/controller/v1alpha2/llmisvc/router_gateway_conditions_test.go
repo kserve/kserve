@@ -215,9 +215,7 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 				resolved[i] = llmisvc.ResolvedGateway{Gateway: gw}
 			}
 
-			err = reconciler.EvaluateGatewayConditions(ctx, tt.llmSvc, resolved)
-
-			g.Expect(err).ToNot(HaveOccurred())
+			reconciler.EvaluateGatewayConditions(ctx, tt.llmSvc, resolved)
 
 			tt.llmSvc.DetermineRouterReadiness()
 
@@ -287,11 +285,10 @@ func TestIsGatewayReady(t *testing.T) {
 
 func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 	tests := []struct {
-		name             string
-		llmSvc           *v1alpha2.LLMInferenceService
-		httpRoutes       []*gwapiv1.HTTPRoute
-		expectedErrorMsg string
-		createAssertion  func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc
+		name            string
+		llmSvc          *v1alpha2.LLMInferenceService
+		httpRoutes      []*gwapiv1.HTTPRoute
+		createAssertion func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc
 	}{
 		{
 			name: "HTTPRoute with multiple controllers - should be ready",
@@ -389,7 +386,86 @@ func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 				),
 			},
 			createAssertion: func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc {
-				return assertRouterNotReadyWithReason(routerCondition, httpRouteCondition, "HTTPRoutesNotReady")
+				return assertRouterNotReadyWithReason(routerCondition, httpRouteCondition, "WaitingForGateway")
+			},
+		},
+		{
+			name: "managed HTTPRoute not yet observed by a gateway - should report WaitingForGateway",
+			llmSvc: LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
+				WithModelURI("hf://test/model"),
+				WithHTTPRouteSpec(&gwapiv1.HTTPRouteSpec{}),
+			),
+			// A route straight out of Create: the API server discards status on CREATE,
+			// so no gateway controller has written a parent entry yet.
+			httpRoutes: []*gwapiv1.HTTPRoute{
+				HTTPRoute("test-llm-kserve-route",
+					InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+					WithParentRefs(GatewayParentRef("test-gateway", "test-ns")),
+				),
+			},
+			createAssertion: func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc {
+				return func(g *WithT) {
+					assertRouterNotReadyWithReason(routerCondition, httpRouteCondition, "WaitingForGateway")(g)
+					g.Expect(httpRouteCondition.Message).To(Equal(
+						"The following HTTPRoutes exist but no Gateway controller has accepted them yet: [test-ns/test-llm-kserve-route]"),
+						"Operators should get a plain sentence, not a dump of the empty status struct")
+				}
+			},
+		},
+		{
+			name: "one route rejected and one still pending - both are reported",
+			llmSvc: LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
+				WithModelURI("hf://test/model"),
+				WithHTTPRouteRefs(HTTPRouteRef("rejected-route"), HTTPRouteRef("pending-route")),
+			),
+			httpRoutes: []*gwapiv1.HTTPRoute{
+				HTTPRoute("rejected-route",
+					InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+					WithParentRefs(GatewayParentRef("test-gateway", "test-ns")),
+					WithHTTPRouteNotReadyStatus("openshift.io/gateway-controller/v1", "NotAccepted", "Route was not accepted"),
+				),
+				HTTPRoute("pending-route",
+					InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+					WithParentRefs(GatewayParentRef("test-gateway", "test-ns")),
+				),
+			},
+			createAssertion: func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc {
+				return func(g *WithT) {
+					assertRouterNotReadyWithReason(routerCondition, httpRouteCondition, "HTTPRoutesNotReady")(g)
+					g.Expect(httpRouteCondition.Message).To(ContainSubstring("test-ns/rejected-route"))
+					g.Expect(httpRouteCondition.Message).To(ContainSubstring("test-ns/pending-route"),
+						"A rejected route must not hide the ones still waiting for a Gateway")
+				}
+			},
+		},
+		{
+			name: "route refs declared but none found - stays ready, refs are validated upstream",
+			llmSvc: LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
+				WithModelURI("hf://test/model"),
+				WithHTTPRouteRefs(HTTPRouteRef("missing-route")),
+			),
+			httpRoutes: nil,
+			createAssertion: func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc {
+				return func(g *WithT) {
+					g.Expect(httpRouteCondition).ToNot(BeNil(), "HTTPRoute condition should be set")
+					g.Expect(httpRouteCondition.IsTrue()).To(BeTrue(),
+						"A missing ref is reported by validateRouterReferences as RefsInvalid, not here")
+				}
+			},
+		},
+		{
+			name: "inline route spec with no route collected - should not read as ready",
+			llmSvc: LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
+				WithModelURI("hf://test/model"),
+				WithHTTPRouteSpec(&gwapiv1.HTTPRouteSpec{}),
+			),
+			httpRoutes: nil,
+			createAssertion: func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc {
+				return assertRouterNotReadyWithReason(routerCondition, httpRouteCondition, "HTTPRouteNotObserved")
 			},
 		},
 		{
@@ -461,36 +537,8 @@ func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 			g := NewGomegaWithT(t)
 			ctx := t.Context()
 
-			scheme := runtime.NewScheme()
-			err := v1alpha2.AddToScheme(scheme)
-			g.Expect(err).ToNot(HaveOccurred())
-			err = gwapiv1.Install(scheme)
-			g.Expect(err).ToNot(HaveOccurred())
-
-			var objects []client.Object
-			objects = append(objects, tt.llmSvc)
-			for _, route := range tt.httpRoutes {
-				objects = append(objects, route)
-			}
-
-			fakeClient := fake.NewClientBuilder().
-				WithScheme(scheme).
-				WithObjects(objects...).
-				Build()
-
-			reconciler := &llmisvc.LLMISVCReconciler{
-				Client: fakeClient,
-			}
-
-			err = reconciler.EvaluateHTTPRouteConditions(ctx, tt.llmSvc, &llmisvc.Config{})
-
-			if tt.expectedErrorMsg != "" {
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(ContainSubstring(tt.expectedErrorMsg))
-				return
-			}
-
-			g.Expect(err).ToNot(HaveOccurred())
+			reconciler := &llmisvc.LLMISVCReconciler{}
+			reconciler.EvaluateHTTPRouteConditions(ctx, tt.llmSvc, tt.httpRoutes)
 
 			tt.llmSvc.DetermineRouterReadiness()
 

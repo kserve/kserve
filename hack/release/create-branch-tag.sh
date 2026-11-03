@@ -169,12 +169,28 @@ parse_version() {
 validate_kserve_deps() {
     print_section "🔍 Phase 2: Validating kserve-deps.env..."
 
-    if [[ ! -f "kserve-deps.env" ]]; then
-        print_error "kserve-deps.env file not found!"
-        exit 1
-    fi
+    local current_version=""
+    local patch_version=$(echo "$BASE_VERSION" | cut -d. -f3)
 
-    local current_version=$(grep KSERVE_VERSION= kserve-deps.env | cut -d= -f2)
+    if [[ "$patch_version" != "0" ]]; then
+        # Patch/z-stream release (e.g., v0.17.1): version lives on the release branch
+        git fetch "$UPSTREAM_REMOTE" "$BRANCH" 2>/dev/null || true
+        current_version=$(git show "$UPSTREAM_REMOTE/$BRANCH:kserve-deps.env" 2>/dev/null | grep KSERVE_VERSION= | cut -d= -f2)
+        if [[ -z "$current_version" ]]; then
+            print_error "Could not read kserve-deps.env from $UPSTREAM_REMOTE/$BRANCH"
+            echo "   Make sure the release branch exists and kserve-deps.env has been updated."
+            exit 1
+        fi
+        print_info "Reading kserve-deps.env from $UPSTREAM_REMOTE/$BRANCH (patch release)"
+    else
+        # Minor release (e.g., v0.17.0-rc0, v0.17.0-rc1, v0.17.0): version lives on master
+        if [[ ! -f "kserve-deps.env" ]]; then
+            print_error "kserve-deps.env file not found!"
+            exit 1
+        fi
+        current_version=$(grep KSERVE_VERSION= kserve-deps.env | cut -d= -f2)
+        print_info "Reading kserve-deps.env from local working tree (master)"
+    fi
 
     if [[ "$current_version" != "$VERSION" ]]; then
         print_error "Version mismatch!"
@@ -368,7 +384,7 @@ create_rc1_plus_or_final() {
     print_section "Step 1: Checking out existing release branch..."
 
     git fetch "$UPSTREAM_REMOTE" "$BRANCH"
-    git checkout "$BRANCH"
+    git checkout -B "$BRANCH" "$UPSTREAM_REMOTE/$BRANCH"
     git pull "$UPSTREAM_REMOTE" "$BRANCH"
 
     print_success "Checked out branch: $BRANCH"

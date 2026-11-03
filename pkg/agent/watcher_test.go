@@ -20,17 +20,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	logger "log"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	gstorage "cloud.google.com/go/storage"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/go-logr/zapr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,7 +43,43 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/modelconfig"
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
+
+// testStorageURIHost is a publicly routable IP literal. HTTP(S) storage URI
+// validation blocks the loopback addresses that httptest servers listen on,
+// so downloader tests point at this address and serve responses in-process
+// via stubRoundTripper; no traffic ever leaves the test process.
+const testStorageURIHost = "93.184.216.34"
+
+// stubRoundTripper serves canned responses so HTTPSProvider download tests
+// run without real network sockets.
+type stubRoundTripper struct {
+	statusCode  int
+	contentType string
+	body        string
+}
+
+func (s *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	statusCode := s.statusCode
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+	contentType := s.contentType
+	if contentType == "" {
+		contentType = "text/plain; charset=utf-8"
+	}
+	return &http.Response{
+		Status:     fmt.Sprintf("%d %s", statusCode, http.StatusText(statusCode)),
+		StatusCode: statusCode,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     http.Header{"Content-Type": []string{contentType}},
+		Body:       io.NopCloser(strings.NewReader(s.body)),
+		Request:    req,
+	}, nil
+}
 
 var _ = Describe("Watcher", func() {
 	var modelDir string
@@ -67,6 +102,20 @@ var _ = Describe("Watcher", func() {
 	})
 
 	Describe("Sync models config on startup", func() {
+		It("should not crash after sync error", func() {
+			badModelDir := filepath.Join(modelDir, "bad-model")
+			configDir := filepath.Join(modelDir, "configs")
+			Expect(os.MkdirAll(badModelDir, os.ModePerm)).To(Succeed())                                       //nolint:gosec // G301: test directory
+			Expect(os.MkdirAll(configDir, os.ModePerm)).To(Succeed())                                         //nolint:gosec // G301: test directory
+			Expect(os.WriteFile(filepath.Join(badModelDir, "SUCCESS.bad"), []byte("{"), 0o644)).To(Succeed()) //nolint:gosec // G306: test file
+			modelConfigs := modelconfig.ModelConfigs{{Name: "model1"}}
+			data, err := json.Marshal(modelConfigs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(configDir, constants.ModelConfigFileName), data, 0o644)).To(Succeed()) //nolint:gosec // G306: test file
+			Expect(func() {
+				NewWatcher(configDir, modelDir, sugar)
+			}).ToNot(Panic())
+		})
 		Context("Getting new model events", func() {
 			It("should download and load the new models", func() {
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
@@ -115,8 +164,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -154,8 +203,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -199,8 +248,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -256,8 +305,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test3",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -312,13 +361,7 @@ var _ = Describe("Watcher", func() {
 		Context("When model download fails", func() {
 			It("Should not create the success file", func() {
 				logger.Printf("Using temp dir %v\n", modelDir)
-				errs := make([]s3manager.Error, 0, 1)
-				errs = append(errs, s3manager.Error{
-					OrigErr: errors.New("failed to download"),
-					Bucket:  aws.String("modelRepo"),
-					Key:     aws.String("model1/model.pt"),
-				})
-				err := s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
+				err := errors.New("failed to download")
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
@@ -328,8 +371,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test4",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3FailDownloader{Err: err},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3FailTransferClient{Err: err},
 							},
 						},
 						Logger: sugar,
@@ -518,8 +561,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -554,34 +597,29 @@ var _ = Describe("Watcher", func() {
 	})
 
 	Describe("Use HTTP(S) Downloader", func() {
+		BeforeEach(func() {
+			// httptest binds to 127.0.0.1, which production SSRF checks reject.
+			kserveutils.AllowHTTPStorageLoopbackForTesting(true)
+		})
+		AfterEach(func() {
+			kserveutils.AllowHTTPStorageLoopbackForTesting(false)
+		})
+
 		Context("Download Uncompressed Model", func() {
 			It("should download test model and write contents", func() {
 				modelContents := "Temporary content"
-				scenarios := map[string]struct {
-					server *httptest.Server
-				}{
-					"HTTP": {
-						httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							fmt.Fprintln(w, modelContents)
-						})),
-					},
-					"HTTPS": {
-						httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							fmt.Fprintln(w, modelContents)
-						})),
-					},
+				scenarios := map[string]string{
+					"HTTP":  "http://" + testStorageURIHost + "/model.joblib",
+					"HTTPS": "https://" + testStorageURIHost + "/model.joblib",
 				}
 
-				for protocol, scenario := range scenarios {
+				for protocol, modelStorageURI := range scenarios {
 					logger.Printf("Setting up %s Server", protocol)
-					ts := scenario.server
-					defer ts.Close()
 
 					modelName := "model1"
 					modelFile := "model.joblib"
-					modelStorageURI := ts.URL + "/" + modelFile
 					cl := storage.HTTPSProvider{
-						Client: ts.Client(),
+						Client: &http.Client{Transport: &stubRoundTripper{body: modelContents + "\n"}},
 					}
 
 					err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
@@ -599,11 +637,9 @@ var _ = Describe("Watcher", func() {
 			It("should fail out if the uri does not exist", func() {
 				logger.Printf("Creating Client")
 				modelName := "model1"
-				invalidModelStorageURI := "https://example.com/model.joblib"
-				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-				defer ts.Close()
+				invalidModelStorageURI := "https://" + testStorageURIHost + "/model.joblib"
 				cl := storage.HTTPSProvider{
-					Client: ts.Client(),
+					Client: &http.Client{Transport: &stubRoundTripper{statusCode: http.StatusNotFound}},
 				}
 
 				actualErr := cl.DownloadModel(modelDir, modelName, invalidModelStorageURI)
@@ -623,47 +659,26 @@ var _ = Describe("Watcher", func() {
 					"0000000a481000000006d6f64656c2e70746855540d000786c5506086c5506086c5506075780b000104f" +
 					"50100000414000000504b0506000000000100010057000000590000000000"
 
-				scenarios := map[string]struct {
-					tarServer *httptest.Server
-					zipServer *httptest.Server
-				}{
-					"HTTP": {
-						httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							fmt.Fprintln(w, tarContent)
-						})),
-						httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							fmt.Fprintln(w, zipContents)
-						})),
-					},
-					"HTTPS": {
-						httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							fmt.Fprintln(w, tarContent)
-						})),
-						httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							fmt.Fprintln(w, zipContents)
-						})),
-					},
+				schemes := map[string]string{
+					"HTTP":  "http",
+					"HTTPS": "https",
 				}
-				for protocol, scenario := range scenarios {
+				for protocol, scheme := range schemes {
 					logger.Printf("Using %s Server", protocol)
 					logger.Printf("Setting up tar model")
-					tarServer := scenario.tarServer
-					defer tarServer.Close()
 
 					tarModel := "model1"
-					tarStorageURI := tarServer.URL + "/test.tar"
+					tarStorageURI := scheme + "://" + testStorageURIHost + "/test.tar"
 					tarcl := storage.HTTPSProvider{
-						Client: tarServer.Client(),
+						Client: &http.Client{Transport: &stubRoundTripper{body: tarContent + "\n"}},
 					}
 
 					logger.Printf("Setting up zip model")
-					zipServer := scenario.zipServer
-					defer zipServer.Close()
 
 					zipModel := "model2"
-					zipStorageURI := zipServer.URL + "/test.zip"
+					zipStorageURI := scheme + "://" + testStorageURIHost + "/test.zip"
 					zipcl := storage.HTTPSProvider{
-						Client: tarServer.Client(),
+						Client: &http.Client{Transport: &stubRoundTripper{body: zipContents + "\n"}},
 					}
 
 					err := zipcl.DownloadModel(modelDir, zipModel, zipStorageURI)
@@ -677,25 +692,13 @@ var _ = Describe("Watcher", func() {
 		Context("Getting new model events", func() {
 			It("should download and load the new models", func() {
 				modelContents := "Temporary content"
-				scenarios := map[string]struct {
-					server *httptest.Server
-				}{
-					"HTTP": {
-						httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							fmt.Fprintln(w, modelContents)
-						})),
-					},
-					"HTTPS": {
-						httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							fmt.Fprintln(w, modelContents)
-						})),
-					},
+				schemes := map[string]string{
+					"HTTP":  "http",
+					"HTTPS": "https",
 				}
-				for protocol, scenario := range scenarios {
-					ts := scenario.server
-					defer ts.Close()
+				for protocol, scheme := range schemes {
 					cl := storage.HTTPSProvider{
-						Client: ts.Client(),
+						Client: &http.Client{Transport: &stubRoundTripper{body: modelContents + "\n"}},
 					}
 
 					logger.Printf("Setting up %s Server", protocol)
@@ -705,14 +708,14 @@ var _ = Describe("Watcher", func() {
 						{
 							Name: "model1",
 							Spec: v1alpha1.ModelSpec{
-								StorageURI: ts.URL + "/test.tar",
+								StorageURI: scheme + "://" + testStorageURIHost + "/test.tar",
 								Framework:  "sklearn",
 							},
 						},
 						{
 							Name: "model2",
 							Spec: v1alpha1.ModelSpec{
-								StorageURI: ts.URL + "/test.zip",
+								StorageURI: scheme + "://" + testStorageURIHost + "/test.zip",
 								Framework:  "sklearn",
 							},
 						},
@@ -727,6 +730,7 @@ var _ = Describe("Watcher", func() {
 							ModelDir: modelDir + "/test1",
 							Providers: map[storage.Protocol]storage.Provider{
 								storage.HTTPS: &cl,
+								storage.HTTP:  &cl,
 							},
 							Logger: sugar,
 						},

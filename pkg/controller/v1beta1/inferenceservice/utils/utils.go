@@ -23,7 +23,9 @@ import (
 	"fmt"
 	"html/template"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -39,13 +41,13 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 // Constants
 var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "hf://"}
+	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "oci+native://", "oci+fetch://", "hf://"}
 )
 
 const (
@@ -247,42 +249,117 @@ func GetDeploymentMode(statusDeploymentMode string, annotations map[string]strin
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
 }
 
-// MergeRuntimeContainers Merge the predictor or transformer Container struct with the runtime Container struct, allowing users
-// to override runtime container settings from the predictor spec.
+// MergeRuntimeContainers merges the runtime Container with the InferenceService Container,
+// allowing users to override runtime container settings from the predictor spec.
+// Args from the ISVC take precedence: any runtime flag that the ISVC also sets is
+// removed before concatenation so the final list contains no duplicate flags.
 func MergeRuntimeContainers(runtimeContainer *corev1.Container, isvcContainer *corev1.Container) (*corev1.Container, error) {
-	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
-	// since the Name field does not have the 'omitempty' struct tag.
-	runtimeContainerName := runtimeContainer.Name
-
-	// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
-	runtimeContainerJson, err := json.Marshal(runtimeContainer)
+	merged, err := kserveutils.MergeContainerWithPatch(*runtimeContainer, *isvcContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	overrides, err := json.Marshal(isvcContainer)
-	if err != nil {
-		return nil, err
+	merged.Args = mergeArgs(runtimeContainer.Args, isvcContainer.Args)
+
+	return &merged, nil
+}
+
+// mergeArgs concatenates runtime and ISVC args, removing any runtime flags
+// that the ISVC also sets so the ISVC value takes precedence without duplicates.
+func mergeArgs(runtimeArgs, isvcArgs []string) []string {
+	overridden := flagNames(isvcArgs)
+
+	var merged []string
+	for i := 0; i < len(runtimeArgs); i++ {
+		name := flagName(runtimeArgs[i])
+		if name != "" && overridden[name] {
+			if !strings.Contains(runtimeArgs[i], "=") && i+1 < len(runtimeArgs) && !strings.HasPrefix(runtimeArgs[i+1], "-") {
+				i++
+			}
+			continue
+		}
+		merged = append(merged, runtimeArgs[i])
 	}
+	return append(merged, isvcArgs...)
+}
 
-	mergedContainer := corev1.Container{}
-	jsonResult, err := strategicpatch.StrategicMergePatch(runtimeContainerJson, overrides, mergedContainer)
-	if err != nil {
-		return nil, err
+// GetArgValue extracts the value for a CLI flag from an args slice.
+// It handles both "--flag value" (two elements) and "--flag=value" (single element) forms.
+// A flag that is last in the slice, or immediately followed by another flag, has no value.
+func GetArgValue(args []string, flag string) (string, bool) {
+	var lastVal string
+	found := false
+	for i, arg := range args {
+		if arg == flag && i+1 < len(args) && !isFlag(args[i+1]) {
+			lastVal = args[i+1]
+			found = true
+		}
+		if after, ok := strings.CutPrefix(arg, flag+"="); ok {
+			lastVal = after
+			found = true
+		}
 	}
+	return lastVal, found
+}
 
-	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
-		return nil, err
+// SetArgValue replaces every occurrence of a flag in an args slice, or appends
+// it if absent. It handles both two-element and "=" forms. A flag with no value
+// - last in the slice, or immediately followed by another flag - has the value
+// inserted after it rather than overwriting the next element.
+func SetArgValue(args []string, flag, value string) []string {
+	found := false
+	// Indexed rather than range: inserting may reallocate, and range would keep
+	// iterating the original backing array.
+	for i := 0; i < len(args); i++ {
+		if args[i] == flag {
+			if i+1 < len(args) && !isFlag(args[i+1]) {
+				args[i+1] = value
+			} else {
+				args = slices.Insert(args, i+1, value)
+			}
+			i++ // skip the value we just wrote
+			found = true
+			continue
+		}
+		if strings.HasPrefix(args[i], flag+"=") {
+			args[i] = flag + "=" + value
+			found = true
+		}
 	}
-
-	if mergedContainer.Name == "" {
-		mergedContainer.Name = runtimeContainerName
+	if found {
+		return args
 	}
+	return append(args, flag, value)
+}
 
-	// Strategic merge patch will replace args but more useful behaviour here is to concatenate
-	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), isvcContainer.Args...)
+// isFlag reports whether an arg is a flag rather than a value. A lone "-" and
+// negative numbers are values, not flags.
+func isFlag(arg string) bool {
+	if !strings.HasPrefix(arg, "-") || arg == "-" {
+		return false
+	}
+	_, err := strconv.ParseFloat(arg, 64)
+	return err != nil
+}
 
-	return &mergedContainer, nil
+func flagName(arg string) string {
+	if !strings.HasPrefix(arg, "-") {
+		return ""
+	}
+	if idx := strings.Index(arg, "="); idx >= 0 {
+		return arg[:idx]
+	}
+	return arg
+}
+
+func flagNames(args []string) map[string]bool {
+	names := make(map[string]bool)
+	for _, arg := range args {
+		if name := flagName(arg); name != "" {
+			names[name] = true
+		}
+	}
+	return names
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
@@ -295,6 +372,7 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 		Volumes:          runtimePodSpec.Volumes,
 		ImagePullSecrets: runtimePodSpec.ImagePullSecrets,
 		SchedulerName:    runtimePodSpec.SchedulerName,
+		ResourceClaims:   runtimePodSpec.ResourceClaims,
 	})
 	if err != nil {
 		return nil, err
@@ -393,7 +471,7 @@ func UpdateImageTag(container *corev1.Container, runtimeVersion *string, serving
 	}
 	imageWithoutTag := strings.TrimSuffix(image, tag)
 
-	if utils.IsGPUEnabled(container.Resources) {
+	if kserveutils.IsGPUEnabled(container.Resources) {
 		// For TFServing/TorchServe/HuggingFace the GPU build is published as the same image
 		// with a "-gpu" tag suffix; append it when runtimeVersion is not specified.
 		switch serverType {
@@ -427,6 +505,13 @@ func ListPodsByLabel(ctx context.Context, cl client.Client, namespace string, la
 
 func sortPodsByCreatedTimestampDesc(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
+		// CreationTimestamp only has second granularity, so replicas of the same
+		// ReplicaSet routinely tie. Break ties on name: the cache returns pods in
+		// random map order, and callers read Items[0], so without a total order the
+		// reported model status flips between pods on every reconcile.
+		if pods.Items[i].CreationTimestamp.Equal(&pods.Items[j].CreationTimestamp) {
+			return pods.Items[i].Name < pods.Items[j].Name
+		}
 		return pods.Items[j].CreationTimestamp.Before(&pods.Items[i].CreationTimestamp)
 	})
 }
@@ -434,6 +519,9 @@ func sortPodsByCreatedTimestampDesc(pods *corev1.PodList) {
 func ValidateStorageURI(ctx context.Context, storageURI *string, client client.Client) error {
 	if storageURI == nil {
 		return nil
+	}
+	if err := kserveutils.CheckHTTPStorageURI(*storageURI); err != nil {
+		return err
 	}
 
 	// Step 1: Passes the validation if we have a storage container CR that supports this storageURI.
@@ -457,7 +545,7 @@ func ValidateStorageURI(ctx context.Context, storageURI *string, client client.C
 		if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
 			return nil
 		}
-	} else if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
+	} else if kserveutils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
 		return nil
 	}
 
@@ -471,7 +559,7 @@ func AddEnvVarToPodSpec(podSpec *corev1.PodSpec, containerName, envName, envValu
 	for i, container := range podSpec.Containers {
 		if container.Name == containerName {
 			updatedResult = true
-			if _, exists := utils.GetEnvVarValue(container.Env, envName); exists {
+			if _, exists := kserveutils.GetEnvVarValue(container.Env, envName); exists {
 				// Overwrite the environment variable
 				for j, envVar := range container.Env {
 					if envVar.Name == envName {

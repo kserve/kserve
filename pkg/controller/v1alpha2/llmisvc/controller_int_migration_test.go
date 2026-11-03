@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -40,7 +41,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should create both v1 and v1alpha2 InferencePools when both CRDs are available", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-dual-pool"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -86,7 +87,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should point HTTPRoute backendRef to v1alpha2 pool initially (before migration)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-initial-backend"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -127,7 +128,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should keep HTTPRoute pointing to v1 pool when migration annotation is already on HTTPRoute", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-pre-migrated"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create LLMInferenceService (no annotation - migration state is on HTTPRoute)
 			llmSvc := LLMInferenceService(svcName,
@@ -155,21 +156,30 @@ var _ = Describe("InferencePool Migration", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			// Simulate existing migration annotation on HTTPRoute (as if Gateway had rejected before)
-			updatedRoute := managedRoute.DeepCopy()
-			if updatedRoute.Annotations == nil {
-				updatedRoute.Annotations = make(map[string]string)
-			}
-			updatedRoute.Annotations[llmisvc.AnnotationInferencePoolMigrated] = "v1"
-			Expect(envTest.Client.Update(ctx, updatedRoute)).To(Succeed())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				updatedRoute := &gwapiv1.HTTPRoute{}
+				if err := envTest.Client.Get(ctx, client.ObjectKeyFromObject(managedRoute), updatedRoute); err != nil {
+					return err
+				}
+				if updatedRoute.Annotations == nil {
+					updatedRoute.Annotations = make(map[string]string)
+				}
+				updatedRoute.Annotations[llmisvc.AnnotationInferencePoolMigrated] = "v1"
+				return envTest.Client.Update(ctx, updatedRoute)
+			})).To(Succeed())
 
 			// Trigger reconciliation by updating the LLMInferenceService
-			llmSvcUpdated := &v1alpha2.LLMInferenceService{}
-			Expect(envTest.Client.Get(ctx, client.ObjectKeyFromObject(llmSvc), llmSvcUpdated)).To(Succeed())
-			if llmSvcUpdated.Annotations == nil {
-				llmSvcUpdated.Annotations = make(map[string]string)
-			}
-			llmSvcUpdated.Annotations["trigger-reconcile"] = "true"
-			Expect(envTest.Client.Update(ctx, llmSvcUpdated)).To(Succeed())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				llmSvcUpdated := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Client.Get(ctx, client.ObjectKeyFromObject(llmSvc), llmSvcUpdated); err != nil {
+					return err
+				}
+				if llmSvcUpdated.Annotations == nil {
+					llmSvcUpdated.Annotations = make(map[string]string)
+				}
+				llmSvcUpdated.Annotations["trigger-reconcile"] = "true"
+				return envTest.Client.Update(ctx, llmSvcUpdated)
+			})).To(Succeed())
 
 			// then - HTTPRoute should point to v1 pool (respecting annotation)
 			Eventually(func(g Gomega, ctx context.Context) error {
@@ -201,7 +211,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should swap HTTPRoute backendRef from v1alpha2 to v1 when Gateway rejects v1alpha2", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-gateway-rejection"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -263,7 +273,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should not change migration annotation on HTTPRoute once set to v1", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-migration-lock"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create LLMInferenceService
 			llmSvc := LLMInferenceService(svcName,

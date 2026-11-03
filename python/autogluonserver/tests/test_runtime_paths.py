@@ -18,6 +18,8 @@ import pytest
 
 from autogluonserver.runtime_paths import ensure_autogluon_runtime_paths
 
+pytestmark = pytest.mark.autogluon
+
 
 @pytest.fixture
 def clean_runtime_env(monkeypatch):

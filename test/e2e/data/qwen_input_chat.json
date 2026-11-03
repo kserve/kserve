@@ -3,11 +3,11 @@
     "messages": [
         {
             "role": "system",
-            "content": "You are a helpful assistant."
+            "content": "Answer with just the number, nothing else."
         },
         {
             "role": "user",
-            "content": "What is the result of 2 + 2?"
+            "content": "2+2="
         }
     ],
     "temperature": 0,

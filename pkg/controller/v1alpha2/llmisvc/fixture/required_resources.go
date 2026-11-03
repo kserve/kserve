@@ -18,15 +18,16 @@ package fixture
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/pkg/kmeta"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -59,32 +60,6 @@ func RequiredResources(ctx context.Context, c client.Client, ns string) {
 
 	gomega.Expect(c.Create(ctx, DefaultGateway(ns))).To(gomega.Succeed())
 	gomega.Expect(c.Create(ctx, DefaultGatewayClass())).To(gomega.Succeed())
-}
-
-func IstioShadowService(name, ns string) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(name, "istio-shadow"),
-			Namespace: ns,
-			Labels: map[string]string{
-				"istio.io/inferencepool-name": kmeta.ChildName(name, "-inference-pool"),
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.IntOrString{IntVal: 8000},
-				},
-				{
-					Name:       "https",
-					Port:       443,
-					TargetPort: intstr.IntOrString{IntVal: 8001},
-				},
-			},
-		},
-	}
 }
 
 func DefaultGateway(ns string) *gwapiv1.Gateway {
@@ -122,6 +97,59 @@ func InferenceServiceCfgMap(ns string) *corev1.ConfigMap {
 	return InferenceServiceCfgMapWithUrlScheme(ns, "")
 }
 
+// SetIngressConfigKey sets one key in the ingress section of an
+// inferenceservice-config ConfigMap; a nil value removes the key.
+func SetIngressConfigKey(cm *corev1.ConfigMap, key string, value any) {
+	var ingress map[string]any
+	if err := json.Unmarshal([]byte(cm.Data["ingress"]), &ingress); err != nil {
+		panic(err) // For test fixtures, panic is acceptable
+	}
+	if value == nil {
+		delete(ingress, key)
+	} else {
+		ingress[key] = value
+	}
+	raw, err := json.Marshal(ingress)
+	if err != nil {
+		panic(err)
+	}
+	cm.Data["ingress"] = string(raw)
+}
+
+// PatchIngressConfigKey applies SetIngressConfigKey to the live
+// inferenceservice-config ConfigMap.
+func PatchIngressConfigKey(ctx context.Context, c client.Client, key string, value any) {
+	ginkgo.GinkgoHelper()
+	cm := &corev1.ConfigMap{}
+	gomega.Expect(c.Get(ctx, types.NamespacedName{
+		Name:      constants.InferenceServiceConfigMapName,
+		Namespace: constants.KServeNamespace,
+	}, cm)).To(gomega.Succeed())
+	patch := client.MergeFrom(cm.DeepCopy())
+	SetIngressConfigKey(cm, key, value)
+	gomega.Expect(c.Patch(ctx, cm, patch)).To(gomega.Succeed())
+}
+
+// PatchLLMISVCFeatureGates sets the feature gates in the "llmisvc" key of the live
+// inferenceservice-config ConfigMap; nil removes the key, turning every gate off.
+func PatchLLMISVCFeatureGates(ctx context.Context, c client.Client, gates map[string]bool) {
+	ginkgo.GinkgoHelper()
+	cm := &corev1.ConfigMap{}
+	gomega.Expect(c.Get(ctx, types.NamespacedName{
+		Name:      constants.InferenceServiceConfigMapName,
+		Namespace: constants.KServeNamespace,
+	}, cm)).To(gomega.Succeed())
+	patch := client.MergeFrom(cm.DeepCopy())
+	if gates == nil {
+		delete(cm.Data, "llmisvc")
+	} else {
+		raw, err := json.Marshal(map[string]any{"featureGates": gates})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		cm.Data["llmisvc"] = string(raw)
+	}
+	gomega.Expect(c.Patch(ctx, cm, patch)).To(gomega.Succeed())
+}
+
 func InferenceServiceCfgMapWithUrlScheme(ns, urlScheme string) *corev1.ConfigMap {
 	urlSchemeConfig := ""
 	if urlScheme != "" {
@@ -150,11 +178,6 @@ func InferenceServiceCfgMapWithUrlScheme(ns, urlScheme string) *corev1.ConfigMap
 				"s3": {
 					"s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
 					"s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
-				}
-			}`,
-		"autoscaling-wva-controller-config": `{
-				"prometheus": {
-					"url": "http://prometheus.monitoring:9090"
 				}
 			}`,
 	} // #nosec G101

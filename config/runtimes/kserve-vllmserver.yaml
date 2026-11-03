@@ -8,6 +8,7 @@ spec:
   annotations:
     prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
+    serving.kserve.io/kernelcache-supported: "true"
   supportedModelFormats:
     - name: vLLM
       version: "1"
@@ -34,6 +35,8 @@ spec:
           value: /tmp
         - name: VLLM_CONFIG_ROOT
           value: /tmp
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: "spawn"
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false

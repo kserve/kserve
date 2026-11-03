@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"regexp"
 	"slices"
@@ -30,11 +31,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -66,49 +65,31 @@ var (
 type InferenceServiceValidator struct{}
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kserve-webhook-server.validator
-var _ webhook.CustomValidator = &InferenceServiceValidator{}
+var _ admission.Validator[*InferenceService] = &InferenceServiceValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	isvc, err := utils.Convert[*InferenceService](obj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return nil, err
-	}
+func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
 	validatorLogger.Info("validate create", "name", isvc.Name)
 	return validateInferenceService(isvc)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	isvc, err := utils.Convert[*InferenceService](newObj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return nil, err
-	}
-	oldIsvc, err := utils.Convert[*InferenceService](oldObj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return nil, err
-	}
+func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldIsvc, isvc *InferenceService) (admission.Warnings, error) {
 	if isvc.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
 	validatorLogger.Info("validate update", "name", isvc.Name)
-	err = validateDeploymentMode(isvc, oldIsvc)
-	if err != nil {
+	if err := validateDeploymentMode(isvc, oldIsvc); err != nil {
+		return nil, err
+	}
+	if err := validatePredictorNameChange(isvc, oldIsvc); err != nil {
 		return nil, err
 	}
 	return validateInferenceService(isvc)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	isvc, err := utils.Convert[*InferenceService](obj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return nil, err
-	}
+func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
 	validatorLogger.Info("validate delete", "name", isvc.Name)
 	return nil, nil
 }
@@ -118,6 +99,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	annotations := isvc.Annotations
 
 	if err := validateInferenceServiceName(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	if err := validateTracing(isvc.Spec.Tracing); err != nil {
 		return allWarnings, err
 	}
 
@@ -169,7 +154,131 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 			}
 		}
 	}
+
+	if err := validateCanarySpecs(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	return allWarnings, nil
+}
+
+func validateTracing(tracing *TracingSpec) error {
+	if tracing == nil {
+		return nil
+	}
+
+	tracingPath := field.NewPath("spec", "tracing")
+	if tracing.Sampler != nil {
+		supportedSamplers := []string{
+			"always_on",
+			"always_off",
+			"traceidratio",
+			"parentbased_always_on",
+			"parentbased_always_off",
+			"parentbased_traceidratio",
+		}
+		if !slices.Contains(supportedSamplers, *tracing.Sampler) {
+			return field.NotSupported(tracingPath.Child("sampler"), *tracing.Sampler, supportedSamplers)
+		}
+	}
+
+	if tracing.ExporterEndpoint != nil {
+		endpoint, err := url.Parse(*tracing.ExporterEndpoint)
+		if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
+			return field.Invalid(
+				tracingPath.Child("exporterEndpoint"),
+				*tracing.ExporterEndpoint,
+				"must be an absolute HTTP or HTTPS URL with a host",
+			)
+		}
+	}
+
+	return nil
+}
+
+func validateCanarySpecs(isvc *InferenceService) error {
+	if len(isvc.Spec.Canary) == 0 {
+		return nil
+	}
+
+	deploymentMode := isvc.Annotations[constants.DeploymentMode]
+	if deploymentMode != string(constants.Standard) {
+		return fmt.Errorf("canary is only supported in %s deployment mode", constants.Standard)
+	}
+
+	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil && isvc.Spec.Predictor.Model == nil {
+		return errors.New("canary requires a stable predictor with a model (multi-model serving is not supported with canary)")
+	}
+
+	names := make(map[string]bool, len(isvc.Spec.Canary))
+	var totalTraffic int32
+
+	for i := range isvc.Spec.Canary {
+		canary := &isvc.Spec.Canary[i]
+
+		if canary.Predictor.Name == "" {
+			return fmt.Errorf("canary[%d] predictor.name is required", i)
+		}
+
+		if names[canary.Predictor.Name] {
+			return fmt.Errorf("canary predictor.name %q is duplicated", canary.Predictor.Name)
+		}
+		names[canary.Predictor.Name] = true
+
+		if canary.Predictor.Name == isvc.Spec.Predictor.Name {
+			return fmt.Errorf("canary predictor.name %q conflicts with stable predictor name", canary.Predictor.Name)
+		}
+
+		if canary.TrafficPercent < 0 || canary.TrafficPercent > 100 {
+			return fmt.Errorf("canary %q trafficPercent must be between 0 and 100, got %d", canary.Predictor.Name, canary.TrafficPercent)
+		}
+		totalTraffic += canary.TrafficPercent
+
+		if err := validateExactlyOneImplementation(&canary.Predictor); err != nil {
+			return fmt.Errorf("canary %q predictor: %w", canary.Predictor.Name, err)
+		}
+		if err := utils.FirstNonNilError([]error{
+			canary.Predictor.GetImplementation().Validate(),
+			canary.Predictor.GetExtensions().Validate(),
+		}); err != nil {
+			return fmt.Errorf("canary %q predictor: %w", canary.Predictor.Name, err)
+		}
+
+		if canary.Predictor.WorkerSpec != nil {
+			return fmt.Errorf("canary %q must not set workerSpec (multi-node is not yet supported for canary)", canary.Predictor.Name)
+		}
+
+		ext := canary.Predictor.GetExtensions()
+		if ext.MaxReplicas > 0 {
+			return fmt.Errorf("canary %q must not set maxReplicas (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.ScaleTarget != nil {
+			return fmt.Errorf("canary %q must not set scaleTarget (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.ScaleMetric != nil {
+			return fmt.Errorf("canary %q must not set scaleMetric (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.AutoScaling != nil {
+			return fmt.Errorf("canary %q must not set autoScaling (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+
+		if canary.Predictor.MinReplicas != nil {
+			stableMinReplicas := int32(1)
+			if isvc.Spec.Predictor.MinReplicas != nil {
+				stableMinReplicas = *isvc.Spec.Predictor.MinReplicas
+			}
+			if *canary.Predictor.MinReplicas > stableMinReplicas {
+				return fmt.Errorf("canary %q minReplicas (%d) must not exceed stable predictor minReplicas (%d)",
+					canary.Predictor.Name, *canary.Predictor.MinReplicas, stableMinReplicas)
+			}
+		}
+	}
+
+	if totalTraffic > 100 {
+		return fmt.Errorf("sum of canary trafficPercent values (%d) must be <= 100", totalTraffic)
+	}
+
+	return nil
 }
 
 func validatePredictor(isvc *InferenceService) error {
@@ -386,12 +495,32 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 	value, ok := annotations[constants.AutoscalerClass]
 	class := constants.AutoscalerClassType(value)
 	if ok {
-		for _, item := range constants.AutoscalerAllowedClassList {
-			if class == item {
-				return nil
+		if !slices.Contains(constants.AutoscalerAllowedClassList, class) {
+			return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
+		}
+		// KEDA requires at least one component to declare an autoScaling spec;
+		// without one no ScaledObject can be created and the ISVC would silently
+		// deploy with no autoscaling.
+		if class == constants.AutoscalerClassKeda {
+			hasAutoScaling := false
+			for _, component := range []Component{
+				&isvc.Spec.Predictor,
+				isvc.Spec.Transformer,
+				isvc.Spec.Explainer,
+			} {
+				if !reflect.ValueOf(component).IsNil() {
+					ext := component.GetExtensions()
+					if ext != nil && ext.AutoScaling != nil {
+						hasAutoScaling = true
+						break
+					}
+				}
+			}
+			if !hasAutoScaling {
+				return fmt.Errorf("autoscalerClass %q requires at least one component "+
+					"(predictor, transformer, or explainer) to have an autoScaling spec", value)
 			}
 		}
-		return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
 	}
 
 	return nil
@@ -431,6 +560,16 @@ func validateScaleTarget(target MetricTarget) error {
 	return nil
 }
 
+func validateKedaScaleTarget(target MetricTarget) error {
+	if target.Type == UtilizationMetricType {
+		return errors.New("the target type Utilization is not supported for KEDA external or pod metrics")
+	}
+	if target.Type == "" && target.Value == nil {
+		return errors.New("the target threshold value should not be empty")
+	}
+	return validateScaleTarget(target)
+}
+
 func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error {
 	metric := MetricCPU
 	if compExtSpec.ScaleMetric != nil {
@@ -443,13 +582,8 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	}
 
 	if compExtSpec.ScaleTarget != nil {
-		target := *compExtSpec.ScaleTarget
-		if metric == MetricCPU && target < 1 || target > 100 {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
-		}
-
-		if metric == MetricMemory && target < 1 {
-			return errors.New("the target memory should be greater than 1 MiB")
+		if err := validateTargetUtilization(*compExtSpec.ScaleTarget); err != nil {
+			return err
 		}
 	}
 
@@ -512,10 +646,7 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				if metric.External.Metric.Query == "" {
 					return errors.New("the query should not be empty")
 				}
-				if metric.External.Target.Value == nil {
-					return errors.New("the target threshold value should not be empty")
-				}
-				if err := validateScaleTarget(metric.External.Target); err != nil {
+				if err := validateKedaScaleTarget(metric.External.Target); err != nil {
 					return err
 				}
 			case PodMetricSourceType:
@@ -525,10 +656,7 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				if metric.PodMetric.Metric.Query == "" {
 					return errors.New("the query should not be empty")
 				}
-				if metric.PodMetric.Target.Value == nil {
-					return errors.New("the target threshold value should not be empty")
-				}
-				if err := validateScaleTarget(metric.PodMetric.Target); err != nil {
+				if err := validateKedaScaleTarget(metric.PodMetric.Target); err != nil {
 					return err
 				}
 			default:
@@ -589,17 +717,50 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 	return nil
 }
 
-// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status
+// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status.
+//
+// An empty oldIsvc.Status.DeploymentMode means the controller has not yet run its first updateStatus
+// (e.g. the finalizer patch on first reconcile). In that case there is no prior state to protect, so
+// the update is allowed. Passing "" through ParseDeploymentMode would fold to DefaultDeployment
+// ("Standard") and reject any non-Standard annotation, breaking first-reconcile on Knative installs.
 func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	if oldIsvc.Status.DeploymentMode == "" {
+		return nil
+	}
 	statusDeploymentMode := string(constants.ParseDeploymentMode(oldIsvc.Status.DeploymentMode))
-	if len(statusDeploymentMode) != 0 {
-		annotations := newIsvc.Annotations
-		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
-		if ok && annotationDeploymentMode != statusDeploymentMode {
-			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
-		}
+	rawAnnotationDeploymentMode, ok := newIsvc.Annotations[constants.DeploymentMode]
+	// Normalize the annotation the same way the status side is normalized, so a legacy
+	// alias annotation ("Serverless"/"RawDeployment") that hasn't actually changed doesn't
+	// get compared against its own normalized form and rejected. See issue #5885.
+	annotationDeploymentMode := string(constants.ParseDeploymentMode(rawAnnotationDeploymentMode))
+	if ok && annotationDeploymentMode != statusDeploymentMode {
+		return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, rawAnnotationDeploymentMode)
 	}
 	return nil
+}
+
+func validatePredictorNameChange(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	if oldIsvc.Spec.Predictor.Name == newIsvc.Spec.Predictor.Name {
+		return nil
+	}
+	oldURI := getPredictorStorageURI(oldIsvc.Spec.Predictor)
+	newURI := getPredictorStorageURI(newIsvc.Spec.Predictor)
+	if oldURI == newURI {
+		return errors.New("predictor.name change requires a model change (e.g. storageUri)")
+	}
+	return nil
+}
+
+func getPredictorStorageURI(p PredictorSpec) string {
+	if p.Model != nil && p.Model.StorageURI != nil {
+		return *p.Model.StorageURI
+	}
+	if impl := p.GetImplementation(); impl != nil {
+		if uri := impl.GetStorageUri(); uri != nil {
+			return *uri
+		}
+	}
+	return ""
 }
 
 // ValidateStorageURISpec validates that paths are absolute
@@ -607,6 +768,9 @@ func validateStorageURISpec(storageUri *StorageUri) error {
 	// Validate individual storage URI specification
 	if storageUri.Uri == "" {
 		return errors.New("storage URI cannot be empty")
+	}
+	if err := utils.CheckHTTPStorageURI(storageUri.Uri); err != nil {
+		return err
 	}
 
 	if storageUri.MountPath == "/" {
@@ -691,6 +855,11 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 		if storageURI != nil && storageURIs != nil {
 			return errors.New(InvalidStorageUriConfigError)
 		}
+		if storageURI != nil {
+			if err := utils.CheckHTTPStorageURI(*storageURI); err != nil {
+				return err
+			}
+		}
 
 		if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
 			return err
@@ -706,6 +875,11 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 		if storageURI != nil && storageURIs != nil {
 			return errors.New(InvalidStorageUriConfigError)
 		}
+		if storageURI != nil {
+			if err := utils.CheckHTTPStorageURI(*storageURI); err != nil {
+				return err
+			}
+		}
 
 		if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
 			return err
@@ -720,6 +894,11 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 
 	if storageURI != nil && storageURIs != nil {
 		return errors.New(InvalidStorageUriConfigError)
+	}
+	if storageURI != nil {
+		if err := utils.CheckHTTPStorageURI(*storageURI); err != nil {
+			return err
+		}
 	}
 
 	if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {

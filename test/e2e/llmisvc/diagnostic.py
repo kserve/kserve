@@ -19,7 +19,31 @@ from kubernetes import client, config, dynamic
 from kubernetes.client import api_client
 from typing import Callable, Optional
 
+import yaml
+from kserve import KServeClient, constants
+
 _log = logging.getLogger(__name__)
+
+LLMISVC_PART_OF = "llminferenceservice"
+KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
+
+
+def llmisvc_labels(service_name: str) -> dict:
+    """Return the universal label selector for all resources owned by an LLMInferenceService."""
+    return {
+        "app.kubernetes.io/part-of": LLMISVC_PART_OF,
+        "app.kubernetes.io/name": service_name,
+    }
+
+
+def strip_managed_fields(d):
+    """Remove managed_fields from a K8s object dict to reduce log noise."""
+    if isinstance(d, dict):
+        d.pop("managed_fields", None)
+        metadata = d.get("metadata")
+        if isinstance(metadata, dict):
+            metadata.pop("managed_fields", None)
+    return d
 
 
 def print_all_events_table(
@@ -202,3 +226,72 @@ def _emit_container_logs(
             log("%s", logs or "(empty)")
         except Exception as e:
             log("# -- logs (%s): unavailable (%s)", label, e)
+
+
+def collect_endpoint_slices(namespace: str, log: Callable = _log.info):
+    """Dump EndpointSlices in `namespace`.
+
+    EndpointSlices are labeled by Service (kubernetes.io/service-name), not by
+    llmisvc labels, so the label-based resource sweep misses them. They show
+    which backend pods were Ready at collection time - useful for correlating
+    routing errors with backend readiness.
+    """
+    disco = client.DiscoveryV1Api()
+    try:
+        slices = disco.list_namespaced_endpoint_slice(namespace=namespace).items
+        for es in slices:
+            svc = (es.metadata.labels or {}).get("kubernetes.io/service-name", "?")
+            endpoints = [
+                {
+                    "addresses": ep.addresses,
+                    "ready": ep.conditions.ready if ep.conditions else None,
+                    "targetRef": ep.target_ref.name if ep.target_ref else None,
+                }
+                for ep in (es.endpoints or [])
+            ]
+            log(
+                "### EndpointSlice %s (service=%s): %s",
+                es.metadata.name,
+                svc,
+                endpoints,
+            )
+    except Exception as e:
+        log("# failed to collect EndpointSlices: %s", e)
+
+
+def collect_diagnostics(
+    service_name: str,
+    namespace: str,
+    kserve_client: Optional[KServeClient] = None,
+    log: Callable = _log.info,
+):
+    """
+    Collect full diagnostics for an LLMInferenceService: CR YAML, events,
+    pod logs (init + regular containers), and all labeled child resources.
+    """
+    labels = llmisvc_labels(service_name)
+
+    log("# Diagnostics for %r in %r", service_name, namespace)
+    log("---")
+
+    if kserve_client is not None:
+        log("# LLMInferenceService %s", service_name)
+        try:
+            svc = kserve_client.api_instance.get_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                constants.KSERVE_V1ALPHA1_VERSION,
+                namespace,
+                KSERVE_PLURAL_LLMINFERENCESERVICE,
+                service_name,
+            )
+            log(yaml.safe_dump(svc, sort_keys=False))
+        except Exception as e:
+            log("# failed to dump LLMInferenceService: %s", e)
+
+    print_all_events_table(namespace, log=log)
+    collect_endpoint_slices(namespace, log=log)
+    collect_pod_logs(namespace, labels, log=log)
+
+    for obj in kinds_matching_by_labels(namespace, labels):
+        log("---")
+        log(yaml.safe_dump(obj.to_dict(), sort_keys=False))

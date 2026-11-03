@@ -17,6 +17,7 @@ jobs:
   description:
     name: Description
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       # Do not use ${{ github.event.pull_request.body }} directly in run command.
       BODY: ${{ github.event.pull_request.body }}
@@ -36,6 +37,7 @@ jobs:
   title:
     name: Title
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
       - uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825 # v5

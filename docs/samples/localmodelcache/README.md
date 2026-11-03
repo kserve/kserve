@@ -19,6 +19,29 @@ Now you can specify credentials directly in the `LocalModelCache` CRD using the 
 - `serviceAccountName`: Reference a service account with attached secrets
 - `storage.key`: Reference a specific key in the storage-config secret
 - `storage.parameters`: Inline parameters for storage configuration
+- `imagePullSecrets`: a single `kubernetes.io/dockerconfigjson` secret for `oci://` imports (projected as `config.json` + `KSERVE_OCI_DOCKER_CONFIG`; list of at most one, matching PodSpec)
+
+Secrets and service accounts must exist in the same namespace as the download Job. They are **not** copied from the user namespace.
+
+| Cache type | Import Job namespace | Where `serviceAccountName` / `storage` / `imagePullSecrets` must exist |
+|---|---|---|
+| `LocalModelCache` (cluster-scoped) | `localModel.jobNamespace` | job namespace |
+| `LocalModelNamespaceCache` with `nodeGroups` | `localModel.jobNamespace` | job namespace |
+| `LocalModelNamespaceCache` with `pvcRef` | the cache's namespace | cache namespace |
+
+A namespaced cache with `nodeGroups` can name any dockerconfigjson Secret that already
+exists in the shared job namespace by that Secret's `metadata.name` (for example
+`reg-cred` in `localModel.jobNamespace`, typically `kserve-localmodel-jobs`). There is
+no extra ownership check. KServe does not copy Secrets from the cache namespace.
+Prefer `pvcRef` when tenants must not share that cluster credential store.
+
+Node-local download Jobs are not replaced when `imagePullSecrets` (or
+`serviceAccountName` / `storage`) change. Delete the failed or pending Job in
+`localModel.jobNamespace` so the agent creates a replacement. Shared-PVC import Jobs
+are replaced automatically when those fields change (`importSpecHash`).
+
+`storageInitializer.ociInsecureRegistry` is applied only to OCI (`oci://` / `oci+*`)
+LocalModel download and import Jobs, not to S3/HF/GCS jobs.
 
 ## Credential Specification Methods
 
@@ -95,7 +118,61 @@ stringData:
     }
 ```
 
-### Method 3: Inline Parameters
+### Method 3: ImagePullSecrets (OCI / private registry)
+
+Use a dockerconfigjson secret in the Job namespace (see the table above). Do **not** put registry credentials on `serviceAccountName` — that path has no OCI/oras branch.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reg-cred
+  namespace: kserve-localmodel-jobs
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <base64 docker config.json>
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelCache
+metadata:
+  name: oci-model
+spec:
+  sourceModelUri: "oci://registry.example.com/models/my-model:v1"
+  modelSize: 5Gi
+  nodeGroups:
+    - workers
+  imagePullSecrets:
+    - name: reg-cred
+```
+
+For a `pvcRef` cache, the Secret and the `LocalModelNamespaceCache` both live in the user namespace:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reg-cred
+  namespace: my-team          # same namespace as the cache and the PVC
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <base64>
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelNamespaceCache
+metadata:
+  name: llm
+  namespace: my-team
+spec:
+  sourceModelUri: oci://registry.example.com/models/llm:v1
+  modelSize: 10Gi
+  pvcRef: models-rwx
+  imagePullSecrets:
+    - name: reg-cred
+```
+
+At most one secret is admitted. Combine credentials for multiple registries into a single dockerconfigjson secret. For plain-HTTP registries, set `storageInitializer.ociInsecureRegistry` in `inferenceservice-config` - it is cluster-wide and switches every OCI import to `http://`.
+
+### Method 4: Inline Parameters
 
 Provide storage parameters inline for additional configuration.
 
@@ -146,6 +223,7 @@ storageInitializer: |-
 | `nodeGroups` | []string | Required. Node groups to cache the model on |
 | `serviceAccountName` | string | Optional. Service account for credential lookup |
 | `storage` | LocalModelStorageSpec | Optional. Storage configuration for credentials |
+| `imagePullSecrets` | []LocalObjectReference | Optional. At most one dockerconfigjson secret for `oci://` imports (same namespace as the download Job) |
 
 ### LocalModelStorageSpec
 

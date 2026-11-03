@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,16 +28,45 @@ import (
 	servingv1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 )
 
 // ClusterServingRuntimeInformer provides access to a shared informer and lister for
-// ClusterServingRuntimes.
+// ClusterServingRuntimes. Prefer using the type-safe variant (see [TypedClusterServingRuntimeInformer]).
 type ClusterServingRuntimeInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.ClusterServingRuntimeLister
 }
+
+// TypedClusterServingRuntimeInformer provides access to a shared informer and lister for
+// ClusterServingRuntimes, including the type-safe TypedInformer variant.
+// It is a superset of ClusterServingRuntimeInformer.
+type TypedClusterServingRuntimeInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() ClusterServingRuntimeIndexInformer
+	Lister() servingv1alpha1.ClusterServingRuntimeLister
+}
+
+// ClusterServingRuntimeIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type ClusterServingRuntimeIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.ClusterServingRuntime]
+
+// ClusterServingRuntimeHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for ClusterServingRuntime.
+type ClusterServingRuntimeHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.ClusterServingRuntime]
+
+// ClusterServingRuntimeDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for ClusterServingRuntime.
+type ClusterServingRuntimeDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.ClusterServingRuntime]
+
+// ClusterServingRuntimeFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for ClusterServingRuntime.
+type ClusterServingRuntimeFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.ClusterServingRuntime]
+
+// ClusterServingRuntimeIndexers is a specialization of [cache.TypedIndexers] for ClusterServingRuntime.
+type ClusterServingRuntimeIndexers = cache.TypedIndexers[*apisservingv1alpha1.ClusterServingRuntime]
+
+// DeletedClusterServingRuntime is a specialization of [cache.DeletedObject] for ClusterServingRuntime.
+type DeletedClusterServingRuntime = cache.DeletedObject[*apisservingv1alpha1.ClusterServingRuntime]
 
 type clusterServingRuntimeInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -48,55 +77,132 @@ type clusterServingRuntimeInformer struct {
 // NewClusterServingRuntimeInformer constructs a new informer for ClusterServingRuntime type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedClusterServingRuntimeInformer]).
 func NewClusterServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterServingRuntimeInformer(client, namespace, resyncPeriod, indexers, nil)
+	return NewClusterServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedClusterServingRuntimeInformer constructs a new informer for ClusterServingRuntime type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedClusterServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers ClusterServingRuntimeIndexers) ClusterServingRuntimeIndexInformer {
+	return NewTypedClusterServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredClusterServingRuntimeInformer constructs a new informer for ClusterServingRuntime type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredClusterServingRuntimeInformer]).
 func NewFilteredClusterServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
+	return NewTypedClusterServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredClusterServingRuntimeInformer constructs a new informer for ClusterServingRuntime type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredClusterServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers ClusterServingRuntimeIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) ClusterServingRuntimeIndexInformer {
+	return NewTypedClusterServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
+}
+
+// NewClusterServingRuntimeInformerWithOptions constructs a new informer for ClusterServingRuntime type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedClusterServingRuntimeInformerWithOptions]).
+func NewClusterServingRuntimeInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedClusterServingRuntimeInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedClusterServingRuntimeInformerWithOptions constructs a new informer for ClusterServingRuntime type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedClusterServingRuntimeInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) ClusterServingRuntimeIndexInformer {
+	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "clusterservingruntimes"}
+	identifier := options.InformerName.WithResource(gvr)
+	tweakListOptions := options.TweakListOptions
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ClusterServingRuntime](cache.NewSharedIndexInformerWithOptions(
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).List(context.Background(), options)
+				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).List(context.Background(), opts)
 			},
-			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(opts v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).Watch(context.Background(), options)
+				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).Watch(context.Background(), opts)
 			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+			ListWithContextFunc: func(ctx context.Context, opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).List(ctx, options)
+				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).List(ctx, opts)
 			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+			WatchFuncWithContext: func(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
-					tweakListOptions(&options)
+					tweakListOptions(&opts)
 				}
-				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).Watch(ctx, options)
+				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).Watch(ctx, opts)
 			},
-		},
+		}, client),
 		&apisservingv1alpha1.ClusterServingRuntime{},
-		resyncPeriod,
-		indexers,
-	)
+		cache.SharedIndexInformerOptions{
+			ResyncPeriod: options.ResyncPeriod,
+			Indexers:     options.Indexers,
+			Identifier:   identifier,
+		},
+	))
 }
 
 func (f *clusterServingRuntimeInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterServingRuntimeInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewTypedClusterServingRuntimeInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *clusterServingRuntimeInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.ClusterServingRuntime{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *clusterServingRuntimeInformer) TypedInformer() ClusterServingRuntimeIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ClusterServingRuntime](f.factory.InformerFor(&apisservingv1alpha1.ClusterServingRuntime{}, f.defaultInformer))
 }
 
 func (f *clusterServingRuntimeInformer) Lister() servingv1alpha1.ClusterServingRuntimeLister {
 	return servingv1alpha1.NewClusterServingRuntimeLister(f.Informer().GetIndexer())
+}
+
+// ToTypedClusterServingRuntimeInformer converts an untyped informer into a TypedClusterServingRuntimeInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ClusterServingRuntime. If that is not the case, calling type-safe methods of the returned
+// TypedClusterServingRuntimeInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedClusterServingRuntimeInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedClusterServingRuntimeInformer(informer ClusterServingRuntimeInformer) TypedClusterServingRuntimeInformer {
+	if informer, ok := informer.(TypedClusterServingRuntimeInformer); ok {
+		return informer
+	}
+	return &clusterServingRuntimeTypedInformerAdapter{informer}
+}
+
+type clusterServingRuntimeTypedInformerAdapter struct {
+	ClusterServingRuntimeInformer
+}
+
+func (a *clusterServingRuntimeTypedInformerAdapter) TypedInformer() ClusterServingRuntimeIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ClusterServingRuntime](a.Informer())
+}
+
+// ToClusterServingRuntimeIndexInformer converts an untyped informer into a ClusterServingRuntimeIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ClusterServingRuntime. If that is not the case, calling type-safe methods of the returned
+// ClusterServingRuntimeIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a ClusterServingRuntimeIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToClusterServingRuntimeIndexInformer(informer cache.SharedIndexInformer) ClusterServingRuntimeIndexInformer {
+	if informer, ok := informer.(ClusterServingRuntimeIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ClusterServingRuntime](informer)
 }

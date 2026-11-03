@@ -30,6 +30,8 @@ from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_response
 from kserve_storage import Storage
 
+from autogluonserver.version_compat import load_predictor_tolerating_patch_mismatch
+
 PREDICTOR_METADATA_FILENAME = "predictor_metadata.json"
 
 # Inference ``target`` column name always comes from ``TimeSeriesPredictor.target`` (see
@@ -54,6 +56,7 @@ class TimeSeriesInferenceMetadata:
     timestamp_column: str
     prediction_length: int
     known_covariates_names: List[str]
+    uses_synthetic_id: bool = False
 
 
 def _nonempty_metadata_str(value: Any, *, field: str, meta_path: str) -> str:
@@ -208,6 +211,7 @@ def _ts_metadata_from_json_file(
         id_column, timestamp_column
     )
     pl = _prediction_length_from_predictor(predictor)
+    uses_synthetic_id = bool(raw.get("uses_synthetic_id", False))
     _raise_if_known_covariates_overlap_columns(
         known_list,
         target,
@@ -221,6 +225,7 @@ def _ts_metadata_from_json_file(
         timestamp_column=timestamp_column,
         prediction_length=pl,
         known_covariates_names=known_list,
+        uses_synthetic_id=uses_synthetic_id,
     )
 
 
@@ -266,6 +271,15 @@ def _check_duplicate_columns(
         raise InferenceError(msg)
 
 
+def _inject_synthetic_id_if_needed(
+    df: pd.DataFrame, meta: TimeSeriesInferenceMetadata
+) -> pd.DataFrame:
+    if meta.uses_synthetic_id and meta.id_column not in df.columns:
+        df = df.copy()
+        df[meta.id_column] = "item_0"
+    return df
+
+
 def _dataframe_to_tsdf(
     df: pd.DataFrame, meta: TimeSeriesInferenceMetadata
 ) -> TimeSeriesDataFrame:
@@ -274,6 +288,7 @@ def _dataframe_to_tsdf(
         "instances DataFrame",
         detail="Use unique keys in each row object.",
     )
+    df = _inject_synthetic_id_if_needed(df, meta)
     missing = {meta.id_column, meta.timestamp_column, meta.target} - set(df.columns)
     if missing:
         raise InferenceError(
@@ -293,6 +308,7 @@ def _known_covariates_to_tsdf(
 ) -> TimeSeriesDataFrame:
     df = pd.DataFrame(rows)
     _check_duplicate_columns(df, "known_covariates DataFrame")
+    df = _inject_synthetic_id_if_needed(df, meta)
     required = {meta.id_column, meta.timestamp_column, *meta.known_covariates_names}
     missing = required - set(df.columns)
     if missing:
@@ -348,6 +364,8 @@ def _forecast_to_records(
     work = forecasts.reset_index().copy()
     if rename:
         work = work.rename(columns=rename)
+    if meta.uses_synthetic_id and meta.id_column in work.columns:
+        work = work.drop(columns=[meta.id_column])
     for col in work.columns:
         if pd.api.types.is_datetime64_any_dtype(work[col]):
             work[col] = work[col].dt.strftime("%Y-%m-%dT%H:%M:%S")
@@ -384,7 +402,9 @@ class AutoGluonTimeSeriesModel(Model):
         local = Storage.download(self.model_dir)
         if not os.path.isdir(local):
             raise ModelMissingError(local)
-        self._predictor = TimeSeriesPredictor.load(local)
+        self._predictor = load_predictor_tolerating_patch_mismatch(
+            TimeSeriesPredictor, local
+        )
         self._metadata = _load_ts_metadata(self._predictor, local)
         self.ready = True
         return self.ready

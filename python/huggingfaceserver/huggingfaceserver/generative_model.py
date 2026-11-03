@@ -96,6 +96,19 @@ class _GenerateRequest(TypedDict):
     context: Dict[str, Any]
 
 
+class _GenerateError:
+    """
+    Sentinel pushed onto a request's response queue when generation fails.
+
+    The background worker thread must never die on a single request's error;
+    otherwise every subsequent request blocks until its server-side timeout.
+    Wrapping the exception lets the awaiting consumer re-raise it and fail fast.
+    """
+
+    def __init__(self, exc: BaseException):
+        self.exc = exc
+
+
 class CompletionStreamer:
     def __init__(
         self,
@@ -116,6 +129,8 @@ class CompletionStreamer:
 
     async def __anext__(self):
         text = await self.generate_queue.get()
+        if isinstance(text, _GenerateError):
+            raise OpenAIError(str(text.exc)) from text.exc
         if text is None:
             raise StopAsyncIteration()
         if (
@@ -234,7 +249,7 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
             model_kwargs["trust_remote_code"] = True
             tokenizer_kwargs["trust_remote_code"] = True
 
-        model_kwargs["torch_dtype"] = self.dtype
+        model_kwargs["dtype"] = self.dtype
 
         # load huggingface tokenizer
         self._tokenizer = AutoTokenizer.from_pretrained(
@@ -310,16 +325,31 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
                 skip_prompt=not echo,
                 skip_special_tokens=True,
             )
-            thread = Thread(
-                target=self._model.generate, kwargs={**kwargs, "streamer": streamer}
-            )
+            generate_errors: List[BaseException] = []
+
+            def _run_generate():
+                try:
+                    self._model.generate(**kwargs, streamer=streamer)
+                except BaseException as exc:
+                    generate_errors.append(exc)
+                finally:
+                    # Always terminate the streamer so the consumer loop below cannot
+                    # block forever when generate() raises before emitting the stop
+                    # signal itself.
+                    streamer.end()
+
+            thread = Thread(target=_run_generate)
             thread.start()
             # Consume the tokens one by one and add them to the queue
             for output in streamer:
                 if output != "":
                     queue_put(output)
-            # Put None to indicate we are finished
-            queue_put(None)
+            thread.join()
+            if generate_errors:
+                queue_put(_GenerateError(generate_errors[0]))
+            else:
+                # Put None to indicate we are finished
+                queue_put(None)
         else:
             # Encoder-decoder models do not include the input tokens in the output
             output_start = (
@@ -351,7 +381,17 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
             if not req:
                 break
 
-            self._handle_request(req)
+            try:
+                self._handle_request(req)
+            except BaseException as exc:
+                # A failure while handling one request must not kill this thread;
+                # otherwise every subsequent request blocks until its server-side
+                # timeout. Surface the error to the awaiting consumer and continue.
+                logger.exception("Generation request failed")
+                loop, response_queue = req["loop"], req["response_queue"]
+                loop.call_soon_threadsafe(
+                    response_queue.put_nowait, _GenerateError(exc)
+                )
 
     def _submit_request(
         self,
@@ -389,9 +429,16 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
         kwargs = {
             "max_new_tokens": request.max_tokens,
             "top_p": request.top_p,
-            "temperature": request.temperature,
             "pad_token_id": self._tokenizer.pad_token_id,
         }
+        # OpenAI clients send temperature == 0 to request deterministic (greedy)
+        # decoding. transformers >= 5 raises ValueError when a TemperatureLogitsWarper
+        # is constructed with a non-positive temperature, which crashes the background
+        # generation thread and wedges the server. Only forward a strictly-positive
+        # temperature; temperature <= 0 falls back to the default greedy decoding
+        # (do_sample defaults to False), preserving the previous deterministic output.
+        if request.temperature is not None and request.temperature > 0.0:
+            kwargs["temperature"] = request.temperature
         if request.presence_penalty and request.presence_penalty > 0:
             kwargs["repetition_penalty"] = request.presence_penalty
         if request.logit_bias is not None:
@@ -509,7 +556,7 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
     def apply_chat_template(
         self,
         request: ChatCompletionRequest,
-    ) -> ChatPrompt:  # TODO: Does not supprot multi-modal, also does not solve mistral tokenizer issue.
+    ) -> ChatPrompt:  # TODO: Does not support multi-modal, also does not solve mistral tokenizer issue.
         """
         Given a list of chat completion messages, convert them to a prompt.
         """
@@ -618,6 +665,8 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
 
         else:
             outputs = await response_queue.get()
+            if isinstance(outputs, _GenerateError):
+                raise OpenAIError(str(outputs.exc)) from outputs.exc
             if (
                 stop_sequence_stopping_criteria is not None
                 and stop_sequence_stopping_criteria.triggered

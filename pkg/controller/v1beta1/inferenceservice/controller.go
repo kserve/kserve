@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -60,6 +61,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	kservetypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -80,7 +82,6 @@ import (
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.istio.io,resources=virtualservices/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations;validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get
@@ -198,6 +199,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return ctrl.Result{}, err
 			}
 
+			if err := r.finalizePlatform(ctx, isvc); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			// remove our finalizer from the list and update it.
 			controllerutil.RemoveFinalizer(isvc, finalizerName)
 			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.Finalizers, ",") + "]"
@@ -210,19 +215,43 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
-	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
-	// Used for when k8s autoreconciles the InferenceService.
-	if annotations != nil {
-		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
-			r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
-			return ctrl.Result{}, nil
-		}
-	}
 
 	// Ensure status is initialized so we always have a status section (fixes empty status when reconciliation fails early).
-	// This must happen before any early-return path that calls updateStatus.
+	// This must happen after the finalizer patch, whose response replaces the in-memory status, before any
+	// early-return path that calls updateStatus, and before preReconcilePlatform: a condition it records can add
+	// Ready without the other dependents, which would skip initialization.
 	if isvc.Status.GetCondition(apis.ConditionReady) == nil {
 		isvc.Status.InitializeConditions()
+	}
+
+	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
+	// Used for when k8s autoreconciles the InferenceService.
+	reconciliationPaused := annotations[constants.DisableAutoUpdateAnnotationKey] == "true" && isvc.Status.IsReady()
+
+	statusBeforePlatform := isvc.Status.DeepCopy()
+	ctx, err = r.preReconcilePlatform(ctx, isvc, deploymentMode, reconciliationPaused)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if reconciliationPaused {
+		r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
+		// A paused InferenceService is only written to when preReconcilePlatform recorded status.
+		if !equality.Semantic.DeepEqual(statusBeforePlatform, &isvc.Status) {
+			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Advisory warning: if oci+native:// mode is configured, check the cluster K8s version
+	// and surface an OciImageVolumeCompatible condition when ImageVolume support may be absent.
+	if storageInitializerConfig, siErr := v1beta1.GetStorageInitializerConfigs(isvcConfigMap); siErr != nil {
+		r.Log.V(1).Info("Skipping OCI version check: failed to parse storageInitializer config", "error", siErr)
+	} else {
+		warnIfImageVolumeUnsupported(ctx, r.Clientset.Discovery(),
+			isvc, kservetypes.ResolveOciModelMode(storageInitializerConfig))
 	}
 
 	// Abort early if the resolved deployment mode is Knative, but Knative Services are not available
@@ -282,7 +311,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		result, err := reconciler.Reconcile(ctx, isvc)
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
-			r.Recorder.Eventf(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
+			r.Recorder.Event(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
 			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
 				r.Log.Error(err, "Error updating status")
 				return result, err
@@ -293,6 +322,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
+
+	// Runs after the components so that the runtime selected for the predictor is recorded in
+	// isvc.Status.ServingRuntimeName or isvc.Status.ClusterServingRuntimeName.
+	if err := r.postReconcilePlatform(ctx, isvc, isvcConfigMap); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Handle InferenceService status updates based on the force stop annotation.
 	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
 	existingStoppedCondition := isvc.Status.GetCondition(v1beta1.Stopped)
@@ -434,10 +470,10 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 		isReady := inferenceServiceReadiness(desiredService.Status)
 		isReadyFalse := inferenceServiceReadinessFalse(desiredService.Status)
 		if wasReady && isReadyFalse { // Moved to NotReady State
-			r.Recorder.Eventf(desiredService, corev1.EventTypeWarning, string(InferenceServiceNotReadyState),
+			r.Recorder.Event(desiredService, corev1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is no longer Ready because of: %v", desiredService.GetName(), r.GetFailConditions(desiredService)))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredService, corev1.EventTypeNormal, string(InferenceServiceReadyState),
+			r.Recorder.Event(desiredService, corev1.EventTypeNormal, string(InferenceServiceReadyState),
 				fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
 		}
 	}
@@ -458,7 +494,7 @@ func inferenceServiceReadinessFalse(status v1beta1.InferenceServiceStatus) bool 
 func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deploymentMode constants.DeploymentModeType) bool {
 	if deploymentMode == constants.ModelMeshDeployment {
 		// If the deployment mode is ModelMesh, reduce the status scope to compare.
-		// Exclude Predictor and ModelStatus which are mananged by ModelMesh controllers
+		// Exclude Predictor and ModelStatus which are managed by ModelMesh controllers
 		return equality.Semantic.DeepEqual(s1.Address, s2.Address) &&
 			equality.Semantic.DeepEqual(s1.URL, s2.URL) &&
 			equality.Semantic.DeepEqual(s1.Status, s2.Status) &&
@@ -722,6 +758,10 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		r.Log.Info("The InferenceService controller won't watch serving.kserve.io/v1alpha1/ClusterServingRuntime resources because the CRD is not available.")
 	}
 
+	if err := r.extendControllerSetup(mgr, ctrlBuilder); err != nil {
+		return err
+	}
+
 	return ctrlBuilder.Complete(r)
 }
 
@@ -759,4 +799,63 @@ func (r *InferenceServiceReconciler) GetFailConditions(isvc *v1beta1.InferenceSe
 		}
 	}
 	return msg
+}
+
+// OciImageVolumeCompatible is an advisory condition surfaced on an InferenceService
+// when native OCI ImageVolume mode is in use and the cluster Kubernetes version may
+// not support it. It never affects the Ready condition (not in conditionSet).
+const OciImageVolumeCompatible apis.ConditionType = "OciImageVolumeCompatible"
+
+// serverVersioner is the subset of discovery.DiscoveryInterface required by
+// warnIfImageVolumeUnsupported. Using a minimal interface enables injection of
+// a lightweight fake in unit tests without implementing all ~30 discovery methods.
+type serverVersioner interface {
+	ServerVersion() (*version.Info, error)
+}
+
+// warnIfImageVolumeUnsupported sets an advisory condition on isvc when the resolved
+// storage mode is "native" and the cluster does not have ImageVolume enabled by default.
+// The compatibility thresholds and version discovery are handled by the shared helper
+// utils.CheckImageVolumeCompatibility; this function translates the result into the
+// ISVC condition format.
+func warnIfImageVolumeUnsupported(ctx context.Context, sv serverVersioner, isvc *v1beta1.InferenceService, resolvedMode string) {
+	if resolvedMode != kservetypes.OciModelModeNative {
+		isvc.Status.ClearCondition(OciImageVolumeCompatible)
+		return
+	}
+
+	result := utils.CheckImageVolumeCompatibility(ctx, sv)
+
+	switch result.Status {
+	case utils.ImageVolumeUnsupported:
+		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
+			Type:   OciImageVolumeCompatible,
+			Status: corev1.ConditionFalse,
+			Reason: "ImageVolumeUnsupported",
+			Message: fmt.Sprintf(
+				"Cluster K8s %s.%s does not support ImageVolume (introduced in 1.31 as alpha). Falling back to modelcar may be required.",
+				result.Major, result.Minor),
+		})
+	case utils.ImageVolumeSubPathUnsupported:
+		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
+			Type:   OciImageVolumeCompatible,
+			Status: corev1.ConditionFalse,
+			Reason: "ImageVolumeSubPathUnsupported",
+			Message: fmt.Sprintf(
+				"Cluster K8s %s.%s (alpha) does not support subPath on ImageVolume VolumeMounts. Upgrade to K8s 1.33+ (beta) for full oci+native:// support.",
+				result.Major, result.Minor),
+		})
+	case utils.ImageVolumeNeedsGate:
+		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
+			Type:   OciImageVolumeCompatible,
+			Status: corev1.ConditionFalse,
+			Reason: "ImageVolumeAlpha",
+			Message: fmt.Sprintf(
+				"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.33–1.34 beta). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
+				result.Major, result.Minor),
+		})
+	default:
+		// ImageVolumeOK (≥ 1.35) or ImageVolumeUnknown — clear any previously set warning.
+		isvc.Status.ClearCondition(OciImageVolumeCompatible)
+	}
 }

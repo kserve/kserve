@@ -1,3 +1,5 @@
+# Copyright 2019 The KServe Authors.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,11 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import uuid
 from kubernetes import client
 
-from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1Batcher
@@ -25,14 +37,13 @@ from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 import pytest
 from ..common.utils import predict_isvc
-from ..common.utils import KSERVE_TEST_NAMESPACE
-
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_raw(rest_v1_client, network_layer):
+async def test_batcher_raw(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-raw-sklearn-batcher-" + suffix
 
@@ -59,26 +70,30 @@ async def test_batcher_raw(rest_v1_client, network_layer):
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations=annotations,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError as e:
-        print(
-            kserve_client.api_instance.get_namespaced_custom_object(
-                "serving.knative.dev",
-                "v1",
-                KSERVE_TEST_NAMESPACE,
-                "services",
-                service_name + "-predictor",
+        try:
+            print(
+                kserve_client.api_instance.get_namespaced_custom_object(
+                    "serving.knative.dev",
+                    "v1",
+                    test_namespace,
+                    "services",
+                    service_name + "-predictor",
+                )
             )
-        )
+        except Exception:
+            isvc = kserve_client.get(service_name, namespace=test_namespace)
+            print(isvc)
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -90,6 +105,6 @@ async def test_batcher_raw(rest_v1_client, network_layer):
         "./data/iris_batch_input.json",
         is_batch=True,
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert all(x == results[0] for x in results)
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

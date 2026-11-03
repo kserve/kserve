@@ -47,8 +47,10 @@ var _ = Describe("Inference Graph controller test", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
 		timeout  = time.Second * 10
-		interval = time.Millisecond * 250
+		interval = time.Millisecond * 50
 		domain   = "example.com"
+		// Match the InferenceService suite's fastTimeout for negative checks.
+		absenceWindow = time.Second * 3
 	)
 
 	configs := map[string]string{
@@ -258,7 +260,6 @@ var _ = Describe("Inference Graph controller test", func() {
 	})
 	Context("with knative configured to allow zero initial scale", func() {
 		BeforeEach(func() {
-			time.Sleep(10 * time.Second)
 			// Patch the existing config-autoscaler configmap to set allow-zero-initial-scale to true
 			configAutoscaler := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -272,7 +273,6 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout).Should(Succeed())
 		})
 		AfterEach(func() {
-			time.Sleep(10 * time.Second)
 			// Restore the default autoscaling configuration
 			configAutoscaler := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -570,6 +570,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -708,6 +709,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -883,6 +885,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -1095,12 +1098,13 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
 		}
 
-		// Checks that any Kubernetes object to be not found.
-		expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
-			Consistently(func() bool {
-				err := k8sClient.Get(ctx, objKey, obj)
-				return apierr.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+		// Use one window so checking multiple resources does not extend the wait.
+		expectResourceIsDeleted := func(ctx context.Context, objKey types.NamespacedName, objs ...client.Object) {
+			Consistently(func(g Gomega) {
+				for _, obj := range objs {
+					g.Expect(apierr.IsNotFound(k8sClient.Get(ctx, objKey, obj))).To(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+				}
+			}, absenceWindow, interval).Should(Succeed())
 		}
 
 		// Wait for any Kubernetes object to be not found.
@@ -1202,7 +1206,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the knative service was not created
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &knservingv1.Service{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1266,7 +1270,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the knative service was not created
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &knservingv1.Service{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1359,6 +1363,37 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, graphServiceKey)
 				expectIGToExist(context.Background(), graphServiceKey)
 
+				// The graph's deployment and service must be owned by the InferenceGraph so
+				// they are garbage-collected with it (guards the inference-graph caller
+				// passing the owner into RawKubeReconciler.Reconcile).
+				rawDeployment := &appsv1.Deployment{}
+				Expect(k8sClient.Get(context.Background(), graphServiceKey, rawDeployment)).To(Succeed())
+				depRef := metav1.GetControllerOf(rawDeployment)
+				Expect(depRef).NotTo(BeNil(), "graph deployment has no controller owner reference (orphaned)")
+				Expect(depRef.Kind).To(Equal("InferenceGraph"))
+				Expect(depRef.Name).To(Equal(graphServiceKey.Name))
+
+				rawService := &corev1.Service{}
+				Expect(k8sClient.Get(context.Background(), graphServiceKey, rawService)).To(Succeed())
+				svcRef := metav1.GetControllerOf(rawService)
+				Expect(svcRef).NotTo(BeNil(), "graph service has no controller owner reference (orphaned)")
+				Expect(svcRef.Kind).To(Equal("InferenceGraph"))
+				Expect(svcRef.Name).To(Equal(graphServiceKey.Name))
+
+				// The graph's deployment and service must carry the KServe managed
+				// label: the manager's Deployment/Service informer caches are scoped
+				// to this label, so without it the controller would lose watch events
+				// for these resources (e.g. availability status updates).
+				Expect(rawDeployment.Labels).To(HaveKeyWithValue(constants.KServeManagedLabelKey, constants.KServeManagedLabelValue),
+					"graph deployment must carry the managed label to be visible to the scoped cache")
+				Expect(rawService.Labels).To(HaveKeyWithValue(constants.KServeManagedLabelKey, constants.KServeManagedLabelValue),
+					"graph service must carry the managed label to be visible to the scoped cache")
+
+				// The graph becomes Ready only after the (label-scoped) Deployment
+				// watch delivers the availability update, proving the managed label
+				// keeps IG deployments visible to the scoped informer cache.
+				expectIGConditionStatus(ctx, graphServiceKey, apis.ConditionReady, corev1.ConditionTrue)
+
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 
@@ -1380,8 +1415,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the service and deployment were not created
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
-				expectResourceIsDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &corev1.Service{}, &appsv1.Deployment{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1448,8 +1482,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the service and deployment were not created
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
-				expectResourceIsDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &corev1.Service{}, &appsv1.Deployment{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1606,6 +1639,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 

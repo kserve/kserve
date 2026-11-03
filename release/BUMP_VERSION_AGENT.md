@@ -73,8 +73,8 @@ For z-releases, you **must** specify the release branch when assigning Copilot. 
 
 Follow the remaining release steps in:
 
-- [RELEASE_PROCESS_v3.md](./RELEASE_PROCESS_v3.md) (manual)
-- [RELEASE_PROCESS_v3_copilot.md](./RELEASE_PROCESS_v3_copilot.md) (Copilot CLI)
+- [RELEASE_PROCESS.md](./RELEASE_PROCESS.md) (manual)
+- [RELEASE_PROCESS_copilot.md](./RELEASE_PROCESS_copilot.md) (Copilot CLI)
 
 ---
 

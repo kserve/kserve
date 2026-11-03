@@ -189,7 +189,7 @@ Clients should send the header `x-ai-eg-model: RedHatAI/gpt-oss-20b` when callin
 
 ## 8. Alternate configuration: Precise Prefix Cache Aware Routing
 
-For **precise prefix cache aware routing** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the precise-prefix-cache-scorer. See [llm-d guide](https://llm-d.ai/docs/guide/Installation/precise-prefix-cache-aware) for an in-depth description.
+For **precise prefix cache aware routing** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the 3-plugin pipeline (token-producer, precise-prefix-cache-producer, prefix-cache-scorer). See [llm-d guide](https://llm-d.ai/docs/guide/Installation/precise-prefix-cache-aware) for an in-depth description.
 
 ### 8.1 LLMInferenceServiceConfig with precise prefix cache aware routing
 
@@ -199,8 +199,9 @@ kubectl apply -f llmisvc_config_prefix_cache.yaml -n kserve-lab
 
 This creates `llmisvc-prefix-caching`. It adds:
 
-- vLLM args: `--prefix-caching-hash-algo sha256_cbor`, `--block-size 64`, `--kv_transfer_config`, `--kv-events-config` (ZMQ to EPP)
-- Router scheduler with `precise-prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, `active-request-scorer`, and tokenizers (HF) for the indexer
+- vLLM args: `--prefix-caching-hash-algo sha256_cbor`, `--block-size 64`, `--kv-events-config` (ZMQ to EPP)
+- Router scheduler with `token-producer`, `precise-prefix-cache-producer`, `prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, and `active-request-scorer`
+- Standalone tokenizer deployment (auto-deployed from `token-producer` plugin presence)
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)
 
 ### 8.2 Switch Inference Service to precise prefix cache aware routing
@@ -233,8 +234,8 @@ for an in depth description.
 
 This creates `llmisvc-config-pd-disagg`. It adds:
 
-- Decode container with vLLM args: `--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"`
-- Prefill container with 2 replicas and same vLLM args 
+- Decode container with vLLM args: `--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"`
+- Prefill container with 2 replicas and vLLM args: `--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"`
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)
 
 ### 9.2 Switch Inference to prefill/decode disaggregation
@@ -256,7 +257,9 @@ The Gateway and Route from step 7 still apply; they reference the same `Inferenc
 ---
 
 
-## 10. ServiceMonitor for Prometheus
+## 10. Monitoring and tracing
+
+### 10.1 ServiceMonitor for Prometheus
 
 To scrape vLLM and EPP metrics, apply the ServiceMonitor in the same namespace (or adjust `namespaceSelector` to your Prometheus setup):
 
@@ -266,6 +269,62 @@ To scrape vLLM and EPP metrics, apply the ServiceMonitor in the same namespace (
 ```bash
 kubectl apply -f service_monitor.yaml -n kserve-lab
 ```
+
+### 10.2 Distributed tracing (optional)
+
+Add `tracing` to the `spec` of the selected `LLMInferenceService` or its
+`LLMInferenceServiceConfig`. Point it at an existing, reachable OTLP collector;
+KServe does not install a collector:
+
+```yaml
+spec:
+  tracing:
+    exporterEndpoint: "http://otel-collector.kserve-lab.svc.cluster.local:4317"
+    exporter: "otlp"
+    sampler: "parentbased_traceidratio"
+    samplerArg: "0.05"
+```
+
+KServe configures tracing for the EPP, inference server, routing sidecar (when
+present), and standalone HTTP tokenizer (when enabled). Traces use the service
+names `inference-scheduler`, `inference-server-decode`,
+`inference-server-prefill`, `routing-sidecar`, and `tokenizer`, with Kubernetes
+resource attributes to identify the namespace and pods.
+
+Routing-sidecar and tokenizer tracing also require the container environment
+marker `KSERVE_TRACING_CONFIG_VERSION=1`, supplied by the updated presets. Old
+pinned presets lack this marker and retain their existing Pod templates and
+EPP/inference-server tracing behavior when only the controller is upgraded.
+To adopt the additional tracing, move the service to updated tokenizer and
+sidecar-bearing presets; check `status.appliedConfigRefs` for the configs it uses.
+This can roll the affected workloads, so plan the change accordingly. Updating
+presets in place, rather than using release-versioned names, can also trigger
+rollouts for services referencing them.
+
+The default tokenizer preset pins vLLM v0.23.0, whose `vllm launch render` path
+does not initialize tracing or emit render-request spans. Tokenizer span export
+requires an image containing the
+[renderer tracing fix](https://github.com/vllm-project/vllm/pull/61683);
+setting `spec.tracing` alone does not enable it in the pinned image.
+
+Use runtime images that support the injected tracing options. Tool-calling spans
+also require images containing the corresponding llm-d-router and vLLM
+instrumentation; configuring tracing alone does not add those spans to older
+images. Custom launch scripts must forward container arguments, for example
+using `"$@"`, to receive the tracing flags. Custom tokenizer and sidecar templates
+must retain the marker to opt in. For these marked containers, explicit tracing
+flags in `command` or `args` and existing environment variables are preserved.
+
+Without a tracing configuration in the service or its configs, KServe does not
+inject tracing settings. Setting `spec.tracing` to `{}` uses the
+`kserve-config-llm-tracing` preset defaults, including the collector endpoint.
+The example samples 5% of root traces and respects parent sampling;
+use `samplerArg: "1.0"` for controlled validation and send a W3C `traceparent`
+header to correlate requests across components.
+
+Tracing does not enable metrics listeners or configure Prometheus scraping. The
+ServiceMonitor above covers vLLM and EPP, not the routing sidecar's separate
+metrics listener.
 
 ---
 

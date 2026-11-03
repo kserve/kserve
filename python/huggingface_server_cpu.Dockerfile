@@ -78,8 +78,8 @@ RUN cd storage && uv pip install . --no-cache
 # Install huggingfaceserver dependencies (metadata-first for cache)
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
 RUN cd huggingfaceserver && \
-    uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} \
-        torch==${TORCH_VERSION} \
+    uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} \
+        torch==${TORCH_VERSION}+cpu \
         torchvision \
         torchaudio && \
     uv sync --active --no-cache && \
@@ -93,7 +93,7 @@ RUN cd huggingfaceserver && \
     rm -rf ~/.cache/uv
 
 # install vllm
-ARG VLLM_VERSION=0.20.0
+ARG VLLM_VERSION=0.24.0
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
@@ -105,26 +105,24 @@ RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-
 
 # Install vLLM build requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements/build/cpu.txt && \
+    uv pip install --no-cache -v --torch-backend cpu --index-strategy unsafe-best-match -r requirements/build/cpu.txt && \
     uv cache clean
 
 # Install vLLM cpu requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements/cpu.txt && \
+    uv pip install --no-cache -v --torch-backend cpu --index-strategy unsafe-best-match -r requirements/cpu.txt && \
     uv cache clean
 
-# Build vLLM wheel
+# Build and install vLLM
 RUN cd vllm && \
-    python setup.py bdist_wheel
-
-# Install built vLLM wheel
-RUN uv pip install --no-cache vllm/dist/vllm-${VLLM_VERSION}*.whl
+    VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} uv pip install --no-cache --no-build-isolation --index-strategy unsafe-best-match . && \
+    uv cache clean
 
 # Ensure CPU-only torch, torchvision, and torchaudio are installed.
 # Previous uv sync / pip install steps may have pulled CUDA wheels from PyPI;
 # this final reinstall from the CPU index guarantees CPU-only builds.
-RUN uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} --reinstall \
-    torch==${TORCH_VERSION} \
+RUN uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} --reinstall \
+    torch==${TORCH_VERSION}+cpu \
     torchvision \
     torchaudio
 

@@ -18,7 +18,6 @@ package scheme
 
 import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
@@ -32,6 +31,7 @@ import (
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -39,7 +39,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	igwv1alpha2pool "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
@@ -75,14 +74,16 @@ func AddGatewayAPIs(s *runtime.Scheme) error {
 	return addAll(s,
 		gwapiv1.Install,
 		igwapi.Install,
-		igwapiv1alpha2.Install,
 		igwv1alpha2pool.Install,
 	)
 }
 
-// AddLeaderWorkerSetAPIs registers LeaderWorkerSet APIs.
+// AddLeaderWorkerSetAPIs registers the LeaderWorkerSet APIs, both the
+// leaderworkerset.x-k8s.io and disaggregatedset.x-k8s.io groups. Both ship in the
+// same operator, so their availability is tied; each group is still watched
+// independently based on whether its CRD is installed.
 func AddLeaderWorkerSetAPIs(s *runtime.Scheme) error {
-	return addAll(s, lwsapi.AddToScheme)
+	return addAll(s, lwsapi.AddToScheme, disaggregatedsetv1.AddToScheme)
 }
 
 // AddKnativeAPIs registers Knative Serving APIs.
@@ -98,11 +99,6 @@ func AddIstioAPIs(s *runtime.Scheme) error {
 // AddKedaAPIs registers KEDA APIs.
 func AddKedaAPIs(s *runtime.Scheme) error {
 	return addAll(s, kedav1alpha1.AddToScheme)
-}
-
-// AddWVAAPIs registers WVA (Workload Variant Autoscaler) APIs.
-func AddWVAAPIs(s *runtime.Scheme) error {
-	return addAll(s, wvav1alpha1.AddToScheme)
 }
 
 // AddOpenTelemetryAPIs registers OpenTelemetry operator APIs.
@@ -125,7 +121,6 @@ func AddLLMISVCAPIs(s *runtime.Scheme) error {
 		AddGatewayAPIs,
 		AddLeaderWorkerSetAPIs,
 		AddKedaAPIs,
-		AddWVAAPIs,
 	)
 }
 
@@ -138,7 +133,6 @@ func AddAll(s *runtime.Scheme) error {
 		AddKnativeAPIs,
 		AddIstioAPIs,
 		AddKedaAPIs,
-		AddWVAAPIs,
 		AddOpenTelemetryAPIs,
 	)
 }

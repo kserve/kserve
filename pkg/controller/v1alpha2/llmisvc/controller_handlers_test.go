@@ -30,6 +30,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -208,9 +209,6 @@ func TestRequestsForInferencePoolChangeMatchesExternalPoolRefs(t *testing.T) {
 			WithObjects(llmSvcWithMatch, llmSvcWithoutMatch).
 			Build(),
 		Clientset: kubefake.NewSimpleClientset(testInferenceServiceConfigMap()),
-		Validator: func(context.Context, *v1alpha2.LLMInferenceService) error {
-			return nil
-		},
 	}
 
 	pool := &igwapi.InferencePool{
@@ -275,9 +273,6 @@ func TestRequestsForInferencePoolChangeIncludesRefsEvenWhenPoolIsOwned(t *testin
 			WithObjects(ownerSvc, consumerSvc).
 			Build(),
 		Clientset: kubefake.NewSimpleClientset(testInferenceServiceConfigMap()),
-		Validator: func(context.Context, *v1alpha2.LLMInferenceService) error {
-			return nil
-		},
 	}
 
 	pool := &igwapi.InferencePool{
@@ -348,6 +343,66 @@ func TestRequestsForInferenceServiceConfigMapChangeEnqueuesAllServices(t *testin
 		reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "first"}},
 		reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "other", Name: "second"}},
 	))
+}
+
+func TestRequestsForSchedulerConfigMapChangeDoesNotCreateValidationProbe(t *testing.T) {
+	g := NewGomegaWithT(t)
+	scheme := newControllerHandlersScheme(t)
+
+	const (
+		namespace     = "routing"
+		configMapName = "scheduler-config"
+	)
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{Name: ptr.To("test-model")},
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{
+						Ref: &corev1.LocalObjectReference{Name: "external-pool"},
+					},
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Ref: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+						},
+					},
+				},
+			},
+		},
+	}
+	template := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configTemplateName, Namespace: constants.KServeNamespace},
+	}
+	schedulerConfig := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName, Namespace: namespace},
+		Data:       map[string]string{"epp": `{}`},
+	}
+	createCalls := 0
+	fakeClient := clientfake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(llmSvc, template, schedulerConfig).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				createCalls++
+				return c.Create(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	reconciler := &LLMISVCReconciler{
+		Client:    fakeClient,
+		Clientset: kubefake.NewSimpleClientset(testInferenceServiceConfigMap()),
+	}
+
+	reqs := enqueueRequestsForObject(
+		reconciler.enqueueOnConfigMapChange(logr.Discard()),
+		schedulerConfig,
+	)
+
+	g.Expect(reqs).To(ConsistOf(reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: namespace, Name: llmSvc.Name},
+	}))
+	g.Expect(createCalls).To(BeZero(), "watch-matching must not issue dry-run validation creates")
 }
 
 func TestInferenceServiceConfigMapPredicateOnlyAcceptsConfigChanges(t *testing.T) {

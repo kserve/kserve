@@ -32,7 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -40,6 +42,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -48,12 +51,17 @@ var log = logf.Log.WithName("DeploymentReconciler")
 // DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
 	client         kclient.Client
+	clientset      kubernetes.Interface
 	scheme         *runtime.Scheme
 	DeploymentList []*appsv1.Deployment
 	componentExt   *v1beta1.ComponentExtensionSpec
+	// platformConditions are status conditions for the owning resource, recorded by customizeDeployments.
+	platformConditions []apis.Condition
 }
 
-func NewDeploymentReconciler(client kclient.Client,
+func NewDeploymentReconciler(ctx context.Context,
+	client kclient.Client,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
@@ -66,12 +74,19 @@ func NewDeploymentReconciler(client kclient.Client,
 		return nil, fmt.Errorf("failed to create raw deployment: %w", err)
 	}
 
-	return &DeploymentReconciler{
+	r := &DeploymentReconciler{
 		client:         client,
+		clientset:      clientset,
 		scheme:         scheme,
 		DeploymentList: deploymentList,
 		componentExt:   componentExt,
-	}, nil
+	}
+
+	if err := r.customizeDeployments(ctx, componentMeta, podSpec); err != nil {
+		return nil, err
+	}
+
+	return r, nil
 }
 
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
@@ -304,34 +319,32 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 		// generate default readiness probe for model server container and for transformer container in case of collocation
 		if container.Name == constants.InferenceServiceContainerName || container.Name == constants.TransformerContainerName {
 			if container.ReadinessProbe == nil {
-				if len(container.Ports) == 0 {
-					container.ReadinessProbe = &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							TCPSocket: &corev1.TCPSocketAction{
-								Port: intstr.IntOrString{
-									IntVal: 8080,
-								},
+				probePort := int32(8080)
+				if len(container.Ports) > 0 {
+					probePort = container.Ports[0].ContainerPort
+				}
+				// If --http_port is set in args, use that port for the probe so the
+				// readiness check targets the port the server actually listens on.
+				if argPort, ok := isvcutils.GetArgValue(container.Args, constants.ArgumentHttpPort); ok {
+					if parsed, err := utils.ParsePort(argPort); err == nil {
+						probePort = parsed
+					} else {
+						log.Info("Ignoring invalid readiness probe port, using default",
+							"container", container.Name, "probePort", probePort, "err", err)
+					}
+				}
+				container.ReadinessProbe = &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.IntOrString{
+								IntVal: probePort,
 							},
 						},
-						TimeoutSeconds:   1,
-						PeriodSeconds:    10,
-						SuccessThreshold: 1,
-						FailureThreshold: 3,
-					}
-				} else {
-					container.ReadinessProbe = &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							TCPSocket: &corev1.TCPSocketAction{
-								Port: intstr.IntOrString{
-									IntVal: container.Ports[0].ContainerPort,
-								},
-							},
-						},
-						TimeoutSeconds:   1,
-						PeriodSeconds:    10,
-						SuccessThreshold: 1,
-						FailureThreshold: 3,
-					}
+					},
+					TimeoutSeconds:   1,
+					PeriodSeconds:    10,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
 				}
 			}
 		}
@@ -501,6 +514,13 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			resultList = append(resultList, existingDep)
 
 		case constants.CheckResultExisted:
+			if desiredDep.Labels[constants.KServeManagedLabelKey] != existingDep.Labels[constants.KServeManagedLabelKey] {
+				before := existingDep.DeepCopy()
+				existingDep.Labels = utils.Union(existingDep.Labels, map[string]string{
+					constants.KServeManagedLabelKey: desiredDep.Labels[constants.KServeManagedLabelKey],
+				})
+				opErr = r.client.Patch(ctx, existingDep, kclient.MergeFrom(before))
+			}
 			// Spec is unchanged. existingDep has the live .Status.Conditions from the server
 			// (e.g. ReplicaFailure, Available, Progressing) which PropagateRawStatus needs.
 			resultList = append(resultList, existingDep)
@@ -539,6 +559,24 @@ func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, sche
 		if err := controllerutil.SetControllerReference(owner, deployment, scheme); err != nil {
 			return err
 		}
+		// Copy the labels: the pod template can share this map. Labeling the
+		// Deployment must not roll out existing pods during an upgrade.
+		deployment.Labels = utils.Union(deployment.Labels, map[string]string{
+			constants.KServeManagedLabelKey: constants.KServeManagedLabelValue,
+		})
 	}
 	return nil
+}
+
+// PlatformConditions returns the status conditions customizeDeployments recorded for the owning
+// resource, e.g. when it kept part of an existing Deployment to avoid restarting its pods. The owner's
+// controller decides how they apply to its status; the InferenceService controller reads them for the
+// stable predictor only.
+func (r *DeploymentReconciler) PlatformConditions() []apis.Condition {
+	return r.platformConditions
+}
+
+// CleanupOrphans deletes Deployments selected by scope whose names are not retained.
+func (r *DeploymentReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*appsv1.DeploymentList](ctx, r.client, scope)
 }

@@ -33,11 +33,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
 	"google.golang.org/api/option"
 
@@ -208,8 +207,6 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 		}
 	case S3:
 		log.Info("Initializing S3 client")
-		var sess *session.Session
-		var err error
 
 		region, _ := os.LookupEnv(s3credential.AWSRegion)
 		useVirtualBucketString, ok := os.LookupEnv(s3credential.S3UseVirtualBucket)
@@ -223,30 +220,32 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 			useAccelerate = true
 		}
 
-		awsConfig := aws.Config{
-			Region:           aws.String(region),
-			S3ForcePathStyle: aws.Bool(!useVirtualBucket),
-			S3UseAccelerate:  aws.Bool(useAccelerate),
-		}
-
-		if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
-			awsConfig.Endpoint = aws.String(endpoint)
+		ctx := context.Background()
+		configOpts := []func(*awsconfig.LoadOptions) error{
+			awsconfig.WithRegion(region),
 		}
 
 		if useAnonCred, ok := os.LookupEnv(s3credential.AWSAnonymousCredential); ok && strings.ToLower(useAnonCred) == "true" {
-			awsConfig.Credentials = credentials.AnonymousCredentials
+			configOpts = append(configOpts, awsconfig.WithCredentialsProvider(aws.AnonymousCredentials{}))
 		}
 
-		sess, err = session.NewSession(&awsConfig)
+		cfg, err := awsconfig.LoadDefaultConfig(ctx, configOpts...)
 		if err != nil {
 			return nil, err
 		}
 
-		sessionClient := s3.New(sess)
+		s3Opts := func(o *s3.Options) {
+			o.UsePathStyle = !useVirtualBucket
+			o.UseAccelerate = useAccelerate
+			if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
+				o.BaseEndpoint = aws.String(endpoint)
+			}
+		}
+
+		s3Client := s3.NewFromConfig(cfg, s3Opts)
 		providers[S3] = &S3Provider{
-			Client:     sessionClient,
-			Downloader: s3manager.NewDownloaderWithClient(sessionClient, func(d *s3manager.Downloader) {}),
-			Uploader:   s3manager.NewUploaderWithClient(sessionClient, func(d *s3manager.Uploader) {}),
+			Client:         s3Client,
+			TransferClient: transfermanager.New(s3Client),
 		}
 	case HTTPS:
 		httpsClient := &http.Client{}
