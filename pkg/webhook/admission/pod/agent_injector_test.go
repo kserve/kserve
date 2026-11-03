@@ -365,6 +365,11 @@ func TestAgentInjector(t *testing.T) {
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
+								{
+									Name:          "agent-metrics",
+									ContainerPort: constants.LoggerMetricsPort,
+									Protocol:      "TCP",
+								},
 							},
 							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
@@ -493,6 +498,11 @@ func TestAgentInjector(t *testing.T) {
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+								{
+									Name:          "agent-metrics",
+									ContainerPort: constants.LoggerMetricsPort,
 									Protocol:      "TCP",
 								},
 							},
@@ -625,6 +635,11 @@ func TestAgentInjector(t *testing.T) {
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+								{
+									Name:          "agent-metrics",
+									ContainerPort: constants.LoggerMetricsPort,
 									Protocol:      "TCP",
 								},
 							},
@@ -1104,6 +1119,11 @@ func TestAgentInjector(t *testing.T) {
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
+								{
+									Name:          "agent-metrics",
+									ContainerPort: constants.LoggerMetricsPort,
+									Protocol:      "TCP",
+								},
 							},
 							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
@@ -1233,6 +1253,11 @@ func TestAgentInjector(t *testing.T) {
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+								{
+									Name:          "agent-metrics",
+									ContainerPort: constants.LoggerMetricsPort,
 									Protocol:      "TCP",
 								},
 							},
@@ -1521,6 +1546,11 @@ func TestAgentInjector(t *testing.T) {
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
+								{
+									Name:          "agent-metrics",
+									ContainerPort: constants.LoggerMetricsPort,
+									Protocol:      "TCP",
+								},
 							},
 							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
@@ -1675,6 +1705,11 @@ func TestAgentInjector(t *testing.T) {
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+								{
+									Name:          "agent-metrics",
+									ContainerPort: constants.LoggerMetricsPort,
 									Protocol:      "TCP",
 								},
 							},
