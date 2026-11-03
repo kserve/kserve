@@ -83,9 +83,12 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			r := &llmisvc.LLMISVCReconciler{
 				Client: legacyEnv.Client, Config: legacyEnv.Config,
 				Clientset: clientset, EventRecorder: record.NewFakeRecorder(100),
+				// Fast, shared key: certificate generation is asynchronous, and
+				// the spec drives it through reconcileUntilSettled below.
+				GenerateCertificateKey: CertificateKey,
 			}
 			request := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(llmSvc)}
-			_, err = r.Reconcile(ctx, request)
+			_, err = reconcileUntilSettled(ctx, r, request)
 			Expect(err).NotTo(HaveOccurred())
 
 			workloads := make([]*appsv1.Deployment, 0, 2)
@@ -163,7 +166,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 			// Verify cleanup is idempotent and cannot recreate WVA autoscalers.
 			for range 2 {
-				_, err = r.Reconcile(ctx, request)
+				_, err = reconcileUntilSettled(ctx, r, request)
 				Expect(err).NotTo(HaveOccurred())
 				for _, autoscaler := range legacyAutoscalers {
 					Expect(apierrors.IsNotFound(legacyEnv.Get(ctx, client.ObjectKeyFromObject(autoscaler), autoscaler))).To(BeTrue())
