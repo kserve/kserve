@@ -37,7 +37,7 @@ type InferenceServiceStatus struct {
 	// - TransformerReady: transformer readiness condition; <br/>
 	// - ExplainerReady: explainer readiness condition; <br/>
 	// - RoutesReady (serverless mode only): aggregated routing condition, i.e. endpoint readiness condition; <br/>
-	// - LatestDeploymentReady (serverless mode only): aggregated configuration condition, i.e. latest deployment readiness condition; <br/>
+	// - LatestDeploymentReady: aggregated deployment readiness condition; set in both Serverless and Standard modes; <br/>
 	// - Ready: aggregated condition; <br/>
 	duckv1.Status `json:",inline"`
 	// Addressable endpoint for the InferenceService
@@ -816,4 +816,100 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 		}
 	}
 	return true
+}
+func RawConfigurationCondition(conditionType apis.ConditionType, status corev1.ConditionStatus, reason, message string) *apis.Condition {
+	return &apis.Condition{Type: conditionType, Status: status, Reason: reason, Message: message}
+}
+
+func evaluateRawDeploymentConfigurationStatus(deployment *appsv1.Deployment, conditionType apis.ConditionType) *apis.Condition {
+	if deployment == nil {
+		return RawConfigurationCondition(conditionType, corev1.ConditionUnknown, "DeploymentNotFound", "Deployment has not been observed.")
+	}
+	if deployment.Status.ObservedGeneration < deployment.Generation {
+		return RawConfigurationCondition(conditionType, corev1.ConditionUnknown, "DeploymentStatusNotObserved", "Deployment controller has not observed the latest generation.")
+	}
+
+	var progressing, available, replicaFailure *appsv1.DeploymentCondition
+	for i := range deployment.Status.Conditions {
+		condition := &deployment.Status.Conditions[i]
+		switch condition.Type {
+		case appsv1.DeploymentProgressing:
+			progressing = condition
+		case appsv1.DeploymentAvailable:
+			available = condition
+		case appsv1.DeploymentReplicaFailure:
+			replicaFailure = condition
+		}
+	}
+
+	if replicaFailure != nil && replicaFailure.Status == corev1.ConditionTrue {
+		return RawConfigurationCondition(conditionType, corev1.ConditionFalse, replicaFailure.Reason, replicaFailure.Message)
+	}
+	if progressing == nil {
+		return RawConfigurationCondition(conditionType, corev1.ConditionUnknown, "ProgressingConditionMissing", "Deployment has not reported a Progressing condition.")
+	}
+	if progressing.Status == corev1.ConditionFalse {
+		return RawConfigurationCondition(conditionType, corev1.ConditionFalse, progressing.Reason, progressing.Message)
+	}
+	if progressing.Status != corev1.ConditionTrue || progressing.Reason != "NewReplicaSetAvailable" {
+		return RawConfigurationCondition(conditionType, corev1.ConditionUnknown, progressing.Reason, progressing.Message)
+	}
+
+	// NewReplicaSetAvailable can remain True after availability changes.
+	if available == nil {
+		return RawConfigurationCondition(conditionType, corev1.ConditionUnknown, "AvailableConditionMissing", "Deployment has not reported an Available condition.")
+	}
+	if available.Status == corev1.ConditionFalse {
+		return RawConfigurationCondition(conditionType, corev1.ConditionFalse, available.Reason, available.Message)
+	}
+	if available.Status != corev1.ConditionTrue {
+		return RawConfigurationCondition(conditionType, corev1.ConditionUnknown, available.Reason, available.Message)
+	}
+
+	desiredReplicas := int32(1)
+	if deployment.Spec.Replicas != nil {
+		desiredReplicas = *deployment.Spec.Replicas
+	}
+	if deployment.Status.UpdatedReplicas != desiredReplicas ||
+		deployment.Status.Replicas != desiredReplicas ||
+		deployment.Status.AvailableReplicas < desiredReplicas {
+		return RawConfigurationCondition(conditionType, corev1.ConditionUnknown, "RolloutIncomplete", "Not all desired replicas are updated and available.")
+	}
+
+	return RawConfigurationCondition(conditionType, corev1.ConditionTrue, progressing.Reason, progressing.Message)
+}
+
+func (ss *InferenceServiceStatus) PropagateRawConfigurationStatus(component ComponentType, deploymentList []*appsv1.Deployment) {
+	conditionType, ok := configurationConditionsMap[component]
+	if !ok {
+		return
+	}
+	if len(deploymentList) == 0 {
+		ss.SetCondition(conditionType, RawConfigurationCondition(conditionType, corev1.ConditionUnknown, "DeploymentNotFound", "No Deployment is available to determine configuration readiness."))
+		return
+	}
+
+	var firstFailure, firstUnknown *apis.Condition
+	for _, deployment := range deploymentList {
+		condition := evaluateRawDeploymentConfigurationStatus(deployment, conditionType)
+		switch condition.Status {
+		case corev1.ConditionFalse:
+			if firstFailure == nil {
+				firstFailure = condition
+			}
+		case corev1.ConditionUnknown:
+			if firstUnknown == nil {
+				firstUnknown = condition
+			}
+		}
+	}
+
+	switch {
+	case firstFailure != nil:
+		ss.SetCondition(conditionType, firstFailure)
+	case firstUnknown != nil:
+		ss.SetCondition(conditionType, firstUnknown)
+	default:
+		ss.SetCondition(conditionType, RawConfigurationCondition(conditionType, corev1.ConditionTrue, "NewReplicaSetAvailable", "All Deployments have completed rollout and are available."))
+	}
 }
