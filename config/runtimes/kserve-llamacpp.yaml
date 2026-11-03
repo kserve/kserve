@@ -1,0 +1,57 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-llamacpp
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: gguf
+      autoSelect: true
+      priority: 1
+  containers:
+    - name: kserve-container
+      image: ghcr.io/ggml-org/llama.cpp:server@sha256:b32890309c1a33a534a01b0b461e953dc2c5a6bac20213abcf48e22847a19c85
+      args:
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8080"
+        - --model
+        - /mnt/models/model.gguf
+        - --alias
+        - "{{.Name}}"
+        - --ctx-size
+        - "2048"
+        - --metrics
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        periodSeconds: 10
+        timeoutSeconds: 5
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        failureThreshold: 60
+        periodSeconds: 30
+        timeoutSeconds: 5

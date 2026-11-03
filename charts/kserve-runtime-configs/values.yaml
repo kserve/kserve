@@ -203,6 +203,19 @@ kserve:
         sizeLimit: ""
       hostIPC:
         enabled: false
+    llamacpp:
+      disabled: false
+      image: ghcr.io/ggml-org/llama.cpp
+      tag: server@sha256:b32890309c1a33a534a01b0b461e953dc2c5a6bac20213abcf48e22847a19c85
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
     art:
       image: kserve/art-explainer
       defaultVersion: ""

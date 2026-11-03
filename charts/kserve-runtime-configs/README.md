@@ -86,6 +86,15 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.lgbserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.lgbserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.lgbserver.tag | string | `""` |  |
+| kserve.servingruntime.llamacpp.disabled | bool | `false` |  |
+| kserve.servingruntime.llamacpp.image | string | `"ghcr.io/ggml-org/llama.cpp"` |  |
+| kserve.servingruntime.llamacpp.imagePullPolicy | string | `"IfNotPresent"` |  |
+| kserve.servingruntime.llamacpp.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.llamacpp.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.servingruntime.llamacpp.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.servingruntime.llamacpp.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.llamacpp.securityContext.runAsUser | int | `1000` |  |
+| kserve.servingruntime.llamacpp.tag | string | `"server@sha256:b32890309c1a33a534a01b0b461e953dc2c5a6bac20213abcf48e22847a19c85"` |  |
 | kserve.servingruntime.mlserver.disabled | bool | `false` |  |
 | kserve.servingruntime.mlserver.image | string | `"docker.io/seldonio/mlserver"` |  |
 | kserve.servingruntime.mlserver.imagePullPolicy | string | `"IfNotPresent"` |  |

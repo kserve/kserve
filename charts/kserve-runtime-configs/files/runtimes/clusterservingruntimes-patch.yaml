@@ -676,4 +676,35 @@ spec:
   {{- if .Values.kserve.servingruntime.vllmserver.hostIPC.enabled }}
   hostIPC: true
   {{- end }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-llamacpp
+spec:
+  disabled: {{ .Values.kserve.servingruntime.llamacpp.disabled }}
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.llamacpp.image }}:{{ .Values.kserve.servingruntime.llamacpp.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.llamacpp.imagePullPolicy }}
+      args:
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8080"
+        - --model
+        - /mnt/models/model.gguf
+        - --alias
+        - "{{ .Values.kserve.servingruntime.modelNamePlaceholder }}"
+        - --ctx-size
+        - "2048"
+        - --metrics
+      securityContext:
+        {{- with .Values.kserve.servingruntime.llamacpp.securityContext }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+  {{- with .Values.kserve.servingruntime.llamacpp.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 {{- end }}
