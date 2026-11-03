@@ -91,8 +91,10 @@ const AnnotationLoRAModelRoutingStrategy = constants.LoRAModelRoutingStrategyAnn
 // AnnotationHTTPRouteMaxShards caps, for one service, how many managed
 // HTTPRoutes the inline route may be sharded into, overriding the cluster-wide
 // httpRouteMaxShards. Read from spec.annotations so a preset can carry it.
-const AnnotationHTTPRouteMaxShards = constants.HTTPRouteMaxShardsAnnotationKey
-const AnnotationRouteRuleNaming = constants.RouteRuleNamingAnnotationKey
+const (
+	AnnotationHTTPRouteMaxShards = constants.HTTPRouteMaxShardsAnnotationKey
+	AnnotationRouteRuleNaming    = constants.RouteRuleNamingAnnotationKey
+)
 
 // ErrPreconditionNotMet indicates a non-transient routing precondition failure
 // (e.g. a required CRD is missing or the routing strategy cannot be applied).
