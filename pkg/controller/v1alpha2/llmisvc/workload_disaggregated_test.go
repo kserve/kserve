@@ -1043,11 +1043,8 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			},
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromString("50%")},
 		},
-		// The DisaggregatedSet resizes the LeaderWorkerSet of each revision down to one
-		// replica during a rollout, and the LeaderWorkerSet webhook rejects maxSurge and
-		// maxUnavailable that both resolve to zero at its size. So with maxSurge: 0,
-		// maxUnavailable is resolved once against the role's replicas and written as a
-		// fixed number of at least one.
+		// When maxSurge and maxUnavailable both resolve to zero for the role's replicas,
+		// maxUnavailable is written as 1. Otherwise the values are written as set.
 		{
 			name: "single-node with only maxSurge: 0 on few replicas removes one replica at a time",
 			workload: &v1alpha2.WorkloadSpec{
@@ -1070,18 +1067,25 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
-			// 25% of 4 is one, but 25% of the three replicas the old LeaderWorkerSet
-			// shrinks to is zero.
-			name: "single-node with only maxSurge: 0 on enough replicas resolves the Deployment default",
+			name: "single-node with only maxSurge: 0 on three replicas removes one replica at a time",
 			workload: &v1alpha2.WorkloadSpec{
 				Template:        disaggTestPod(),
-				Replicas:        ptr.To[int32](4),
+				Replicas:        ptr.To[int32](3),
 				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))},
 			},
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
-			name: "single-node with maxSurge: 0 keeps the number of replicas the percentage allows",
+			name: "single-node with only maxSurge: 0 on enough replicas keeps the Deployment default",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				Replicas:        ptr.To[int32](4),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("25%"), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name: "single-node with maxSurge: 0 keeps a percentage that allows a replica",
 			workload: &v1alpha2.WorkloadSpec{
 				Template: disaggTestPod(),
 				Replicas: ptr.To[int32](8),
@@ -1090,7 +1094,7 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 					MaxSurge:       ptr.To(intstr.FromString("0%")),
 				},
 			},
-			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(4), MaxSurge: intstr.FromString("0%")},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("50%"), MaxSurge: intstr.FromString("0%")},
 		},
 		{
 			name: "single-node with maxSurge: 0 and a fixed maxUnavailable is left as set",
@@ -1117,7 +1121,9 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("10%"), MaxSurge: intstr.FromString("10%")},
 		},
 		{
-			// An autoscaled role is resolved against its minimum replicas.
+			// An autoscaled role sets no replicas. With maxSurge: 0, its maxUnavailable is
+			// resolved against its minimum replicas and written as a fixed number of at
+			// least one.
 			name: "autoscaled single-node is resolved against its minimum replicas",
 			workload: &v1alpha2.WorkloadSpec{
 				Template: disaggTestPod(),
@@ -1134,7 +1140,7 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			name: "single-node with only WVA scaling is resolved against its replicas",
 			workload: &v1alpha2.WorkloadSpec{
 				Template: disaggTestPod(),
-				Replicas: ptr.To[int32](4),
+				Replicas: ptr.To[int32](3),
 				Scaling:  disaggTestWVAScaling(8, 16),
 				RolloutStrategy: &v1alpha2.RolloutStrategy{
 					MaxUnavailable: ptr.To(intstr.FromString("25%")),
@@ -1153,19 +1159,16 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
-			// The DisaggregatedSet creates its LeaderWorkerSets with these settings even at
-			// zero replicas and never updates them afterwards, only their replicas: the
-			// settings must stay valid once the role scales up.
-			name: "single-node scaled to zero is resolved against one replica",
+			name: "single-node scaled to zero is left as set",
 			workload: &v1alpha2.WorkloadSpec{
 				Template:        disaggTestPod(),
 				Replicas:        ptr.To[int32](0),
 				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))},
 			},
-			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("25%"), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
-			name: "single-node scaled to zero with a maxUnavailable of 0 removes one replica at a time",
+			name: "single-node scaled to zero with maxUnavailable and maxSurge of 0 is left as set",
 			workload: &v1alpha2.WorkloadSpec{
 				Template: disaggTestPod(),
 				Replicas: ptr.To[int32](0),
@@ -1174,7 +1177,7 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 					MaxSurge:       ptr.To(intstr.FromInt32(0)),
 				},
 			},
-			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(0), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
 			name:     "single-node scaled to zero with a surge is left as set",
@@ -1186,6 +1189,15 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			workload: &v1alpha2.WorkloadSpec{
 				Template:        disaggTestPod(),
 				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromString("lots"))},
+			},
+			wantErr: true,
+		},
+		{
+			name: "single-node with a negative maxSurge is an error",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				Replicas:        ptr.To[int32](4),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(-1))},
 			},
 			wantErr: true,
 		},
@@ -1220,24 +1232,24 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
-			name: "multi-node with maxSurge: 0 keeps the number of replicas the percentage allows",
+			name: "multi-node with maxSurge: 0 keeps a percentage that allows a replica",
 			workload: &v1alpha2.WorkloadSpec{
 				Template:        disaggTestPod(),
 				Worker:          disaggTestPod(),
 				Replicas:        ptr.To[int32](4),
 				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxUnavailable: ptr.To(intstr.FromString("50%"))},
 			},
-			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(2), MaxSurge: intstr.FromInt32(0)},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("50%"), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
-			name: "multi-node scaled to zero is resolved against one replica",
+			name: "multi-node scaled to zero is left as set",
 			workload: &v1alpha2.WorkloadSpec{
 				Template:        disaggTestPod(),
 				Worker:          disaggTestPod(),
 				Replicas:        ptr.To[int32](0),
 				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxUnavailable: ptr.To(intstr.FromString("50%"))},
 			},
-			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("50%"), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
 			name: "multi-node with only maxUnavailable keeps the LeaderWorkerSet default for maxSurge",
