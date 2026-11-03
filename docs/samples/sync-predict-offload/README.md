@@ -5,9 +5,6 @@ blocking I/O, such as a synchronous HTTP client, database client or file operati
 The default is `False`: choosing a worker thread must be explicit because existing
 models may depend on thread affinity or mutable state that is not thread-safe.
 
-This example requires a KServe checkout containing this option. It is not a claim
-that an already published PyPI release includes it.
-
 ## Choose an execution mode
 
 | Handler | Recommended approach |
@@ -65,10 +62,16 @@ commands illustrate behavior rather than establish a latency benchmark.
 ## Bound concurrency and handle cancellation
 
 The example uses two default-executor workers. `ModelServer(max_asyncio_workers=2)`
-configures that executor on the serving loop. Alternatively, a positive
-`ASYNC_MODEL_WORKERS` selects a dedicated pool shared by opted-in models within each
-process. Worker processes have independent pools; this is not a pod-wide limit.
+configures that executor on each serving process's event loop, including when
+`workers > 1`. Alternatively, a positive `ASYNC_MODEL_WORKERS` selects a dedicated
+pool shared by opted-in synchronous predictions within each process.
+Worker processes have independent pools; this is not a pod-wide limit.
 Unset, invalid or nonpositive values use the loop's default executor.
+
+Native `async def predict` handlers are awaited directly; `ASYNC_MODEL_WORKERS`
+does not limit their concurrency. Async code that explicitly uses the default
+executor (for example, `asyncio.to_thread`) can share its capacity with offloaded
+synchronous predictions when no dedicated pool is selected.
 
 A worker limit bounds executing threads, not the number of queued requests. Use
 request admission controls and client timeouts appropriate to your service.

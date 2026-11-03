@@ -302,7 +302,13 @@ class ModelServer:
         self.workers = workers
         self.event_loop = event_loop
         self.max_threads = max_threads
-        self.max_asyncio_workers = max_asyncio_workers
+        # Resolve before constructing REST workers so spawned processes receive
+        # the same limit rather than falling back to asyncio's own default.
+        self.max_asyncio_workers = (
+            min(32, utils.cpu_count() + 4)
+            if max_asyncio_workers is None
+            else max_asyncio_workers
+        )
         self.timeout_keep_alive = timeout_keep_alive
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
@@ -346,9 +352,6 @@ class ModelServer:
         else:
             loop.set_exception_handler(self._custom_exception_handler)
 
-        if self.max_asyncio_workers is None:
-            # formula as suggest in https://bugs.python.org/issue35279
-            self.max_asyncio_workers = min(32, utils.cpu_count() + 4)
         logger.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
         loop.set_default_executor(
             concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers)
@@ -385,6 +388,7 @@ class ModelServer:
                 workers=self.workers,
                 grace_period=self.grace_period,
                 log_config_file=args.log_config_file,
+                max_asyncio_workers=self.max_asyncio_workers,
                 event_loop=self.event_loop,
                 timeout_keep_alive=self.timeout_keep_alive,
                 ssl_certfile=self.ssl_certfile,
