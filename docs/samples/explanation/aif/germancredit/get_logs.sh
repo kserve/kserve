@@ -1,0 +1,3 @@
+#!/bin/bash
+
+kubectl logs "$(kubectl get pod -l serving.knative.dev/service=message-dumper -o jsonpath='{.items[0].metadata.name}')" user-container

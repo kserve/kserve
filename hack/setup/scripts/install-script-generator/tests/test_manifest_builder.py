@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+
+# Copyright 2025 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for manifest_builder module."""
+
+import sys
+from pathlib import Path
+import pytest
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from pkg import manifest_builder  # noqa: E402
+from pkg import file_reader  # noqa: E402
+
+
+def test_find_kustomize_binary_uses_project_bin():
+    """Test that _find_kustomize_binary resolves to the project's bin/kustomize."""
+    repo_root = file_reader.find_git_root(Path(__file__).parent)
+    expected = repo_root / "bin" / "kustomize"
+    assert expected.exists(), (
+        f"bin/kustomize not found at {expected} — run 'make kustomize'"
+    )
+
+    kustomize_dir = repo_root / "config" / "crd" / "full"
+    result = manifest_builder._find_kustomize_binary(kustomize_dir)
+    assert result == str(expected)
+
+
+def test_find_kustomize_binary_fallback(tmp_path):
+    """Test that _find_kustomize_binary falls back to 'kustomize' when not in bin/."""
+    nested_dir = tmp_path / "config" / "crd"
+    nested_dir.mkdir(parents=True)
+
+    result = manifest_builder._find_kustomize_binary(nested_dir)
+    assert result == "kustomize"
+
+
+def test_run_kustomize_build_uses_project_bin(monkeypatch):
+    """Test that run_kustomize_build invokes the project's bin/kustomize."""
+    from unittest.mock import MagicMock
+
+    repo_root = file_reader.find_git_root(Path(__file__).parent)
+    expected_bin = str(repo_root / "bin" / "kustomize")
+    kustomize_dir = repo_root / "config" / "crd" / "full"
+
+    mock_run = MagicMock(return_value=MagicMock(stdout=""))
+    monkeypatch.setattr(manifest_builder.subprocess, "run", mock_run)
+
+    manifest_builder.run_kustomize_build(kustomize_dir)
+
+    called_binary = mock_run.call_args[0][0][0]
+    assert called_binary == expected_bin, (
+        f"Expected {expected_bin}, got '{called_binary}'"
+    )
+
+
+def test_run_kustomize_build_reuses_cached_directory(tmp_path, monkeypatch):
+    """Test that repeated builds of one directory invoke Kustomize once."""
+    from unittest.mock import MagicMock
+
+    kustomize_dir = tmp_path / "config"
+    kustomize_dir.mkdir()
+    mock_run = MagicMock(return_value=MagicMock(stdout="kind: ConfigMap\n"))
+    monkeypatch.setattr(manifest_builder.subprocess, "run", mock_run)
+    manifest_builder.clear_kustomize_build_cache()
+
+    first = manifest_builder.run_kustomize_build(kustomize_dir)
+    second = manifest_builder.run_kustomize_build(kustomize_dir)
+
+    assert first == second == "kind: ConfigMap\n"
+    mock_run.assert_called_once()
+
+
+def test_get_embed_component_values_from_component_env():
+    """Test resolving ENABLE_LLMISVC and ENABLE_LOCALMODEL from component env."""
+    config = {"global_env": {}}
+    components = [
+        {
+            "name": "kserve-kustomize",
+            "env": {"ENABLE_LLMISVC": "true", "ENABLE_LOCALMODEL": "False"},
+        }
+    ]
+
+    llmisvc, localmodel = manifest_builder.get_embed_component_values(
+        config, components
+    )
+
+    assert llmisvc == "true"
+    assert localmodel == "false"
+
+
+def test_get_embed_component_values_from_global_env():
+    """Test resolving values from GLOBAL_ENV when not in component env."""
+    config = {"global_env": {"ENABLE_LLMISVC": "yes", "ENABLE_LOCALMODEL": "1"}}
+    components = [{"name": "kserve-helm", "env": {}}]
+
+    llmisvc, localmodel = manifest_builder.get_embed_component_values(
+        config, components
+    )
+
+    assert llmisvc == "true"
+    assert localmodel == "true"
+
+
+def test_get_embed_component_values_defaults():
+    """Test default false when env keys are missing."""
+    llmisvc, localmodel = manifest_builder.get_embed_component_values({}, [])
+
+    assert llmisvc == "false"
+    assert localmodel == "false"
+
+
+def test_build_kserve_runtime_manifests_success(tmp_path, monkeypatch):
+    """Test building runtime manifests successfully."""
+    runtime_dir = tmp_path / "config/runtimes"
+    runtime_dir.mkdir(parents=True)
+
+    expected_manifest = "apiVersion: v1\nkind: ClusterServingRuntime\n"
+
+    def mock_run_kustomize_build(path):
+        return expected_manifest
+
+    monkeypatch.setattr(
+        manifest_builder, "run_kustomize_build", mock_run_kustomize_build
+    )
+
+    result = manifest_builder.build_kserve_runtime_manifests(tmp_path)
+
+    assert result == expected_manifest
+
+
+def test_build_kserve_runtime_manifests_directory_not_exists(tmp_path):
+    """Test building runtime manifests when directory doesn't exist."""
+    result = manifest_builder.build_kserve_runtime_manifests(tmp_path)
+    assert result == ""
+
+
+def test_build_kserve_llmisvcconfig_manifests_success(tmp_path, monkeypatch):
+    """Test building llmisvcconfig manifests successfully."""
+    llmisvcconfig_dir = tmp_path / "config/llmisvcconfig"
+    llmisvcconfig_dir.mkdir(parents=True)
+
+    expected_manifest = "apiVersion: v1\nkind: ConfigMap\n"
+
+    def mock_run_kustomize_build(path):
+        return expected_manifest
+
+    monkeypatch.setattr(
+        manifest_builder, "run_kustomize_build", mock_run_kustomize_build
+    )
+
+    result = manifest_builder.build_kserve_llmisvcconfig_manifests(tmp_path)
+
+    assert result == expected_manifest
+
+
+def test_build_kserve_llmisvcconfig_manifests_directory_not_exists(tmp_path):
+    """Test building llmisvcconfig manifests when directory doesn't exist."""
+    result = manifest_builder.build_kserve_llmisvcconfig_manifests(tmp_path)
+    assert result == ""
+
+
+def test_build_kserve_manifests_returns_four_values(tmp_path, monkeypatch):
+    """Test that build_kserve_manifests returns 4 values."""
+    (tmp_path / "config/crd/full").mkdir(parents=True)
+    (tmp_path / "config/overlays/all").mkdir(parents=True)
+    (tmp_path / "config/runtimes").mkdir(parents=True)
+    (tmp_path / "config/llmisvcconfig").mkdir(parents=True)
+
+    def mock_run_kustomize_build(path):
+        if "crd" in str(path):
+            return "kind: CustomResourceDefinition\n"
+        elif "overlays" in str(path):
+            return "kind: Deployment\n"
+        elif "runtimes" in str(path):
+            return "kind: ClusterServingRuntime\n"
+        elif "llmisvcconfig" in str(path):
+            return "kind: ConfigMap\n"
+        return ""
+
+    monkeypatch.setattr(
+        manifest_builder, "run_kustomize_build", mock_run_kustomize_build
+    )
+
+    config = {"global_env": {}}
+    components = []
+
+    crd, core, runtime, llmisvc = manifest_builder.build_kserve_manifests(
+        tmp_path, config, components
+    )
+
+    assert isinstance(crd, str) and "CustomResourceDefinition" in crd
+    assert isinstance(core, str)
+    assert isinstance(runtime, str) and "ClusterServingRuntime" in runtime
+    assert isinstance(llmisvc, str) and "ConfigMap" in llmisvc
+
+
+def test_build_kserve_manifests_without_optional_dirs(tmp_path, monkeypatch):
+    """Test build_kserve_manifests when runtime/llmisvcconfig dirs don't exist."""
+    (tmp_path / "config/crd/full").mkdir(parents=True)
+    (tmp_path / "config/overlays/all").mkdir(parents=True)
+
+    def mock_run_kustomize_build(path):
+        if "crd" in str(path):
+            return "kind: CustomResourceDefinition\n"
+        elif "overlays" in str(path):
+            return "kind: Deployment\n"
+        return ""
+
+    monkeypatch.setattr(
+        manifest_builder, "run_kustomize_build", mock_run_kustomize_build
+    )
+
+    config = {"global_env": {}}
+    components = []
+
+    crd, core, runtime, llmisvc = manifest_builder.build_kserve_manifests(
+        tmp_path, config, components
+    )
+
+    assert "CustomResourceDefinition" in crd
+    assert runtime == ""
+    assert llmisvc == ""
+
+
+def test_generate_manifest_functions_with_all_manifests():
+    """Test generating manifest functions with all manifests."""
+    crd = "kind: CRD\n"
+    core = "kind: Deployment\n"
+    runtime = "kind: ClusterServingRuntime\n"
+    llmisvc = "kind: ConfigMap\n"
+
+    result = manifest_builder.generate_manifest_functions(crd, core, runtime, llmisvc)
+
+    assert "get_kserve_crd_manifest()" in result
+    assert "get_kserve_core_manifest()" in result
+    assert "get_kserve_runtime_manifests()" in result
+    assert "get_kserve_llmisvcconfig_manifests()" in result
+    assert "create_kserve_runtime_manifests()" in result
+    assert "create_kserve_llmisvcconfig_manifests()" in result
+    assert "install_kserve_manifest()" in result
+    assert "uninstall_kserve_manifest()" in result
+
+
+def test_generate_manifest_functions_without_optional_manifests():
+    """Test generating manifest functions without runtime/llmisvcconfig."""
+    crd = "kind: CRD\n"
+    core = "kind: Deployment\n"
+
+    result = manifest_builder.generate_manifest_functions(crd, core, "", "")
+
+    assert "get_kserve_crd_manifest()" in result
+    assert "get_kserve_core_manifest()" in result
+    # Getter functions should NOT be generated when manifests are empty
+    assert "get_kserve_runtime_manifests()" not in result
+    assert "get_kserve_llmisvcconfig_manifests()" not in result
+    # Create functions should still be generated
+    assert "create_kserve_runtime_manifests()" in result
+    assert "create_kserve_llmisvcconfig_manifests()" in result
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

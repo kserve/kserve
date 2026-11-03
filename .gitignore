@@ -1,0 +1,83 @@
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.pyc
+*.egg-info/
+bin/*
+!bin/.gitkeep
+.venv/
+venv/
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Kubernetes Generated files - skip generated files, except for vendored files
+
+!vendor/**/zz_generated.*
+
+# Mac file system
+**/.DS_Store
+ 
+# editor and IDE paraphernalia
+.idea
+.editorconfig
+.vscode
+.project
+*.swp
+*.swo
+*~
+
+# Python dev
+.mypy_cache
+
+# Notebook Checkpoints
+.ipynb_checkpoints
+
+.gitlab-ci.yml
+.openapi-generator/
+
+# Ignore files for local deployment
+config/overlays/development/configmap/inferenceservice_patch.yaml
+config/overlays/development/*_patch.yaml
+config/overlays/dev-image-config/inferenceservice_patch.yaml
+config/overlays/temp/
+
+.ko.yaml
+
+# swagger-codegen tools and auto generated files but useless
+hack/current_violation_exceptions.list
+hack/python-sdk/openapi-generator-cli*.jar
+python/kserve/.swagger-codegen-ignore
+python/kserve/.swagger-codegen/
+python/kserve/.travis.yml
+python/kserve/git_push.sh
+python/kserve/test-requirements.txt
+python/kserve/tox.ini
+
+# Ignore files for MacOS
+**/.DS_Store
+
+# Downloaded by hack install
+hack/istio-*
+
+# iTerm config
+.itermconfig
+
+# Docker config
+docker-compose.yml
+
+# Istio installer downloaded by quick install
+istio-*
+
+# Claude code
+.claude/
+
+# bkit
+.bkit/
+

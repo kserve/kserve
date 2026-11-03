@@ -1,0 +1,651 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingfaceserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    image: kserve/huggingfaceserver:v0.15.0
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: devshm
+  hostIPC: false
+  protocolVersions:
+  - v2
+  - v1
+  supportedModelFormats:
+  - autoSelect: true
+    name: huggingface
+    priority: 1
+    version: "1"
+  volumes:
+  - emptyDir:
+      medium: Memory
+    name: devshm
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingfaceserver-multinode
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    command:
+    - bash
+    - -c
+    - "export MODEL=${MODEL_ID}\nif [[ ! -z ${MODEL_DIR} ]]\nthen\n  export MODEL=${MODEL_DIR}\nfi\n\nexport
+      RAY_ADDRESS=${POD_IP}:${RAY_PORT}\nray start --head --disable-usage-stats --include-dashboard
+      false \npython ./huggingfaceserver/health_check.py registered_nodes --retries
+      200  --probe_name runtime_start\n\npython -m huggingfaceserver --model_dir=${MODEL}
+      --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}
+      $0 $@\n"
+    env:
+    - name: RAY_PORT
+      value: "6379"
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: VLLM_CONFIG_ROOT
+      value: /tmp
+    - name: HF_HUB_CACHE
+      value: /tmp
+    image: kserve/huggingfaceserver:v0.15.0-gpu
+    livenessProbe:
+      exec:
+        command:
+        - bash
+        - -c
+        - |
+          python ./huggingfaceserver/health_check.py registered_node_and_runtime_health --health_check_url http://localhost:8080 --probe_name head_liveness
+      failureThreshold: 2
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 15
+    name: kserve-container
+    readinessProbe:
+      exec:
+        command:
+        - bash
+        - -c
+        - |
+          python ./huggingfaceserver/health_check.py runtime_health --health_check_url http://localhost:8080 --probe_name head_readiness
+      failureThreshold: 2
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 15
+    resources:
+      limits:
+        cpu: "4"
+        memory: 12Gi
+      requests:
+        cpu: "2"
+        memory: 6Gi
+    startupProbe:
+      exec:
+        command:
+        - bash
+        - -c
+        - |
+          python ./huggingfaceserver/health_check.py registered_node_and_runtime_health --health_check_url http://localhost:8080 --probe_name head_startup
+      failureThreshold: 40
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      successThreshold: 1
+      timeoutSeconds: 30
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: shm
+  protocolVersions:
+  - v2
+  - v1
+  supportedModelFormats:
+  - autoSelect: true
+    name: huggingface
+    priority: 2
+    version: "1"
+  volumes:
+  - emptyDir:
+      medium: Memory
+      sizeLimit: 3Gi
+    name: shm
+  workerSpec:
+    containers:
+    - command:
+      - bash
+      - -c
+      - "export RAY_HEAD_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379\nSECONDS=0\n\nwhile
+        true; do              \n  if (( SECONDS <= 240 )); then\n    if ray health-check
+        --address \"${RAY_HEAD_ADDRESS}\" > /dev/null 2>&1; then\n      echo \"Ray
+        Global Control Service(GCS) is ready.\"\n      break\n    fi\n    echo \"$SECONDS
+        seconds elapsed: Waiting for Ray Global Control Service(GCS) to be ready.\"\n
+        \ else\n    if ray health-check --address \"${RAY_HEAD_ADDRESS}\"; then\n
+        \     echo \"Ray Global Control Service(GCS) is ready. Any error messages
+        above can be safely ignored.\"\n      break\n    fi\n    echo \"$SECONDS seconds
+        elapsed: Still waiting for Ray Global Control Service(GCS) to be ready.\"\n
+        \ fi\n\n  sleep 5\ndone\n\necho \"Attempting to connect to Ray cluster at
+        $RAY_HEAD_ADDRESS ...\"\nray start --address=\"${RAY_HEAD_ADDRESS}\" --block\n"
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      image: kserve/huggingfaceserver:v0.15.0-gpu
+      livenessProbe:
+        exec:
+          command:
+          - bash
+          - -c
+          - |
+            export RAY_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
+            python ./huggingfaceserver/health_check.py registered_nodes --probe_name worker_liveness
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      name: worker-container
+      resources:
+        limits:
+          cpu: "4"
+          memory: 12Gi
+        requests:
+          cpu: "2"
+          memory: 6Gi
+      startupProbe:
+        exec:
+          command:
+          - bash
+          - -c
+          - |
+            export RAY_HEAD_NODE=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local
+            export RAY_ADDRESS=${RAY_HEAD_NODE}:6379
+            python ./huggingfaceserver/health_check.py registered_node_and_runtime_models --runtime_url http://${RAY_HEAD_NODE}:8080/v1/models --probe_name worker_startup
+        failureThreshold: 40
+        initialDelaySeconds: 60
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 30
+      volumeMounts:
+      - mountPath: /dev/shm
+        name: shm
+    pipelineParallelSize: 2
+    tensorParallelSize: 1
+    volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 3Gi
+      name: shm
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-lgbserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    - --nthread=1
+    image: kserve/lgbserver:v0.15.0
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: lightgbm
+    priority: 1
+    version: "3"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-mlserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - env:
+    - name: MLSERVER_MODEL_IMPLEMENTATION
+      value: '{{.Labels.modelClass}}'
+    - name: MLSERVER_HTTP_PORT
+      value: "8080"
+    - name: MLSERVER_GRPC_PORT
+      value: "9000"
+    - name: MODELS_DIR
+      value: /mnt/models
+    image: docker.io/seldonio/mlserver:1.5.0
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: sklearn
+    priority: 2
+    version: "0"
+  - autoSelect: true
+    name: sklearn
+    priority: 2
+    version: "1"
+  - autoSelect: true
+    name: xgboost
+    priority: 2
+    version: "1"
+  - autoSelect: true
+    name: xgboost
+    priority: 2
+    version: "2"
+  - autoSelect: true
+    name: lightgbm
+    priority: 2
+    version: "3"
+  - autoSelect: true
+    name: lightgbm
+    priority: 2
+    version: "4"
+  - autoSelect: true
+    name: mlflow
+    priority: 1
+    version: "1"
+  - autoSelect: true
+    name: mlflow
+    priority: 1
+    version: "2"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-paddleserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    image: kserve/paddleserver:v0.15.0
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: paddle
+    priority: 1
+    version: "2"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-pmmlserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    image: kserve/pmmlserver:v0.15.0
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: pmml
+    priority: 1
+    version: "3"
+  - autoSelect: true
+    name: pmml
+    priority: 1
+    version: "4"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-sklearnserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    image: kserve/sklearnserver:v0.15.0
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: sklearn
+    priority: 1
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-tensorflow-serving
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --port=9000
+    - --rest_api_port=8080
+    - --model_base_path=/mnt/models
+    - --rest_api_timeout_in_ms=60000
+    command:
+    - /usr/bin/tensorflow_model_server
+    image: tensorflow/serving:2.6.2
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+      runAsUser: 1000
+  protocolVersions:
+  - v1
+  - grpc-v1
+  supportedModelFormats:
+  - autoSelect: true
+    name: tensorflow
+    priority: 2
+    version: "1"
+  - autoSelect: true
+    name: tensorflow
+    priority: 2
+    version: "2"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-torchserve
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8082"
+  containers:
+  - args:
+    - torchserve
+    - --start
+    - --model-store=/mnt/models/model-store
+    - --ts-config=/mnt/models/config/config.properties
+    env:
+    - name: TS_SERVICE_ENVELOPE
+      value: '{{.Labels.serviceEnvelope}}'
+    image: pytorch/torchserve-kfs:0.9.0
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+      runAsUser: 1000
+  protocolVersions:
+  - v1
+  - v2
+  - grpc-v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: pytorch
+    priority: 2
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-tritonserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8002"
+  containers:
+  - args:
+    - tritonserver
+    - --model-store=/mnt/models
+    - --grpc-port=9000
+    - --http-port=8080
+    - --allow-grpc=true
+    - --allow-http=true
+    image: nvcr.io/nvidia/tritonserver:23.05-py3
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+      runAsUser: 1000
+  protocolVersions:
+  - v2
+  - grpc-v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: tensorrt
+    priority: 1
+    version: "8"
+  - autoSelect: true
+    name: tensorflow
+    priority: 1
+    version: "1"
+  - autoSelect: true
+    name: tensorflow
+    priority: 1
+    version: "2"
+  - autoSelect: true
+    name: onnx
+    priority: 1
+    version: "1"
+  - name: pytorch
+    version: "1"
+  - autoSelect: true
+    name: triton
+    priority: 1
+    version: "2"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-xgbserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    - --nthread=1
+    image: kserve/xgbserver:v0.15.0
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: xgboost
+    priority: 1
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterStorageContainer
+metadata:
+  name: default
+spec:
+  container:
+    image: kserve/storage-initializer:v0.15.0
+    name: storage-initializer
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+  supportedUriFormats:
+  - prefix: gs://
+  - prefix: s3://
+  - prefix: hdfs://
+  - prefix: hf://
+  - prefix: webhdfs://
+  - regex: https://(.+?).blob.core.windows.net/(.+)
+  - regex: https://(.+?).file.core.windows.net/(.+)
+  - regex: https?://(.+)/(.+)
+  workloadType: initContainer

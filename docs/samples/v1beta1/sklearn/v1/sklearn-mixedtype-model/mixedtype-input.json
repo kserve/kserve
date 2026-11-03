@@ -1,0 +1,5 @@
+{
+    "instances": [
+        {"MSZoning": "RL", "LotArea": 8450, "LotShape": "Reg", "Utilities": "AllPub", "YrSold": 2008, "Neighborhood": "CollgCr", "OverallQual": 7, "YearBuilt": 2003, "SaleType": "WD", "GarageArea": 548}
+    ]
+}

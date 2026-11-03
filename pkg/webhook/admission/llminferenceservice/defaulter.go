@@ -1,0 +1,261 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package llminferenceservice
+
+import (
+	"context"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/localmodelcache"
+)
+
+var defaulterLogger = logf.Log.WithName("llminferenceservice-defaulter")
+
+// +kubebuilder:object:generate=false
+// +k8s:openapi-gen=false
+
+// +kubebuilder:webhook:path=/mutate-serving-kserve-io-v1alpha1-llminferenceservice,mutating=true,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha1,name=llminferenceservice.kserve-webhook-server.v1alpha1.defaulter,admissionReviewVersions=v1
+
+// LLMInferenceServiceDefaulterV1Alpha1 sets local model cache labels on v1alpha1 LLMInferenceService resources.
+type LLMInferenceServiceDefaulterV1Alpha1 struct {
+	Client    client.Client
+	Clientset kubernetes.Interface
+}
+
+var _ admission.Defaulter[*v1alpha1.LLMInferenceService] = &LLMInferenceServiceDefaulterV1Alpha1{}
+
+func (d *LLMInferenceServiceDefaulterV1Alpha1) Default(ctx context.Context, typedObj *v1alpha1.LLMInferenceService) error {
+	llmSvcV2 := &v1alpha2.LLMInferenceService{}
+	if err := typedObj.ConvertTo(llmSvcV2); err != nil {
+		defaulterLogger.Error(err, "Unable to convert v1alpha1 object to LLMInferenceService v1alpha2")
+		return err
+	}
+	if err := d.applyDefaults(ctx, llmSvcV2); err != nil {
+		return err
+	}
+	if err := typedObj.ConvertFrom(llmSvcV2); err != nil {
+		defaulterLogger.Error(err, "Unable to convert LLMInferenceService v1alpha2 object back to v1alpha1")
+		return err
+	}
+	return nil
+}
+
+// +kubebuilder:webhook:path=/mutate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=true,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.defaulter,admissionReviewVersions=v1
+
+// LLMInferenceServiceDefaulterV1Alpha2 sets local model cache labels on v1alpha2 LLMInferenceService resources.
+type LLMInferenceServiceDefaulterV1Alpha2 struct {
+	Client    client.Client
+	Clientset kubernetes.Interface
+}
+
+var _ admission.Defaulter[*v1alpha2.LLMInferenceService] = &LLMInferenceServiceDefaulterV1Alpha2{}
+
+func (d *LLMInferenceServiceDefaulterV1Alpha2) Default(ctx context.Context, typedObj *v1alpha2.LLMInferenceService) error {
+	return d.applyDefaults(ctx, typedObj)
+}
+
+// LLMInferenceServiceDefaulter is kept for shared tests and local usage.
+// Production registration uses version-specific defaulters.
+type LLMInferenceServiceDefaulter struct {
+	Client    client.Client
+	Clientset kubernetes.Interface
+}
+
+var _ admission.Defaulter[runtime.Object] = &LLMInferenceServiceDefaulter{}
+
+func (d *LLMInferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	switch typedObj := obj.(type) {
+	case *v1alpha2.LLMInferenceService:
+		return applyDefaults(ctx, d.Client, d.Clientset, typedObj)
+	case *v1alpha1.LLMInferenceService:
+		llmSvcV2 := &v1alpha2.LLMInferenceService{}
+		if err := typedObj.ConvertTo(llmSvcV2); err != nil {
+			defaulterLogger.Error(err, "Unable to convert v1alpha1 object to LLMInferenceService v1alpha2")
+			return err
+		}
+		if err := applyDefaults(ctx, d.Client, d.Clientset, llmSvcV2); err != nil {
+			return err
+		}
+		if err := typedObj.ConvertFrom(llmSvcV2); err != nil {
+			defaulterLogger.Error(err, "Unable to convert LLMInferenceService v1alpha2 object back to v1alpha1")
+			return err
+		}
+		return nil
+	default:
+		err := fmt.Errorf("unsupported object type %T for LLMInferenceService defaulter", obj)
+		defaulterLogger.Error(err, "Unable to convert object to LLMInferenceService")
+		return err
+	}
+}
+
+func (d *LLMInferenceServiceDefaulterV1Alpha1) applyDefaults(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	return applyDefaults(ctx, d.Client, d.Clientset, llmSvc)
+}
+
+func (d *LLMInferenceServiceDefaulterV1Alpha2) applyDefaults(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	return applyDefaults(ctx, d.Client, d.Clientset, llmSvc)
+}
+
+func applyDefaults(
+	ctx context.Context,
+	k8sClient client.Client,
+	clientset kubernetes.Interface,
+	llmSvc *v1alpha2.LLMInferenceService,
+) error {
+	llmSvc.SetDefaults(ctx)
+
+	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+	if err != nil {
+		defaulterLogger.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		return err
+	}
+	localModelConfig, err := v1beta1.NewLocalModelConfig(configMap)
+	if err != nil {
+		return err
+	}
+
+	_, localModelDisabled := llmSvc.Annotations[constants.DisableLocalModelKey]
+	if !localModelDisabled && localModelConfig.Enabled {
+		models := &v1alpha1.LocalModelCacheList{}
+		if err := k8sClient.List(ctx, models); err != nil {
+			defaulterLogger.Error(err, "Cannot list local models")
+			return err
+		}
+		nsModels := &v1alpha1.LocalModelNamespaceCacheList{}
+		if err := k8sClient.List(ctx, nsModels, client.InNamespace(llmSvc.Namespace)); err != nil {
+			defaulterLogger.Error(err, "Cannot list namespace-scoped local models", "namespace", llmSvc.Namespace)
+			return err
+		}
+		SetLocalModelLabel(llmSvc, models, nsModels)
+	} else {
+		DeleteLocalModelMetadata(llmSvc)
+	}
+
+	return nil
+}
+
+// SetLocalModelLabel sets local model labels on the LLMInferenceService if a matching cache exists.
+// Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
+// LoRA adapter URIs are matched independently and recorded in the LoRA JSON annotation.
+func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
+	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
+
+	modelUri := llmSvc.Spec.Model.URI.String()
+	if match := localmodelcache.MatchCacheForURI(modelUri, isvcNodeGroup, isvcNodeGroupExists, models, nsModels); match != nil {
+		applyBaseLocalModelCache(llmSvc, match)
+	} else {
+		clearBaseLocalModelMetadata(llmSvc)
+	}
+
+	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists)
+}
+
+func applyBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, match *localmodelcache.CacheEntry) {
+	if llmSvc.Labels == nil {
+		llmSvc.Labels = make(map[string]string)
+	}
+	if llmSvc.Annotations == nil {
+		llmSvc.Annotations = make(map[string]string)
+	}
+	llmSvc.Labels[constants.LocalModelLabel] = match.Cache
+	if match.Namespace != "" {
+		llmSvc.Labels[constants.LocalModelNamespaceLabel] = match.Namespace
+		defaulterLogger.Info("LocalModelNamespaceCache found", "model", match.Cache,
+			"modelNamespace", match.Namespace, "llmSvcNamespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+	} else {
+		delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
+		defaulterLogger.Info("LocalModelCache found", "model", match.Cache, "namespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+	}
+	llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = match.SourceURI
+	llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = match.PVCName
+}
+
+func setLoRALocalModelMetadata(
+	llmSvc *v1alpha2.LLMInferenceService,
+	models *v1alpha1.LocalModelCacheList,
+	nsModels *v1alpha1.LocalModelNamespaceCacheList,
+	nodeGroup string,
+	nodeGroupExists bool,
+) {
+	if llmSvc.Spec.Model.LoRA == nil || len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
+		clearLoRALocalModelMetadata(llmSvc)
+		return
+	}
+
+	entries := make(map[string]localmodelcache.CacheEntry)
+	for _, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
+		if adapter.Name == nil {
+			continue
+		}
+		adapterURI := adapter.URI.String()
+		if match := localmodelcache.MatchCacheForURI(adapterURI, nodeGroup, nodeGroupExists, models, nsModels); match != nil {
+			// json:"-" omits sourceUri/PVC from the annotation; reconcile-time Get derives them.
+			entries[*adapter.Name] = *match
+			defaulterLogger.Info("LocalModelCache found for LoRA adapter", "adapter", *adapter.Name,
+				"cache", match.Cache, "llmSvc", llmSvc.Name)
+		}
+	}
+
+	if len(entries) == 0 {
+		clearLoRALocalModelMetadata(llmSvc)
+		return
+	}
+
+	raw, err := localmodelcache.MarshalLoRACacheAnnotation(entries)
+	if err != nil {
+		defaulterLogger.Error(err, "Failed to marshal LoRA local model cache annotation", "llmSvc", llmSvc.Name)
+		clearLoRALocalModelMetadata(llmSvc)
+		return
+	}
+	if llmSvc.Annotations == nil {
+		llmSvc.Annotations = make(map[string]string)
+	}
+	llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey] = raw
+}
+
+func clearBaseLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+	if llmSvc.Labels != nil {
+		delete(llmSvc.Labels, constants.LocalModelLabel)
+		delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
+	}
+	if llmSvc.Annotations != nil {
+		delete(llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
+		delete(llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+	}
+}
+
+func clearLoRALocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+	if llmSvc.Annotations != nil {
+		delete(llmSvc.Annotations, constants.LocalModelLoRAAnnotationKey)
+	}
+}
+
+// DeleteLocalModelMetadata removes local model cache internal labels and annotations.
+func DeleteLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+	clearBaseLocalModelMetadata(llmSvc)
+	clearLoRALocalModelMetadata(llmSvc)
+}

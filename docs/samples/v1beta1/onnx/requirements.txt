@@ -1,0 +1,5 @@
+jupyter
+numpy
+pillow
+protobuf
+requests

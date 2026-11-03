@@ -1,0 +1,1277 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package llmisvc_test
+
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/yaml"
+
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+
+	kservetesting "github.com/kserve/kserve/pkg/testing"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+)
+
+// TODO(webhook): re-use webhook logic to do the spec merge and validation
+func TestPresetFiles(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	kserveSystemConfig := llmisvc.Config{
+		SystemNamespace:         "kserve",
+		IngressGatewayName:      "kserve-ingress-gateway",
+		IngressGatewayNamespace: "kserve",
+	}
+
+	tt := map[string]struct {
+		expected *v1alpha2.LLMInferenceServiceConfig
+	}{
+		"config-llm-decode-worker-data-parallel.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-llm-decode-worker-data-parallel",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "home",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "dshm",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											Medium:    corev1.StorageMediumMemory,
+											SizeLimit: ptr.To(resource.MustParse("8Gi")),
+										},
+									},
+								},
+								{
+									Name: "model-cache",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name:         "tls-certs",
+									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
+								},
+							},
+							InitContainers: []corev1.Container{
+								{
+									Name:  "llm-d-routing-sidecar",
+									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0",
+									Command: []string{
+										"/app/pd-sidecar",
+										"--port=8000",
+										"--model-server-port=8001",
+										"--kv-connector=nixlv2",
+										"--enable-ssrf-protection=true",
+										"--pool-group=inference.networking.x-k8s.io",
+										"--inference-pool=test-llm-preset-test/test-llm-preset-inference-pool",
+										"--secure-proxy=false",
+										"",
+										"",
+										"",
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name: "INFERENCE_POOL_NAMESPACE",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.namespace",
+												},
+											},
+										},
+										{
+											Name:  "SSL_CERT_DIR",
+											Value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs",
+										},
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 8000,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									SecurityContext: &corev1.SecurityContext{
+										AllowPrivilegeEscalation: ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
+										Capabilities: &corev1.Capabilities{
+											Drop: []corev1.Capability{"ALL"},
+										},
+										ReadOnlyRootFilesystem: ptr.To(false),
+										SeccompProfile: &corev1.SeccompProfile{
+											Type: corev1.SeccompProfileTypeRuntimeDefault,
+										},
+									},
+									RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "FallbackToLogsOnError",
+									ImagePullPolicy:          "IfNotPresent",
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "tls-certs",
+											ReadOnly:  true,
+											MountPath: "/var/run/kserve/tls",
+										},
+									},
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										InitialDelaySeconds: 10,
+										TimeoutSeconds:      5,
+										PeriodSeconds:       10,
+										FailureThreshold:    10,
+									},
+									LivenessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										InitialDelaySeconds: 10,
+										TimeoutSeconds:      10,
+										PeriodSeconds:       10,
+										FailureThreshold:    3,
+									},
+								},
+							},
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 8001,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{
+											Name:  "HOME",
+											Value: "/home",
+										},
+										{
+											Name:  "VLLM_LOGGING_LEVEL",
+											Value: "INFO",
+										},
+										{
+											Name:  "HF_HUB_CACHE",
+											Value: "/models",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "home",
+											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
+										},
+										{
+											Name:      "dshm",
+											MountPath: "/dev/shm",
+										},
+										{
+											Name:      "model-cache",
+											MountPath: "/models",
+										},
+										{
+											Name:      "tls-certs",
+											ReadOnly:  true,
+											MountPath: "/var/run/kserve/tls",
+										},
+									},
+									LivenessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8001),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+
+										TimeoutSeconds:   1,
+										PeriodSeconds:    10,
+										FailureThreshold: 10,
+									},
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8001),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+
+										TimeoutSeconds:   1,
+										PeriodSeconds:    1,
+										FailureThreshold: 2,
+									},
+									StartupProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8001),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										FailureThreshold: 60,
+										PeriodSeconds:    10,
+									},
+									Lifecycle: &corev1.Lifecycle{
+										PreStop: &corev1.LifecycleHandler{
+											Exec: &corev1.ExecAction{
+												Command: []string{"/bin/sleep", "15"},
+											},
+										},
+									},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "FallbackToLogsOnError",
+									ImagePullPolicy:          "IfNotPresent",
+									SecurityContext: &corev1.SecurityContext{
+										Capabilities: &corev1.Capabilities{
+											Add: []corev1.Capability{
+												"IPC_LOCK",
+												"SYS_RAWIO",
+												"NET_RAW",
+											},
+											Drop: []corev1.Capability{"ALL"},
+										},
+										AllowPrivilegeEscalation: ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
+										SeccompProfile: &corev1.SeccompProfile{
+											Type: corev1.SeccompProfileTypeRuntimeDefault,
+										},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(60)),
+						},
+						Worker: &corev1.PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "home",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "dshm",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											Medium:    corev1.StorageMediumMemory,
+											SizeLimit: ptr.To(resource.MustParse("8Gi")),
+										},
+									},
+								},
+								{
+									Name: "model-cache",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name:         "tls-certs",
+									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(60)),
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 8001,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "home",
+											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
+										},
+										{
+											Name:      "dshm",
+											MountPath: "/dev/shm",
+										},
+										{
+											Name:      "model-cache",
+											MountPath: "/models",
+										},
+										{
+											Name:      "tls-certs",
+											ReadOnly:  true,
+											MountPath: "/var/run/kserve/tls",
+										},
+									},
+									SecurityContext: &corev1.SecurityContext{
+										Capabilities: &corev1.Capabilities{
+											Add: []corev1.Capability{
+												"IPC_LOCK",
+												"SYS_RAWIO",
+												"NET_RAW",
+											},
+											Drop: []corev1.Capability{"ALL"},
+										},
+										AllowPrivilegeEscalation: ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
+										SeccompProfile: &corev1.SeccompProfile{
+											Type: corev1.SeccompProfileTypeRuntimeDefault,
+										},
+									},
+									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{
+											Name:  "HOME",
+											Value: "/home",
+										},
+										{
+											Name:  "VLLM_LOGGING_LEVEL",
+											Value: "INFO",
+										},
+										{
+											Name:  "HF_HUB_CACHE",
+											Value: "/models",
+										},
+										{
+											Name: "VLLM_NIXL_SIDE_CHANNEL_HOST",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "status.podIP",
+												},
+											},
+										},
+										{
+											Name:  "VLLM_RANDOMIZE_DP_DUMMY_INPUTS",
+											Value: "1",
+										},
+									},
+									Lifecycle: &corev1.Lifecycle{
+										PreStop: &corev1.LifecycleHandler{
+											Exec: &corev1.ExecAction{
+												Command: []string{"/bin/sleep", "15"},
+											},
+										},
+									},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "FallbackToLogsOnError",
+									ImagePullPolicy:          "IfNotPresent",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"config-llm-template.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-llm-template",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "home",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "dshm",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											Medium:    corev1.StorageMediumMemory,
+											SizeLimit: ptr.To(resource.MustParse("1Gi")),
+										},
+									},
+								},
+								{
+									Name: "model-cache",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name:         "tls-certs",
+									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
+								},
+							},
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 8000,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{
+											Name:  "HOME",
+											Value: "/home",
+										},
+										{
+											Name:  "VLLM_LOGGING_LEVEL",
+											Value: "INFO",
+										},
+										{
+											Name:  "HF_HUB_CACHE",
+											Value: "/models",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "home",
+											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
+										},
+										{
+											Name:      "dshm",
+											MountPath: "/dev/shm",
+										},
+										{
+											Name:      "model-cache",
+											MountPath: "/models",
+										},
+										{
+											Name:      "tls-certs",
+											ReadOnly:  true,
+											MountPath: "/var/run/kserve/tls",
+										},
+									},
+									LivenessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+
+										TimeoutSeconds:   1,
+										PeriodSeconds:    10,
+										FailureThreshold: 10,
+									},
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+
+										TimeoutSeconds:   1,
+										PeriodSeconds:    1,
+										FailureThreshold: 2,
+									},
+									StartupProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										FailureThreshold: 60,
+										PeriodSeconds:    10,
+									},
+									Lifecycle: &corev1.Lifecycle{
+										PreStop: &corev1.LifecycleHandler{
+											Exec: &corev1.ExecAction{
+												Command: []string{"/bin/sleep", "15"},
+											},
+										},
+									},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "FallbackToLogsOnError",
+									ImagePullPolicy:          "IfNotPresent",
+									SecurityContext: &corev1.SecurityContext{
+										Capabilities: &corev1.Capabilities{
+											Drop: []corev1.Capability{"ALL"},
+										},
+										AllowPrivilegeEscalation: ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
+										SeccompProfile: &corev1.SeccompProfile{
+											Type: corev1.SeccompProfileTypeRuntimeDefault,
+										},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(60)),
+						},
+					},
+				},
+			},
+		},
+		"config-sglang-template.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-sglang-template",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "home",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "dshm",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											Medium:    corev1.StorageMediumMemory,
+											SizeLimit: ptr.To(resource.MustParse("1Gi")),
+										},
+									},
+								},
+								{
+									Name: "model-cache",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "",
+									Command: []string{
+										"/bin/bash",
+										"-c",
+										"args=(\n" +
+											"  python3 -m sglang.launch_server\n" +
+											"  --model-path /mnt/models\n" +
+											"  --served-model-name \"llama\"\n" +
+											"  --port 8000\n" +
+											"  --host 0.0.0.0\n" +
+											" --tp 1\n" +
+											")\n" +
+											"exec \"${args[@]}\" \"$@\"",
+										"--",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 8000,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  "HOME",
+											Value: "/home",
+										},
+										{
+											Name:  "HF_HUB_CACHE",
+											Value: "/models",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "home",
+											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
+										},
+										{
+											Name:      "dshm",
+											MountPath: "/dev/shm",
+										},
+										{
+											Name:      "model-cache",
+											MountPath: "/models",
+										},
+									},
+									LivenessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										TimeoutSeconds:   10,
+										PeriodSeconds:    10,
+										FailureThreshold: 3,
+									},
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										TimeoutSeconds:   5,
+										PeriodSeconds:    10,
+										FailureThreshold: 60,
+									},
+									StartupProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										FailureThreshold: 60,
+										PeriodSeconds:    10,
+										TimeoutSeconds:   10,
+									},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "FallbackToLogsOnError",
+									ImagePullPolicy:          "IfNotPresent",
+									SecurityContext: &corev1.SecurityContext{
+										Capabilities: &corev1.Capabilities{
+											Drop: []corev1.Capability{"ALL"},
+										},
+										AllowPrivilegeEscalation: ptr.To(false),
+										ReadOnlyRootFilesystem:   ptr.To(true),
+										SeccompProfile: &corev1.SeccompProfile{
+											Type: corev1.SeccompProfileTypeRuntimeDefault,
+										},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	remaining := llmisvc.WellKnownDefaultConfigs.Clone()
+
+	_ = filepath.Walk(presetsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			t.Errorf("Failed to walk %s: %v", path, err)
+			return err
+		}
+
+		filename := info.Name()
+		if info.IsDir() || !strings.HasSuffix(filename, ".yaml") || !strings.HasPrefix(filename, "config-") {
+			return nil
+		}
+
+		t.Run(filename, func(t *testing.T) {
+			filePath := filepath.Join(presetsDir, filename)
+			data, err := os.ReadFile(filepath.Clean(filePath))
+			if err != nil {
+				t.Errorf("Failed to read file %s: %v", filePath, err)
+				return
+			}
+
+			config := loadConfig(t, data, filePath)
+
+			name := config.Name
+			if !llmisvc.WellKnownDefaultConfigs.Has(name) {
+				t.Fatalf("Expected %s to exist in WellKnownDefaultConfigs %#v", name, llmisvc.WellKnownDefaultConfigs)
+			}
+			// Remove from the tracked set
+			remaining = remaining.Delete(name)
+
+			out, err := llmisvc.ReplaceVariables(llmSvc, config, &kserveSystemConfig)
+			if err != nil {
+				t.Errorf("ReplaceVariables() failed for %s: %v", filename, err)
+			}
+
+			// Verify the actual Spec rendered if provided for the found file.
+			if tc, exist := tt[filename]; exist {
+				if !equality.Semantic.DeepDerivative(tc.expected, out) {
+					diff := cmp.Diff(tc.expected, out)
+					t.Errorf("ReplaceVariables() returned unexpected diff (-want +got):\n%s", diff)
+				}
+			}
+		})
+
+		return nil
+	})
+
+	if remaining.Len() > 0 {
+		t.Errorf("Found %d remaining well-known-configs that are missing as manifest files: %#v", remaining.Len(), remaining)
+	}
+}
+
+// TestSingleNodeTensorParallelRendered verifies that spec.parallelism.tensor
+// is rendered into --tensor-parallel-size for single-node (no Worker) templates.
+// Regression test for https://github.com/kserve/kserve/issues/5773
+func TestSingleNodeTensorParallelRendered(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	tests := []struct {
+		name     string
+		file     string
+		llmSvc   *v1alpha2.LLMInferenceService
+		wantFlag string // substring to find; empty means --tensor-parallel-size must be absent
+	}{
+		{
+			name: "single-node base template",
+			file: "config-llm-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{Tensor: ptr.To[int32](2)},
+					},
+				},
+			},
+			wantFlag: "--tensor-parallel-size 2",
+		},
+		{
+			name: "single-node decode template (P/D)",
+			file: "config-llm-decode-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{Tensor: ptr.To[int32](4)},
+					},
+				},
+			},
+			wantFlag: "--tensor-parallel-size 4",
+		},
+		{
+			name: "single-node prefill template (P/D)",
+			file: "config-llm-prefill-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					Prefill: &v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{Tensor: ptr.To[int32](2)},
+					},
+				},
+			},
+			wantFlag: "--tensor-parallel-size 2",
+		},
+		{
+			name: "single-node base template - no parallelism omits flag",
+			file: "config-llm-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filePath := filepath.Join(presetsDir, tt.file)
+			data, err := os.ReadFile(filepath.Clean(filePath))
+			if err != nil {
+				t.Fatalf("read %s: %v", tt.file, err)
+			}
+			config := loadConfig(t, data, tt.file)
+
+			got, err := llmisvc.ReplaceVariables(tt.llmSvc, config, &llmisvc.Config{})
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+
+			var containers []corev1.Container
+			switch {
+			case got.Spec.Prefill != nil && got.Spec.Prefill.Template != nil:
+				containers = got.Spec.Prefill.Template.Containers
+			case got.Spec.Template != nil:
+				containers = got.Spec.Template.Containers
+			}
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container")
+			}
+
+			cmd := strings.Join(containers[0].Command, " ")
+			if tt.wantFlag != "" {
+				if !strings.Contains(cmd, tt.wantFlag) {
+					t.Errorf("rendered command does not contain %q:\n%s", tt.wantFlag, cmd)
+				}
+			} else {
+				if strings.Contains(cmd, "--tensor-parallel-size") {
+					t.Errorf("rendered command should not contain --tensor-parallel-size:\n%s", cmd)
+				}
+			}
+		})
+	}
+}
+
+// TestVLLMPresetsRenderRootPath verifies that every built-in vLLM preset
+// supplies a service-specific root path for routes served through the gateway.
+func TestVLLMPresetsRenderRootPath(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	wantRootPath := "--root-path /" + llmSvc.Namespace + "/" + llmSvc.Name
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+
+		filename := entry.Name()
+		filePath := filepath.Join(presetsDir, filename)
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("read %s: %v", filename, err)
+		}
+		if !strings.Contains(string(data), `eval "exec vllm serve`) {
+			continue
+		}
+
+		t.Run(filename, func(t *testing.T) {
+			config := loadConfig(t, data, filePath)
+			rendered, err := llmisvc.ReplaceVariables(llmSvc, config, &llmisvc.Config{})
+			if err != nil {
+				t.Fatalf("render preset: %v", err)
+			}
+			renderedYAML, err := yaml.Marshal(rendered)
+			if err != nil {
+				t.Fatalf("marshal rendered preset: %v", err)
+			}
+
+			wantCount := strings.Count(string(data), `eval "exec vllm serve`)
+			if gotCount := strings.Count(string(renderedYAML), wantRootPath); gotCount != wantCount {
+				t.Errorf("rendered %d root-path flags, want %d:\n%s", gotCount, wantCount, renderedYAML)
+			}
+		})
+	}
+}
+
+func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferenceServiceConfig {
+	config := &v1alpha2.LLMInferenceServiceConfig{}
+	if err := yaml.Unmarshal(data, config); err != nil {
+		t.Errorf("Failed to unmarshal YAML from %s: %v", filePath, err)
+		return nil
+	}
+
+	expectedGroupVersion := v1alpha2.LLMInferenceServiceConfigGVK.GroupVersion().String()
+	if config.APIVersion != expectedGroupVersion {
+		t.Errorf("Expected APIVersion to be '%s', got '%s'", expectedGroupVersion, config.APIVersion)
+	}
+
+	expectedKind := v1alpha2.LLMInferenceServiceConfigGVK.Kind
+	if config.Kind != expectedKind {
+		t.Errorf("Expected Kind to be '%s', got %s", expectedKind, config.Kind)
+	}
+
+	if config.Name == "" {
+		t.Error("Expected ObjectMeta.Name to be set")
+	}
+
+	return config
+}
+
+// TestDataParallelPresetsWithoutParallelism guards the data-parallel presets
+// against a nil .spec.parallelism. The controller only selects them when
+// parallelism is set, but nothing stops a user from listing one in baseRefs
+// directly, and a nil dereference in a template aborts the whole merge.
+func TestDataParallelPresetsWithoutParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	files := []string{
+		"config-llm-worker-data-parallel.yaml",
+		"config-llm-decode-worker-data-parallel.yaml",
+		"config-llm-prefill-worker-data-parallel.yaml",
+	}
+
+	for _, file := range files {
+		t.Run(file, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, file)))
+			if err != nil {
+				t.Fatalf("read %s: %v", file, err)
+			}
+			config := loadConfig(t, data, file)
+
+			// given: neither .spec.parallelism nor .spec.prefill is set
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			}
+
+			// when
+			got, err := llmisvc.ReplaceVariables(llmSvc, config, &llmisvc.Config{})
+			// then
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+
+			var containers []corev1.Container
+			switch {
+			case got.Spec.Prefill != nil && got.Spec.Prefill.Template != nil:
+				containers = got.Spec.Prefill.Template.Containers
+			case got.Spec.Template != nil:
+				containers = got.Spec.Template.Containers
+			}
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container")
+			}
+
+			cmd := strings.Join(containers[0].Command, " ")
+			for _, want := range []string{"--data-parallel-size 1", "--data-parallel-size-local 1", "--data-parallel-rpc-port 5555"} {
+				if !strings.Contains(cmd, want) {
+					t.Errorf("rendered command does not contain %q", want)
+				}
+			}
+			for _, unwanted := range []string{"--enable-expert-parallel", "--tensor-parallel-size"} {
+				if strings.Contains(cmd, unwanted) {
+					t.Errorf("rendered command should not contain %q", unwanted)
+				}
+			}
+		})
+	}
+}
+
+// TestPresetRenderingIsIndifferentToEmptyParallelism pins the invariant behind the
+// nil-safe parallelism guards: for every shipped preset, an unset parallelism block
+// must render exactly what an empty one renders.
+func TestPresetRenderingIsIndifferentToEmptyParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets dir: %v", err)
+	}
+
+	// A prefill block only exists on disaggregated services, so cover both shapes:
+	// a preset that reads .Spec.Prefill.Parallelism is only exercised by the second.
+	shapes := map[string]func() *v1alpha2.LLMInferenceService{
+		"single-node": func() *v1alpha2.LLMInferenceService {
+			return &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			}
+		},
+		"disaggregated": func() *v1alpha2.LLMInferenceService {
+			return &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:   v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+		},
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-llm-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, entry.Name())))
+		if err != nil {
+			t.Fatalf("read %s: %v", entry.Name(), err)
+		}
+
+		for shapeName, newSvc := range shapes {
+			t.Run(entry.Name()+"/"+shapeName, func(t *testing.T) {
+				// given: the same service twice, once with parallelism absent and once
+				// with it present but empty
+				unset := newSvc()
+				empty := newSvc()
+				empty.Spec.Parallelism = &v1alpha2.ParallelismSpec{}
+				if empty.Spec.Prefill != nil {
+					empty.Spec.Prefill.Parallelism = &v1alpha2.ParallelismSpec{}
+				}
+
+				// when
+				fromUnset, err := llmisvc.ReplaceVariables(unset, loadConfig(t, data, entry.Name()), &llmisvc.Config{})
+				if err != nil {
+					t.Fatalf("ReplaceVariables with parallelism unset: %v", err)
+				}
+				fromEmpty, err := llmisvc.ReplaceVariables(empty, loadConfig(t, data, entry.Name()), &llmisvc.Config{})
+				if err != nil {
+					t.Fatalf("ReplaceVariables with empty parallelism: %v", err)
+				}
+
+				// then
+				if diff := cmp.Diff(fromEmpty, fromUnset); diff != "" {
+					t.Errorf("rendering differs between unset and empty parallelism (-empty +unset):\n%s", diff)
+				}
+			})
+		}
+	}
+}
+
+// TestPresetRenderingInvariants asserts the properties that keep rendering against the
+// merged spec equivalent to rendering against the service alone. Each one holds across
+// the shipped presets today; each would change the command of already-running workloads
+// if a future preset broke it, so they are checked here rather than left implicit.
+func TestPresetRenderingInvariants(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets dir: %v", err)
+	}
+
+	// Matches a template action that reaches into a container command or args. Those
+	// fields still hold unrendered template text when the merged spec is handed to the
+	// renderer, so substituting one leaks "{{ ... }}" into a real command, or breaks the
+	// JSON re-parse on its unescaped quotes.
+	readsTemplateText := regexp.MustCompile(`{{[^}]*\.(Command|Args)\b`)
+
+	checked := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-llm-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, entry.Name())))
+		if err != nil {
+			t.Fatalf("read %s: %v", entry.Name(), err)
+		}
+		config := loadConfig(t, data, entry.Name())
+		checked++
+
+		t.Run(entry.Name(), func(t *testing.T) {
+			if match := readsTemplateText.FindString(string(data)); match != "" {
+				t.Errorf("preset reads a field holding unrendered template text: %q", match)
+			}
+
+			// A preset supplying either of these would put a value into every service's
+			// command that the service never asked for.
+			for _, w := range []struct {
+				name string
+				spec *v1alpha2.WorkloadSpec
+			}{{"spec", &config.Spec.WorkloadSpec}, {"spec.prefill", config.Spec.Prefill}} {
+				if w.spec == nil {
+					continue
+				}
+				if w.spec.Parallelism != nil {
+					t.Errorf("%s.parallelism is set; rendering reads it from the merged spec", w.name)
+				}
+				if w.spec.KVCacheOffloading != nil {
+					t.Errorf("%s.kvCacheOffloading is set; rendering reads it from the merged spec", w.name)
+				}
+			}
+
+			// shutdownTimeout falls back to 60 when a service sets no grace period. A
+			// preset carrying anything else would change --shutdown-timeout for every
+			// service that relies on that fallback.
+			for path, pod := range podSpecs(config) {
+				if pod.TerminationGracePeriodSeconds == nil {
+					continue
+				}
+				if got := *pod.TerminationGracePeriodSeconds; got != 60 {
+					t.Errorf("%s.terminationGracePeriodSeconds is %d, not the 60 shutdownTimeout falls back to", path, got)
+				}
+			}
+		})
+	}
+
+	if checked == 0 {
+		t.Fatal("no presets checked")
+	}
+}
+
+func podSpecs(config *v1alpha2.LLMInferenceServiceConfig) map[string]*corev1.PodSpec {
+	out := map[string]*corev1.PodSpec{}
+	add := func(name string, pod *corev1.PodSpec) {
+		if pod != nil {
+			out[name] = pod
+		}
+	}
+	add("spec.template", config.Spec.Template)
+	add("spec.worker", config.Spec.Worker)
+	if p := config.Spec.Prefill; p != nil {
+		add("spec.prefill.template", p.Template)
+		add("spec.prefill.worker", p.Worker)
+	}
+	if r := config.Spec.Router; r != nil && r.Scheduler != nil {
+		add("spec.router.scheduler.template", r.Scheduler.Template)
+	}
+	return out
+}
+
+// TestSGLangTemplateNilParallelism verifies that the SGLang config template renders
+// without error when Parallelism is nil (the common single-GPU case).
+func TestSGLangTemplateNilParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	filePath := filepath.Join(presetsDir, "config-sglang-template.yaml")
+
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatalf("Failed to read config-sglang-template.yaml: %v", err)
+	}
+
+	config := loadConfig(t, data, filePath)
+
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	// Clear Parallelism to simulate single-GPU deployment (no --tp flag needed)
+	llmSvc.Spec.Parallelism = nil
+
+	kserveSystemConfig := llmisvc.Config{
+		SystemNamespace:         "kserve",
+		IngressGatewayName:      "kserve-ingress-gateway",
+		IngressGatewayNamespace: "kserve",
+	}
+
+	out, err := llmisvc.ReplaceVariables(llmSvc, config, &kserveSystemConfig)
+	if err != nil {
+		t.Fatalf("ReplaceVariables() with nil Parallelism returned unexpected error: %v", err)
+	}
+
+	// --tp flag must be absent when Parallelism.Tensor is zero/nil
+	cmd := out.Spec.Template.Containers[0].Command[2]
+	if strings.Contains(cmd, "--tp") {
+		t.Errorf("Expected no --tp flag when Parallelism.Tensor is unset, got command: %q", cmd)
+	}
+	if strings.Contains(cmd, "--trust-remote-code") {
+		t.Errorf("Expected no --trust-remote-code flag by default, got command: %q", cmd)
+	}
+}
+
+// TestSGLangTemplateForwardsContainerArgs verifies runtime-specific flags can be
+// supplied explicitly without a dedicated LLMInferenceService API field.
+func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	filePath := filepath.Join(presetsDir, "config-sglang-template.yaml")
+
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatalf("Failed to read config-sglang-template.yaml: %v", err)
+	}
+
+	config := loadConfig(t, data, filePath)
+
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	llmSvc.Spec.Template = &corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Name: "main",
+			Args: []string{"--trust-remote-code"},
+		}},
+	}
+
+	mergedSpec, err := llmisvc.MergeSpecs(t.Context(), config.Spec, llmSvc.Spec)
+	if err != nil {
+		t.Fatalf("MergeSpecs() returned unexpected error: %v", err)
+	}
+	config.Spec = mergedSpec
+	effectiveSvc := llmSvc.DeepCopy()
+	effectiveSvc.Spec = mergedSpec
+
+	kserveSystemConfig := llmisvc.Config{
+		SystemNamespace:         "kserve",
+		IngressGatewayName:      "kserve-ingress-gateway",
+		IngressGatewayNamespace: "kserve",
+	}
+
+	out, err := llmisvc.ReplaceVariables(effectiveSvc, config, &kserveSystemConfig)
+	if err != nil {
+		t.Fatalf("ReplaceVariables() returned unexpected error: %v", err)
+	}
+
+	container := out.Spec.Template.Containers[0]
+	if strings.Contains(container.Command[2], "--trust-remote-code") {
+		t.Errorf("Expected no automatically injected --trust-remote-code flag, got command: %q", container.Command[2])
+	}
+	if diff := cmp.Diff([]string{"--trust-remote-code"}, container.Args); diff != "" {
+		t.Errorf("Expected explicit container args to be forwarded (-want, +got):\n%s", diff)
+	}
+}

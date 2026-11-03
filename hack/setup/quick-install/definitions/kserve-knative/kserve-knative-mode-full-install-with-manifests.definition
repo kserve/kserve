@@ -1,0 +1,18 @@
+DESCRIPTION: Install KServe Knative Mode and all related dependencies with manifests included in the script.
+EMBED_MANIFESTS: true
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+  
+INCLUDE_DEFINITIONS:
+  - ./kserve-knative-mode-dependency-install.definition
+  
+COMPONENTS:
+  - name: kserve-kustomize
+    env:
+      ENABLE_LLMISVC: false
+      ENABLE_KSERVE: true
+      INSTALL_RUNTIMES: true
+      INSTALL_LLMISVC_CONFIGS: false

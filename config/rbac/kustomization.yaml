@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- service_account.yaml
+- role.yaml
+- role_binding.yaml
+- leader_election_role.yaml
+- leader_election_role_binding.yaml
+# The role and binding authorize both kube-rbac-proxy and the controller-runtime
+# authentication/authorization filter used by --metrics-secure. Keep them when
+# removing the proxy service to use the controller's secure metrics endpoint.
+- auth_proxy_service.yaml
+- auth_proxy_role.yaml
+- auth_proxy_role_binding.yaml
+- metrics_reader_role.yaml

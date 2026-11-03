@@ -1,0 +1,61 @@
+{
+  "id": "c0d5dd7e-9bff-4a68-8cd2-b743612385ac",
+  "object": "chat.completion.chunk",
+  "created": 1709996697,
+  "model": "gpt-3.5-turbo",
+  "system_fingerprint": "fp_4f0b692a78",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "content": " intelligence",
+        "role": "assistant"
+      },
+      "logprobs": {
+        "content": [
+          {
+            "token": " intelligence",
+            "logprob": -0.00023035755,
+            "bytes": [
+              32,
+              105,
+              110,
+              116,
+              101,
+              108,
+              108,
+              105,
+              103,
+              101,
+              110,
+              99,
+              101
+            ],
+            "top_logprobs": [
+              {
+                "token": " intelligence",
+                "logprob": -0.00023035755,
+                "bytes": [
+                  32,
+                  105,
+                  110,
+                  116,
+                  101,
+                  108,
+                  108,
+                  105,
+                  103,
+                  101,
+                  110,
+                  99,
+                  101
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}

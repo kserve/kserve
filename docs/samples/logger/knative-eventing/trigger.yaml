@@ -1,0 +1,11 @@
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: message-dumper-trigger
+spec:
+  broker: default
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: message-dumper

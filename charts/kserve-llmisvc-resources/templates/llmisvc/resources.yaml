@@ -1,0 +1,30 @@
+{{- $rendered := include "kserve-common.renderMultiResourceWithPatches" (dict
+  "baseFile" "files/llmisvc/resources.yaml"
+  "patchGlob" "files/llmisvc/*-patch.yaml"
+  "certName" "llmisvc-serving-cert"
+  "context" .) }}
+{{- if .Values.kserve.llmisvc.createGIECRDs -}}
+{{ $rendered }}
+{{- else -}}
+{{- $gieCRDNames := include "llm-isvc-resources.gieCRDNames" . | fromYamlArray -}}
+{{- range $doc := splitList "\n---\n" $rendered -}}
+{{- $trimmed := trim $doc -}}
+{{- if $trimmed -}}
+{{- $parsed := fromYaml $trimmed -}}
+{{- $skip := false -}}
+{{- if and $parsed (eq (default "" $parsed.kind) "CustomResourceDefinition") -}}
+{{- $name := "" -}}
+{{- if $parsed.metadata -}}
+{{- $name = default "" $parsed.metadata.name -}}
+{{- end -}}
+{{- if has $name $gieCRDNames -}}
+{{- $skip = true -}}
+{{- end -}}
+{{- end -}}
+{{- if and $parsed (not $skip) }}
+---
+{{ $trimmed }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}

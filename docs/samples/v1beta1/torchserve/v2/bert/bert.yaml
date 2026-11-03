@@ -1,0 +1,10 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: "torchserve-bert-v2"
+spec:
+  predictor:
+    pytorch:
+      protocolVersion: v2
+      storageUri: gs://kfserving-examples/models/torchserve/bert/v2
+      # storageUri: pvc://model-pv-claim

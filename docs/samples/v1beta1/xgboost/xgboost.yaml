@@ -1,0 +1,9 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "xgboost-iris"
+spec:
+  predictor:
+    xgboost:
+      protocolVersion: "v2"
+      storageUri: "gs://kfserving-examples/models/xgboost/iris"

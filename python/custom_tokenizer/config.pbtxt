@@ -1,0 +1,46 @@
+
+name: "bert_tf_v2_large_fp16_128_v2"
+platform: "tensorflow_savedmodel"
+max_batch_size: 1
+input [
+    {
+        name: "unique_ids"
+        data_type: TYPE_INT32
+        dims: [ 1 ]
+        reshape: { shape: [ ] }
+    },
+    {
+        name: "segment_ids"
+        data_type: TYPE_INT32
+        dims: 128
+    },
+    {
+        name: "input_ids"
+        data_type: TYPE_INT32
+        dims: 128
+    },
+    {
+        name: "input_mask"
+        data_type: TYPE_INT32
+        dims: 128
+    }
+    ]
+    output [
+    {
+        name: "end_logits"
+        data_type: TYPE_FP32
+        dims: 128
+    },
+    {
+        name: "start_logits"
+        data_type: TYPE_FP32
+        dims: 128
+    }
+]
+
+instance_group [
+    {
+        count: 1
+        kind: KIND_CPU
+    }
+]

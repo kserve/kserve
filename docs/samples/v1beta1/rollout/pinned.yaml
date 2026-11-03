@@ -1,0 +1,10 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "my-model"
+spec:
+  predictor:
+    # 0% of traffic is sent to this model and all traffic goes back to previous good model
+    canaryTrafficPercent: 0
+    tensorflow:
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers-2"

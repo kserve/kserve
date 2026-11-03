@@ -1,0 +1,342 @@
+# Copyright 2024 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from argparse import Namespace
+from typing import Any, Dict, Optional, Union, AsyncGenerator
+from http import HTTPStatus
+
+import torch
+from fastapi import Request
+from vllm import AsyncEngineArgs
+from vllm.entrypoints.serve.utils.request_logger import RequestLogger
+from vllm.engine.protocol import EngineClient
+from vllm.entrypoints.openai.completion.serving import OpenAIServingCompletion
+from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
+from vllm.entrypoints.pooling.embed.serving import ServingEmbedding
+from vllm.entrypoints.pooling.scoring.serving import ServingScores
+from vllm.tool_parsers import ToolParserManager
+from vllm.entrypoints.openai.models.protocol import BaseModelPath
+from vllm.entrypoints.openai.models.serving import OpenAIServingModels
+from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
+from vllm.entrypoints.chat_utils import ChatTemplateConfig, load_chat_template
+from vllm.entrypoints.openai.engine.protocol import ErrorResponse as engineError
+from vllm.reasoning import ReasoningParserManager
+
+from kserve.protocol.rest.openai.errors import create_error_response
+from kserve.protocol.rest.openai import (
+    OpenAIEncoderModel,
+    OpenAIGenerativeModel,
+)
+from kserve.protocol.rest.openai.types import (
+    Completion,
+    ChatCompletion,
+    CompletionRequest,
+    ChatCompletionRequest,
+    EmbeddingRequest,
+    Embedding,
+    ErrorResponse,
+    RerankRequest,
+    Rerank,
+)
+from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
+
+
+class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-extension-no-member
+    engine_client: EngineClient
+    vllm_engine_args: AsyncEngineArgs = None
+    args: Namespace = None
+    ready: bool = False
+    openai_serving_models: Optional[OpenAIServingModels] = None
+    openai_serving_completion: Optional[OpenAIServingCompletion] = None
+    openai_serving_chat: Optional[OpenAIServingChat] = None
+    openai_serving_embedding: Optional[ServingEmbedding] = None
+    serving_reranking: Optional[ServingScores] = None
+
+    def __init__(
+        self,
+        model_name: str,
+        args: Namespace,
+        request_logger: Optional[RequestLogger] = None,
+    ):
+        super().__init__(model_name)
+        self.args = args
+        validate_parsed_serve_args(args)
+        engine_args = build_vllm_engine_args(args)
+        self.vllm_engine_args = engine_args
+        self.request_logger = request_logger
+        self.model_name = model_name
+        self.base_model_paths = []
+        self.log_stats = True
+        self.model_config = None
+
+    async def start_engine(self):
+        if self.args.tool_parser_plugin and len(self.args.tool_parser_plugin) > 3:
+            ToolParserManager.import_tool_parser(self.args.tool_parser_plugin)
+
+        valid_tool_parsers = ToolParserManager.list_registered()
+        if (
+            self.args.enable_auto_tool_choice
+            and self.args.tool_call_parser not in valid_tool_parsers
+        ):
+            raise KeyError(
+                f"invalid tool call parser: {self.args.tool_call_parser} "
+                f"(chose from {{ {','.join(valid_tool_parsers)} }})"
+            )
+
+        valid_reasoning_parsers = ReasoningParserManager.list_registered()
+        if (
+            reasoning_parser := self.args.structured_outputs_config.reasoning_parser
+        ) and reasoning_parser not in valid_reasoning_parsers:
+            raise KeyError(
+                f"invalid reasoning parser: {reasoning_parser} "
+                f"(chose from {{ {','.join(valid_reasoning_parsers)} }})"
+            )
+
+        if torch.cuda.is_available():
+            self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
+
+        async with build_async_engine_client_from_engine_args(
+            self.vllm_engine_args,
+        ) as engine_client:
+            self.engine_client = engine_client
+            vllm_config = self.engine_client.vllm_config
+
+            if self.args.served_model_name is not None:
+                served_model_names = self.args.served_model_name
+            else:
+                served_model_names = [self.model_name]
+
+            self.base_model_paths = [
+                BaseModelPath(name=name, model_path=self.args.model)
+                for name in served_model_names
+            ]
+
+            self.log_stats = not self.args.disable_log_stats
+            self.model_config = vllm_config.model_config
+
+            # Get supported tasks from engine
+            supported_tasks = await self.engine_client.get_supported_tasks()
+
+            resolved_chat_template = load_chat_template(self.args.chat_template)
+            chat_template_config = ChatTemplateConfig(
+                chat_template=resolved_chat_template,
+                chat_template_content_format=self.args.chat_template_content_format,
+                trust_request_chat_template=self.args.trust_request_chat_template,
+            )
+
+            self.openai_serving_models = OpenAIServingModels(
+                engine_client=self.engine_client,
+                base_model_paths=self.base_model_paths,
+                lora_modules=self.args.lora_modules,
+            )
+            await self.openai_serving_models.init_static_loras()
+
+            from vllm.entrypoints.serve.render.serving import OpenAIServingRender
+
+            openai_serving_render = OpenAIServingRender(
+                model_config=vllm_config.model_config,
+                renderer=self.engine_client.renderer,
+                model_registry=self.openai_serving_models.registry,
+                request_logger=self.request_logger,
+                chat_template=resolved_chat_template,
+                chat_template_content_format=self.args.chat_template_content_format,
+                trust_request_chat_template=self.args.trust_request_chat_template,
+                enable_auto_tools=self.args.enable_auto_tool_choice,
+                exclude_tools_when_tool_choice_none=self.args.exclude_tools_when_tool_choice_none,
+                tool_parser=self.args.tool_call_parser,
+                reasoning_parser=self.args.structured_outputs_config.reasoning_parser,
+                log_error_stack=self.args.log_error_stack,
+            )
+
+            self.openai_serving_chat = (
+                OpenAIServingChat(
+                    self.engine_client,
+                    self.openai_serving_models,
+                    self.args.response_role,
+                    openai_serving_render=openai_serving_render,
+                    request_logger=self.request_logger,
+                    chat_template=resolved_chat_template,
+                    chat_template_content_format=self.args.chat_template_content_format,
+                    trust_request_chat_template=self.args.trust_request_chat_template,
+                    return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
+                    enable_auto_tools=self.args.enable_auto_tool_choice,
+                    exclude_tools_when_tool_choice_none=self.args.exclude_tools_when_tool_choice_none,
+                    tool_parser=self.args.tool_call_parser,
+                    reasoning_parser=self.args.structured_outputs_config.reasoning_parser,
+                    enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
+                    enable_force_include_usage=self.args.enable_force_include_usage,
+                    enable_log_outputs=self.args.enable_log_outputs,
+                )
+                if "generate" in supported_tasks
+                else None
+            )
+
+            self.openai_serving_completion = (
+                OpenAIServingCompletion(
+                    self.engine_client,
+                    self.openai_serving_models,
+                    openai_serving_render=openai_serving_render,
+                    request_logger=self.request_logger,
+                    return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
+                    enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
+                    enable_force_include_usage=self.args.enable_force_include_usage,
+                )
+                if "generate" in supported_tasks
+                else None
+            )
+
+            self.openai_serving_embedding = (
+                ServingEmbedding(
+                    self.engine_client,
+                    self.openai_serving_models,
+                    request_logger=self.request_logger,
+                    chat_template_config=chat_template_config,
+                    log_error_stack=self.args.log_error_stack,
+                )
+                if "embed" in supported_tasks
+                else None
+            )
+
+            self.serving_reranking = (
+                ServingScores(
+                    self.engine_client,
+                    self.openai_serving_models,
+                    supported_tasks=supported_tasks,
+                    request_logger=self.request_logger,
+                    chat_template_config=chat_template_config,
+                    enable_flash_late_interaction=getattr(
+                        self.args, "enable_flash_late_interaction", True
+                    ),
+                    log_error_stack=self.args.log_error_stack,
+                )
+                if ("embed" in supported_tasks or "classify" in supported_tasks)
+                else None
+            )
+
+        self.ready = True
+        return self.ready
+
+    def load(self) -> bool:
+        self.engine = True
+        return False
+
+    def start(self):
+        pass
+
+    def stop_engine(self):
+        if self.engine_client:
+            # V1 AsyncLLM only (V0 is deprecated)
+            self.engine_client.shutdown()
+        self.ready = False
+
+    async def healthy(self) -> bool:
+        # check_health() may throw exceptions which are caught in OpenAIEndpoints class
+        await self.engine_client.check_health()
+        return True
+
+    async def create_completion(
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
+        if self.openai_serving_completion is None:
+            return create_error_response(
+                message="The model does not support Completions API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
+        response = await self.openai_serving_completion.create_completion(
+            request, raw_request
+        )
+
+        if isinstance(response, engineError):
+            return create_error_response(
+                message=response.error.message,
+                err_type=response.error.type,
+                param=getattr(response.error, "param", None),
+                status_code=HTTPStatus(response.error.code),
+            )
+
+        return response
+
+    async def create_chat_completion(
+        self,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
+        if self.openai_serving_chat is None:
+            return create_error_response(
+                message="The model does not support Chat Completions API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
+        response = await self.openai_serving_chat.create_chat_completion(
+            request, raw_request
+        )
+
+        if isinstance(response, engineError):
+            return create_error_response(
+                message=response.error.message,
+                err_type=response.error.type,
+                param=getattr(response.error, "param", None),
+                status_code=HTTPStatus(response.error.code),
+            )
+
+        return response
+
+    async def create_embedding(
+        self,
+        request: EmbeddingRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
+        if self.openai_serving_embedding is None:
+            return create_error_response(
+                message="The model does not support Embeddings API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
+        response = await self.openai_serving_embedding(request, raw_request)
+
+        if isinstance(response, engineError):
+            return create_error_response(
+                message=response.error.message,
+                err_type=response.error.type,
+                param=getattr(response.error, "param", None),
+                status_code=HTTPStatus(response.error.code),
+            )
+
+        return response
+
+    async def create_rerank(
+        self,
+        request: RerankRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Rerank, ErrorResponse]:
+        if self.serving_reranking is None:
+            return create_error_response(
+                message="The model does not support Rerank API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
+        response = await self.serving_reranking(request, raw_request)
+
+        if isinstance(response, engineError):
+            return create_error_response(
+                message=response.error.message,
+                err_type=response.error.type,
+                param=getattr(response.error, "param", None),
+                status_code=HTTPStatus(response.error.code),
+            )
+
+        return response

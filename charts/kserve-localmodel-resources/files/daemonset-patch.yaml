@@ -1,0 +1,22 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-localmodelnode-agent
+spec:
+  template:
+    spec:
+      {{- with .Values.kserve.localmodelnode.controller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      tolerations:
+        {{- toYaml (.Values.kserve.localmodelnode.controller.tolerations | default list) | nindent 8 }}
+      affinity:
+        {{- toYaml (.Values.kserve.localmodelnode.controller.affinity | default dict) | nindent 8 }}
+      containers:
+      - name: manager
+        image: "{{ .Values.kserve.localmodelnode.controller.image }}:{{ .Values.kserve.localmodelnode.controller.tag | default .Values.kserve.version }}"
+        imagePullPolicy: {{ .Values.kserve.localmodelnode.controller.imagePullPolicy }}
+        resources:
+          {{- toYaml .Values.kserve.localmodelnode.controller.resources | nindent 10 }}

@@ -1,0 +1,31 @@
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  someName: someValue
+
+# Each entry in this list must resolve to an existing
+# resource definition in YAML.  These are the resource
+# files that kustomize reads, modifies and emits as a
+# YAML string, with resources separated by document
+# markers ("---").
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- full
+
+patches:
+# Fix for https://github.com/kubernetes/kubernetes/issues/91395
+- path: patches/protocol.yaml
+  target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: inferenceservices.serving.kserve.io
+
+# Work around for https://github.com/kubernetes-sigs/kustomize/issues/5031. Can be removed once the issue is fixed.
+- patch: |-
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      creationTimestamp: null
+      name: inferenceservices.serving.kserve.io

@@ -1,0 +1,10 @@
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: "TrainedModel"
+metadata:
+  name: "simple-string"
+spec:
+  inferenceService: triton-mms
+  model:
+    framework: tensorflow 
+    storageUri: gs://kfserving-examples/models/triton/simple_string
+    memory: "1Gi"

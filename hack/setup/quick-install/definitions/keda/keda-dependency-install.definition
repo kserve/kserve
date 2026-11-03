@@ -1,0 +1,11 @@
+DESCRIPTION: Install KEDA dependencies only
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+  
+COMPONENTS:
+  - name: keda
+  - name: keda-otel-addon
+  - name: opentelemetry

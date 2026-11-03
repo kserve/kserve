@@ -1,0 +1,10 @@
+{
+  "inputs": [
+    {
+      "name": "input-0",
+      "datatype": "BYTES",
+      "shape": [],
+      "data": ["This is an example sentence."]
+    }
+  ]
+}

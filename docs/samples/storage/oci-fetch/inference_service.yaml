@@ -1,0 +1,77 @@
+# Demonstration: oci+fetch:// storageUri with KServe-side OCI image pulling
+#
+# This sample deploys an InferenceService using the oci+fetch:// URI scheme,
+# which instructs the KServe storage-initializer to pull the model container
+# image's layers (with oras-py) and extract the /models/ subtree into the shared
+# /mnt/models volume — runtime-agnostic, no modelcar sidecar and no Kubernetes
+# ImageVolume support required.
+#
+# Prerequisites:
+#   - KServe installed with OCI model support enabled (enableOciModelSupport).
+#   - The model image must be laid out as a modelcar: model files live under
+#     /models/ inside the image (exposed at /mnt/models after extraction).
+#   - For private registries, an imagePullSecret in the InferenceService
+#     namespace (see the commented Secret + predictor.imagePullSecrets below).
+#     Public images pull anonymously and need no secret.
+#
+# How the scheme works:
+#   storageUri: oci+fetch://<image-ref>
+#     → webhook injects the storage-initializer init container with the
+#       normalized oci://<image-ref> arg
+#     → the Python handler pulls the image (resolving multi-arch indexes to the
+#       node's linux/<arch> manifest) and moves /models/ into /mnt/models
+#     → kserve-container reads the model from the shared emptyDir at /mnt/models
+#
+# When to use oci+fetch:// over the alternatives:
+#   - oci+native:// (ImageVolume): needs K8s >= 1.33 / a feature-gated 1.31–1.32
+#     and a runtime with ImageVolume support. Prefer fetch on older clusters or
+#     runtimes without ImageVolume.
+#   - modelcar (oci://, default): runs a sidecar that lives for the pod's
+#     lifetime. fetch pulls once in an init container and frees the resources.
+#
+# Replace the storageUri below with your own modelcar-layout OCI image reference.
+
+---
+# Optional: registry credentials for a PRIVATE model image. Skip this entire
+# block for public images (anonymous pull). The webhook projects the first
+# imagePullSecret as a docker config.json into the init container.
+#
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: oci-fetch-registry-creds
+#   namespace: kserve-test
+# type: kubernetes.io/dockerconfigjson
+# data:
+#   # base64 of a docker config.json, e.g.:
+#   #   kubectl create secret docker-registry oci-fetch-registry-creds \
+#   #     --docker-server=ghcr.io --docker-username=<user> \
+#   #     --docker-password=<token> -n kserve-test --dry-run=client -o yaml
+#   .dockerconfigjson: <base64-docker-config-json>
+
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-oci-fetch
+  namespace: kserve-test
+spec:
+  predictor:
+    # Uncomment for a private model image (must match the Secret above).
+    # imagePullSecrets:
+    #   - name: oci-fetch-registry-creds
+    model:
+      modelFormat:
+        name: sklearn
+      # oci+fetch:// pulls the image's /models/ layers via the storage
+      # initializer.
+      # Public test fixture used in the fetch E2E test.
+      # For production, replace with your own OCI-packaged model image.
+      storageUri: "oci+fetch://ghcr.io/kliukovkin/kserve-oci-test-fixture:v1"
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"

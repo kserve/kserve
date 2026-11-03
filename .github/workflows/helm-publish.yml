@@ -1,0 +1,65 @@
+name: helm-publish
+
+on:
+  release:
+    types: [published]
+
+  workflow_dispatch:
+
+env:
+  HELM_CHARTS_PATH: charts
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  upload-helm-charts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package helm charts
+        run: |
+          for dir in ./*/; do
+            # Skip directories starting with underscore (e.g., _common)
+            [[ $(basename "$dir") == _* ]] && continue
+            helm package "$dir"
+          done
+        working-directory: ${{ env.HELM_CHARTS_PATH }}
+
+      - name: Push Charts to GHCR
+        working-directory: ${{ env.HELM_CHARTS_PATH }}
+        run: |
+          for pkg in *.tgz; do
+            if [ -z "${pkg:-}" ]; then
+              break
+            fi
+            helm push "${pkg}" oci://ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts
+          done
+
+      - name: Rename helm chart archives
+        run: for filename in *.tgz; do mv "$filename" "helm-chart-$filename"; done
+        working-directory: ${{ env.HELM_CHARTS_PATH }}
+
+      - uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v0.1.15
+        with:
+          files: ${{ env.HELM_CHARTS_PATH }}/*.tgz

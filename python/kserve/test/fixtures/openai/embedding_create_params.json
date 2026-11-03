@@ -1,0 +1,5 @@
+{
+  "input": "This is an example sentence.",
+  "model": "hf-text-embedding-openai",
+  "encoding_format": "float"
+}

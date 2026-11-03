@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kserve-llmisvc-metrics
+  labels:
+    release: prometheus-stack
+spec:
+  endpoints:
+  - interval: 15s
+    path: /metrics
+    port: https
+  - interval: 15s
+    path: /metrics
+    port: metrics
+  namespaceSelector:
+    matchNames: []  # set to [<namespace>] to match deployment namespace
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: llminferenceservice

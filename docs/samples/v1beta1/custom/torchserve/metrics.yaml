@@ -1,0 +1,12 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: torchserve-custom
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8082'
+spec:
+  predictor:
+    containers:
+    - image: {username}/torchserve:latest
+      name: torchserve-container

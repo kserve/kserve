@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs
+  labels:
+    app: seaweedfs
+spec:
+  selector:
+    matchLabels:
+      app: seaweedfs
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: seaweedfs
+    spec:
+      containers:
+      - args:
+        - mini
+        - -dir=/data
+        - -s3
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: mlpipeline-s3-artifact
+              key: accesskey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mlpipeline-s3-artifact
+              key: secretkey
+        image: quay.io/flysangel/chrislusf/seaweedfs@sha256:a27e9c432f1dfaafb5bb3f5b39065c0df7a15423a3894025c714b3f06f998aeb
+        imagePullPolicy: Always
+        name: seaweedfs
+        readinessProbe:
+          tcpSocket:
+            port: 8333
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        ports:
+        - containerPort: 8333
+          name: s3
+          protocol: TCP
+        - containerPort: 23646
+          name: admin-ui
+          protocol: TCP
+        - containerPort: 9333
+          name: master-ui
+          protocol: TCP
+        - containerPort: 8888
+          name: filer-ui
+          protocol: TCP
+        - containerPort: 9340
+          name: volume
+          protocol: TCP
+        volumeMounts:
+          - mountPath: /data
+            name: data
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      volumes:
+      - name: data
+        emptyDir: {}

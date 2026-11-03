@@ -1,0 +1,31 @@
+[
+  {
+    "model-name": "mnist",
+    "version": "1.0",
+    "model-file": "mnist.py",
+    "serialized-file": "mnist_cnn.pt",
+    "extra-files": "",
+    "handler": "mnist_handler.py",
+    "min-workers" : 1,
+    "max-workers": 3,
+    "batch-size": 1,
+    "max-batch-delay": 100,
+    "response-timeout": 120,
+    "requirements": ""
+  },
+  {
+    "model-name": "densenet_161",
+    "version": "1.0",
+    "model-file": "model.py",
+    "serialized-file": "densenet161-8d451a50.pth",
+    "extra-files": "index_to_name.json",
+    "handler": "image_classifier",
+    "min-workers" : 1,
+    "max-workers": 3,
+    "batch-size": 1,
+    "max-batch-delay": 100,
+    "response-timeout": 120,
+    "requirements": ""
+  }
+ ]
+ 

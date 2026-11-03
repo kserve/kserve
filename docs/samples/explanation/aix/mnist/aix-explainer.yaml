@@ -1,0 +1,35 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "aix-explainer"
+  namespace: default
+spec:
+  predictor:
+    containers:
+    - name: predictor
+      image: aipipeline/rf-predictor:0.4.1
+      command: ["python", "-m", "rfserver", "--model_name", "aix-explainer"]
+      imagePullPolicy: Always
+  explainer:
+    containers:
+    - name: explainer
+      image: kserve/aix-explainer:v0.10.1
+      args:
+      - --model_name
+      - aix-explainer
+      - --explainer_type
+      - LimeImages
+      - --num_samples
+      - "100"
+      - --top_labels
+      - "10"
+      - --min_weight
+      - "0.01"
+      imagePullPolicy: Always
+      resources:
+        limits:
+          cpu: "1"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 2Gi

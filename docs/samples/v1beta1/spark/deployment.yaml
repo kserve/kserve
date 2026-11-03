@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: spark-pmml-iris
+    component: predictor
+    serving.kubeflow.org/inferenceservice: spark-pmml-iris
+  name: spark-pmml-iris
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-pmml-iris
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: spark-pmml-iris
+        component: predictor
+        serving.kubeflow.org/inferenceservice: spark-pmml-iris
+    spec:
+      initContainers:
+        - args:
+            - gs://kfserving-examples/models/sparkpmml
+            - /mnt/models
+          image: gcr.io/kfserving/storage-initializer:v0.5.1
+          imagePullPolicy: IfNotPresent
+          name: storage-initializer
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /mnt/models
+              name: kfserving-provision-location
+      containers:
+        - args:
+            - --model_name=spark-pmml-iris
+            - --model_dir=/mnt/models
+            - --http_port=8080
+          image: kfserving/pmmlserver:v0.5.1
+          imagePullPolicy: IfNotPresent
+          name: kfserving-container
+          ports:
+            - containerPort: 8080
+              name: user-port
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2Gi
+            requests:
+              cpu: "1"
+              memory: 2Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 300
+      volumes:
+      - emptyDir: {}
+        name: kfserving-provision-location
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: spark-pmml-iris
+    component: predictor
+    serving.kubeflow.org/inferenceservice: spark-pmml-iris
+  name: spark-pmml-iris
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: spark-pmml-iris
+  type: ClusterIP
+---
+

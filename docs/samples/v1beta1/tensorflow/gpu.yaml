@@ -1,0 +1,11 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "tensorflow-gpu"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
+      resources:
+        limits:
+          nvidia.com/gpu: 1

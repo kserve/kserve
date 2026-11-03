@@ -1,0 +1,16 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "torchserve-gpu"
+spec:
+  predictor:
+    pytorch:
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v1
+      resources:
+        limits:
+          memory: 4Gi
+          nvidia.com/gpu: "1"
+      args:
+        - --disable-token-auth
+        - --enable-model-api
+ 

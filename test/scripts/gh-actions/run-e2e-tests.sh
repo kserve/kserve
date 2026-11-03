@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# Copyright 2022 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The script is used to deploy knative and kserve, and run e2e tests.
+# Usage: run-e2e-tests.sh $MARKER $PARALLELISM $NETWORK_LAYER
+#
+# Extra pytest flags can be passed via the PYTEST_ARGS env var, e.g.:
+#   PYTEST_ARGS="-k test_sklearn_v2" ./test/scripts/gh-actions/run-e2e-tests.sh predictor
+#
+# Quoted selectors are supported (parsed via xargs):
+#   PYTEST_ARGS='-k "test_a or test_b"' ./test/scripts/gh-actions/run-e2e-tests.sh predictor
+#
+# To run a specific test by path, pass an empty marker:
+#   PYTEST_ARGS="predictor/test_sklearn.py::test_sklearn_v2" ./test/scripts/gh-actions/run-e2e-tests.sh
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+# Load KServe image environment variables (already exported in kserve-images.sh)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+source "${PROJECT_ROOT}/kserve-images.sh"
+
+# Tests expect GITHUB_SHA (replaced by TAG)
+export GITHUB_SHA="${TAG:-latest}"
+
+echo "Starting E2E functional tests ..."
+MARKER="${1:-}"
+PARALLELISM="${2:-1}"
+NETWORK_LAYER="${3:-istio}"
+
+: "${SKIP_DELETION_ON_FAILURE:=true}"
+export SKIP_DELETION_ON_FAILURE
+
+echo "Parallelism requested for pytest is ${PARALLELISM}"
+
+MAXFAIL="${PYTEST_MAXFAIL:-5}"
+
+source python/kserve/.venv/bin/activate
+
+REPORT_DIR="${ARTIFACT_DIR:-/tmp}"
+mkdir -p "$REPORT_DIR"
+
+# Derive a filesystem-safe slug from the marker expression so that multiple
+# invocations within the same job produce distinct result files instead of
+# clobbering each other.  When no marker is given the suffix is empty,
+# preserving the original filenames for single-invocation jobs.
+if [[ -n "$MARKER" ]]; then
+  REPORT_SUFFIX="-$(echo "$MARKER" | tr ' ()' '_' | tr -cs '[:alnum:]_-' '_' | sed 's/_$//')"
+else
+  REPORT_SUFFIX=""
+fi
+
+PYTEST_COMMON_ARGS=(--ignore=qpext --log-cli-level=INFO -n "$PARALLELISM" --dist worksteal --network-layer "$NETWORK_LAYER" --maxfail="$MAXFAIL" -vv --tb=long -s --junitxml="$REPORT_DIR/junit_e2e${REPORT_SUFFIX}.xml" --json-report --json-report-file="$REPORT_DIR/e2e_results${REPORT_SUFFIX}.json" --json-report-omit=log)
+
+MARKER_ARGS=()
+if [[ -n "$MARKER" ]]; then
+  MARKER_ARGS=(-m "$MARKER")
+fi
+
+PYTEST_EXTRA_ARGS=()
+if [[ -n "${PYTEST_ARGS:-}" ]]; then
+  readarray -t PYTEST_EXTRA_ARGS < <(xargs printf '%s\n' <<< "$PYTEST_ARGS")
+fi
+
+pushd test/e2e >/dev/null
+  if [[ "$MARKER" == "raw" && "$NETWORK_LAYER" == "istio-ingress" ]]; then
+    echo "Skipping explainer tests for raw deployment with ingress"
+    pytest "${MARKER_ARGS[@]}" "${PYTEST_COMMON_ARGS[@]}" --ignore=explainer/ "${PYTEST_EXTRA_ARGS[@]}"
+  else
+    pytest "${MARKER_ARGS[@]}" "${PYTEST_COMMON_ARGS[@]}" "${PYTEST_EXTRA_ARGS[@]}"
+  fi
+popd

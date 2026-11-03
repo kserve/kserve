@@ -1,0 +1,36 @@
+# Run specified actions or jobs for issue and PR comments
+
+name: "Prow github actions"
+on:
+  issue_comment:
+    types: [created]
+
+# Required for the prow action to manage labels, assignees, milestones, etc.
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  prow-execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
+        with:
+          prow-commands: '/assign 
+            /unassign 
+            /approve 
+            /retitle 
+            /area 
+            /kind 
+            /priority 
+            /remove 
+            /lgtm 
+            /close 
+            /reopen 
+            /lock 
+            /milestone 
+            /hold 
+            /cc 
+            /uncc'
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
