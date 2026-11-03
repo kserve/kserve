@@ -22,6 +22,7 @@ import (
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/types"
@@ -1068,4 +1069,49 @@ func TestAddModelMount_VolumeSource(t *testing.T) {
 		g.Expect(podSpec.Volumes[0].HostPath).ToNot(gomega.BeNil())
 		g.Expect(podSpec.Volumes[0].HostPath.Path).To(gomega.Equal("/mnt/fast-nvme/models"))
 	})
+}
+
+func TestCreateInitContainerWithConfigSecurityContext(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	baseConfig := types.StorageInitializerConfig{
+		CpuRequest:    "100m",
+		CpuLimit:      "1",
+		MemoryRequest: "100Mi",
+		MemoryLimit:   "1Gi",
+	}
+	rootContext := &corev1.SecurityContext{
+		RunAsUser:    ptr.To[int64](0),
+		RunAsNonRoot: ptr.To(false),
+	}
+
+	scenarios := map[string]struct {
+		configure func(config *types.StorageInitializerConfig)
+		expected  *corev1.SecurityContext
+	}{
+		"unset uses the restricted default": {
+			configure: func(*types.StorageInitializerConfig) {},
+			expected:  RestrictedStorageInitializerSecurityContext(),
+		},
+		"configured context replaces the default in full": {
+			configure: func(config *types.StorageInitializerConfig) {
+				config.SecurityContext = rootContext
+			},
+			expected: rootContext,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			config := baseConfig
+			scenario.configure(&config)
+
+			container := CreateInitContainerWithConfig(&config, []string{"s3://bucket/model", "/mnt/models"})
+
+			g.Expect(container.SecurityContext).To(gomega.Equal(scenario.expected))
+			if config.SecurityContext != nil {
+				// The container must not alias the ConfigMap-backed value.
+				g.Expect(container.SecurityContext).ToNot(gomega.BeIdenticalTo(config.SecurityContext))
+			}
+		})
+	}
 }
