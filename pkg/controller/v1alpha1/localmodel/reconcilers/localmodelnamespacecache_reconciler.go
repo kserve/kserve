@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -129,8 +130,11 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	previousNamespaces := consumerNamespaces(localModel.Status)
 
 	// Step 2 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, consumers); err != nil {
-		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
+	// Kept from failing the whole reconcile, but returned at the end so a failed cleanup of a
+	// deleted node's LocalModelNodes is retried instead of waiting for the next event.
+	localModelNodeErr := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, consumers)
+	if localModelNodeErr != nil {
+		c.Log.Error(localModelNodeErr, "failed to reconcile LocalModelNode for namespace cache")
 	}
 
 	// Step 3 - Creates PV & PVC for model download (in jobNamespace, same as cluster-scoped)
@@ -157,12 +161,12 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	if localModelConfig.DisableVolumeManagement {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, localModelNodeErr
 	}
 
 	// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this model
 	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
-	return ctrl.Result{}, err
+	return ctrl.Result{}, errors.Join(err, localModelNodeErr)
 }
 
 // Reconciles corresponding namespace model cache CR when we found an update on an isvc
@@ -239,24 +243,28 @@ func (c *LocalModelNamespaceCacheReconciler) nodeFuncNamespaceCache(ctx context.
 		if model.Spec.SharedPVCMode() || len(model.Spec.NodeGroups) == 0 {
 			continue
 		}
-		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
-		nodeGroupNamespacedName := types.NamespacedName{Name: model.Spec.NodeGroups[0]}
-		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
-			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroups[0])
-			continue
-		}
-		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
-		if err != nil {
-			c.Log.Error(err, "checkNodeAffinity error", "node", node.Name)
-		}
-		if matches {
-			c.Log.Info("new node for namespace model", "name", model.Name, "namespace", model.Namespace)
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      model.Name,
-					Namespace: model.Namespace,
-				},
-			})
+		// A node can match any of the configured groups, and the model's records are fanned out to
+		// every one of them, so a group other than the first must enqueue the model as well.
+		for _, nodeGroupName := range model.Spec.NodeGroups {
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{}
+			if err := c.Get(ctx, types.NamespacedName{Name: nodeGroupName}, nodeGroup); err != nil {
+				c.Log.Info("get nodegroup failed", "name", nodeGroupName)
+				continue
+			}
+			matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
+			if err != nil {
+				c.Log.Error(err, "checkNodeAffinity error", "node", node.Name)
+			}
+			if matches {
+				c.Log.Info("new node for namespace model", "name", model.Name, "namespace", model.Namespace)
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      model.Name,
+						Namespace: model.Namespace,
+					},
+				})
+				break
+			}
 		}
 	}
 	return requests

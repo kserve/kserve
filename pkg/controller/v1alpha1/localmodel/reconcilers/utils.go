@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"reflect"
 	"slices"
@@ -701,6 +702,38 @@ func UpdateLocalModelNode(
 	return nil
 }
 
+// DeleteLocalModelNodesOfDeletedNodes removes the LocalModelNode of every Kubernetes node that no
+// longer exists. Nothing else reacts to node deletion, so the node's download Jobs stay pinned to
+// the hostname of the node that is gone and their pods never leave Pending. The Jobs and their pods
+// are owned by the LocalModelNode and are deleted with it.
+func DeleteLocalModelNodesOfDeletedNodes(ctx context.Context, c client.Client, log logr.Logger) error {
+	// Read the LocalModelNodes first. A node that appears while this runs gets a LocalModelNode from
+	// another reconcile, and it must not appear in the node snapshot taken after this read.
+	localModelNodes := &v1alpha1.LocalModelNodeList{}
+	if err := c.List(ctx, localModelNodes); err != nil {
+		return err
+	}
+
+	nodes := &corev1.NodeList{}
+	if err := c.List(ctx, nodes); err != nil {
+		return err
+	}
+	existingNodes := make(map[string]struct{}, len(nodes.Items))
+	for _, node := range nodes.Items {
+		existingNodes[node.Name] = struct{}{}
+	}
+	for _, localModelNode := range localModelNodes.Items {
+		if _, ok := existingNodes[localModelNode.Name]; ok {
+			continue
+		}
+		log.Info("deleting localmodelnode of deleted node", "node", localModelNode.Name)
+		if err := c.Delete(ctx, &localModelNode); err != nil && !apierr.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
 // ReconcileLocalModelNode creates/updates LocalModelNode for each node in the node groups
 // Only one of localModelCache or localModelNamespaceCache should be non-nil
 func ReconcileLocalModelNode(
@@ -733,10 +766,10 @@ func ReconcileLocalModelNode(
 		status = &localModelNamespaceCache.Status
 	}
 
-	statusBefore := status.DeepCopy()
 	// Record consumers before the node fan-out so that a transient node-group error or an
 	// empty node-group set never leaves the consumer list stale. ValidateDelete relies on
 	// Status.InferenceServices/LLMInferenceServices to block deletion of an in-use cache.
+	statusBefore := status.DeepCopy()
 	setConsumerReferences(status, consumers)
 
 	reconcileErr := reconcileNodeGroupStatus(ctx, c, log, localModelCache, localModelNamespaceCache, nodeGroups, nodeStatus, status)
@@ -752,7 +785,8 @@ func ReconcileLocalModelNode(
 			}
 		}
 	}
-	return reconcileErr
+	// Runs after the status write so a node list error cannot also drop the consumer references.
+	return errors.Join(reconcileErr, DeleteLocalModelNodesOfDeletedNodes(ctx, c, log))
 }
 
 // reconcileNodeGroupStatus fans the model out to the LocalModelNode of every ready node in the
