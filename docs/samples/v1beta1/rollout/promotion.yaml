@@ -1,8 +1,0 @@
-apiVersion: "serving.kserve.io/v1beta1"
-kind: "InferenceService"
-metadata:
-  name: "my-model"
-spec:
-  predictor:
-    tensorflow:
-      storageUri: "gs://kfserving-examples/models/tensorflow/flowers-2"

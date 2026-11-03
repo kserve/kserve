@@ -1,9 +1,0 @@
-apiVersion: "serving.kserve.io/v1beta1"
-kind: "InferenceService"
-metadata:
-  name: paddleserving-custom
-spec:
-  predictor:
-    containers:
-    - image: ruminateer/paddleserving:lac-http
-      name: paddleserving-container

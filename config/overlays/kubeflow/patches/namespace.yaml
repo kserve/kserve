@@ -1,6 +1,0 @@
-# Remove namespace resource as namespace will already exist.
-$patch: delete
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kserve

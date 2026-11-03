@@ -1,8 +1,0 @@
-DESCRIPTION: Install KServe Standard Mode/LLMIsvc dependencies
-
-TOOLS:
-  - helm
-  - yq
-  
-COMPONENTS:
-  - name: cert-manager

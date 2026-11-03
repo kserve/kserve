@@ -1,8 +1,0 @@
-namePrefix: kfserving-
-namespace: kfserving-monitoring
-resources:
-- clusterrole.yaml
-- clusterrolebinding.yaml
-- prometheus.yaml
-- serviceaccount.yaml
-- kfserving-service-monitor.yaml

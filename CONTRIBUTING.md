@@ -1,1 +1,0 @@
-See [How to contribute](https://github.com/kserve/community#how-can-i-help-) in [KServe community repository](https://github.com/kserve/community).

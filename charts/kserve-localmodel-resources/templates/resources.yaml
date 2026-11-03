@@ -1,5 +1,0 @@
-{{- include "kserve-common.renderMultiResourceWithPatches" (dict
-  "baseFile" "files/resources.yaml"
-  "patchGlob" "files/*-patch.yaml"
-  "certName" "localmodel-serving-cert"
-  "context" .) -}}

@@ -1,5 +1,0 @@
-{
-  "model": "hf-t5-small",
-  "prompt": "translate this to germany",
-  "temperature": 0
-}

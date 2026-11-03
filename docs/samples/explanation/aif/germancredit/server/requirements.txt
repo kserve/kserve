@@ -1,4 +1,0 @@
-kserve>=0.13.0
-scikit-learn
-aif360
-numba

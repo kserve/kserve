@@ -1,2 +1,0 @@
-mlserver
-mlserver-sklearn

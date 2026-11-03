@@ -1,3 +1,0 @@
-images:
-- kind: ClusterStorageContainer
-  path: spec/container/image

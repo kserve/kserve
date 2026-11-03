@@ -1,9 +1,0 @@
-apiVersion: "serving.kserve.io/v1beta1"
-kind: "InferenceService"
-metadata:
-  name: "sklearn-irisv2"
-spec:
-  predictor:
-    sklearn:
-      protocolVersion: v2
-      storageUri: "gs://seldon-models/sklearn/iris"

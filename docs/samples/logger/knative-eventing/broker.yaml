@@ -1,4 +1,0 @@
-apiVersion: eventing.knative.dev/v1
-kind: broker
-metadata:
- name: default
