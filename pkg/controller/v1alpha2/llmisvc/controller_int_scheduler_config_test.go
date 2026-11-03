@@ -1971,23 +1971,7 @@ schedulingProfiles:
 					"AMD pod template label %q should match NVIDIA InferencePool selector", labelKey)
 			}
 
-			// Verify no InferencePool was created for the AMD instance
-			amdIP := &igwapi.InferencePool{}
-			err := envTest.Get(ctx, client.ObjectKey{
-				Name:      amdSvcName + "-inference-pool",
-				Namespace: testNs.Name,
-			}, amdIP)
-			Expect(errors.IsNotFound(err)).To(BeTrue(),
-				"AMD instance should not create its own InferencePool")
-
-			// Verify no scheduler deployment was created for the AMD instance
-			amdScheduler := &appsv1.Deployment{}
-			err = envTest.Get(ctx, client.ObjectKey{
-				Name:      amdSvcName + "-kserve-epp",
-				Namespace: testNs.Name,
-			}, amdScheduler)
-			Expect(errors.IsNotFound(err)).To(BeTrue(),
-				"AMD instance should not create a scheduler deployment")
+			expectNoManagedScheduler(ctx, amdLLMSvc, nvidiaLLMSvc)
 		})
 
 		It("should propagate InferencePool ref matchLabels to AMD workload pods (pool ref)", func(ctx SpecContext) {
@@ -2051,23 +2035,7 @@ schedulingProfiles:
 			Expect(podLabels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload),
 				"AMD pod should have the component label from the InferencePool selector")
 
-			// Verify no InferencePool was created for the AMD instance
-			amdIP := &igwapi.InferencePool{}
-			err := envTest.Get(ctx, client.ObjectKey{
-				Name:      amdSvcName + "-inference-pool",
-				Namespace: testNs.Name,
-			}, amdIP)
-			Expect(errors.IsNotFound(err)).To(BeTrue(),
-				"AMD instance should not create its own InferencePool")
-
-			// Verify no scheduler deployment was created for the AMD instance
-			amdScheduler := &appsv1.Deployment{}
-			err = envTest.Get(ctx, client.ObjectKey{
-				Name:      amdSvcName + "-kserve-epp",
-				Namespace: testNs.Name,
-			}, amdScheduler)
-			Expect(errors.IsNotFound(err)).To(BeTrue(),
-				"AMD instance should not create a scheduler deployment")
+			expectNoManagedScheduler(ctx, amdLLMSvc, nvidiaLLMSvc)
 		})
 
 		It("should propagate InferencePool ref matchLabels to single-node P/D workload pods (pool ref)", func(ctx SpecContext) {
@@ -2480,6 +2448,48 @@ schedulingProfiles:
 		})
 	})
 })
+
+// expectNoManagedScheduler asserts that llmSvc has no InferencePool and no scheduler
+// Deployment of its own, while peer has a scheduler under the same name pattern, so the
+// absence can't come from checking a name the controller never uses. It waits for
+// status.workloads, written only after the scheduler step returned: observedGeneration
+// can't show that, a pass that fails before the step bumps it too. The short window is for
+// a scheduler that only appears on a later pass.
+func expectNoManagedScheduler(ctx context.Context, llmSvc, peer *v1alpha2.LLMInferenceService) {
+	GinkgoHelper()
+
+	Eventually(func(ctx context.Context) error {
+		return envTest.Get(ctx, client.ObjectKey{
+			Name:      kmeta.ChildName(peer.Name, "-kserve-router-scheduler"),
+			Namespace: peer.Namespace,
+		}, &appsv1.Deployment{})
+	}).WithContext(ctx).Should(Succeed())
+
+	Eventually(func(g Gomega, ctx context.Context) {
+		current := &v1alpha2.LLMInferenceService{}
+		g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+		g.Expect(current.Status.Workloads).ToNot(BeNil())
+	}).WithContext(ctx).Should(Succeed())
+
+	Consistently(func(g Gomega, ctx context.Context) {
+		err := envTest.Get(ctx, client.ObjectKey{
+			Name:      kmeta.ChildName(llmSvc.Name, "-inference-pool"),
+			Namespace: llmSvc.Namespace,
+		}, &igwapi.InferencePool{})
+		g.Expect(errors.IsNotFound(err)).To(BeTrue(),
+			"%s should not create its own InferencePool, got: %v", llmSvc.Name, err)
+
+		err = envTest.Get(ctx, client.ObjectKey{
+			Name:      kmeta.ChildName(llmSvc.Name, "-kserve-router-scheduler"),
+			Namespace: llmSvc.Namespace,
+		}, &appsv1.Deployment{})
+		g.Expect(errors.IsNotFound(err)).To(BeTrue(),
+			"%s should not create a scheduler deployment, got: %v", llmSvc.Name, err)
+	}).WithContext(ctx).
+		Within(500 * time.Millisecond).
+		WithPolling(100 * time.Millisecond).
+		Should(Succeed())
+}
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
 const schedulerContainerName = "main"
