@@ -271,6 +271,15 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 	}
 }
 
+func secretKeyRef(secretName, key string) *corev1.EnvVarSource {
+	return &corev1.EnvVarSource{
+		SecretKeyRef: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+			Key:                  key,
+		},
+	}
+}
+
 func TestMergeEnvs(t *testing.T) {
 	scenarios := map[string]struct {
 		baseEnvs     []corev1.EnvVar
@@ -396,6 +405,70 @@ func TestMergeEnvs(t *testing.T) {
 				{
 					Name:  "name4",
 					Value: "value4",
+				},
+			},
+		},
+		// An EnvVar holds either Value or ValueFrom. An override must carry both
+		// fields across, otherwise the base keeps a stale half of the pair.
+		"OverrideValueFromReplacesValue": {
+			baseEnvs: []corev1.EnvVar{
+				{
+					Name:  "AWS_ACCESS_KEY_ID",
+					Value: "literal-key",
+				},
+			},
+			overrideEnvs: []corev1.EnvVar{
+				{
+					Name:      "AWS_ACCESS_KEY_ID",
+					ValueFrom: secretKeyRef("s3-secret", "awsAccessKeyID"),
+				},
+			},
+			expectedEnvs: []corev1.EnvVar{
+				{
+					Name:      "AWS_ACCESS_KEY_ID",
+					ValueFrom: secretKeyRef("s3-secret", "awsAccessKeyID"),
+				},
+			},
+		},
+		"OverrideValueFromReplacesValueFrom": {
+			baseEnvs: []corev1.EnvVar{
+				{
+					Name:      "AWS_ACCESS_KEY_ID",
+					ValueFrom: secretKeyRef("first-secret", "awsAccessKeyID"),
+				},
+			},
+			overrideEnvs: []corev1.EnvVar{
+				{
+					Name:      "AWS_ACCESS_KEY_ID",
+					ValueFrom: secretKeyRef("second-secret", "awsAccessKeyID"),
+				},
+			},
+			expectedEnvs: []corev1.EnvVar{
+				{
+					Name:      "AWS_ACCESS_KEY_ID",
+					ValueFrom: secretKeyRef("second-secret", "awsAccessKeyID"),
+				},
+			},
+		},
+		// Leaving the base ValueFrom in place next to the override Value produces an
+		// EnvVar the API server rejects.
+		"OverrideValueReplacesValueFrom": {
+			baseEnvs: []corev1.EnvVar{
+				{
+					Name:      "AWS_DEFAULT_REGION",
+					ValueFrom: secretKeyRef("region-secret", "region"),
+				},
+			},
+			overrideEnvs: []corev1.EnvVar{
+				{
+					Name:  "AWS_DEFAULT_REGION",
+					Value: "us-east-1",
+				},
+			},
+			expectedEnvs: []corev1.EnvVar{
+				{
+					Name:  "AWS_DEFAULT_REGION",
+					Value: "us-east-1",
 				},
 			},
 		},
