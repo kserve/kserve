@@ -1,0 +1,40 @@
+# Thin overlay on kserve-config-llm-template for the vLLM-Omni runtime
+# (TTS/TTI modality endpoints). It carries only what differs from the base
+# vLLM single-node template: the engine image, a startup probe sized for large
+# diffusion/speech weights, and a security context that fits the vllm-omni
+# image. Everything else - command, the model-based routing model name, TLS,
+# probes, volumes - is inherited from the base template, so the two cannot
+# drift apart.
+#
+# The `--omni` flag itself is appended to the main container args by the
+# controller: the base template's command forwards container args to
+# `vllm serve` (the "--" convention), so no command fork is needed here.
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-omni-template
+spec:
+  template:
+    containers:
+      - name: main
+        image: docker.io/vllm/vllm-omni:v0.30.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          # Unlike the base vLLM image, vllm-omni ships no non-root user, and
+          # it needs neither the nvidia-cdi-hook nor a writable root filesystem.
+          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        # Diffusion weights (e.g. Qwen-Image ~57GB) pull and compile slowly;
+        # allow up to ~60m like the llm-d diffusion-serving guides.
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          failureThreshold: 120
+          periodSeconds: 30
+          timeoutSeconds: 10

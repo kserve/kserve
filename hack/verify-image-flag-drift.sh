@@ -202,7 +202,7 @@ contexts_for() {
 # derived from the script rather than declared in YAML, since a marker could
 # drift from the code and produce a confident wrong answer.
 emit_context() {
-    local ncmd=$1 i token bare
+    local ncmd=$1 i token bare flag
     shift
     local -a argv=("$@") lead=()
     for ((i = 0; i < ncmd; i++)); do
@@ -225,7 +225,11 @@ emit_context() {
         [[ $token == "--" ]] && continue
         bare=$(strip_template "$token")
         [[ $bare == --[A-Za-z]* ]] || continue
-        printf '%s\t%s\n' "$joined" "$(grep -oE -- '--[A-Za-z][A-Za-z0-9._-]*[A-Za-z0-9]' <<<"$bare" | head -1)"
+        # Manifest args may use either --flag or --flag=value. Extract the
+        # option name before its value so equals-form args are replayed too.
+        flag=${bare%%=*}
+        [[ $flag =~ ^--[A-Za-z][A-Za-z0-9._-]*$ ]] || continue
+        printf '%s\t%s\n' "$joined" "$flag"
     done
 }
 
@@ -264,6 +268,7 @@ declared_versions_for() {
 # deprecated flag is rarely confined to the files being bumped.
 flag_sites() {
     local flag=$1 hit file
+    [[ -z $flag ]] && return 0
     while IFS= read -r hit; do
         [[ -z $hit ]] && continue
         file=${hit%%:*}
@@ -559,6 +564,7 @@ replay_prefix() {
     local flag verdict ok=0 n_rejected=0 n_deprecated=0 n_undocumented=0 n_unknown=0
     local -a findings=()
     for flag in "${flags[@]}"; do
+        [[ -z $flag ]] && continue
         verdict=$(probe "$qimage" "$prefix" "$flag")
         case ${verdict%%|*} in
         rejected)

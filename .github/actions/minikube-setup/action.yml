@@ -18,6 +18,14 @@ inputs:
     description: 'Comma-separated minikube addons to enable (e.g. metallb,ingress,registry)'
     required: false
     default: ''
+  kubernetes_version:
+    description: 'Kubernetes version to use (default: v1.34.4)'
+    required: false
+    default: 'v1.34.4'
+  minikube_version:
+    description: 'Minikube version to use (default: 1.38.1)'
+    required: false
+    default: '1.38.1'
 
 runs:
   using: "composite"
@@ -25,23 +33,29 @@ runs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4.0.0
       with:
-        version: 'v1.34.4'
+        version: 'v1.37.0'
 
-    - name: Create /etc/cni/net.d
+    # medyagh/setup-minikube chmods /etc/cni/net.d before creating it on some
+    # runners; ensure the directory exists so minikube setup does not flake.
+    - name: Ensure CNI config directory exists
       shell: bash
       run: sudo mkdir -p /etc/cni/net.d
 
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
-        minikube-version: '1.38.1'
-        kubernetes-version: 'v1.34.4'
+        minikube-version: ${{ inputs.minikube_version }}
+        kubernetes-version: ${{ inputs.kubernetes_version }}
         driver: ${{ inputs.driver }}
         addons: ${{ inputs.addons }}
         wait: 'all'
         cpus: 'max'
         memory: 'max'
         start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
+        # These workflows usually run on PRs, whose caches cannot be shared
+        # with other PRs. Manual runs on master can create shared entries.
+        # Measured PR re-push savings were only ~4 s for 0.8-1.6 GB per entry.
+        cache: false
 
     - name: Configure MetalLB address pool
       if: contains(inputs.addons, 'metallb')

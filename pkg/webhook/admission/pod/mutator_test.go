@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	kservetypes "github.com/kserve/kserve/pkg/types"
@@ -358,6 +359,62 @@ func TestInjectModelcarGate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMutator_CachedOCIModelUsesPVC(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	uri := "oci://ghcr.io/kserve/model:latest"
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.LocalModelLabel:          "cached-model",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: uri,
+				constants.LocalModelSourceUriAnnotationKey:                 uri,
+				constants.LocalModelPVCNameAnnotationKey:                   "shared-model-cache",
+			},
+		},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}}},
+	}
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		v1beta1.StorageInitializerConfigMapKeyName: `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","enableModelcar":true}`,
+		LoggerConfigMapKeyName:                     `{"image":"kserve/agent:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1"}`,
+		BatcherConfigMapKeyName:                    `{"image":"kserve/agent:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1"}`,
+		constants.AgentConfigMapKeyName:            `{"image":"kserve/agent:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1"}`,
+	}}
+	mutator := Mutator{Client: c, Clientset: clientset}
+	uncachedPod := pod.DeepCopy()
+	delete(uncachedPod.Labels, constants.LocalModelLabel)
+	delete(uncachedPod.Labels, constants.LocalModelNamespaceLabel)
+	delete(uncachedPod.Annotations, constants.LocalModelSourceUriAnnotationKey)
+	delete(uncachedPod.Annotations, constants.LocalModelPVCNameAnnotationKey)
+
+	g.Expect(mutator.mutate(t.Context(), pod, configMap, &v1beta1.InferenceService{})).To(gomega.Succeed())
+	g.Expect(pod.Spec.Containers).To(gomega.HaveLen(1), "a cached OCI model must not inject modelcar")
+	g.Expect(pod.Spec.InitContainers).To(gomega.BeEmpty(), "a cached OCI model must not inject modelcar-init")
+	g.Expect(pod.Spec.ShareProcessNamespace).To(gomega.BeNil())
+	g.Expect(pod.Spec.Containers[0].VolumeMounts).To(gomega.HaveLen(1), "the cache PVC must be the only model mount")
+	g.Expect(pod.Spec.Containers[0].VolumeMounts).To(gomega.ContainElement(corev1.VolumeMount{
+		Name:      "kserve-pvc-source",
+		MountPath: constants.DefaultModelLocalMountPath,
+		ReadOnly:  true,
+		SubPath:   "models/" + v1alpha1.GetStorageKey(uri) + "/",
+	}))
+	g.Expect(pod.Spec.Volumes).To(gomega.HaveLen(1), "the cache PVC must be the only model volume")
+	g.Expect(pod.Spec.Volumes).To(gomega.ContainElement(corev1.Volume{
+		Name: "kserve-pvc-source",
+		VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			ClaimName: "shared-model-cache",
+		}},
+	}))
+	g.Expect(pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]).To(gomega.Equal(uri))
+
+	g.Expect(mutator.mutate(t.Context(), uncachedPod, configMap, &v1beta1.InferenceService{})).To(gomega.Succeed())
+	g.Expect(uncachedPod.Spec.Containers).To(gomega.HaveLen(2))
+	g.Expect(uncachedPod.Spec.Containers[1].Name).To(gomega.Equal(constants.ModelcarContainerName))
 }
 
 // sortPatches sorts the slice of patches by Path so that the comparison works

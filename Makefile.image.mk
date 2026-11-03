@@ -1,7 +1,8 @@
 # Container image build and push (engine set by ENGINE, default docker).
 
-# Build the docker image
-docker-build:
+##@ Images
+
+docker-build: ## Build $KO_DOCKER_REPO/kserve-controller:$TAG. Other images: docker-{build,push}-<name>.
 	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
 	@echo "updating kustomize image patch file for manager resource"
 
@@ -26,6 +27,12 @@ docker-build-localmodelnode-agent:
 
 docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
 	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
+
+docker-build-kernelcachenode-agent:
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} -f kernelcache-agent.Dockerfile .
+
+docker-push-kernelcachenode-agent: docker-build-kernelcachenode-agent
+	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} -f kernelcache-agent.Dockerfile .
 
 docker-build-agent:
 	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}

@@ -31,6 +31,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
 var defaulterLogger = logf.Log.WithName("llminferenceservice-defaulter")
@@ -165,13 +166,35 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
 
 	modelUri := llmSvc.Spec.Model.URI.String()
-	if match := localmodelcache.MatchCacheForURI(modelUri, isvcNodeGroup, isvcNodeGroupExists, models, nsModels); match != nil {
+	mode, _ := llmSvc.ModelExpressMode()
+	if mode == kservevalidation.ModelExpressModeNative {
+		clearBaseLocalModelMetadata(llmSvc)
+	} else if match := localmodelcache.MatchCacheForURIBound(modelUri, isvcNodeGroup, isvcNodeGroupExists, models, nsModels, boundBaseLocalModelCache(llmSvc)); match != nil {
 		applyBaseLocalModelCache(llmSvc, match)
 	} else {
 		clearBaseLocalModelMetadata(llmSvc)
 	}
 
 	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists)
+}
+
+// boundBaseLocalModelCache returns the cache the base model is currently bound to, or nil.
+func boundBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService) *localmodelcache.CacheEntry {
+	name, ok := llmSvc.Labels[constants.LocalModelLabel]
+	if !ok || name == "" {
+		return nil
+	}
+	return &localmodelcache.CacheEntry{Cache: name, Namespace: llmSvc.Labels[constants.LocalModelNamespaceLabel]}
+}
+
+// boundLoRALocalModelCaches returns the caches each LoRA adapter is currently bound to, by
+// adapter name. A malformed annotation is treated as unbound; the defaulter rewrites it.
+func boundLoRALocalModelCaches(llmSvc *v1alpha2.LLMInferenceService) map[string]localmodelcache.CacheEntry {
+	entries, err := localmodelcache.ParseLoRACacheAnnotation(llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey])
+	if err != nil {
+		return nil
+	}
+	return entries
 }
 
 func applyBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, match *localmodelcache.CacheEntry) {
@@ -206,13 +229,18 @@ func setLoRALocalModelMetadata(
 		return
 	}
 
+	bound := boundLoRALocalModelCaches(llmSvc)
 	entries := make(map[string]localmodelcache.CacheEntry)
 	for _, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
 		if adapter.Name == nil {
 			continue
 		}
 		adapterURI := adapter.URI.String()
-		if match := localmodelcache.MatchCacheForURI(adapterURI, nodeGroup, nodeGroupExists, models, nsModels); match != nil {
+		var boundEntry *localmodelcache.CacheEntry
+		if entry, ok := bound[*adapter.Name]; ok {
+			boundEntry = &entry
+		}
+		if match := localmodelcache.MatchCacheForURIBound(adapterURI, nodeGroup, nodeGroupExists, models, nsModels, boundEntry); match != nil {
 			// json:"-" omits sourceUri/PVC from the annotation; reconcile-time Get derives them.
 			entries[*adapter.Name] = *match
 			defaulterLogger.Info("LocalModelCache found for LoRA adapter", "adapter", *adapter.Name,

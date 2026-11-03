@@ -104,7 +104,7 @@ The examples demonstrate different all-to-all communication backends:
 
 Examples with prefill-decode separation include advanced scheduler configurations:
 
-- **pd-profile-handler**: Determines whether to use prefill or decode pool
+- **disagg-profile-handler**: Determines whether to use prefill or decode pool
 - **prefix-cache-scorer**: Prioritizes endpoints with matching prefix cache (weight: 2.0)
 - **load-aware-scorer**: Balances load across endpoints (weight: 1.0)
 - **max-score-picker**: Selects endpoint with highest combined score

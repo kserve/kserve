@@ -45,7 +45,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
             - type: single-profile-handler
@@ -68,7 +68,6 @@ spec:
             - type: queue-scorer
             - type: active-request-scorer
               parameters:
-                requestTimeout: "2m"
                 idleThreshold: 0        # Pods with ≤0 requests are idle
                 maxBusyScore: 0         # Busy pods score 0, idle pods score 1.0
             - type: max-score-picker

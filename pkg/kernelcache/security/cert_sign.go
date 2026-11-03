@@ -202,17 +202,25 @@ func (s *certSigner) Sign(ctx context.Context, req types.SignRequest) (types.Sig
 		}
 	}
 
-	ref, err := name.ParseReference(req.ImageRef)
+	parseOptions := []name.Option{}
+	if req.RegistryInsecure {
+		parseOptions = append(parseOptions, name.Insecure)
+	}
+	ref, err := name.ParseReference(req.ImageRef, parseOptions...)
 	if err != nil {
 		return res, fmt.Errorf("parse image reference %q: %w", req.ImageRef, err)
 	}
 
-	// Registry access uses the ambient keychain, matching the verifier; the
-	// wiring will inject a keychain built from imagePullSecrets.
-	keychain := authn.DefaultKeychain
 	remoteClientOpts := []remote.Option{
 		remote.WithContext(ctx),
-		remote.WithAuthFromKeychain(keychain),
+	}
+	if req.RegistryAuthenticator != nil {
+		remoteClientOpts = append(remoteClientOpts, remote.WithAuth(req.RegistryAuthenticator))
+	} else {
+		remoteClientOpts = append(remoteClientOpts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	}
+	if req.RegistryTransport != nil {
+		remoteClientOpts = append(remoteClientOpts, remote.WithTransport(req.RegistryTransport))
 	}
 	remoteOpts := ociremote.WithRemoteOptions(remoteClientOpts...)
 

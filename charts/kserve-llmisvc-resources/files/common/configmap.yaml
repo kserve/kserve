@@ -410,6 +410,22 @@ data:
            # HTTPRoute.
            "loraModelRoutingStrategy": "exact",
 
+           # routeRuleNaming selects how LLMInferenceService managed HTTPRoutes name their rules.
+           # "preset" (the default when omitted) keeps the names the route spec carries, so every service
+           # rendered from the same preset has the same rule names. "unique" appends
+           # "-<first 8 hex of sha256(<namespace>/<service name>)>" to every named rule; unnamed rules and
+           # routes referenced through spec.router.route.http.refs are left alone. Gateway API only requires
+           # rule names to be unique within one route, but Istio before 1.29.9, 1.30.6 and 1.31.2 keys the
+           # InferencePool endpoint picker by bare rule name across every HTTPRoute on a gateway, so services
+           # sharing rule names get scheduled by each other's endpoint picker; "unique" avoids that on such an
+           # Istio. A change reaches every service on its next reconcile and renames the rules of its existing
+           # HTTPRoute in place. A policy that targets a rule by sectionName stops applying until it names the
+           # new rule, and under "unique" that name differs per service. A service pins its own value with the
+           # spec annotation serving.kserve.io/route-rule-naming, which a preset may carry. Any other value
+           # marks every service without its own value HTTPRoutesReady=False (RoutingPreconditionNotMet)
+           # and leaves its existing HTTPRoute as it is.
+           "routeRuleNaming": "preset",
+
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
            # Name of the inference service  ( {{ .Name}} )
@@ -555,7 +571,7 @@ data:
              "propagate": [
                 "Authorization",
                 "Test-Header-*",
-                "*Trace-Id*"
+                ".*Trace-Id.*"
              ]
            }
 
@@ -643,8 +659,14 @@ data:
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
-         # Kubernetes modifies the filesystem group ID on the attached volume.
+         # fsGroup is set on per-node download Jobs in jobNamespace. Kubernetes modifies the
+         # filesystem group ID on the attached volume.
          "fsGroup": 1000,
+         # sharedPVCImportFSGroup is set on shared-PVC import Jobs, which run in the cache's own
+         # namespace. It is independent of fsGroup. RWX drivers with fsGroupPolicy File (e.g.
+         # csi-driver-nfs) need it so the UID 1000 import container can write a root-owned volume.
+         # Remove the key to omit fsGroup and let namespace admission (e.g. an OpenShift SCC) assign one.
+         "sharedPVCImportFSGroup": 1000,
          # TTL for the download job after it is finished.
          "jobTTLSecondsAfterFinished": 3600,
          # The frequency at which the local model agent reconciles the local models
@@ -662,23 +684,51 @@ data:
          "enabled": false,
          # defaultSidecarInjection controls MCV injection when a workload does not override it.
          "defaultSidecarInjection": true,
-         # defaultMountType is used when KernelCache does not specify a mount type.
+         # defaultMountType is used when KernelCache does not specify a mount type.(Currently, only OCI is supported)
          "defaultMountType": "oci",
-         # defaultNodeGroup selects the KernelCacheNodeGroup for automatically created KernelCaches.
-         # Set it to an empty value when every workload must select a node group explicitly.
+         #defaultNodeGroup specifies the NodeGroup to use when no NodeGroup matches the workload.
+         # If empty and no NodeGroup matches, the KernelCache is not created.
          "defaultNodeGroup": "",
          # jobNamespace is the pre-created namespace where kernel cache preparation Jobs are created.
          "jobNamespace": "kserve-kernelcache-jobs",
          # mcvImage is the MCV container image used by cache capture and preparation flows.
          "mcvImage": "kserve/kserve-mcv:latest-minimal",
-         # prefetchImage is the lightweight image used by OCI prefetch Jobs.
+         # prefetchImage is the lightweight helper image used by prefetch Jobs.
          "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # runtimeImagePrefetch optionally pulls the captured workload's runtime image on each target node.
+         "runtimeImagePrefetch": {
+           "enabled": false,
+           "jobTTLSecondsAfterFinished": 86400
+         },
+         # registry defines the OCI registry used by capture and prefetch.
+         "registry": {
+           # endpoint is required to identify the registry used by capture and prefetch operations.
+           # insecure defaults to false. Set it to true only for an HTTP registry.
+           # caConfigMapRef optionally references a ConfigMap key containing the registry CA.
+           "auth": {
+             # type is none or serviceAccountToken. The default is none.
+             # none does not provision registry credentials.
+             # serviceAccountToken uses the Kubernetes TokenRequest API for short-lived credentials.
+             "type": "none"
+             # tokenTTLSeconds, pushRoleRef, and pullRoleRef are used with serviceAccountToken.
+           }
+         },
+         # artifactSecurity controls signing after capture and verification before preparation.
+         "artifactSecurity": {
+           "mode": "cert",
+           "failurePolicy": "reject",
+           "cert": {
+             "signingProfileRef": "kernelcache-signer",
+             "trustBundle": "kserve/kernelcache-root-ca",
+             "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+           }
+         },
          # abandonedCapturePolicy controls generated captures whose producer Pod disappears
          # before completion. Supported values are retain and delete.
          "abandonedCapturePolicy": "retain",
-         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs are retained.
+         # jobTTLSecondsAfterFinished controls how long completed KernelCache artifact prefetch Jobs are retained.
          "jobTTLSecondsAfterFinished": 600,
-         # mcvCaptureReadinessTimeoutSeconds limits how long the MCV capture sidecar waits for workload readiness.
+         # mcvCaptureReadinessTimeoutSeconds limits how long MCV waits for runtime readiness before capture. Larger models may require a longer timeout.
          "mcvCaptureReadinessTimeoutSeconds": 600,
          # reconcileIntervalSeconds controls KCN status reconciliation.
          # Periodic Node image validation uses the node agent's internal interval.
@@ -772,6 +822,24 @@ data:
       "jobNamespace": "kserve-kernelcache-jobs",
       "mcvImage": "kserve/kserve-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "runtimeImagePrefetch": {
+        "enabled": false,
+        "jobTTLSecondsAfterFinished": 86400
+      },
+      "registry": {
+        "auth": {
+          "type": "none"
+        }
+      },
+      "artifactSecurity": {
+        "mode": "cert",
+        "failurePolicy": "reject",
+        "cert": {
+          "signingProfileRef": "kernelcache-signer",
+          "trustBundle": "kserve/kernelcache-root-ca",
+          "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+        }
+      },
       "abandonedCapturePolicy": "retain",
       "jobTTLSecondsAfterFinished": 600,
       "mcvCaptureReadinessTimeoutSeconds": 600,
@@ -783,6 +851,7 @@ data:
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": 1000,
+      "sharedPVCImportFSGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
       "disableVolumeManagement": false
@@ -838,7 +907,8 @@ data:
         "enableModelcar": true,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
-        "uidModelcar": 1010
+        "uidModelcar": 1010,
+        "modelVolumeSource": null
     }
 kind: ConfigMap
 metadata:

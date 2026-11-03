@@ -157,6 +157,9 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	}
 
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
+	if err := injectTLSSecurityProfile(ctx, p.client, &podSpec); err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "failed to inject TLS security profile into transformer")
+	}
 
 	// Add InferenceService name as environment variable to transformer container
 	// Use the actual container name from the podSpec (first container)

@@ -55,12 +55,15 @@ from kserve import (
 )
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import KSERVE_TEST_NAMESPACE
 
 # Public, multi-arch (linux/amd64 + linux/arm64) modelcar-layout fixture image.
 # Contains a single model file at /models/model.joblib and is anonymously
 # pullable from ghcr.io. Published out-of-band for KServe oci+fetch:// E2E.
+# :v1 has gzip-compressed layers; :zstd is the same layout with zstd-compressed
+# layers (application/vnd.oci.image.layer.v1.tar+zstd) to exercise the zstandard
+# streaming-decompression path in the storage handler.
 OCI_FETCH_TEST_IMAGE = "ghcr.io/kliukovkin/kserve-oci-test-fixture:v1"
+OCI_FETCH_ZSTD_TEST_IMAGE = "ghcr.io/kliukovkin/kserve-oci-test-fixture:zstd"
 
 # Model file the fixture is known to contain under /models/.
 EXPECTED_MODEL_FILE = "model.joblib"
@@ -148,8 +151,21 @@ def _wait_for_container_running(
 
 
 @pytest.mark.storage
-def test_oci_fetch_inference_service_pulls_and_extracts_model():
+@pytest.mark.parametrize(
+    "image_ref, name_suffix",
+    [
+        (OCI_FETCH_TEST_IMAGE, "gzip"),
+        (OCI_FETCH_ZSTD_TEST_IMAGE, "zstd"),
+    ],
+    ids=["gzip-layers", "zstd-layers"],
+)
+def test_oci_fetch_inference_service_pulls_and_extracts_model(
+    image_ref, name_suffix, test_namespace
+):
     """An oci+fetch:// ISVC pulls the image and extracts /models/ to /mnt/models.
+
+    Run for both a gzip-layered fixture (:v1) and a zstd-layered fixture (:zstd);
+    the zstd variant exercises the zstandard streaming-decompression path.
 
     The test:
     1. Creates an InferenceService with an oci+fetch:// storageUri pointing at a
@@ -161,7 +177,7 @@ def test_oci_fetch_inference_service_pulls_and_extracts_model():
        /mnt/models (the shared emptyDir written by the init container).
     5. Deletes the InferenceService in teardown.
     """
-    service_name = "isvc-oci-fetch-pull"
+    service_name = f"isvc-oci-fetch-{name_suffix}"
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -171,7 +187,7 @@ def test_oci_fetch_inference_service_pulls_and_extracts_model():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(name="sklearn"),
-            storage_uri=f"oci+fetch://{OCI_FETCH_TEST_IMAGE}",
+            storage_uri=f"oci+fetch://{image_ref}",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "1", "memory": "1Gi"},
@@ -182,78 +198,70 @@ def test_oci_fetch_inference_service_pulls_and_extracts_model():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    try:
-        kserve_client.create(isvc)
+    kserve_client.create(isvc)
 
-        pod = _wait_for_pod(
-            kserve_client.core_api, KSERVE_TEST_NAMESPACE, label_selector
-        )
-        assert pod is not None, (
-            f"No pod appeared for InferenceService '{service_name}' "
-            f"within {POD_WAIT_TIMEOUT}s"
-        )
+    pod = _wait_for_pod(kserve_client.core_api, test_namespace, label_selector)
+    assert pod is not None, (
+        f"No pod appeared for InferenceService '{service_name}' "
+        f"within {POD_WAIT_TIMEOUT}s"
+    )
 
-        terminated = _wait_for_init_container_terminated(
-            kserve_client.core_api,
-            KSERVE_TEST_NAMESPACE,
-            label_selector,
-            STORAGE_INITIALIZER_CONTAINER,
-        )
-        assert terminated is not None, (
-            f"Init container '{STORAGE_INITIALIZER_CONTAINER}' did not terminate "
-            f"within {INIT_CONTAINER_TIMEOUT}s"
-        )
-        assert terminated.exit_code == 0, (
-            f"oci+fetch:// pull failed: init container "
-            f"'{STORAGE_INITIALIZER_CONTAINER}' exited {terminated.exit_code} "
-            f"(reason={terminated.reason})"
-        )
+    terminated = _wait_for_init_container_terminated(
+        kserve_client.core_api,
+        test_namespace,
+        label_selector,
+        STORAGE_INITIALIZER_CONTAINER,
+    )
+    assert terminated is not None, (
+        f"Init container '{STORAGE_INITIALIZER_CONTAINER}' did not terminate "
+        f"within {INIT_CONTAINER_TIMEOUT}s"
+    )
+    assert terminated.exit_code == 0, (
+        f"oci+fetch:// pull failed: init container "
+        f"'{STORAGE_INITIALIZER_CONTAINER}' exited {terminated.exit_code} "
+        f"(reason={terminated.reason})"
+    )
 
-        # Init container exit 0 already proves the pull + /models/ extraction
-        # (the handler raises if the image has no /models/). Confirm the file is
-        # visible in the shared mount from the serving container's side.
-        running = _wait_for_container_running(
-            kserve_client.core_api,
-            KSERVE_TEST_NAMESPACE,
-            label_selector,
-            "kserve-container",
-        )
-        assert running, (
-            "kserve-container did not reach running state within "
-            f"{MAIN_CONTAINER_RUNNING_TIMEOUT}s; cannot verify model files"
-        )
+    # Init container exit 0 already proves the pull + /models/ extraction
+    # (the handler raises if the image has no /models/). Confirm the file is
+    # visible in the shared mount from the serving container's side.
+    running = _wait_for_container_running(
+        kserve_client.core_api,
+        test_namespace,
+        label_selector,
+        "kserve-container",
+    )
+    assert running, (
+        "kserve-container did not reach running state within "
+        f"{MAIN_CONTAINER_RUNNING_TIMEOUT}s; cannot verify model files"
+    )
 
-        pod = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE, label_selector=label_selector
-        ).items[0]
-        ls_output = stream(
-            kserve_client.core_api.connect_get_namespaced_pod_exec,
-            pod.metadata.name,
-            KSERVE_TEST_NAMESPACE,
-            container="kserve-container",
-            command=["ls", MODEL_MOUNT_PATH],
-            stderr=True,
-            stdin=False,
-            stdout=True,
-            tty=False,
-        )
-        assert EXPECTED_MODEL_FILE in ls_output, (
-            f"Expected '{EXPECTED_MODEL_FILE}' under {MODEL_MOUNT_PATH} after "
-            f"oci+fetch:// pull, but `ls` returned: {ls_output!r}"
-        )
-
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    pod = kserve_client.core_api.list_namespaced_pod(
+        test_namespace, label_selector=label_selector
+    ).items[0]
+    ls_output = stream(
+        kserve_client.core_api.connect_get_namespaced_pod_exec,
+        pod.metadata.name,
+        test_namespace,
+        container="kserve-container",
+        command=["ls", MODEL_MOUNT_PATH],
+        stderr=True,
+        stdin=False,
+        stdout=True,
+        tty=False,
+    )
+    assert EXPECTED_MODEL_FILE in ls_output, (
+        f"Expected '{EXPECTED_MODEL_FILE}' under {MODEL_MOUNT_PATH} after "
+        f"oci+fetch:// pull, but `ls` returned: {ls_output!r}"
+    )
 
 
 @pytest.mark.storage
-def test_oci_fetch_with_image_pull_secret_spec_only():
+def test_oci_fetch_with_image_pull_secret_spec_only(test_namespace):
     """An imagePullSecret on an oci+fetch:// ISVC is wired as a docker config.
 
     Spec-only: the webhook must project the first imagePullSecret as a docker
@@ -285,85 +293,73 @@ def test_oci_fetch_with_image_pull_secret_spec_only():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    try:
-        kserve_client.create(isvc)
+    kserve_client.create(isvc)
 
-        pod = _wait_for_pod(
-            kserve_client.core_api, KSERVE_TEST_NAMESPACE, label_selector
-        )
-        assert pod is not None, (
-            f"No pod appeared for InferenceService '{service_name}' "
-            f"within {POD_WAIT_TIMEOUT}s"
-        )
+    pod = _wait_for_pod(kserve_client.core_api, test_namespace, label_selector)
+    assert pod is not None, (
+        f"No pod appeared for InferenceService '{service_name}' "
+        f"within {POD_WAIT_TIMEOUT}s"
+    )
 
-        pod_dict = pod.to_dict()
-        spec = pod_dict.get("spec", {})
+    pod_dict = pod.to_dict()
+    spec = pod_dict.get("spec", {})
 
-        # 1. Projected docker-config volume sourced from the imagePullSecret.
-        volumes = spec.get("volumes", []) or []
-        docker_cfg_vol = next(
-            (v for v in volumes if v.get("name") == OCI_FETCH_DOCKER_CONFIG_VOLUME),
-            None,
-        )
-        assert docker_cfg_vol is not None, (
-            f"Expected volume '{OCI_FETCH_DOCKER_CONFIG_VOLUME}' projecting the "
-            f"imagePullSecret. Volumes present: {[v.get('name') for v in volumes]}"
-        )
-        secret_source = docker_cfg_vol.get("secret") or {}
-        assert secret_source.get("secret_name") == secret_name, (
-            f"docker-config volume should project secret '{secret_name}', got "
-            f"{secret_source.get('secret_name')!r}"
-        )
+    # 1. Projected docker-config volume sourced from the imagePullSecret.
+    volumes = spec.get("volumes", []) or []
+    docker_cfg_vol = next(
+        (v for v in volumes if v.get("name") == OCI_FETCH_DOCKER_CONFIG_VOLUME),
+        None,
+    )
+    assert docker_cfg_vol is not None, (
+        f"Expected volume '{OCI_FETCH_DOCKER_CONFIG_VOLUME}' projecting the "
+        f"imagePullSecret. Volumes present: {[v.get('name') for v in volumes]}"
+    )
+    secret_source = docker_cfg_vol.get("secret") or {}
+    assert secret_source.get("secret_name") == secret_name, (
+        f"docker-config volume should project secret '{secret_name}', got "
+        f"{secret_source.get('secret_name')!r}"
+    )
 
-        # 2. The storage-initializer init container consumes it and is told where.
-        init_containers = spec.get("init_containers", []) or []
-        init = next(
-            (
-                c
-                for c in init_containers
-                if c.get("name") == STORAGE_INITIALIZER_CONTAINER
-            ),
-            None,
-        )
-        assert init is not None, (
-            f"'{STORAGE_INITIALIZER_CONTAINER}' init container not found. "
-            f"Init containers: {[c.get('name') for c in init_containers]}"
-        )
+    # 2. The storage-initializer init container consumes it and is told where.
+    init_containers = spec.get("init_containers", []) or []
+    init = next(
+        (c for c in init_containers if c.get("name") == STORAGE_INITIALIZER_CONTAINER),
+        None,
+    )
+    assert init is not None, (
+        f"'{STORAGE_INITIALIZER_CONTAINER}' init container not found. "
+        f"Init containers: {[c.get('name') for c in init_containers]}"
+    )
 
-        mounts = init.get("volume_mounts", []) or []
-        cfg_mount = next(
-            (m for m in mounts if m.get("name") == OCI_FETCH_DOCKER_CONFIG_VOLUME),
-            None,
-        )
-        assert cfg_mount is not None, (
-            f"Init container missing VolumeMount for "
-            f"'{OCI_FETCH_DOCKER_CONFIG_VOLUME}'. Mounts: "
-            f"{[m.get('name') for m in mounts]}"
-        )
+    mounts = init.get("volume_mounts", []) or []
+    cfg_mount = next(
+        (m for m in mounts if m.get("name") == OCI_FETCH_DOCKER_CONFIG_VOLUME),
+        None,
+    )
+    assert cfg_mount is not None, (
+        f"Init container missing VolumeMount for "
+        f"'{OCI_FETCH_DOCKER_CONFIG_VOLUME}'. Mounts: "
+        f"{[m.get('name') for m in mounts]}"
+    )
 
-        env = init.get("env", []) or []
-        cfg_env = next(
-            (e for e in env if e.get("name") == OCI_FETCH_DOCKER_CONFIG_ENV), None
-        )
-        assert cfg_env is not None, (
-            f"Init container missing env var '{OCI_FETCH_DOCKER_CONFIG_ENV}'. "
-            f"Env names: {[e.get('name') for e in env]}"
-        )
-        assert cfg_env.get("value", "").endswith("/config.json"), (
-            f"{OCI_FETCH_DOCKER_CONFIG_ENV} should point at a config.json, got "
-            f"{cfg_env.get('value')!r}"
-        )
-        # The advertised path must be covered by the mount.
-        assert cfg_env["value"].startswith(cfg_mount.get("mount_path", "\x00")), (
-            f"{OCI_FETCH_DOCKER_CONFIG_ENV}={cfg_env['value']!r} is not under the "
-            f"mounted dir {cfg_mount.get('mount_path')!r}"
-        )
-
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    env = init.get("env", []) or []
+    cfg_env = next(
+        (e for e in env if e.get("name") == OCI_FETCH_DOCKER_CONFIG_ENV), None
+    )
+    assert cfg_env is not None, (
+        f"Init container missing env var '{OCI_FETCH_DOCKER_CONFIG_ENV}'. "
+        f"Env names: {[e.get('name') for e in env]}"
+    )
+    assert cfg_env.get("value", "").endswith("/config.json"), (
+        f"{OCI_FETCH_DOCKER_CONFIG_ENV} should point at a config.json, got "
+        f"{cfg_env.get('value')!r}"
+    )
+    # The advertised path must be covered by the mount.
+    assert cfg_env["value"].startswith(cfg_mount.get("mount_path", "\x00")), (
+        f"{OCI_FETCH_DOCKER_CONFIG_ENV}={cfg_env['value']!r} is not under the "
+        f"mounted dir {cfg_mount.get('mount_path')!r}"
+    )

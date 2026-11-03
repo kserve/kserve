@@ -126,6 +126,7 @@ TARGET_CRDS_TO_VERIFY=()
 KSERVE_CRDS="inferenceservices.serving.kserve.io servingruntimes.serving.kserve.io clusterservingruntimes.serving.kserve.io inferencegraphs.serving.kserve.io trainedmodels.serving.kserve.io"
 LLMISVC_CRDS="llminferenceservices.serving.kserve.io llminferenceserviceconfigs.serving.kserve.io"
 LOCALMODEL_CRDS="localmodelcaches.serving.kserve.io localmodelnodegroups.serving.kserve.io localmodelnodes.serving.kserve.io"
+KERNELCACHE_CRDS="kernelcaches.serving.kserve.io kernelcachecaptures.serving.kserve.io kernelcachenodes.serving.kserve.io kernelcachenodegroups.serving.kserve.io"
 
 # Override KSERVE_VERSION if SET_KSERVE_VERSION is provided
 if [ -n "${SET_KSERVE_VERSION}" ]; then
@@ -195,8 +196,10 @@ if [ -n "${KSERVE_OVERLAY_DIR}" ]; then
 
         TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
         TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/kernelcache")
         TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
         TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+        TARGET_CRDS_TO_VERIFY+=("${KERNELCACHE_CRDS}")
         test_overlay_deployments="kserve-controller-manager kserve-localmodel-controller-manager"
         if is_positive "${ENABLE_LLMISVC}"; then
             TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
@@ -211,9 +214,11 @@ if [ -n "${KSERVE_OVERLAY_DIR}" ]; then
 
         TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
         TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/kernelcache")
         TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
         TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
         TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+        TARGET_CRDS_TO_VERIFY+=("${KERNELCACHE_CRDS}")
         TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
         TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager kserve-localmodel-controller-manager llmisvc-controller-manager")
     elif [ "${KSERVE_OVERLAY_DIR}" == "test-llmisvc" ]; then
@@ -240,7 +245,9 @@ if [ -n "${KSERVE_OVERLAY_DIR}" ]; then
         fi
         if is_positive "${ENABLE_LOCALMODEL}"; then
             TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+            TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/kernelcache")
             TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+            TARGET_CRDS_TO_VERIFY+=("${KERNELCACHE_CRDS}")
             TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
         fi
     fi
@@ -267,7 +274,9 @@ else
 
     if is_positive "${ENABLE_LOCALMODEL}"; then
         TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full/localmodel")
+        TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full/kernelcache")
         TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+        TARGET_CRDS_TO_VERIFY+=("${KERNELCACHE_CRDS}")
         TARGET_OVERLAY_DIRS+=("${LOCALMODEL_CONFIG_DIR}")
         TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
     fi
@@ -410,9 +419,11 @@ install() {
             config_updates+=("ingress.ingressClassName=${GATEWAY_NETWORK_LAYER}")
         fi
         if is_positive "${ENABLE_LOCALMODEL}"; then
-            log_info "Adding LocalModel updates: enabled=true, defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}"
+            log_info "Adding LocalModel updates: enabled=true, kernelCache.enabled=true, defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}"
             config_updates+=("localModel.enabled=true")
-            config_updates+=("localModel.defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}")
+            config_updates+=("kernelCache.enabled=true")
+            config_updates+=("localModel.defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}") 
+            config_updates+=("mcvImage=kserve/kserve-mcv:${KSERVE_VERSION}-minimal")
         fi
         # Add custom configurations if provided
         if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then

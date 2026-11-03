@@ -64,6 +64,23 @@ func TestValidateRegistryScope(t *testing.T) {
 	}
 }
 
+func TestReferenceOptions(t *testing.T) {
+	t.Run("secure by default", func(t *testing.T) {
+		clearRegistryEnvironment(t)
+		ref, err := name.NewTag("registry.example.com/repo:tag", ReferenceOptions(true)...)
+		require.NoError(t, err)
+		require.Equal(t, "https", ref.Scheme())
+	})
+
+	t.Run("uses HTTP when insecure is enabled", func(t *testing.T) {
+		clearRegistryEnvironment(t)
+		t.Setenv(insecureEnv, "true")
+		ref, err := name.NewTag("registry.example.com/repo:tag", ReferenceOptions(true)...)
+		require.NoError(t, err)
+		require.Equal(t, "http", ref.Scheme())
+	})
+}
+
 // Selects registry credentials and rejects invalid credential configuration.
 func TestRemoteOptions(t *testing.T) {
 	const target = "registry.example.com"
@@ -246,7 +263,7 @@ func TestRegistryTransport(t *testing.T) {
 func clearRegistryEnvironment(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
-		caFileEnv, allowedEndpointEnv, accessFileEnv,
+		caFileEnv, allowedEndpointEnv, accessFileEnv, insecureEnv,
 	} {
 		t.Setenv(key, "")
 	}

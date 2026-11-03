@@ -27,6 +27,8 @@ type VerifyRequest struct {
 	// mode reads the policy-engine verification result from here; other modes
 	// ignore it.
 	Annotations map[string]string
+
+	RegistrySettings
 }
 
 // VerifyResult is the outcome of a completed verification attempt. Digest is

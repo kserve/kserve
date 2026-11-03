@@ -16,10 +16,13 @@ import base64
 import io
 import json
 import os
+import ssl
 import tarfile
 import unittest.mock as mock
+from urllib.error import HTTPError
 
 import pytest
+import zstandard
 
 from kserve_storage import Storage
 from kserve_storage.kserve_storage import (
@@ -27,7 +30,11 @@ from kserve_storage.kserve_storage import (
     _OCI_DOCKER_CONFIG_PATH_ENV,
     _OCI_INSECURE_REGISTRY_ENV,
     _detect_goarch,
+    _docker_config_auth_keys,
     _login_from_docker_config,
+    _oci_auth_backend_from_www_authenticate,
+    _oci_auth_backend_for_registry,
+    _oci_ssl_context_for_probe,
     _pick_platform,
     _rewrite_with_digest,
     _setup_oci_tls,
@@ -159,7 +166,7 @@ def test_oci_anonymous_pull_no_config(tmp_path):
     out = str(tmp_path / "out")
     client = _make_client(_IMAGE_MANIFEST)
     with (
-        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
             "kserve_storage.kserve_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
@@ -174,6 +181,7 @@ def test_oci_anonymous_pull_no_config(tmp_path):
     assert os.path.isfile(os.path.join(out, "model.joblib"))
     # No config file present -> _login_from_docker_config never invoked (anonymous pull).
     mock_login.assert_not_called()
+    ctor.assert_called_once_with(insecure=False, auth_backend="token")
     # get_manifest has no auth param in oras-py; it is called with the target only.
     assert client.get_manifest.call_args.args[0] == "registry.io/mymodel:v1"
     assert "config_path" not in client.get_manifest.call_args.kwargs
@@ -184,7 +192,7 @@ def test_oci_with_config(tmp_path):
     client = _make_client(_IMAGE_MANIFEST)
 
     with (
-        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
             "kserve_storage.kserve_storage.os.path.exists",
             side_effect=_fake_config_exists(True),
@@ -192,14 +200,145 @@ def test_oci_with_config(tmp_path):
         mock.patch(
             "kserve_storage.kserve_storage._login_from_docker_config"
         ) as mock_login,
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="basic",
+        ),
     ):
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    ctor.assert_called_once_with(insecure=False, auth_backend="basic")
 
     mock_login.assert_called_once_with(
         client, "registry.io/mymodel:v1", _OCI_DOCKER_CONFIG_PATH
     )
     # get_manifest takes no config_path; auth is pre-established via client.login().
     assert "config_path" not in client.get_manifest.call_args.kwargs
+
+
+def test_oci_www_authenticate_basic_realm():
+    assert (
+        _oci_auth_backend_from_www_authenticate('Basic realm="Registry Realm"')
+        == "basic"
+    )
+
+
+def test_oci_www_authenticate_bearer_realm():
+    assert (
+        _oci_auth_backend_from_www_authenticate(
+            'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"'
+        )
+        == "token"
+    )
+
+
+def test_oci_www_authenticate_prefers_bearer_when_both():
+    assert (
+        _oci_auth_backend_from_www_authenticate(
+            'Bearer realm="https://auth.example/token", Basic realm="Registry Realm"'
+        )
+        == "token"
+    )
+
+
+def test_oci_auth_backend_probe_basic_401():
+    err = HTTPError(
+        "http://registry.local/v2/",
+        401,
+        "Unauthorized",
+        {"Www-Authenticate": 'Basic realm="Registry Realm"'},
+        io.BytesIO(),
+    )
+    with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
+        assert _oci_auth_backend_for_registry("registry.local:5000", True) == "basic"
+
+
+def test_oci_auth_backend_probe_http_exception_falls_back():
+    import http.client
+
+    with mock.patch(
+        "kserve_storage.kserve_storage.urlopen",
+        side_effect=http.client.BadStatusLine("broken"),
+    ):
+        assert _oci_auth_backend_for_registry("registry.local:5000", True) == "token"
+
+
+def test_oci_auth_backend_probe_bearer_401():
+    err = HTTPError(
+        "https://ghcr.io/v2/",
+        401,
+        "Unauthorized",
+        {
+            "Www-Authenticate": (
+                'Bearer realm="https://ghcr.io/token",service="ghcr.io"'
+            )
+        },
+        io.BytesIO(),
+    )
+    with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
+        assert _oci_auth_backend_for_registry("ghcr.io", False) == "token"
+
+
+def test_oci_ssl_context_for_probe_uses_requests_ca_bundle(monkeypatch):
+    import certifi
+
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", certifi.where())
+
+    ctx = _oci_ssl_context_for_probe("https://registry.local:5000/v2/", insecure=False)
+    assert ctx is not None
+    assert ctx.check_hostname is True
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_oci_ssl_context_for_probe_insecure_skips_verify():
+    ctx = _oci_ssl_context_for_probe("https://registry.local:5000/v2/", insecure=True)
+    assert ctx is not None
+    assert ctx.verify_mode == ssl.CERT_NONE
+
+
+def test_oci_auth_backend_probe_passes_ca_context(monkeypatch):
+    """Custom CA must be wired into urlopen or Basic-only HTTPS registries
+    never surface Www-Authenticate and we fall back to token incorrectly."""
+    import certifi
+
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", certifi.where())
+
+    err = HTTPError(
+        "https://registry.local:5000/v2/",
+        401,
+        "Unauthorized",
+        {"Www-Authenticate": 'Basic realm="Registry Realm"'},
+        io.BytesIO(),
+    )
+    with mock.patch(
+        "kserve_storage.kserve_storage.urlopen", side_effect=err
+    ) as urlopen_mock:
+        assert _oci_auth_backend_for_registry("registry.local:5000", False) == "basic"
+
+    _, kwargs = urlopen_mock.call_args
+    ctx = kwargs.get("context")
+    assert ctx is not None
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_oci_with_config_uses_bearer_backend(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(True),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="token",
+        ),
+    ):
+        Storage._download_oci("oci://ghcr.io/org/model:v1", out)
+
+    ctor.assert_called_once_with(insecure=False, auth_backend="token")
 
 
 def test_oci_uncompressed_tar_layer_extracts(tmp_path):
@@ -227,16 +366,23 @@ def test_oci_uncompressed_tar_layer_extracts(tmp_path):
     assert os.path.isfile(os.path.join(out, "model.txt"))
 
 
-def test_oci_zstd_layer_rejected(tmp_path):
-    # zstd layers cannot be decompressed by stdlib tarfile before Python 3.14
-    # (the initializer runs 3.11); reject with an actionable error instead of a
-    # cryptic mid-stream gzip failure. Rejection happens before any blob fetch.
+def test_oci_zstd_layer_extracts(tmp_path):
+    # A zstd-compressed layer (mediaType ...tar+zstd) is streamed through a
+    # zstandard decompressor and then read as an uncompressed tar. A real
+    # zstd->tar round-trip: a broken decompressor wrap surfaces as a real error
+    # rather than passing silently under MagicMock.
     out = str(tmp_path / "out")
+    tar_bytes = _build_layer_tar_bytes(model_files=("model.txt",), compress=False)
+    zstd_bytes = zstandard.ZstdCompressor().compress(tar_bytes)
     manifest = {
         "mediaType": "application/vnd.oci.image.manifest.v1+json",
         "layers": [{"digest": "sha256:layer0", "mediaType": _ZSTD_LAYER}],
     }
-    client = _make_client(manifest)
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        zstd_bytes
+    )
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
@@ -245,16 +391,120 @@ def test_oci_zstd_layer_rejected(tmp_path):
         ),
         mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
     ):
-        with pytest.raises(RuntimeError) as excinfo:
-            Storage._download_oci("oci://registry.io/mymodel:v1", out)
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
-    msg = str(excinfo.value)
-    assert "zstd" in msg
-    # Actionable: hint at rebuilding with gzip or the 3.14 stdlib path, without
-    # asserting the exact wording.
-    assert "gzip" in msg or "3.14" in msg
-    # Rejected before streaming any blob.
-    client.get_blob.assert_not_called()
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "model.txt"))
+    # The zstd layer was fetched and streamed -- not skipped, not rejected.
+    assert client.get_blob.call_count == 1
+
+
+def test_oci_zstd_and_gzip_layers_extract(tmp_path):
+    # A manifest mixing a zstd layer and a gzip layer: each is decompressed by
+    # its own path (zstandard wrap vs tarfile "r|gz") and both models land.
+    out = str(tmp_path / "out")
+    gzip_bytes = _build_layer_tar_bytes(model_files=("gzip_model.txt",), compress=True)
+    zstd_bytes = zstandard.ZstdCompressor().compress(
+        _build_layer_tar_bytes(model_files=("zstd_model.txt",), compress=False)
+    )
+    blobs = {"sha256:gz": gzip_bytes, "sha256:zstd": zstd_bytes}
+    manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [
+            {"digest": "sha256:zstd", "mediaType": _ZSTD_LAYER},
+            {"digest": "sha256:gz", "mediaType": _GZIP_LAYER},
+        ],
+    }
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        blobs[digest]
+    )
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "zstd_model.txt"))
+    assert os.path.isfile(os.path.join(out, "gzip_model.txt"))
+    assert client.get_blob.call_count == 2
+
+
+def _build_multi_frame_zstd_blob(tar_bytes, *, frames=2):
+    """Compress tar_bytes into `frames` independently-compressed zstd frames
+    concatenated into one blob -- the layout multithreaded zstd (`zstd -T0`/`-TN`)
+    and chunked/seekable zstd emit for large layers. Each frame is a complete,
+    self-delimiting zstd stream, so a decompressor that stops at the first frame
+    boundary yields only the leading slice of the tar."""
+    step = len(tar_bytes) // frames
+    chunks = [tar_bytes[i * step : (i + 1) * step] for i in range(frames - 1)]
+    chunks.append(tar_bytes[(frames - 1) * step :])
+    return b"".join(zstandard.ZstdCompressor().compress(c) for c in chunks)
+
+
+def test_oci_zstd_multiframe_layer_extracts(tmp_path):
+    # A zstd layer split across multiple frames must decompress as one continuous
+    # stream: the tar is cut mid-archive, so any decompressor that stopped at the
+    # first frame boundary would hand tarfile a truncated archive and silently
+    # drop the tail of the model. Contents are asserted byte-for-byte (not just
+    # existence) precisely because the failure mode here is partial extraction --
+    # an existence-only assert would pass on a half-written file.
+    out = str(tmp_path / "out")
+    # Payloads large enough that the midpoint split lands inside file data rather
+    # than in tar's trailing padding, and that each frame spans several of the
+    # decompression reader's input refills.
+    contents = {
+        "first.bin": bytes(range(256)) * 512,
+        "second.bin": bytes(reversed(range(256))) * 512,
+    }
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tar:
+        info = tarfile.TarInfo(name="models")
+        info.type = tarfile.DIRTYPE
+        tar.addfile(info)
+        for name, data in contents.items():
+            info = tarfile.TarInfo(name=f"models/{name}")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    tar_bytes = buf.getvalue()
+
+    zstd_bytes = _build_multi_frame_zstd_blob(tar_bytes, frames=2)
+    # Guard the fixture itself: assert the blob really is multi-frame, so this
+    # test can never silently degrade into a duplicate of the single-frame case.
+    assert zstd_bytes.count(zstandard.FRAME_HEADER) == 2
+
+    manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [{"digest": "sha256:layer0", "mediaType": _ZSTD_LAYER}],
+    }
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        zstd_bytes
+    )
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert result == out
+    # Every byte of every member survives the frame boundary.
+    for name, data in contents.items():
+        path = os.path.join(out, name)
+        assert os.path.isfile(path), f"{name} missing -- extraction stopped early"
+        with open(path, "rb") as f:
+            assert f.read() == data, f"{name} truncated across the zstd frame boundary"
 
 
 def test_oci_non_tar_layer_skipped(tmp_path):
@@ -419,6 +669,10 @@ def test_oci_honors_env_var_for_config_path(tmp_path):
         mock.patch(
             "kserve_storage.kserve_storage._login_from_docker_config"
         ) as mock_login,
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="token",
+        ),
     ):
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
@@ -502,6 +756,48 @@ def test_oci_login_from_docker_config(tmp_path):
 
     client.login.assert_called_once_with(
         username="alice", password="s3cret", hostname="registry.io"
+    )
+
+
+def test_oci_login_docker_hub_index_key(tmp_path):
+    """CLI-generated secrets key Hub creds as https://index.docker.io/v1/ while
+    oci:// URIs use docker.io — login must still succeed."""
+    cfg = tmp_path / "config.json"
+    token = base64.b64encode(b"alice:s3cret").decode("utf-8")
+    cfg.write_text(
+        json.dumps({"auths": {"https://index.docker.io/v1/": {"auth": token}}})
+    )
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "docker.io/ns/model:v1", str(cfg))
+
+    client.login.assert_called_once_with(
+        username="alice", password="s3cret", hostname="docker.io"
+    )
+
+
+def test_docker_config_auth_keys_hub_aliases():
+    keys = _docker_config_auth_keys("docker.io")
+    assert "https://index.docker.io/v1/" in keys
+    assert "https://index.docker.io/v2/" in keys
+    # Non-Hub registries must not pick up Hub-only aliases.
+    assert "https://index.docker.io/v1/" not in _docker_config_auth_keys("quay.io")
+
+
+def test_oci_login_insecure_skips_tls_verify(tmp_path, monkeypatch):
+    monkeypatch.setenv("KSERVE_OCI_INSECURE_REGISTRY", "true")
+    cfg = tmp_path / "config.json"
+    token = base64.b64encode(b"alice:s3cret").decode("utf-8")
+    cfg.write_text(json.dumps({"auths": {"registry.io": {"auth": token}}}))
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "registry.io/ns/model:v1", str(cfg))
+
+    client.login.assert_called_once_with(
+        username="alice",
+        password="s3cret",
+        hostname="registry.io",
+        tls_verify=False,
     )
 
 

@@ -70,7 +70,11 @@ func applyLoRAModelRouting(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alpha2.LLMIn
 	case LoRAModelRoutingStrategyRegex:
 		baseModel := ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.GetName())
 		if err := applyLoRARegexMatches(rules, llmSvc.Namespace, baseModel, adapterNames, cfg.ModelBasedRoutingHeaderName); err != nil {
-			return fmt.Errorf("%w: %w", ErrPreconditionNotMet, err)
+			// After a cluster-wide switch to regex, whoever reads this condition may
+			// never have chosen the strategy: point at the per-service annotation
+			// that opts back into Exact, whichever source set regex.
+			return fmt.Errorf("%w: %w; set spec.annotations[%s] to %q to route this service with Exact matches instead",
+				ErrPreconditionNotMet, err, AnnotationLoRAModelRoutingStrategy, LoRAModelRoutingStrategyExact)
 		}
 		return nil
 	case LoRAModelRoutingStrategyExact, "":

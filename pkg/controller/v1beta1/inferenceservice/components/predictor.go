@@ -156,6 +156,10 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 		}
 	}
 
+	if err := injectTLSSecurityProfile(ctx, p.client, &podSpec); err != nil {
+		return nil, errors.Wrap(err, "failed to inject TLS security profile into predictor")
+	}
+
 	if isvc.Spec.Tracing != nil {
 		serverType := runtimeAnnotations[constants.ServerTypeAnnotationKey]
 		if serverType == "" && isvc.Spec.Predictor.Model != nil && isvc.Spec.Predictor.Model.Runtime != nil {
@@ -836,6 +840,8 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to reconcile predictor")
 	}
+
+	propagatePlatformWorkloadStatus(isvc, r.Workload)
 
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)

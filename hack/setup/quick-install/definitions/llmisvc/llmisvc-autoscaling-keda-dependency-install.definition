@@ -1,4 +1,4 @@
-DESCRIPTION: Install KServe LLM InferenceService KEDA autoscaling dependencies (Prometheus, KEDA, WVA)
+DESCRIPTION: Install KServe LLM InferenceService KEDA autoscaling dependencies (Prometheus, KEDA)
 
 TOOLS:
   - helm
@@ -6,4 +6,3 @@ TOOLS:
 COMPONENTS:
   - name: prometheus-helm
   - name: keda-helm
-  - name: wva-kustomize

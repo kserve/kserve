@@ -683,7 +683,11 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCReady(t *testing.T) {
 	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
 }
 
-func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReady(t *testing.T) {
+// Readiness gates binding in the webhook, not resolution here: an adapter already bound to a
+// shared-PVC cache keeps resolving to the claim while the cache reports NotReady (re-import
+// blocked, spec-generation bump), since the data is still on the claim. Failing here would
+// make every LoRA-bound LLMInferenceService unreconcilable for the whole NotReady window.
+func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyKeepsBoundAdapter(t *testing.T) {
 	t.Parallel()
 
 	adapters := []resolvedLoRAAdapter{
@@ -709,9 +713,10 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReady(t *testing.T) 
 		},
 	}
 
-	_, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "is not ready")
+	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
+	require.NoError(t, err)
+	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
+	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
 }
 
 func TestRewriteLoRAAdaptersFromLocalModelCache_MissingCache(t *testing.T) {

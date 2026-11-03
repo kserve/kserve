@@ -17,6 +17,7 @@ SHELLCHECK = $(LOCALBIN)/shellcheck
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
 PYTEST = $(PYTHON_BIN)/pytest
+CODESPELL = $(PYTHON_BIN)/codespell
 
 ## Tool versions are defined in kserve-deps.env (included in main Makefile)
 
@@ -100,6 +101,9 @@ $(RUFF): $(PYTHON_VENV) $(DEPS_ENV)
 $(PYTEST): $(UV)
 	$(UV) pip install --python $(PYTHON_BIN)/python pytest
 
+$(CODESPELL): $(PYTHON_VENV) $(DEPS_ENV)
+	$(PYTHON_BIN)/pip install codespell==$(CODESPELL_VERSION)
+
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
 # $2 - package url which can be installed
@@ -117,9 +121,8 @@ mv $(1) $(1)-$(3)-$(GO_TOOLCHAIN) ;\
 ln -sf $(1)-$(3)-$(GO_TOOLCHAIN) $(1)
 endef
 
-# This clears all the installed binaries.
-#
-# Whenever you run into issues with the target like `precommit` or `test`, try running this target.
+##@ Tools
+
 .PHONY: clean
-clean:
+clean: ## Delete bin/: tools, venv, envtest assets. Try it when precommit or test breaks.
 	rm -rf $(LOCALBIN)

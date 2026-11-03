@@ -38,13 +38,14 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 import pytest
 from ..common.utils import predict_isvc
-from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
+async def test_kserve_logger(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     msg_dumper = "message-dumper"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -63,19 +64,19 @@ async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(name=msg_dumper, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(msg_dumper, namespace=test_namespace)
 
     service_name = "isvc-logger"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         logger=V1beta1LoggerSpec(
             mode="all",
-            url=f"http://{msg_dumper}." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local",
+            url=f"http://{msg_dumper}." + test_namespace + ".svc.cluster.local",
         ),
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
@@ -89,18 +90,16 @@ async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError:
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -111,10 +110,11 @@ async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
         service_name,
         "./data/iris_input.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
     pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
+        test_namespace,
         label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
     )
     await asyncio.sleep(5)
@@ -128,5 +128,3 @@ async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
         print(log)
     assert "org.kubeflow.serving.inference.request" in log
     assert "org.kubeflow.serving.inference.response" in log
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)

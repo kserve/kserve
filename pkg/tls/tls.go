@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -86,6 +87,42 @@ func parseCipherSuites(commaSeparated string) ([]uint16, error) {
 		return nil, errors.New("cipher suites flag was set but no valid suites were specified")
 	}
 	return ids, nil
+}
+
+// Validate checks that a minimum TLS version and cipher-suite list can be
+// applied by Go's crypto/tls implementation.
+func Validate(tlsMinVersion, tlsCipherSuites string) error {
+	minVersion, err := parseMinVersion(tlsMinVersion)
+	if err != nil {
+		return err
+	}
+	ciphers, err := parseCipherSuites(tlsCipherSuites)
+	if err != nil {
+		return err
+	}
+	if minVersion >= tls.VersionTLS13 && len(ciphers) > 0 {
+		return errors.New("cipher suites cannot be configured with TLS 1.3 (Go manages TLS 1.3 ciphers internally)")
+	}
+	if strings.TrimSpace(tlsCipherSuites) != "" {
+		for _, name := range strings.Split(tlsCipherSuites, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				return errors.New("cipher suites list contains an empty entry")
+			}
+			for _, cs := range tls.CipherSuites() {
+				if cs.Name == name {
+					if slices.Contains(cs.SupportedVersions, tls.VersionTLS12) {
+						name = ""
+					}
+					break
+				}
+			}
+			if name != "" {
+				return fmt.Errorf("TLS cipher suite %q cannot be configured for TLS 1.2", name)
+			}
+		}
+	}
+	return nil
 }
 
 func validVersionNames() []string {

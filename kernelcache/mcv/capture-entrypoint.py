@@ -22,18 +22,17 @@ logging.basicConfig(
 logger = logging.getLogger("mcv-capture")
 
 RESULT_PATH = os.environ.get("MCV_RESULT_PATH", "/tmp/mcv/result.json")
-SNAPSHOT_PATH = os.environ.get(
-    "MCV_SNAPSHOT_PATH", "/tmp/mcv/cache-snapshot.json"
-)
+SNAPSHOT_PATH = os.environ.get("MCV_SNAPSHOT_PATH", "/tmp/mcv/cache-snapshot.json")
 DEFAULT_READINESS_TIMEOUT_SECONDS = 600
+CAPTURE_CONFIG_VERSION = 1
 SNAPSHOT_RETRY_ATTEMPTS = 3
 SNAPSHOT_RETRY_DELAY_SECONDS = 5
 COMMAND_POLL_INTERVAL_SECONDS = 0.2
 COMMAND_TERMINATION_TIMEOUT_SECONDS = 10
 SHUTDOWN_POLL_INTERVAL_SECONDS = 1
 SESSION_TEST_FAILURE_MARKERS = (
-    "testing value /status/activeSession/id failed: test failed",
-    "testing value /status/activeSession/podName failed: test failed",
+    "runtimeResult.sourcePodName is already claimed",
+    "reporter identity is not authorized for this KernelCacheCapture",
 )
 
 shutdown_event = threading.Event()
@@ -68,17 +67,13 @@ def required_string(config, key, name):
 
 
 def validate_capture_config(config):
-    if config.get("version") != 1:
-        raise CaptureConfigurationError(
-            "MCV_CAPTURE_CONFIG has an unsupported version"
-        )
+    if config.get("version") != CAPTURE_CONFIG_VERSION:
+        raise CaptureConfigurationError("MCV_CAPTURE_CONFIG has an unsupported version")
     required_string(config, "cacheDir", "MCV_CAPTURE_CONFIG")
     required_string(config, "targetImage", "MCV_CAPTURE_CONFIG")
     capture = config.get("capture")
     if not isinstance(capture, dict):
-        raise CaptureConfigurationError(
-            "MCV_CAPTURE_CONFIG.capture must be an object"
-        )
+        raise CaptureConfigurationError("MCV_CAPTURE_CONFIG.capture must be an object")
     for key in ("name", "namespace", "sessionID"):
         required_string(capture, key, "MCV_CAPTURE_CONFIG.capture")
     cache_paths = config.get("cachePaths", [])
@@ -114,9 +109,7 @@ def validate_readiness_config(config):
 def validate_runtime_info(config):
     for key, value in config.items():
         if not isinstance(value, str):
-            raise CaptureConfigurationError(
-                f"MCV_RUNTIME_INFO.{key} must be a string"
-            )
+            raise CaptureConfigurationError(f"MCV_RUNTIME_INFO.{key} must be a string")
     return config
 
 
@@ -253,7 +246,7 @@ def read_json_access(path):
 
 
 def is_capture_session_superseded(status_code, response):
-    if status_code != 422:
+    if status_code not in (400, 403, 409, 422):
         return False
 
     try:
@@ -267,13 +260,11 @@ def is_capture_session_superseded(status_code, response):
         return False
     if status.get("status") != "Failure":
         return False
-    if status.get("reason") != "Invalid":
-        return False
-    if status.get("code") != 422:
-        return False
 
     message = status.get("message")
     if not isinstance(message, str):
+        return False
+    if status_code == 422 and status.get("reason") != "Invalid":
         return False
     return any(marker in message for marker in SESSION_TEST_FAILURE_MARKERS)
 
@@ -321,24 +312,50 @@ def reporter_request(status):
     path = "/apis/serving.kserve.io/v1alpha1/namespaces/{}/kernelcachecaptures/{}/status".format(
         urllib.parse.quote(namespace, safe=""), urllib.parse.quote(name, safe="")
     )
-    request = urllib.request.Request(
-        "https://kubernetes.default.svc" + path,
-        data=json.dumps([
-            {"op": "test", "path": "/status/activeSession/id",
-             "value": session_id},
-            {"op": "test", "path": "/status/activeSession/podName",
-             "value": source_pod_name},
-            {"op": "add", "path": "/status/runtimeResult", "value": status},
-        ]).encode(),
-        headers={
-            "Authorization": "Bearer " + access["token"],
-            "Content-Type": "application/json-patch+json",
-        },
-        method="PATCH",
-    )
+    api_url = "https://kubernetes.default.svc" + path
+    auth_headers = {"Authorization": "Bearer " + access["token"]}
     context = ssl.create_default_context(cafile=kubernetes_ca_file())
     try:
-        with urllib.request.urlopen(request, context=context, timeout=10):
+        get_request = urllib.request.Request(
+            api_url, headers=auth_headers, method="GET"
+        )
+        with urllib.request.urlopen(
+            get_request, context=context, timeout=10
+        ) as response:
+            capture = json.loads(response.read().decode("utf-8"))
+        current_status = capture.get("status")
+        if not isinstance(current_status, dict):
+            current_status = {}
+        active_session = current_status.get("activeSession")
+        if active_session is not None and (
+            not isinstance(active_session, dict)
+            or active_session.get("id") != session_id
+            or active_session.get("podName") != source_pod_name
+        ):
+            raise CaptureSessionSuperseded()
+        current_result = current_status.get("runtimeResult")
+        if not isinstance(current_result, dict):
+            current_result = {}
+        current_source = current_result.get("sourcePodName", "")
+        current_session = current_result.get("captureSessionID", "")
+        if (current_source or current_session) and (
+            current_source != source_pod_name or current_session != session_id
+        ):
+            raise CaptureSessionSuperseded()
+
+        updated_result = dict(current_result)
+        updated_result.update(status)
+        updated_result["sourcePodName"] = source_pod_name
+        updated_result["captureSessionID"] = session_id
+        current_status["runtimeResult"] = updated_result
+        capture["status"] = current_status
+        put_request = urllib.request.Request(
+            api_url,
+            data=json.dumps(capture).encode(),
+            headers={**auth_headers, "Content-Type": "application/json"},
+            method="PUT",
+        )
+        with urllib.request.urlopen(put_request, context=context, timeout=10):
             pass
     except urllib.error.HTTPError as error:
         response = error.read().decode("utf-8", errors="replace")
@@ -362,21 +379,32 @@ class ReadinessTimeout(RuntimeError):
 
 
 def report(status):
-    logger.info("Reporting KernelCacheCapture state: %s", status.get("state", "unknown"))
+    logger.info(
+        "Reporting KernelCacheCapture state: %s", status.get("state", "unknown")
+    )
     attempt = 0
     while True:
         attempt += 1
         raise_if_shutdown()
         try:
             reporter_request(status)
-            logger.info("KernelCacheCapture state reported: %s", status.get("state", "unknown"))
+            logger.info(
+                "KernelCacheCapture state reported: %s", status.get("state", "unknown")
+            )
             return
         except CaptureConfigurationError as error:
             logger.error("KernelCacheCapture configuration is invalid: %s", error)
             return
-        except (OSError, urllib.error.URLError, urllib.error.HTTPError, RuntimeError) as error:
+        except (
+            OSError,
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            RuntimeError,
+        ) as error:
             if attempt == 1 or attempt % 12 == 0:
-                logger.warning("KernelCacheCapture state report failed; retrying: %s", error)
+                logger.warning(
+                    "KernelCacheCapture state report failed; retrying: %s", error
+                )
             if shutdown_event.wait(5):
                 raise ShutdownRequested()
 
@@ -399,7 +427,9 @@ def capture_result():
     )
     runtime_metadata = runtime_info()
     if runtime_metadata:
-        result["runtimeInfo"] = json.dumps(runtime_metadata, separators=(",", ":"), sort_keys=True)
+        result["runtimeInfo"] = json.dumps(
+            runtime_metadata, separators=(",", ":"), sort_keys=True
+        )
     result["sourcePodName"] = os.environ.get("MCV_SOURCE_POD_NAME", "")
     result["captureSessionID"] = config["capture"]["sessionID"]
     result.setdefault("capturedAt", timestamp())
@@ -431,8 +461,12 @@ def wait_for_registry_access():
 def create_snapshot(cache_dir):
     logger.info("Creating baseline cache directory snapshot")
     command = [
-        "/mcv", "--snapshot", "--dir", cache_dir,
-        "--snapshot-file", SNAPSHOT_PATH,
+        "/mcv",
+        "--snapshot",
+        "--dir",
+        cache_dir,
+        "--snapshot-file",
+        SNAPSHOT_PATH,
     ]
     for attempt in range(1, SNAPSHOT_RETRY_ATTEMPTS + 1):
         try:
@@ -466,30 +500,46 @@ def main():
         create_snapshot(cache_dir)
         wait_for_json_access(reporter_access_file(), "reporter")
         capture_session_id = config["capture"]["sessionID"]
-        report({
-            "state": "WaitingForWorkload",
-            "capturedAt": timestamp(),
-            "sourcePodName": os.environ.get("MCV_SOURCE_POD_NAME", ""),
-            "captureSessionID": capture_session_id,
-        })
+        report(
+            {
+                "state": "WaitingForWorkload",
+                "capturedAt": timestamp(),
+                "sourcePodName": os.environ.get("MCV_SOURCE_POD_NAME", ""),
+                "captureSessionID": capture_session_id,
+            }
+        )
         wait_for_readiness()
-        report({
-            "state": "Capturing",
-            "capturedAt": timestamp(),
-            "sourcePodName": os.environ.get("MCV_SOURCE_POD_NAME", ""),
-            "captureSessionID": capture_session_id,
-        })
+        report(
+            {
+                "state": "Capturing",
+                "capturedAt": timestamp(),
+                "sourcePodName": os.environ.get("MCV_SOURCE_POD_NAME", ""),
+                "captureSessionID": capture_session_id,
+            }
+        )
         wait_for_registry_access()
 
         target_image = config.get("targetImage", "")
         if not target_image:
             raise RuntimeError("MCV_CAPTURE_CONFIG targetImage is required for capture")
         logger.info("Starting OCI cache image creation")
-        run_command([
-            "/mcv", "--create", "--builder", "oci", "--image", target_image,
-            "--dir", cache_dir, "--result", RESULT_PATH,
-            "--delta-from-snapshot", "--snapshot-file", SNAPSHOT_PATH,
-        ])
+        run_command(
+            [
+                "/mcv",
+                "--create",
+                "--builder",
+                "oci",
+                "--image",
+                target_image,
+                "--dir",
+                cache_dir,
+                "--result",
+                RESULT_PATH,
+                "--delta-from-snapshot",
+                "--snapshot-file",
+                SNAPSHOT_PATH,
+            ]
+        )
         result = capture_result()
         if result.get("state") == "Unchanged":
             logger.info("No new cache directories found; OCI image creation skipped")
@@ -500,7 +550,9 @@ def main():
         logger.info("Shutdown requested; stopping capture sidecar")
         return
     except subprocess.CalledProcessError as error:
-        logger.error("OCI cache image creation failed with exit code %s", error.returncode)
+        logger.error(
+            "OCI cache image creation failed with exit code %s", error.returncode
+        )
         report(failure_result("CaptureFailed", "MCV OCI image creation failed"))
     except ReadinessTimeout as error:
         logger.error("KernelCache readiness wait failed: %s", error)

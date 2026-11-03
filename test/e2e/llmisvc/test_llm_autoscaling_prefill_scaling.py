@@ -34,7 +34,7 @@ import pytest
 from .fixtures import generate_test_id, inject_k8s_proxy
 from .logging import log_execution
 from .test_llm_autoscaling_direct_keda import _cleanup, _new_kserve_client
-from .test_llm_autoscaling_wva import (
+from .autoscaling_helpers import (
     WORKLOAD_COMPONENT_MAIN,
     WORKLOAD_COMPONENT_PREFILL,
     assert_scaled_object_condition,

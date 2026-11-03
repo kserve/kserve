@@ -129,7 +129,7 @@ func snapshotHasContent(document *cachesnapshot.Document) bool {
 }
 
 func (b *ociBuilder) createImageWithResult(imageName, cacheDir string, includedDirectories, excludedDirectories []string) (*CreateResult, error) {
-	ref, err := name.NewTag(imageName, name.StrictValidation)
+	ref, err := name.NewTag(imageName, registryauth.ReferenceOptions(true)...)
 	if err != nil {
 		return nil, fmt.Errorf("invalid OCI destination tag: %w", err)
 	}

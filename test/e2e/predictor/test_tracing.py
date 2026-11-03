@@ -29,7 +29,6 @@ from kubernetes import client
 from kubernetes.client import V1ContainerPort, V1ResourceRequirements
 
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
     predict_grpc,
     predict_isvc,
     wait_for_pod_logs,
@@ -43,7 +42,7 @@ from ..common.utils import (
 @pytest.mark.tracing
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_traces_rest_inference_in_knative_mode(
-    rest_v2_client, network_layer
+    rest_v2_client, network_layer, test_namespace
 ):
     service_name = "sklearn-tracing-rest"
     predictor = V1beta1PredictorSpec(
@@ -59,9 +58,7 @@ async def test_sklearn_traces_rest_inference_in_knative_mode(
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(
             predictor=predictor,
             tracing=V1beta1TracingSpec(exporter="console", sampler="always_on"),
@@ -72,31 +69,32 @@ async def test_sklearn_traces_rest_inference_in_knative_mode(
     )
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
         response = await predict_isvc(
             rest_v2_client,
             service_name,
             "./data/iris_input_v2.json",
             network_layer=network_layer,
+            namespace=test_namespace,
         )
         assert response.outputs[0].data == [1, 1]
 
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector=f"serving.kserve.io/inferenceservice={service_name}",
         )
         assert len(pods.items) == 1
         logs = await wait_for_pod_logs(
             kserve_client.core_api,
             pods.items[0].metadata.name,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             expected_substring=f"POST /v2/models/{service_name}/infer",
         )
         assert "POST /v2/models/{service_name}/infer" in logs
         assert f'"service.name": "{service_name}-predictor"' in logs
     finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+        kserve_client.delete(service_name, test_namespace)
 
 
 # The dual-protocol suite runs in Standard mode with a Gateway API provider,
@@ -104,7 +102,9 @@ async def test_sklearn_traces_rest_inference_in_knative_mode(
 @pytest.mark.tracing
 @pytest.mark.dual_protocol
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_traces_rest_and_grpc_inference(rest_v2_client, network_layer):
+async def test_sklearn_traces_rest_and_grpc_inference(
+    rest_v2_client, network_layer, test_namespace
+):
     service_name = "sklearn-tracing"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -123,9 +123,7 @@ async def test_sklearn_traces_rest_and_grpc_inference(rest_v2_client, network_la
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(
             predictor=predictor,
             tracing=V1beta1TracingSpec(
@@ -139,13 +137,14 @@ async def test_sklearn_traces_rest_and_grpc_inference(rest_v2_client, network_la
     )
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
         rest_response = await predict_isvc(
             rest_v2_client,
             service_name,
             "./data/iris_input_v2.json",
             network_layer=network_layer,
+            namespace=test_namespace,
         )
         assert rest_response.outputs[0].data == [1, 1]
 
@@ -156,21 +155,22 @@ async def test_sklearn_traces_rest_and_grpc_inference(rest_v2_client, network_la
             payload=grpc_inputs,
             model_name=service_name,
             network_layer=network_layer,
+            namespace=test_namespace,
         )
         assert grpc_response.outputs[0].data == [1, 1]
 
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector=f"serving.kserve.io/inferenceservice={service_name}",
         )
         assert len(pods.items) == 1
         logs = await wait_for_pod_logs(
             kserve_client.core_api,
             pods.items[0].metadata.name,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             expected_substring="/inference.GRPCInferenceService/ModelInfer",
         )
         assert "POST /v2/models/{model_name}/infer" in logs
         assert f'"service.name": "{service_name}-predictor"' in logs
     finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+        kserve_client.delete(service_name, test_namespace)

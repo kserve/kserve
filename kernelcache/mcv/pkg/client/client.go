@@ -31,6 +31,7 @@ import (
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/fetcher"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/logformat"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/preflightcheck"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/registryauth"
 	logging "github.com/sirupsen/logrus"
 )
 
@@ -58,7 +59,7 @@ func InspectCacheImage(img string) (labels map[string]string, err error) {
 		return nil, fmt.Errorf("image name must be specified")
 	}
 
-	_, err = name.ParseReference(img, name.StrictValidation)
+	_, err = name.ParseReference(img, registryauth.ReferenceOptions(true)...)
 	if err != nil {
 		return nil, fmt.Errorf("error validating image name: %v", err)
 	}
