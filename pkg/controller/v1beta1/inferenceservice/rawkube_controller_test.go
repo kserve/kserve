@@ -64,7 +64,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Create configmap
 			configMap := createInferenceServiceConfigMap(configs)
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(func(ctx SpecContext) error {
+				return client.IgnoreNotFound(k8sClient.Delete(ctx, configMap))
+			})
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
 
@@ -110,7 +112,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(deleteAndWaitGone, isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
 
@@ -8513,7 +8515,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Create configmap
 			configMap := createInferenceServiceConfigMap(configs)
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(func(ctx SpecContext) error {
+				return client.IgnoreNotFound(k8sClient.Delete(ctx, configMap))
+			})
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
 			_ = k8sClient.Create(context.TODO(), &servingRuntime)
@@ -8558,6 +8562,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(deleteAndWaitGone, isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
 
@@ -10398,6 +10403,19 @@ var _ = Context("When a Standard-mode predictor deployment develops a ReplicaFai
 			"ConditionReady must be present: status section should not be empty after reconciliation")
 	})
 })
+
+// deleteAndWaitGone is for specs that share an InferenceService name: until the controller
+// removes the finalizer, creating that name fails with "object is being deleted".
+// The controller reads the inferenceservice-config before it removes the finalizer, so the
+// configmap has to outlive this call. Register its cleanup with DeferCleanup ahead of this
+// one: a plain defer runs before every DeferCleanup and would leave the finalizer in place.
+func deleteAndWaitGone(ctx SpecContext, isvc *v1beta1.InferenceService) {
+	Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, isvc))).To(Succeed())
+	Eventually(func(g Gomega) {
+		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(isvc), &v1beta1.InferenceService{})
+		g.Expect(err).To(MatchError(apierr.IsNotFound, "NotFound"))
+	}, timeout, interval).Should(Succeed())
+}
 
 func verifyEnvKeyValueDeployments(actualDefaultDeployment *appsv1.Deployment, envKey string, expectedEnvValue string) {
 	// default deployment
