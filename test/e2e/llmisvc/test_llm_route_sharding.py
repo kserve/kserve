@@ -123,8 +123,7 @@ def _tagged(template, tag, trailing_slash=None):
     """A copy of the serving rule that adds RULE_HEADER=tag to responses.
 
     With trailing_slash set, every PathPrefix value other than "/" gets (True)
-    or loses (False) its trailing slash, which ties with the original on
-    Istio and Envoy Gateway and in the controller's precedence grouping.
+    or loses (False) its trailing slash.
     """
     rule = copy.deepcopy(template)
     rule.pop("name", None)
@@ -237,7 +236,9 @@ def test_route_sharding_boundary_tie(test_case):
         fillers = [_filler(template, i) for i in range(RULES_PER_ROUTE - 1)]
         # Rules 15 and 16: plain packing would put them in different shards.
         first = _tagged(template, "first", trailing_slash=False)
-        second = _tagged(template, "second", trailing_slash=True)
+        # Identical matches: Envoy Gateway ranks a PathPrefix by its configured
+        # length, so "/x/" would outrank "/x" there instead of tying with it.
+        second = _tagged(template, "second", trailing_slash=False)
         _set_inline_rules(kserve_client, llm_service, route, [*fillers, first, second])
 
         def tied_rules_share_a_route(routes):

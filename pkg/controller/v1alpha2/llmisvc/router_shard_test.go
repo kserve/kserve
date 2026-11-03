@@ -646,3 +646,81 @@ func TestDedupeDiscoveredURLs(t *testing.T) {
 	require.Equal(t, "one", string(got[0].Origin.Name))
 	require.Equal(t, "two", string(got[1].Origin.Name))
 }
+
+func TestHTTPRouteShardHandoff(t *testing.T) {
+	rule := func(path string) gwapiv1.HTTPRouteRule {
+		return gwapiv1.HTTPRouteRule{Matches: []gwapiv1.HTTPRouteMatch{{Path: &gwapiv1.HTTPPathMatch{
+			Type: ptr.To(gwapiv1.PathMatchPathPrefix), Value: ptr.To(path),
+		}}}}
+	}
+	route := func(name string, gen int64, accepted int64, paths ...string) *gwapiv1.HTTPRoute {
+		gw := gwapiv1.ParentReference{Name: "gw"}
+		r := &gwapiv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: name, Generation: gen}}
+		r.Spec.ParentRefs = []gwapiv1.ParentReference{gw}
+		for _, p := range paths {
+			r.Spec.Rules = append(r.Spec.Rules, rule(p))
+		}
+		if accepted > 0 {
+			conds := []metav1.Condition{
+				{Type: string(gwapiv1.RouteConditionAccepted), Status: metav1.ConditionTrue, ObservedGeneration: accepted},
+				{Type: string(gwapiv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, ObservedGeneration: accepted},
+			}
+			r.Status.Parents = []gwapiv1.RouteParentStatus{{ParentRef: gw, Conditions: conds}}
+		}
+		return r
+	}
+	paths := func(r *gwapiv1.HTTPRoute) []string {
+		var out []string
+		for _, rule := range r.Spec.Rules {
+			out = append(out, *rule.Matches[0].Path.Value)
+		}
+		return out
+	}
+
+	t.Run("served loser keeps a moved rule until the gainer is accepted", func(t *testing.T) {
+		stored := []*gwapiv1.HTTPRoute{route("a", 1, 1, "/x", "/y"), route("b", 1, 1, "/z")}
+		desired := []*gwapiv1.HTTPRoute{route("a", 0, 0, "/x"), route("b", 0, 0, "/y", "/z")}
+		out, pending := httpRouteShardHandoff(stored, desired)
+		require.True(t, pending)
+		require.Equal(t, []string{"/x", "/y"}, paths(out[0]))
+		require.Equal(t, []string{"/y", "/z"}, paths(out[1]))
+		require.Equal(t, []string{"/x"}, paths(desired[0]), "desired shards are not mutated")
+
+		// The gainer is written but not yet accepted at its new generation.
+		stored = []*gwapiv1.HTTPRoute{route("a", 1, 1, "/x", "/y"), route("b", 2, 1, "/y", "/z")}
+		_, pending = httpRouteShardHandoff(stored, desired)
+		require.True(t, pending)
+
+		stored = []*gwapiv1.HTTPRoute{route("a", 1, 1, "/x", "/y"), route("b", 2, 2, "/y", "/z")}
+		out, pending = httpRouteShardHandoff(stored, desired)
+		require.False(t, pending)
+		require.Equal(t, []string{"/x"}, paths(out[0]))
+	})
+
+	t.Run("swapped rules hand off both ways", func(t *testing.T) {
+		stored := []*gwapiv1.HTTPRoute{route("a", 1, 1, "/x"), route("b", 1, 1, "/y")}
+		desired := []*gwapiv1.HTTPRoute{route("a", 0, 0, "/y"), route("b", 0, 0, "/x")}
+		out, pending := httpRouteShardHandoff(stored, desired)
+		require.True(t, pending)
+		require.Equal(t, []string{"/y", "/x"}, paths(out[0]))
+		require.Equal(t, []string{"/x", "/y"}, paths(out[1]))
+	})
+
+	t.Run("routes no gateway accepted are written as desired", func(t *testing.T) {
+		stored := []*gwapiv1.HTTPRoute{route("a", 1, 0, "/x", "/y")}
+		desired := []*gwapiv1.HTTPRoute{route("a", 0, 0, "/x"), route("b", 0, 0, "/y")}
+		out, pending := httpRouteShardHandoff(stored, desired)
+		require.False(t, pending)
+		require.Equal(t, []string{"/x"}, paths(out[0]))
+	})
+
+	t.Run("stale shard stays while its rules are unsettled", func(t *testing.T) {
+		stored := []*gwapiv1.HTTPRoute{route("a", 1, 1, "/x"), route("b", 1, 1, "/y")}
+		desired := []*gwapiv1.HTTPRoute{route("a", 0, 0, "/x", "/y")}
+		_, pending := httpRouteShardHandoff(stored, desired)
+		require.True(t, pending)
+		stored[0] = route("a", 2, 2, "/x", "/y")
+		_, pending = httpRouteShardHandoff(stored, desired)
+		require.False(t, pending)
+	})
+}

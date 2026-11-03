@@ -32,6 +32,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -611,6 +612,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRouteShards(ctx context.Context, llmSvc
 	if err != nil {
 		return err
 	}
+	shards, handoffPending := httpRouteShardHandoff(stored, shards)
 	writes, err := r.prepareHTTPRouteShards(ctx, llmSvc, shards, sources)
 	if err != nil {
 		return err
@@ -620,9 +622,124 @@ func (r *LLMISVCReconciler) reconcileHTTPRouteShards(ctx context.Context, llmSvc
 			return err
 		}
 	}
+	if handoffPending {
+		// A shard still carries rules another shard took over, so the stale
+		// shards stay too; the gateway accepting the new shards updates their
+		// status, which requeues the service and finishes the handoff.
+		log.FromContext(ctx).V(1).Info("HTTPRoute shard handoff pending gateway acceptance", "llmisvc", llmSvc.GetName())
+		return nil
+	}
 	// Only after every current shard is written, so traffic covered by a
 	// shrinking route never loses its rules in between.
 	return r.deleteStaleHTTPRouteShards(ctx, llmSvc, len(shards))
+}
+
+// httpRouteShardHandoff keeps a moved rule in the shard it leaves until the
+// shard that takes it over is accepted by the gateway at its current
+// generation. Writing the shards in order keeps every match in some stored
+// route, but a gateway programs a route only after accepting it (Envoy
+// Gateway also warms a new cluster per rule), so dropping the rule from the
+// losing shard in the same reconcile answers 503 in between, and when shards
+// swap rules no write order avoids the gap at all.
+//
+// A rule is kept only when its stored shard is already served by a gateway
+// (there is no traffic to protect otherwise) and the kept rules fit the
+// per-route limit; otherwise the desired shard is written as is. It returns
+// the shards to write and whether a rule was kept, in which case stale shards
+// must stay as well.
+func httpRouteShardHandoff(stored, desired []*gwapiv1.HTTPRoute) ([]*gwapiv1.HTTPRoute, bool) {
+	storedByName := make(map[string]*gwapiv1.HTTPRoute, len(stored))
+	for _, route := range stored {
+		storedByName[route.GetName()] = route
+	}
+	desiredByName := make(map[string]*gwapiv1.HTTPRoute, len(desired))
+	wanted := map[string]struct{}{}
+	for _, route := range desired {
+		desiredByName[route.GetName()] = route
+		maps.Copy(wanted, routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": route.Spec.Rules}))
+	}
+
+	// settled holds the matches a gateway already serves from a route that
+	// keeps them after this update.
+	settled := map[string]struct{}{}
+	for _, route := range stored {
+		next, ok := desiredByName[route.GetName()]
+		if !ok || !IsHTTPRouteReady(route) {
+			continue
+		}
+		before := routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": route.Spec.Rules})
+		after := routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": next.Spec.Rules})
+		for k := range before {
+			if _, keeps := after[k]; keeps {
+				settled[k] = struct{}{}
+			}
+		}
+	}
+
+	// unsettled reports whether rules of a served route carry a match the
+	// update keeps but no accepted route serves yet.
+	unsettled := func(rule gwapiv1.HTTPRouteRule, after map[string]struct{}) bool {
+		for k := range routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": {rule}}) {
+			if _, ok := after[k]; ok {
+				continue
+			}
+			if _, ok := wanted[k]; !ok {
+				continue
+			}
+			if _, ok := settled[k]; !ok {
+				return true
+			}
+		}
+		return false
+	}
+
+	pending := false
+	out := make([]*gwapiv1.HTTPRoute, len(desired))
+	for i, route := range desired {
+		out[i] = route
+		prev, ok := storedByName[route.GetName()]
+		if !ok || !httpRouteServed(prev) {
+			continue
+		}
+		after := routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": route.Spec.Rules})
+		var kept []gwapiv1.HTTPRouteRule
+		for _, rule := range prev.Spec.Rules {
+			if unsettled(rule, after) {
+				kept = append(kept, rule)
+			}
+		}
+		if len(kept) == 0 || len(route.Spec.Rules)+len(kept) > httpRouteMaxRules {
+			continue
+		}
+		merged := route.DeepCopy()
+		merged.Spec.Rules = append(merged.Spec.Rules, kept...)
+		out[i] = merged
+		pending = true
+	}
+	for _, route := range stored {
+		if _, ok := desiredByName[route.GetName()]; ok || !httpRouteServed(route) {
+			continue
+		}
+		for _, rule := range route.Spec.Rules {
+			if unsettled(rule, nil) {
+				pending = true
+			}
+		}
+	}
+	return out, pending
+}
+
+// httpRouteServed reports whether a gateway has accepted some generation of
+// route, so it may be carrying traffic. Unlike IsHTTPRouteReady it ignores
+// staleness: a route keeps serving its previous rules while a gateway
+// processes an update.
+func httpRouteServed(route *gwapiv1.HTTPRoute) bool {
+	for _, parent := range route.Status.Parents {
+		if meta.IsStatusConditionTrue(parent.Conditions, string(gwapiv1.RouteConditionAccepted)) {
+			return true
+		}
+	}
+	return false
 }
 
 // httpRouteShardWrite is what prepareHTTPRouteShards decided for one shard.
