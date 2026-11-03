@@ -837,12 +837,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		// --- Reusable Check Functions ---
 		// Wait for the Predictor's Knative Service to exist and for its status URL and conditions to be ready.
 		expectPredictorKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, predictorServiceKey types.NamespacedName) {
+			GinkgoHelper()
 			// Predictor knative service
 			predictorService := &knservingv1.Service{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, predictorServiceKey, predictorService)
 				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			}, timeout, interval).Should(BeTrue(), "%T %s should exist", predictorService, predictorServiceKey.Name)
 
 			// Add a url to the predictor knative service so the services can be made
 			updatedPredictorService := predictorService.DeepCopy()
@@ -869,12 +870,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		// Wait for the Transformer's Knative Service to exist and for its status URL and conditions to be ready.
 		expectTransformerKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, transformerServiceKey types.NamespacedName) {
+			GinkgoHelper()
 			// Transformer knative service
 			transformerService := &knservingv1.Service{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, transformerServiceKey, transformerService)
 				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			}, timeout, interval).Should(BeTrue(), "%T %s should exist", transformerService, transformerServiceKey.Name)
 
 			// Add a url to the transformer knative service so the services can be made
 			updatedTransformerService := transformerService.DeepCopy()
@@ -901,12 +903,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		// Wait for the Explainer's Knative Service to exist and for its status URL and conditions to be ready.
 		expectExplainerKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, explainerServiceKey types.NamespacedName) {
+			GinkgoHelper()
 			// Explainer knative service
 			explainerService := &knservingv1.Service{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, explainerServiceKey, explainerService)
 				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			}, timeout, interval).Should(BeTrue(), "%T %s should exist", explainerService, explainerServiceKey.Name)
 
 			// Add a url to the explainer knative service so the services can be made
 			updatedExplainerService := explainerService.DeepCopy()
@@ -933,86 +936,41 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		// Wait for the ISVC to exist.
 		expectIsvcToExist := func(ctx context.Context, serviceKey types.NamespacedName) v1beta1.InferenceService {
+			GinkgoHelper()
 			actualIsvc := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
 				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			}, timeout, interval).Should(BeTrue(), "%T %s should exist", actualIsvc, serviceKey.Name)
 
 			return *actualIsvc
 		}
 
 		// Wait for a specific condition on an InferenceService to reach the desired status
-		expectIsvcConditionStatus := func(ctx context.Context, serviceKey types.NamespacedName, conditionType apis.ConditionType, expectedStatus corev1.ConditionStatus) {
-			message := fmt.Sprintf("The '%s' condition for InferenceService '%s' should be '%s'",
-				conditionType, serviceKey.Name, expectedStatus)
-
-			actualIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
-				if err == nil {
-					cond := actualIsvc.Status.GetCondition(conditionType)
-					if cond != nil && cond.Status == expectedStatus {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), message)
-		}
+		expectIsvcConditionStatus := expectIsvcCondition
 
 		// Wait for the InferenceService's PredictorReady and IngressReady condition.
 		expectIsvcReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
-			updatedIsvc := &v1beta1.InferenceService{}
-			// Check that the inference service is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := updatedIsvc.Status.GetCondition(v1beta1.PredictorReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := updatedIsvc.Status.GetCondition(v1beta1.IngressReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+			GinkgoHelper()
+			expectIsvcCondition(ctx, serviceKey, v1beta1.PredictorReady, corev1.ConditionTrue)
+			expectIsvcCondition(ctx, serviceKey, v1beta1.IngressReady, corev1.ConditionTrue)
 		}
 
 		// Wait for the InferenceService's TransformerReady condition.
 		expectIsvcTransformerReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
-			updatedIsvc := &v1beta1.InferenceService{}
-			// Check that the transformer is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := updatedIsvc.Status.GetCondition(v1beta1.TransformerReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The transformer should be ready")
+			GinkgoHelper()
+			expectIsvcCondition(ctx, serviceKey, v1beta1.TransformerReady, corev1.ConditionTrue)
 		}
 
 		// Wait for the InferenceService's ExplainerReady condition.
 		expectIsvcExplainerReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
-			updatedIsvc := &v1beta1.InferenceService{}
-			// Check that the explainer is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := updatedIsvc.Status.GetCondition(v1beta1.ExplainerReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The explainer should be ready")
+			GinkgoHelper()
+			expectIsvcCondition(ctx, serviceKey, v1beta1.ExplainerReady, corev1.ConditionTrue)
 		}
 
 		// Waits for any Kubernetes object to be found
 		expectResourceToExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			GinkgoHelper()
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
 				return err == nil
@@ -1021,6 +979,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		// Wait for any Kubernetes object to be not found.
 		expectResourceToBeDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			GinkgoHelper()
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
 				return apierr.IsNotFound(err)
@@ -1047,6 +1006,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, &servingRuntime)
 
+				By("keeping the knative service/virtualService/service when the annotation is set to false")
 				// Define InferenceService
 				isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
@@ -1071,7 +1031,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
 				expectIsvcReadyStatus(ctx, serviceKey)
 
-				// Stop the inference service
+				By("deleting them when the annotation is updated to true")
 				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
@@ -1107,6 +1067,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, &servingRuntime)
 
+				By("not creating the knative service/virtualService/service when the annotation is set to true")
 				// Define InferenceService
 				isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
@@ -1129,7 +1090,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					absent(&corev1.Service{}, serviceKey),
 				)
 
-				// Resume the inference service
+				By("creating them when the annotation is updated to false")
 				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
@@ -1219,6 +1180,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, &servingRuntime)
 
+				By("keeping the transformer knative service/virtualService/service when the annotation is set to false")
 				// Define InferenceService
 				isvc := defaultTransformerIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
@@ -1251,7 +1213,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectIsvcReadyStatus(ctx, serviceKey)
 				expectIsvcTransformerReadyStatus(ctx, serviceKey)
 
-				// Stop the inference service
+				By("deleting them when the annotation is updated to true")
 				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
@@ -1288,6 +1250,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, &servingRuntime)
 
+				By("not creating the transformer knative service/virtualService/service when the annotation is set to true")
 				// Define InferenceService
 				isvc := defaultTransformerIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
@@ -1317,7 +1280,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					absent(&corev1.Service{}, serviceKey),
 				)
 
-				// Resume the inference service
+				By("creating them when the annotation is updated to false")
 				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
@@ -1415,6 +1378,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, &servingRuntime)
 
+				By("keeping the explainer knative service/virtualService/service when the annotation is set to false")
 				// Define InferenceService
 				isvc := defaultExplainerIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
@@ -1447,7 +1411,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectIsvcReadyStatus(ctx, serviceKey)
 				expectIsvcExplainerReadyStatus(ctx, serviceKey)
 
-				// Stop the inference service
+				By("deleting them when the annotation is updated to true")
 				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
@@ -1484,6 +1448,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, &servingRuntime)
 
+				By("not creating the explainer knative service/virtualService/service when the annotation is set to true")
 				// Define InferenceService
 				isvc := defaultExplainerIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
@@ -1513,7 +1478,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					absent(&corev1.Service{}, serviceKey),
 				)
 
-				// Resume the inference service
+				By("creating them when the annotation is updated to false")
 				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
