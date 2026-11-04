@@ -7,7 +7,7 @@
 CURL ?= curl --fail --silent --show-error --location --retry 3 --retry-delay 2
 
 .PHONY: sync-deps
-sync-deps:
+sync-deps: ## After a go.mod version change: kserve-deps.env and the quick-install pins. Chart-backed pins resolve against remote indexes, so diff the result and keep only the lines you meant. Needs network.
 	@@python3 hack/setup/scripts/generate-versions-from-gomod.py --no-cache
 
 .PHONY: sync-img-env
