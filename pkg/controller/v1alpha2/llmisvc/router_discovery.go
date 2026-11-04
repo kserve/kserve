@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -52,34 +53,98 @@ type DiscoveredURL struct {
 }
 
 // ResolvedGateway contains a Gateway and its associated GatewayClass.
+// ListenerSet is set when the route attaches to the Gateway through one.
 type ResolvedGateway struct {
 	Gateway      *gwapiv1.Gateway
 	GatewayClass *gwapiv1.GatewayClass
 	ParentRef    gwapiv1.ParentReference
+	ListenerSet  *gwapiv1.ListenerSet
+}
+
+func isParentOfKind(ref gwapiv1.ParentReference, kind gwapiv1.Kind) bool {
+	return ptr.Deref(ref.Group, gwapiv1.GroupName) == gwapiv1.GroupName &&
+		ptr.Deref(ref.Kind, "Gateway") == kind
+}
+
+// unsupportedParentKindError reports a route parent that is neither a Gateway
+// nor a ListenerSet, such as an Istio mesh Service.
+type unsupportedParentKindError struct {
+	Key       types.NamespacedName
+	GroupKind schema.GroupKind
+}
+
+func (e *unsupportedParentKindError) Error() string {
+	kind := e.GroupKind.String()
+	if e.GroupKind.Group == "" {
+		kind += " (core group)"
+	}
+	return fmt.Sprintf("parent %s of unsupported kind %s; only Gateway and ListenerSet parents are supported", e.Key, kind)
+}
+
+// parentKey returns the namespaced name of a parentRef, defaulting the
+// namespace to the namespace of the object holding the reference.
+func parentKey(ref gwapiv1.ParentReference, defaultNS string) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: string(ptr.Deref(ref.Namespace, gwapiv1.Namespace(defaultNS))),
+		Name:      string(ref.Name),
+	}
+}
+
+// listenerSetGatewayKey returns the Gateway a ListenerSet attaches to.
+// spec.parentRef.namespace defaults to the ListenerSet's own namespace.
+func listenerSetGatewayKey(ls *gwapiv1.ListenerSet) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: string(ptr.Deref(ls.Spec.ParentRef.Namespace, gwapiv1.Namespace(ls.Namespace))),
+		Name:      string(ls.Spec.ParentRef.Name),
+	}
+}
+
+// parentGatewayKey returns the Gateway a route parentRef attaches to, and the
+// ListenerSet in between when the parent is one. A parent of another kind is
+// reported as an *unsupportedParentKindError.
+func parentGatewayKey(ctx context.Context, c client.Client, ref gwapiv1.ParentReference, routeNS string) (types.NamespacedName, *gwapiv1.ListenerSet, error) {
+	key := parentKey(ref, routeNS)
+	switch {
+	case isParentOfKind(ref, "Gateway"):
+		return key, nil, nil
+	case isParentOfKind(ref, "ListenerSet"):
+		listenerSet := &gwapiv1.ListenerSet{}
+		if err := c.Get(ctx, key, listenerSet); err != nil {
+			return key, nil, fmt.Errorf("failed to get ListenerSet %s: %w", key, err)
+		}
+		return listenerSetGatewayKey(listenerSet), listenerSet, nil
+	default:
+		return key, nil, &unsupportedParentKindError{Key: key, GroupKind: schema.GroupKind{
+			Group: string(ptr.Deref(ref.Group, gwapiv1.GroupName)),
+			Kind:  string(ptr.Deref(ref.Kind, "Gateway")),
+		}}
+	}
 }
 
 // DiscoverGateways finds and resolves all gateways referenced by an HTTPRoute
-// It fetches the Gateway and GatewayClass resources to provide complete routing context
+// It fetches the Gateway and GatewayClass resources to provide complete routing context.
 func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]ResolvedGateway, error) {
 	gateways := make([]ResolvedGateway, 0)
 	for _, parentRef := range route.Spec.ParentRefs {
-		// Resolve namespace (defaults to route's namespace if not specified)
-		ns := ptr.Deref((&parentRef).Namespace, gwapiv1.Namespace(route.Namespace))
-		gwNS, gwName := string(ns), string((&parentRef).Name)
+		gwKey, listenerSet, err := parentGatewayKey(ctx, c, parentRef, route.Namespace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve parent of route %s/%s: %w", route.Namespace, route.Name, err)
+		}
 
 		gateway := &gwapiv1.Gateway{}
-		if err := c.Get(ctx, types.NamespacedName{Namespace: gwNS, Name: gwName}, gateway); err != nil {
-			return nil, fmt.Errorf("failed to get Gateway %s/%s for route %s/%s: %w", gwNS, gwName, route.Namespace, route.Name, err)
+		if err := c.Get(ctx, gwKey, gateway); err != nil {
+			return nil, fmt.Errorf("failed to get Gateway %s for route %s/%s: %w", gwKey, route.Namespace, route.Name, err)
 		}
 
 		gatewayClass := &gwapiv1.GatewayClass{}
 		if err := c.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gatewayClass); err != nil {
-			return nil, fmt.Errorf("failed to get GatewayClass %q for gateway %s/%s: %w", string(gateway.Spec.GatewayClassName), gwNS, gwName, err)
+			return nil, fmt.Errorf("failed to get GatewayClass %q for gateway %s/%s: %w", string(gateway.Spec.GatewayClassName), gateway.Namespace, gateway.Name, err)
 		}
 		gateways = append(gateways, ResolvedGateway{
 			Gateway:      gateway,
 			GatewayClass: gatewayClass,
 			ParentRef:    parentRef,
+			ListenerSet:  listenerSet,
 		})
 	}
 	return gateways, nil
@@ -138,11 +203,14 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 	logger := log.FromContext(ctx)
 
 	var urls []DiscoveredURL
+	// One set per Gateway, kept across parents: a route reaching one Gateway both
+	// directly and through a ListenerSet would otherwise list its URLs twice.
+	seenByGateway := make(map[types.NamespacedName]map[string]struct{})
 
 	for _, g := range gateways {
-		listeners, err := selectListeners(g.Gateway, g.ParentRef.SectionName, cfg.UrlScheme)
+		listeners, err := selectListeners(parentListeners(g), parentDescription(g), g.ParentRef.SectionName, cfg.UrlScheme)
 		if err != nil {
-			return nil, fmt.Errorf("failed to select listeners for gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+			return nil, fmt.Errorf("failed to select listeners for %s: %w", parentDescription(g), err)
 		}
 
 		origin := &gwapiv1.ObjectReference{
@@ -161,7 +229,12 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 			return nil, fmt.Errorf("failed to discover gateway backing service for %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 		}
 
-		seen := make(map[string]struct{})
+		gwKey := client.ObjectKeyFromObject(g.Gateway)
+		seen, ok := seenByGateway[gwKey]
+		if !ok {
+			seen = make(map[string]struct{})
+			seenByGateway[gwKey] = seen
+		}
 
 		for _, path := range paths {
 			// Discover external URLs from Gateway status addresses (if available)
@@ -420,29 +493,56 @@ func schemeForProtocol(protocol gwapiv1.ProtocolType) string {
 	}
 }
 
+// parentListeners returns the listeners a route parent offers. A route
+// attached through a ListenerSet attaches only to that ListenerSet's listeners.
+func parentListeners(g ResolvedGateway) []gwapiv1.Listener {
+	if g.ListenerSet == nil {
+		return g.Gateway.Spec.Listeners
+	}
+	listeners := make([]gwapiv1.Listener, 0, len(g.ListenerSet.Spec.Listeners))
+	for _, entry := range g.ListenerSet.Spec.Listeners {
+		listeners = append(listeners, gwapiv1.Listener{
+			Name:          entry.Name,
+			Hostname:      entry.Hostname,
+			Port:          entry.Port,
+			Protocol:      entry.Protocol,
+			TLS:           entry.TLS,
+			AllowedRoutes: entry.AllowedRoutes,
+		})
+	}
+	return listeners
+}
+
+func parentDescription(g ResolvedGateway) string {
+	if g.ListenerSet != nil {
+		return fmt.Sprintf("listenerset %s/%s", g.ListenerSet.Namespace, g.ListenerSet.Name)
+	}
+	return fmt.Sprintf("gateway %s/%s", g.Gateway.Namespace, g.Gateway.Name)
+}
+
 // selectListeners returns the applicable listeners for URL generation.
 // - If sectionName is provided, returns only that specific listener
 // - Otherwise, returns ALL HTTP-capable listeners sorted by: preferredScheme first, then HTTPS, then HTTP
-func selectListeners(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName, preferredScheme string) ([]*gwapiv1.Listener, error) {
+func selectListeners(available []gwapiv1.Listener, owner string, sectionName *gwapiv1.SectionName, preferredScheme string) ([]*gwapiv1.Listener, error) {
 	// If sectionName provided, find exact match (single listener)
 	if sectionName != nil {
-		for i := range gateway.Spec.Listeners {
-			if gateway.Spec.Listeners[i].Name == *sectionName {
-				return []*gwapiv1.Listener{&gateway.Spec.Listeners[i]}, nil
+		for i := range available {
+			if available[i].Name == *sectionName {
+				return []*gwapiv1.Listener{&available[i]}, nil
 			}
 		}
-		return nil, fmt.Errorf("listener %q not found in gateway %s/%s", *sectionName, gateway.Namespace, gateway.Name)
+		return nil, fmt.Errorf("listener %q not found in %s", *sectionName, owner)
 	}
 
 	// Collect all HTTP-capable listeners
 	var listeners []*gwapiv1.Listener
-	for i := range gateway.Spec.Listeners {
-		if scheme := schemeForProtocol(gateway.Spec.Listeners[i].Protocol); scheme != "" {
-			listeners = append(listeners, &gateway.Spec.Listeners[i])
+	for i := range available {
+		if scheme := schemeForProtocol(available[i].Protocol); scheme != "" {
+			listeners = append(listeners, &available[i])
 		}
 	}
 	if len(listeners) == 0 {
-		return nil, fmt.Errorf("no HTTP-capable listener found in gateway %s/%s", gateway.Namespace, gateway.Name)
+		return nil, fmt.Errorf("no HTTP-capable listener found in %s", owner)
 	}
 
 	// Sort: preferredScheme first, then HTTPS before HTTP
@@ -841,9 +941,15 @@ func IsInferencePoolReadyForGateways(pool *igwapi.InferencePool, gateways []type
 
 // resolvedGatewayKeys extracts gateway name+namespace pairs from resolved gateways,
 // resolving nil parentRef namespaces to the gateway object's actual namespace.
+// A ListenerSet parent is keyed by its Gateway: Gateway controllers record the
+// Gateway, never the ListenerSet, as the InferencePool parent.
 func resolvedGatewayKeys(resolved []ResolvedGateway) []types.NamespacedName {
 	keys := make([]types.NamespacedName, 0, len(resolved))
 	for _, rg := range resolved {
+		if rg.ListenerSet != nil {
+			keys = append(keys, types.NamespacedName{Namespace: rg.Gateway.Namespace, Name: rg.Gateway.Name})
+			continue
+		}
 		ns := rg.Gateway.Namespace
 		if rg.ParentRef.Namespace != nil {
 			ns = string(*rg.ParentRef.Namespace)

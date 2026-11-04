@@ -62,11 +62,44 @@ func expectError(check func(error) bool) func(g Gomega, urls []string, err error
 	}
 }
 
+// listenerSetGateway is a shared Gateway whose own listener differs from
+// tenantListenerSet's in port and hostname, so a URL built from the wrong one shows.
+func listenerSetGateway() *gwapiv1.Gateway {
+	return Gateway("shared-gateway",
+		InNamespace[*gwapiv1.Gateway]("ingress"),
+		WithListeners(gwapiv1.Listener{
+			Name:     "gateway-fallback",
+			Port:     8443,
+			Protocol: gwapiv1.HTTPSProtocolType,
+			Hostname: ptr.To(gwapiv1.Hostname("fallback.example.com")),
+		}),
+		WithAddresses("203.0.113.10"),
+	)
+}
+
+func tenantListenerSet() *gwapiv1.ListenerSet {
+	return ListenerSet("tenant-https", "shared-gateway", "ingress",
+		InNamespace[*gwapiv1.ListenerSet]("ingress"),
+		WithListenerEntries(gwapiv1.ListenerEntry{
+			Name:     "tenant-https",
+			Port:     443,
+			Protocol: gwapiv1.HTTPSProtocolType,
+			Hostname: ptr.To(gwapiv1.Hostname("*.tenant.example.com")),
+		}),
+	)
+}
+
+func withSectionName(ref gwapiv1.ParentReference, sectionName gwapiv1.SectionName) gwapiv1.ParentReference {
+	ref.SectionName = &sectionName
+	return ref
+}
+
 func TestDiscoverURLs(t *testing.T) {
 	tests := []struct {
 		name               string
 		route              *gwapiv1.HTTPRoute
 		gateways           []*gwapiv1.Gateway
+		listenerSets       []*gwapiv1.ListenerSet
 		services           []*corev1.Service
 		preferredUrlScheme string
 		modelRoutingHeader string
@@ -1868,6 +1901,127 @@ func TestDiscoverURLs(t *testing.T) {
 				"http://gw-svc.gw-ns.svc.cluster.local/",
 			),
 		},
+		// ===== ListenerSet parents =====
+		{
+			name: "ListenerSet parent uses the ListenerSet listener and the Gateway address",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(ListenerSetParentRef("tenant-https", "ingress")),
+				WithHostnames("model.tenant.example.com"),
+			),
+			gateways:     []*gwapiv1.Gateway{listenerSetGateway()},
+			listenerSets: []*gwapiv1.ListenerSet{tenantListenerSet()},
+			assert:       expectURLs("https://model.tenant.example.com/"),
+		},
+		{
+			name: "ListenerSet parent falls back to the ListenerSet listener hostname",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(ListenerSetParentRef("tenant-https", "ingress")),
+			),
+			gateways:     []*gwapiv1.Gateway{listenerSetGateway()},
+			listenerSets: []*gwapiv1.ListenerSet{tenantListenerSet()},
+			assert:       expectURLs("https://inference.tenant.example.com/"),
+		},
+		{
+			name: "ListenerSet parent never resolves to a Gateway sharing its name",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(ListenerSetParentRef("tenant-https", "ingress")),
+			),
+			gateways: []*gwapiv1.Gateway{
+				listenerSetGateway(),
+				HTTPGateway("tenant-https", "ingress", "203.0.113.99"),
+			},
+			listenerSets: []*gwapiv1.ListenerSet{tenantListenerSet()},
+			assert:       expectURLs("https://inference.tenant.example.com/"),
+		},
+		{
+			name: "ListenerSet parentRef namespace defaults to the ListenerSet's",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(ListenerSetParentRef("tenant-https", "ingress")),
+			),
+			gateways: []*gwapiv1.Gateway{listenerSetGateway()},
+			listenerSets: []*gwapiv1.ListenerSet{
+				ListenerSet("tenant-https", "shared-gateway", "ingress",
+					InNamespace[*gwapiv1.ListenerSet]("ingress"),
+					func(ls *gwapiv1.ListenerSet) { ls.Spec.ParentRef.Namespace = nil },
+					WithListenerEntries(tenantListenerSet().Spec.Listeners...),
+				),
+			},
+			assert: expectURLs("https://inference.tenant.example.com/"),
+		},
+		{
+			name: "ListenerSet parent attaches to a Gateway in another namespace",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(ListenerSetParentRef("tenant-https", "tenant")),
+				WithHostnames("model.tenant.example.com"),
+			),
+			gateways: []*gwapiv1.Gateway{listenerSetGateway()},
+			listenerSets: []*gwapiv1.ListenerSet{
+				ListenerSet("tenant-https", "shared-gateway", "ingress",
+					InNamespace[*gwapiv1.ListenerSet]("tenant"),
+					WithListenerEntries(tenantListenerSet().Spec.Listeners...),
+				),
+			},
+			assert: expectURLs("https://model.tenant.example.com/"),
+		},
+		{
+			name: "ListenerSet parent resolves sectionName against the ListenerSet",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(withSectionName(ListenerSetParentRef("tenant-https", "ingress"), "tenant-https")),
+				WithHostnames("model.tenant.example.com"),
+			),
+			gateways:     []*gwapiv1.Gateway{listenerSetGateway()},
+			listenerSets: []*gwapiv1.ListenerSet{tenantListenerSet()},
+			assert:       expectURLs("https://model.tenant.example.com/"),
+		},
+		{
+			name: "ListenerSet parent does not see the Gateway's own listeners",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(withSectionName(ListenerSetParentRef("tenant-https", "ingress"), "gateway-fallback")),
+			),
+			gateways:     []*gwapiv1.Gateway{listenerSetGateway()},
+			listenerSets: []*gwapiv1.ListenerSet{tenantListenerSet()},
+			assert: func(g Gomega, urls []string, err error) {
+				g.Expect(err).To(MatchError(ContainSubstring(`listener "gateway-fallback" not found in listenerset ingress/tenant-https`)))
+			},
+		},
+		{
+			name: "ListenerSet parent builds the internal URL from the Gateway's Service",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(ListenerSetParentRef("tenant-https", "ingress")),
+				WithHostnames("model.tenant.example.com"),
+			),
+			gateways:     []*gwapiv1.Gateway{listenerSetGateway()},
+			listenerSets: []*gwapiv1.ListenerSet{tenantListenerSet()},
+			services:     []*corev1.Service{Service("shared-gateway-svc", InNamespace[*corev1.Service]("ingress"), WithGatewayLabel("shared-gateway"))},
+			assert:       expectURLs("https://model.tenant.example.com/", "https://shared-gateway-svc.ingress.svc.cluster.local/"),
+		},
+		{
+			name: "missing ListenerSet parent",
+			route: HTTPRoute("ls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(ListenerSetParentRef("missing", "ingress")),
+			),
+			gateways: []*gwapiv1.Gateway{listenerSetGateway()},
+			assert:   expectError(apierrors.IsNotFound),
+		},
+		{
+			name: "parent of an unsupported kind",
+			route: HTTPRoute("svc-route",
+				InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+				WithParentRef(gwapiv1.ParentReference{Group: ptr.To(gwapiv1.Group("")), Kind: ptr.To(gwapiv1.Kind("Service")), Name: "mesh-svc"}),
+			),
+			assert: func(g Gomega, urls []string, err error) {
+				g.Expect(err).To(MatchError(ContainSubstring("unsupported kind Service")))
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1885,6 +2039,9 @@ func TestDiscoverURLs(t *testing.T) {
 			}
 			for _, gw := range tt.gateways {
 				objects = append(objects, gw)
+			}
+			for _, ls := range tt.listenerSets {
+				objects = append(objects, ls)
 			}
 			for _, svc := range tt.services {
 				objects = append(objects, svc)
@@ -2047,6 +2204,57 @@ func TestDiscoverURLs(t *testing.T) {
 			actual = append(actual, d.URL.String())
 		}
 		g.Expect(actual).To(ConsistOf("https://pinned.example.com/"))
+	})
+
+	t.Run("duplicate URLs are dropped per Gateway, not across Gateways", func(t *testing.T) {
+		// Two Gateways serving one hostname each report their own address entry, but
+		// one Gateway reached directly and through a ListenerSet reports one.
+		g := NewWithT(t)
+		ctx := t.Context()
+
+		scheme := runtime.NewScheme()
+		g.Expect(gwapiv1.Install(scheme)).To(Succeed())
+		g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
+		route := HTTPRoute("test-route",
+			InNamespace[*gwapiv1.HTTPRoute]("tenant"),
+			WithHostnames("model.example.com"),
+			WithParentRefs(
+				GatewayParentRef("shared-gateway", "ingress"),
+				ListenerSetParentRef("tenant-https", "ingress"),
+				GatewayParentRef("other-gateway", "ingress"),
+			),
+		)
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(
+				route,
+				Gateway("shared-gateway",
+					InNamespace[*gwapiv1.Gateway]("ingress"),
+					WithListeners(gwapiv1.Listener{Name: "https", Port: 443, Protocol: gwapiv1.HTTPSProtocolType}),
+					WithAddresses("203.0.113.10"),
+				),
+				tenantListenerSet(),
+				Gateway("other-gateway",
+					InNamespace[*gwapiv1.Gateway]("ingress"),
+					WithListeners(gwapiv1.Listener{Name: "https", Port: 443, Protocol: gwapiv1.HTTPSProtocolType}),
+					WithAddresses("203.0.113.20"),
+				),
+				DefaultGatewayClass(),
+			).
+			Build()
+
+		gateways, gwErr := llmisvc.DiscoverGateways(ctx, fakeClient, route)
+		g.Expect(gwErr).ToNot(HaveOccurred())
+		discovered, err := llmisvc.DiscoverURLs(ctx, fakeClient, gateways, route, llmisvc.Config{})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		origins := make([]string, 0, len(discovered))
+		for _, d := range discovered {
+			g.Expect(d.URL.String()).To(Equal("https://model.example.com/"))
+			origins = append(origins, string(d.Origin.Name))
+		}
+		g.Expect(origins).To(ConsistOf("shared-gateway", "other-gateway"))
 	})
 }
 

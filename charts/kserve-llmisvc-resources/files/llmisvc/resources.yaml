@@ -1609,6 +1609,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - listenersets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - inference.networking.k8s.io
   resources:
   - inferencemodels

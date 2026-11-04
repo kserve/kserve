@@ -71,6 +71,50 @@ func TestHasRoutingGatewayRef(t *testing.T) {
 	g.Expect(hasRoutingGatewayRef(llmSvc, gwapiv1.ObjectName("gateway-missing"), gwapiv1.Namespace("kserve"))).To(BeFalse())
 }
 
+func TestHasRoutingParentRefMatchesKind(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	llmSvc := routedThroughParent("svc", "ListenerSet", "tenant-https")
+
+	g.Expect(hasRoutingParentRef(llmSvc, "ListenerSet", "tenant-https", "ingress")).To(BeTrue())
+	g.Expect(hasRoutingParentRef(llmSvc, "ListenerSet", "tenant-https", "other")).To(BeFalse())
+	// A Gateway event must not match a ListenerSet that happens to share its name.
+	g.Expect(hasRoutingGatewayRef(llmSvc, "tenant-https", "ingress")).To(BeFalse())
+}
+
+func TestRequestsForGatewayChangeMatchesListenerSetParents(t *testing.T) {
+	viaListenerSet := routedThroughParent("via-listenerset", "ListenerSet", "tenant-https")
+	viaGateway := routedThroughParent("via-gateway", "Gateway", "shared-gateway")
+	gateway := &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "shared-gateway", Namespace: "ingress"}}
+
+	t.Run("reaches services routed through the Gateway's ListenerSets", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		r := newListenerSetHandlerReconciler(t, true, viaListenerSet, viaGateway,
+			routedThroughParent("via-other-listenerset", "ListenerSet", "other-https"))
+		reqs := enqueueRequestsForObject(r.enqueueOnGatewayChange(logr.Discard()), gateway)
+		g.Expect(reqs).To(ConsistOf(requestFor(viaListenerSet), requestFor(viaGateway)))
+	})
+
+	t.Run("without the ListenerSet CRD still reaches direct parents", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		r := newListenerSetHandlerReconciler(t, false, viaListenerSet, viaGateway)
+		reqs := enqueueRequestsForObject(r.enqueueOnGatewayChange(logr.Discard()), gateway)
+		g.Expect(reqs).To(ConsistOf(requestFor(viaGateway)))
+	})
+}
+
+func TestRequestsForListenerSetChangeMatchesOnlyItsServices(t *testing.T) {
+	g := NewGomegaWithT(t)
+	viaListenerSet := routedThroughParent("via-listenerset", "ListenerSet", "tenant-https")
+	r := newListenerSetHandlerReconciler(t, true, viaListenerSet,
+		routedThroughParent("via-other-listenerset", "ListenerSet", "other-https"),
+		routedThroughParent("via-gateway", "Gateway", "tenant-https"))
+
+	reqs := enqueueRequestsForObject(r.enqueueOnListenerSetChange(logr.Discard()), attachedListenerSet("tenant-https", "shared-gateway"))
+
+	g.Expect(reqs).To(ConsistOf(requestFor(viaListenerSet)))
+}
+
 func TestHasRoutingGatewayRefReturnsFalseWithoutObservedGateways(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -448,7 +492,63 @@ func newControllerHandlersScheme(t *testing.T) *runtime.Scheme {
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add corev1 to scheme: %v", err)
 	}
+	if err := gwapiv1.Install(scheme); err != nil {
+		t.Fatalf("failed to add gateway API to scheme: %v", err)
+	}
 	return scheme
+}
+
+// routedThroughParent builds a service whose status records one route parent in
+// the ingress namespace. Its spec names no gateway, so only status can match it.
+func routedThroughParent(name string, kind gwapiv1.Kind, parentName string) *v1alpha2.LLMInferenceService {
+	return &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "tenant"},
+		Status: v1alpha2.LLMInferenceServiceStatus{
+			Router: &v1alpha2.RouterStatus{
+				Gateways: []v1alpha2.ObservedGateway{{
+					ObjectReference: gwapiv1.ObjectReference{
+						Group:     gwapiv1.GroupName,
+						Kind:      kind,
+						Name:      gwapiv1.ObjectName(parentName),
+						Namespace: ptr.To(gwapiv1.Namespace("ingress")),
+					},
+				}},
+			},
+		},
+	}
+}
+
+// attachedListenerSet builds a ListenerSet in the ingress namespace; its
+// parentRef namespace is left to default to that namespace.
+func attachedListenerSet(name, gatewayName string) *gwapiv1.ListenerSet {
+	return &gwapiv1.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ingress"},
+		Spec:       gwapiv1.ListenerSetSpec{ParentRef: gwapiv1.ParentGatewayReference{Name: gwapiv1.ObjectName(gatewayName)}},
+	}
+}
+
+func newListenerSetHandlerReconciler(t *testing.T, listenerSetAvailable bool, services ...*v1alpha2.LLMInferenceService) *LLMISVCReconciler {
+	t.Helper()
+	objects := []client.Object{
+		attachedListenerSet("tenant-https", "shared-gateway"),
+		attachedListenerSet("other-https", "other-gateway"),
+	}
+	for _, svc := range services {
+		objects = append(objects, svc)
+	}
+	return &LLMISVCReconciler{
+		Client: clientfake.NewClientBuilder().
+			WithScheme(newControllerHandlersScheme(t)).
+			WithObjects(objects...).
+			WithIndex(&gwapiv1.ListenerSet{}, listenerSetGatewayIndex, listenerSetGatewayIndexValue).
+			Build(),
+		Clientset:            kubefake.NewSimpleClientset(testInferenceServiceConfigMap()),
+		ListenerSetAvailable: listenerSetAvailable,
+	}
+}
+
+func requestFor(llmSvc *v1alpha2.LLMInferenceService) reconcile.Request {
+	return reconcile.Request{NamespacedName: client.ObjectKeyFromObject(llmSvc)}
 }
 
 func enqueueRequestsForObject(eventHandler handler.EventHandler, object client.Object) []reconcile.Request {
