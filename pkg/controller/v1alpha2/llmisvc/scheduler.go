@@ -779,16 +779,7 @@ func (r *LLMISVCReconciler) overlayLegacyEPPFeatureGates(ctx context.Context, ll
 		return args, nil
 	}
 
-	wr := WellKnownConfigResolver{}
-	var configName string
-	switch {
-	case isOmniRuntime(llmSvc.Spec.Runtime):
-		configName = wr.Resolve(llmSvc, configRouterSchedulerModalityEPPConfigName)
-	case llmSvc.Spec.Prefill != nil:
-		configName = wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)
-	default:
-		configName = wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)
-	}
+	configName := defaultEPPConfigName(llmSvc, llmSvc.Spec)
 	cfg, err := r.getConfig(ctx, llmSvc, configName)
 	if err != nil {
 		var missing *configNotFoundError
@@ -797,13 +788,16 @@ func (r *LLMISVCReconciler) overlayLegacyEPPFeatureGates(ctx context.Context, ll
 		}
 		return nil, err
 	}
-	if cfg.Spec.Router == nil || cfg.Spec.Router.Scheduler == nil ||
-		cfg.Spec.Router.Scheduler.Config == nil || cfg.Spec.Router.Scheduler.Config.Inline == nil {
-		return args, nil
-	}
-	gates, flowControl, ok := endpointPickerFeatureGateFields(cfg.Spec.Router.Scheduler.Config.Inline.Raw)
-	if !ok {
-		return args, nil
+	var gates []any
+	var flowControl map[string]any
+	if cfg.Spec.Router != nil && cfg.Spec.Router.Scheduler != nil &&
+		cfg.Spec.Router.Scheduler.Config != nil && cfg.Spec.Router.Scheduler.Config.Inline != nil {
+		var parsed bool
+		gates, flowControl, parsed = endpointPickerFeatureGateFields(cfg.Spec.Router.Scheduler.Config.Inline.Raw)
+		if !parsed {
+			log.FromContext(ctx).Info("Skipping feature gate overlay; referenced EndpointPicker config is not a YAML object", "config", configName)
+			return args, nil
+		}
 	}
 	updated, changed, err := mergeFeatureGateFields(args[1], gates, flowControl)
 	if err != nil {
@@ -817,48 +811,56 @@ func (r *LLMISVCReconciler) overlayLegacyEPPFeatureGates(ctx context.Context, ll
 	return []string{args[0], updated}, nil
 }
 
-// endpointPickerFeatureGateFields reads the additive flow-control fields from
-// an EndpointPickerConfig document. Plugin lists are ignored so a legacy
-// scheduler is not switched onto the preset plugin set.
+// endpointPickerFeatureGateFields reads featureGates and flowControl from an
+// EndpointPickerConfig document. Plugin lists are ignored so a legacy scheduler
+// is not switched onto the preset plugin set. An empty or absent field is
+// returned as empty so a removed gate can be cleared. ok is false only when
+// the document is not a YAML object.
 func endpointPickerFeatureGateFields(raw []byte) (gates []any, flowControl map[string]any, ok bool) {
 	if len(raw) == 0 {
-		return nil, nil, false
+		return nil, nil, true
 	}
 	doc := map[string]any{}
-	if err := yaml.Unmarshal(raw, &doc); err != nil {
+	if err := yaml.Unmarshal(raw, &doc); err != nil || len(doc) == 0 {
 		return nil, nil, false
 	}
 	if g, found := doc["featureGates"]; found {
-		if list, isList := g.([]any); isList && len(list) > 0 {
+		if list, isList := g.([]any); isList {
 			gates = list
-			ok = true
 		}
 	}
 	if fc, found := doc["flowControl"]; found {
-		if section, isMap := fc.(map[string]any); isMap && len(section) > 0 {
+		if section, isMap := fc.(map[string]any); isMap {
 			flowControl = section
-			ok = true
 		}
 	}
-	return gates, flowControl, ok
+	return gates, flowControl, true
 }
 
 // mergeFeatureGateFields sets featureGates and flowControl on a
-// controller-owned EndpointPickerConfig. It reports whether the document
-// changed so an already-applied gate does not rewrite the deployment every
-// reconcile.
+// controller-owned EndpointPickerConfig, including clearing them when the
+// referenced config no longer sets them. It reports whether the document
+// changed so an already-matching document is not rewritten every reconcile.
 func mergeFeatureGateFields(configYAML string, gates []any, flowControl map[string]any) (string, bool, error) {
 	doc := map[string]any{}
 	if err := yaml.Unmarshal([]byte(configYAML), &doc); err != nil {
 		return "", false, err
 	}
 	changed := false
-	if len(gates) > 0 && !equality.Semantic.DeepEqual(doc["featureGates"], gates) {
-		doc["featureGates"] = gates
+	if !featureGateValueEqual(doc["featureGates"], gates) {
+		if featureGateValueEmpty(gates) {
+			delete(doc, "featureGates")
+		} else {
+			doc["featureGates"] = gates
+		}
 		changed = true
 	}
-	if len(flowControl) > 0 && !equality.Semantic.DeepEqual(doc["flowControl"], flowControl) {
-		doc["flowControl"] = flowControl
+	if !featureGateValueEqual(doc["flowControl"], flowControl) {
+		if featureGateValueEmpty(flowControl) {
+			delete(doc, "flowControl")
+		} else {
+			doc["flowControl"] = flowControl
+		}
 		changed = true
 	}
 	if !changed {
@@ -869,6 +871,26 @@ func mergeFeatureGateFields(configYAML string, gates []any, flowControl map[stri
 		return "", false, err
 	}
 	return string(out), true, nil
+}
+
+func featureGateValueEmpty(v any) bool {
+	switch t := v.(type) {
+	case nil:
+		return true
+	case []any:
+		return len(t) == 0
+	case map[string]any:
+		return len(t) == 0
+	default:
+		return false
+	}
+}
+
+func featureGateValueEqual(current, desired any) bool {
+	if featureGateValueEmpty(current) && featureGateValueEmpty(desired) {
+		return true
+	}
+	return equality.Semantic.DeepEqual(current, desired)
 }
 
 // configFlagFromContainers scans the "main" container for a config flag and

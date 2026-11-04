@@ -1043,6 +1043,57 @@ func managedSchedulerService(namespace string) *v1alpha2.LLMInferenceService {
 	}
 }
 
+func TestCombineBaseRefsConfig_LegacyRouterWatchesEPPConfigWithoutMergingPlugins(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	schedulerCfg := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configRouterSchedulerName, Namespace: constants.KServeNamespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Annotations: map[string]string{"app.kubernetes.io/version": "0.10.0"},
+					Template:    &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}},
+				},
+			},
+		},
+	}
+	epp := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configRouterSchedulerDefaultEPPConfigName, Namespace: constants.KServeNamespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Inline: &runtime.RawExtension{Raw: []byte(`{"plugins":[{"type":"preset-only-plugin"}],"featureGates":["flowControl"]}`)},
+					},
+				},
+			},
+		},
+	}
+	template := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configTemplateName, Namespace: constants.KServeNamespace},
+	}
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(schedulerCfg, epp, template).Build(),
+	}
+	svc := managedSchedulerService("test-ns")
+
+	combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc, &Config{})
+
+	require.NoError(t, err)
+	svc.Status.AppliedConfigRefs = combined.AppliedConfigRefs
+	var recorded bool
+	for _, ref := range combined.AppliedConfigRefs {
+		if string(ref.Name) == configRouterSchedulerDefaultEPPConfigName {
+			recorded = true
+		}
+	}
+	assert.True(t, recorded, "legacy routers must record the shared EPP config so an edit reconciles them")
+	assert.NotEmpty(t, svc.Status.AppliedConfigRefs)
+	assert.True(t, svc.IsUsingLLMInferenceServiceConfig(configRouterSchedulerDefaultEPPConfigName))
+	assert.Nil(t, combined.Config.Spec.Router.Scheduler.Config, "the preset plugin list must not be merged onto a legacy router")
+}
+
 func TestCombineBaseRefsConfig_ConfigFlagInWellKnownPresetSuppressesInjection(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha2.AddToScheme(scheme))

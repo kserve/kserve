@@ -608,6 +608,12 @@ func validationDetail(err error) string {
 type configRef struct {
 	corev1.LocalObjectReference
 	source v1alpha2.AppliedConfigSource
+	// watchOnly records the config on status.appliedConfigs without merging its
+	// spec. Legacy routers read featureGates from the shared EPP config but must
+	// not adopt its plugin list. The watch treats a nonempty appliedConfigs list
+	// as authoritative, so the dependency has to be recorded or an edit never
+	// reconciles an existing service.
+	watchOnly bool
 }
 
 // presetRef is a config KServe selected for this service.
@@ -615,6 +621,26 @@ func presetRef(name string) configRef {
 	return configRef{
 		LocalObjectReference: corev1.LocalObjectReference{Name: name},
 		source:               v1alpha2.AppliedConfigSourcePreset,
+	}
+}
+
+// watchOnlyPresetRef records a preset dependency without merging its spec.
+func watchOnlyPresetRef(name string) configRef {
+	ref := presetRef(name)
+	ref.watchOnly = true
+	return ref
+}
+
+// defaultEPPConfigName is the well-known EndpointPicker config for this shape.
+func defaultEPPConfigName(llmSvc *v1alpha2.LLMInferenceService, spec v1alpha2.LLMInferenceServiceSpec) string {
+	wr := WellKnownConfigResolver{}
+	switch {
+	case isOmniRuntime(spec.Runtime):
+		return wr.Resolve(llmSvc, configRouterSchedulerModalityEPPConfigName)
+	case spec.Prefill != nil:
+		return wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)
+	default:
+		return wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)
 	}
 }
 
@@ -711,16 +737,18 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 				llmSvc.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"] != "" {
 				versionCfg = &v1alpha2.LLMInferenceServiceConfig{Spec: llmSvc.Spec}
 			}
-			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, versionCfg) {
-				switch {
-				case isOmniRuntime(resolvedSpec.Runtime):
-					// Omni TTS/TTI: load-only profile. The text prefix-cache
-					// chain has no TokenizedRequest for audio/image inputs.
-					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerModalityEPPConfigName)))
-				case resolvedSpec.Prefill != nil: // P/D disagg.
-					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)))
-				default:
-					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)))
+			if injectDefaultSchedulerConfig {
+				eppConfigName := defaultEPPConfigName(llmSvc, resolvedSpec)
+				if routerVersionSupportsPreset(ctx, versionCfg) {
+					// Merge the preset document. Its plugin list is what routers
+					// at routerPresetMinVersion and newer run.
+					refs = append(refs, presetRef(eppConfigName))
+				} else {
+					// Older routers keep schedulerConfigText and only copy
+					// featureGates from this object. Record it so an edit still
+					// enqueues the service. Merging the spec would replace the
+					// legacy plugin list.
+					refs = append(refs, watchOnlyPresetRef(eppConfigName))
 				}
 			}
 		}
@@ -819,9 +847,25 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	for _, ref := range refs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
 		if err != nil {
+			var missing *configNotFoundError
+			if ref.watchOnly && errors.As(err, &missing) {
+				continue
+			}
 			return nil, err
 		}
 		if cfg != nil {
+			if ref.watchOnly {
+				source := ref.source
+				if cfg.Namespace != constants.KServeNamespace {
+					source = v1alpha2.AppliedConfigSourceUserRef
+				}
+				appliedRefs = append(appliedRefs, v1alpha2.AppliedConfigRef{
+					Name:      gwapiv1.ObjectName(ref.Name),
+					Namespace: gwapiv1.Namespace(cfg.Namespace),
+					Source:    source,
+				})
+				continue
+			}
 			specs = append(specs, cfg.Spec)
 			// getConfig prefers the service's namespace, so a copy a user put there
 			// answers to a well-known name. Being asked for by KServe is not enough;

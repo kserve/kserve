@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/yaml"
@@ -489,6 +490,20 @@ func TestMergeFeatureGateFields(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(changed).To(BeFalse())
 	g.Expect(again).To(Equal(updated))
+
+	cleared, changed, err := mergeFeatureGateFields(updated, nil, nil)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(changed).To(BeTrue())
+	clearedDoc := map[string]any{}
+	g.Expect(yaml.Unmarshal([]byte(cleared), &clearedDoc)).To(Succeed())
+	g.Expect(clearedDoc).NotTo(HaveKey("featureGates"))
+	g.Expect(clearedDoc).NotTo(HaveKey("flowControl"))
+	g.Expect(clearedDoc["kind"]).To(Equal("EndpointPickerConfig"))
+
+	stable, changed, err := mergeFeatureGateFields(cleared, []any{}, map[string]any{})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(changed).To(BeFalse())
+	g.Expect(stable).To(Equal(cleared))
 }
 
 func TestEndpointPickerFeatureGateFieldsIgnoresPlugins(t *testing.T) {
@@ -498,6 +513,105 @@ func TestEndpointPickerFeatureGateFieldsIgnoresPlugins(t *testing.T) {
 	g.Expect(ok).To(BeTrue())
 	g.Expect(gates).To(Equal([]any{"flowControl"}))
 	g.Expect(flowControl).To(BeNil())
+}
+
+// TestOverlayLegacyEPPFeatureGatesKeepsPlugins is the in-process form of the
+// 0.10 scheduler check: the referenced EPP config adds flowControl, and the
+// controller-owned Deployment text gains that gate without taking the preset
+// plugin list.
+func TestOverlayLegacyEPPFeatureGatesKeepsPlugins(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	const legacy = `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: queue-scorer
+- type: kv-cache-utilization-scorer
+- type: prefix-cache-scorer
+- type: no-hit-lru-scorer
+`
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "demo"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Annotations: map[string]string{"app.kubernetes.io/version": "0.10.0"},
+					Template: &corev1.PodSpec{Containers: []corev1.Container{{
+						Name: "main",
+						Args: []string{"--pool-name", "pool"},
+					}}},
+				},
+			},
+		},
+	}
+	curr := &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name: "main",
+			Args: []string{"--config-text", legacy},
+		}}},
+	}}}
+	epp := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configRouterSchedulerDefaultEPPConfigName,
+			Namespace: constants.KServeNamespace,
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Inline: &runtime.RawExtension{Raw: []byte(`{"featureGates":["flowControl"],"flowControl":{"queueDepthThreshold":4},"plugins":[{"type":"approx-prefix-cache-producer"}]}`)},
+					},
+				},
+			},
+		},
+	}
+	scheme := runtime.NewScheme()
+	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+	reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(epp).Build()}
+
+	args := preserveSchedulerConfig(svc, curr)
+	got, err := reconciler.overlayLegacyEPPFeatureGates(context.Background(), svc, args)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(got).To(HaveLen(2))
+	g.Expect(got[0]).To(Equal("--config-text"))
+
+	doc := map[string]any{}
+	g.Expect(yaml.Unmarshal([]byte(got[1]), &doc)).To(Succeed())
+	g.Expect(doc["featureGates"]).To(Equal([]any{"flowControl"}))
+	g.Expect(doc["flowControl"]).To(Equal(map[string]any{"queueDepthThreshold": float64(4)}))
+	plugins, _ := doc["plugins"].([]any)
+	var types []string
+	for _, plugin := range plugins {
+		item, _ := plugin.(map[string]any)
+		name, _ := item["type"].(string)
+		types = append(types, name)
+	}
+	g.Expect(types).To(Equal([]string{
+		"single-profile-handler",
+		"queue-scorer",
+		"kv-cache-utilization-scorer",
+		"prefix-cache-scorer",
+		"no-hit-lru-scorer",
+	}))
+
+	// Removing the gate from the shared config clears it on the next reconcile.
+	epp.Spec.Router.Scheduler.Config.Inline.Raw = []byte(`{"plugins":[{"type":"approx-prefix-cache-producer"}]}`)
+	g.Expect(reconciler.Update(context.Background(), epp)).To(Succeed())
+	cleared, err := reconciler.overlayLegacyEPPFeatureGates(context.Background(), svc, got)
+	g.Expect(err).NotTo(HaveOccurred())
+	clearedDoc := map[string]any{}
+	g.Expect(yaml.Unmarshal([]byte(cleared[1]), &clearedDoc)).To(Succeed())
+	g.Expect(clearedDoc).NotTo(HaveKey("featureGates"))
+	g.Expect(clearedDoc).NotTo(HaveKey("flowControl"))
+	clearedPlugins, _ := clearedDoc["plugins"].([]any)
+	var clearedTypes []string
+	for _, plugin := range clearedPlugins {
+		item, _ := plugin.(map[string]any)
+		name, _ := item["type"].(string)
+		clearedTypes = append(clearedTypes, name)
+	}
+	g.Expect(clearedTypes).To(Equal(types))
 }
 
 // TestSchedulerDefaultPreset asserts the single-profile preset shipped in
