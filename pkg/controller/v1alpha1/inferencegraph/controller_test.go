@@ -1119,10 +1119,13 @@ var _ = Describe("Inference Graph controller test", func() {
 
 			By("Updating the custom annotation on the InferenceGraph")
 			actualIG := &v1alpha1.InferenceGraph{}
-			Expect(k8sClient.Get(ctx, serviceKey, actualIG)).Should(Succeed())
-			updatedIG := actualIG.DeepCopy()
-			updatedIG.Annotations[customAnnotationKey] = "hostname-b"
-			Expect(k8sClient.Update(ctx, updatedIG)).NotTo(HaveOccurred())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				if err := k8sClient.Get(ctx, serviceKey, actualIG); err != nil {
+					return err
+				}
+				actualIG.Annotations[customAnnotationKey] = "hostname-b"
+				return k8sClient.Update(ctx, actualIG)
+			})).To(Succeed())
 
 			// The updated value must reach the existing knative service's metadata -- this exercises
 			// semanticEquals/reconcileKsvc's annotation sync path on the update branch, not just the
