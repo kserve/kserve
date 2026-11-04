@@ -547,6 +547,147 @@ def wait_for_mcv_sidecar(namespace: str, isvc_name: str, timeout: int = 120) -> 
     wait_for(check_mcv, timeout=timeout, interval=5.0)
 
 
+def wait_for_runtime_image_prefetch_jobs(
+    job_namespace: str,
+    expected_node_names: list[str],
+    runtime_image: str,
+    timeout: int = 300,
+) -> None:
+    """Wait for one completed runtime image prefetch Job per expected node."""
+    _load_k8s_config()
+    batch = client.BatchV1Api()
+
+    def check_jobs() -> None:
+        jobs = batch.list_namespaced_job(
+            job_namespace,
+            label_selector="internal.serving.kserve.io/runtime-image-prefetch=true",
+        ).items
+        matching = [
+            job
+            for job in jobs
+            if (job.metadata.annotations or {}).get(
+                "internal.serving.kserve.io/runtime-image"
+            )
+            == runtime_image
+        ]
+
+        by_node: dict[str, client.V1Job] = {}
+        for job in matching:
+            annotations = job.metadata.annotations or {}
+            node_name = annotations.get(
+                "internal.serving.kserve.io/kernel-cache-node", ""
+            )
+            if node_name not in expected_node_names:
+                continue
+            assert node_name not in by_node, (
+                f"Multiple runtime image prefetch Jobs found for node {node_name}"
+            )
+            by_node[node_name] = job
+
+            conditions = job.status.conditions or []
+            complete = any(
+                condition.type == "Complete" and condition.status == "True"
+                for condition in conditions
+            )
+            assert complete, (
+                f"Runtime image prefetch Job {job_namespace}/{job.metadata.name} "
+                "is not complete"
+            )
+
+        missing = sorted(set(expected_node_names) - set(by_node))
+        assert not missing, (
+            f"Runtime image prefetch Jobs missing for nodes {missing}; "
+            f"found {sorted(by_node)}"
+        )
+
+    wait_for(check_jobs, timeout=timeout, interval=5.0)
+
+
+def verify_runtime_image_available_on_node(
+    namespace: str,
+    node_name: str,
+    runtime_image: str,
+    timeout: int = 120,
+) -> None:
+    """Run a pull-policy Never probe to verify that an image is cached on a node."""
+    core = _core_api()
+    pod = core.create_namespaced_pod(
+        namespace,
+        client.V1Pod(
+            metadata=client.V1ObjectMeta(generate_name="runtime-image-probe-"),
+            spec=client.V1PodSpec(
+                automount_service_account_token=False,
+                node_name=node_name,
+                restart_policy="Never",
+                containers=[
+                    client.V1Container(
+                        name="probe",
+                        image=runtime_image,
+                        image_pull_policy="Never",
+                        command=["/bin/sh", "-c", "true"],
+                    )
+                ],
+            ),
+        ),
+    )
+    pod_name = pod.metadata.name
+
+    def check_probe() -> None:
+        current = core.read_namespaced_pod(pod_name, namespace)
+        for status in current.status.container_statuses or []:
+            state = status.state
+            waiting = state.waiting if state else None
+            if waiting and waiting.reason in {"ErrImageNeverPull", "ImagePullBackOff"}:
+                raise TerminalFailure(
+                    f"Runtime image {runtime_image} is not cached on node {node_name}: "
+                    f"{waiting.reason}: {waiting.message or ''}"
+                )
+            if waiting and waiting.reason in {
+                "CreateContainerError",
+                "RunContainerError",
+            }:
+                raise TerminalFailure(
+                    f"Runtime image cache probe {namespace}/{pod_name} could not start on "
+                    f"{node_name}: {waiting.reason}: {waiting.message or ''}"
+                )
+        if current.status.phase == "Failed":
+            terminated = next(
+                (
+                    status.state.terminated
+                    for status in current.status.container_statuses or []
+                    if status.state and status.state.terminated
+                ),
+                None,
+            )
+            if terminated:
+                raise TerminalFailure(
+                    f"Runtime image cache probe {namespace}/{pod_name} command failed on "
+                    f"{node_name}: {terminated.reason or 'unknown'} "
+                    f"(exit code {terminated.exit_code}): {terminated.message or ''}"
+                )
+            raise TerminalFailure(
+                f"Runtime image cache probe {namespace}/{pod_name} failed on {node_name}"
+            )
+        assert current.status.phase == "Succeeded", (
+            f"Runtime image cache probe {namespace}/{pod_name} phase is "
+            f"{current.status.phase or '(empty)'}"
+        )
+
+    try:
+        wait_for(check_probe, timeout=timeout, interval=2.0)
+    finally:
+        try:
+            core.delete_namespaced_pod(
+                pod_name,
+                namespace,
+                grace_period_seconds=0,
+                propagation_policy="Background",
+            )
+        except ApiException as e:
+            if e.status != 404:
+                raise
+
+
 def check_pod_logs_for_cache_usage(
     namespace: str, isvc_name: str, since_seconds: int = 300
 ) -> dict[str, bool]:

@@ -1253,6 +1253,48 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}).WithContext(ctx).Should(Succeed())
 			})
 
+			It("should create routes with normalized publisher paths when the model name has empty segments", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-publisher-path-slashes"
+				modelName := "/app/root//model"
+				testNs := NewTestNamespace(ctx, envTest)
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithModelName(modelName),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithManagedScheduler(),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				// then
+				Eventually(func(g Gomega, ctx context.Context) {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+
+					var publisherPaths []string
+					for _, rule := range routes[0].Spec.Rules {
+						for _, match := range rule.Matches {
+							if path := ptr.Deref(match.Path, gwapiv1.HTTPPathMatch{}).Value; path != nil && strings.HasPrefix(*path, "/publishers/") {
+								publisherPaths = append(publisherPaths, *path)
+							}
+						}
+					}
+					g.Expect(publisherPaths).ToNot(BeEmpty())
+					for _, path := range publisherPaths {
+						g.Expect(path).To(HavePrefix("/" + publisherModel(testNs.Name, "app/root/model")))
+					}
+				}).WithContext(ctx).Should(Succeed())
+			})
+
 			It("should create routes pointing to workload service when no scheduler is configured", func(ctx SpecContext) {
 				// given
 				llmSvcName := "test-llm-create-http-route-no-scheduler"

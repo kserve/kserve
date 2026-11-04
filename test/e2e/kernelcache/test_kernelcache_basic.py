@@ -20,6 +20,8 @@ from kubernetes import client as k8s_client
 from .utils import (
     _load_k8s_config,
     wait_for_kernelcache_nodes,
+    wait_for_runtime_image_prefetch_jobs,
+    verify_runtime_image_available_on_node,
 )
 
 _NODE_LABEL_KEY: str = os.environ.get(
@@ -31,6 +33,7 @@ _NODE_LABEL_VALUE: str = os.environ.get("KERNELCACHE_NODE_LABEL_VALUE", "workers
 @pytest.mark.kernelcache
 def test_kernelcache_basic(
     kc_node_group,
+    kc_config,
     kc_session,
 ):
     """Core KernelCache lifecycle: node creation → capture → verification.
@@ -47,6 +50,10 @@ def test_kernelcache_basic(
       [FIXTURE VERIFIES] KernelCache CR exists with verification.state=Succeeded.
       [TEST VERIFIES] KernelCache CR has a non-empty artifact imageReference.
       [TEST VERIFIES] KernelCache CR verification.verified == True.
+
+    Phase 3 - Runtime image prefetch:
+      [TEST VERIFIES] One completed runtime image prefetch Job exists per worker node.
+      [TEST VERIFIES] The prefetched image can start with imagePullPolicy=Never.
     """
     # ── Phase 1: KernelCacheNode creation ─────────────────────────────────────
     _load_k8s_config()
@@ -81,3 +88,18 @@ def test_kernelcache_basic(
     assert image_ref, (
         f"KernelCache {kc_session['kc_name']} has empty spec.artifact.imageReference"
     )
+
+    runtime_image = kc["spec"]["artifact"]["identity"]["factors"]["runtimeImage"]
+    wait_for_runtime_image_prefetch_jobs(
+        kc_config["jobNamespace"],
+        worker_node_names,
+        runtime_image,
+        timeout=300,
+    )
+    for node_name in worker_node_names:
+        verify_runtime_image_available_on_node(
+            kc_session["namespace"],
+            node_name,
+            runtime_image,
+            timeout=120,
+        )
