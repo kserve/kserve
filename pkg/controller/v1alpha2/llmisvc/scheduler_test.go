@@ -471,6 +471,35 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 	}
 }
 
+func TestMergeFeatureGateFields(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	base := "apiVersion: llm-d.ai/v1alpha1\nkind: EndpointPickerConfig\nplugins:\n- type: queue-scorer\n"
+	updated, changed, err := mergeFeatureGateFields(base, []any{"flowControl"}, map[string]any{"queueDepthThreshold": 4})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(changed).To(BeTrue())
+
+	doc := map[string]any{}
+	g.Expect(yaml.Unmarshal([]byte(updated), &doc)).To(Succeed())
+	g.Expect(doc["featureGates"]).To(Equal([]any{"flowControl"}))
+	g.Expect(doc["flowControl"]).To(Equal(map[string]any{"queueDepthThreshold": float64(4)}))
+	g.Expect(doc["kind"]).To(Equal("EndpointPickerConfig"))
+
+	again, changed, err := mergeFeatureGateFields(updated, []any{"flowControl"}, map[string]any{"queueDepthThreshold": float64(4)})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(changed).To(BeFalse())
+	g.Expect(again).To(Equal(updated))
+}
+
+func TestEndpointPickerFeatureGateFieldsIgnoresPlugins(t *testing.T) {
+	g := NewGomegaWithT(t)
+	raw := []byte("featureGates:\n- flowControl\nplugins:\n- type: approx-prefix-cache-producer\n")
+	gates, flowControl, ok := endpointPickerFeatureGateFields(raw)
+	g.Expect(ok).To(BeTrue())
+	g.Expect(gates).To(Equal([]any{"flowControl"}))
+	g.Expect(flowControl).To(BeNil())
+}
+
 // TestSchedulerDefaultPreset asserts the single-profile preset shipped in
 // config/llmisvcconfig contains the expected plugins:
 // approx-prefix-cache-producer, inflight-load-producer, prefix-cache-affinity-filter,

@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -524,9 +525,11 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				)
 			}
 
-			mainContainer.Args = append(mainContainer.Args,
-				preserveSchedulerConfig(llmSvc, curr)...,
-			)
+			schedulerConfigArgs, err := r.overlayLegacyEPPFeatureGates(ctx, llmSvc, preserveSchedulerConfig(llmSvc, curr))
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply scheduler feature gates from the referenced EndpointPicker config: %w", err)
+			}
+			mainContainer.Args = append(mainContainer.Args, schedulerConfigArgs...)
 
 			// Inject tracing instrumentation when spec.tracing is set
 			injectSchedulerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), mainContainer)
@@ -745,6 +748,127 @@ func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.
 	}
 
 	return []string{"--config-text", schedulerConfigText(llmSvc)}
+}
+
+// overlayLegacyEPPFeatureGates copies featureGates and flowControl from the
+// referenced EndpointPicker LLMInferenceServiceConfig onto controller-owned
+// --config-text.
+//
+// Routers older than routerPresetMinVersion keep the legacy plugin document
+// from schedulerConfigText. preserveSchedulerConfig then reuses that text from
+// the running Deployment, so a later edit to the referenced config never
+// arrives. The 0.10 scheduler already understands featureGates and leaves
+// flow control off until flowControl is listed, so those fields are copied
+// onto the legacy document. The plugin list is left alone. Router versions
+// that run the preset already receive the whole inline document.
+func (r *LLMISVCReconciler) overlayLegacyEPPFeatureGates(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, args []string) ([]string, error) {
+	if len(args) != 2 {
+		return args, nil
+	}
+	if _, ok := inlineConfigTextFlags[args[0]]; !ok {
+		return args, nil
+	}
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+		return args, nil
+	}
+	// A preset or an explicit inline config already owns the document.
+	if llmSvc.Spec.Router.Scheduler.Config != nil || hasMainContainerConfigFlag(llmSvc.Spec) {
+		return args, nil
+	}
+	if routerVersionSupportsPreset(ctx, &v1alpha2.LLMInferenceServiceConfig{Spec: llmSvc.Spec}) {
+		return args, nil
+	}
+
+	wr := WellKnownConfigResolver{}
+	var configName string
+	switch {
+	case isOmniRuntime(llmSvc.Spec.Runtime):
+		configName = wr.Resolve(llmSvc, configRouterSchedulerModalityEPPConfigName)
+	case llmSvc.Spec.Prefill != nil:
+		configName = wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)
+	default:
+		configName = wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)
+	}
+	cfg, err := r.getConfig(ctx, llmSvc, configName)
+	if err != nil {
+		var missing *configNotFoundError
+		if errors.As(err, &missing) {
+			return args, nil
+		}
+		return nil, err
+	}
+	if cfg.Spec.Router == nil || cfg.Spec.Router.Scheduler == nil ||
+		cfg.Spec.Router.Scheduler.Config == nil || cfg.Spec.Router.Scheduler.Config.Inline == nil {
+		return args, nil
+	}
+	gates, flowControl, ok := endpointPickerFeatureGateFields(cfg.Spec.Router.Scheduler.Config.Inline.Raw)
+	if !ok {
+		return args, nil
+	}
+	updated, changed, err := mergeFeatureGateFields(args[1], gates, flowControl)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Skipping feature gate overlay; scheduler config text is not a YAML object", "config", configName)
+		return args, nil
+	}
+	if !changed {
+		return args, nil
+	}
+	log.FromContext(ctx).Info("Applied feature gates from the referenced EndpointPicker config onto the scheduler deployment", "config", configName)
+	return []string{args[0], updated}, nil
+}
+
+// endpointPickerFeatureGateFields reads the additive flow-control fields from
+// an EndpointPickerConfig document. Plugin lists are ignored so a legacy
+// scheduler is not switched onto the preset plugin set.
+func endpointPickerFeatureGateFields(raw []byte) (gates []any, flowControl map[string]any, ok bool) {
+	if len(raw) == 0 {
+		return nil, nil, false
+	}
+	doc := map[string]any{}
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil, nil, false
+	}
+	if g, found := doc["featureGates"]; found {
+		if list, isList := g.([]any); isList && len(list) > 0 {
+			gates = list
+			ok = true
+		}
+	}
+	if fc, found := doc["flowControl"]; found {
+		if section, isMap := fc.(map[string]any); isMap && len(section) > 0 {
+			flowControl = section
+			ok = true
+		}
+	}
+	return gates, flowControl, ok
+}
+
+// mergeFeatureGateFields sets featureGates and flowControl on a
+// controller-owned EndpointPickerConfig. It reports whether the document
+// changed so an already-applied gate does not rewrite the deployment every
+// reconcile.
+func mergeFeatureGateFields(configYAML string, gates []any, flowControl map[string]any) (string, bool, error) {
+	doc := map[string]any{}
+	if err := yaml.Unmarshal([]byte(configYAML), &doc); err != nil {
+		return "", false, err
+	}
+	changed := false
+	if len(gates) > 0 && !equality.Semantic.DeepEqual(doc["featureGates"], gates) {
+		doc["featureGates"] = gates
+		changed = true
+	}
+	if len(flowControl) > 0 && !equality.Semantic.DeepEqual(doc["flowControl"], flowControl) {
+		doc["flowControl"] = flowControl
+		changed = true
+	}
+	if !changed {
+		return configYAML, false, nil
+	}
+	out, err := yaml.Marshal(doc)
+	if err != nil {
+		return "", false, err
+	}
+	return string(out), true, nil
 }
 
 // configFlagFromContainers scans the "main" container for a config flag and
