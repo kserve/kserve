@@ -17,6 +17,8 @@ limitations under the License.
 package inferenceservice
 
 import (
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -24,12 +26,14 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func NewCacheOptions() (cache.Options, error) {
@@ -61,20 +65,38 @@ func NewCacheOptions() (cache.Options, error) {
 // NewClientOptions uses direct reads for resources without guaranteed informers.
 // This also keeps pre-existing, unlabeled resources visible during upgrades,
 // including orphan cleanup. Watches still use the filtered cache.
-func NewClientOptions() client.Options {
-	return client.Options{Cache: &client.CacheOptions{
-		DisableFor: []client.Object{
-			// These are read during reconciliation/admission but have no watches.
-			&appsv1.Deployment{}, &corev1.Service{},
-			&autoscalingv2.HorizontalPodAutoscaler{},
-			&v1alpha1.ClusterStorageContainer{},
-			&v1alpha1.LocalModelCache{}, &v1alpha1.LocalModelNamespaceCache{},
-			// Runtime discovery and cleanup also read these when their watches
-			// are disabled (missing CSR API or disableIstioVirtualHost).
-			&v1alpha1.ClusterServingRuntime{}, &istioclientv1beta1.VirtualService{},
-			// Routing mode can change through the config map after startup;
-			// only the initial mode's informer is registered by the controller.
-			&gwapiv1.HTTPRoute{}, &netv1.Ingress{},
-		},
-	}}
+func NewClientOptions(cfg *rest.Config) (client.Options, error) {
+	disableFor := []client.Object{
+		// These are read during reconciliation/admission but have no watches.
+		&appsv1.Deployment{}, &corev1.Service{},
+		&autoscalingv2.HorizontalPodAutoscaler{},
+		&v1alpha1.ClusterStorageContainer{},
+		&v1alpha1.LocalModelCache{}, &v1alpha1.LocalModelNamespaceCache{},
+		// Runtime discovery and cleanup also read these when their watches
+		// are disabled (missing CSR API or disableIstioVirtualHost).
+		&v1alpha1.ClusterServingRuntime{}, &istioclientv1beta1.VirtualService{},
+		// Routing mode can change through the config map after startup;
+		// only the initial mode's informer is registered by the controller.
+		&gwapiv1.HTTPRoute{}, &netv1.Ingress{},
+	}
+
+	// Optional CRDs installed after startup have no informer either. Reads
+	// must go direct until the process restarts, otherwise strict-cache reads
+	// fail with "not cached" for services that never opted into those APIs.
+	kedaFound, err := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
+	if err != nil {
+		return client.Options{}, err
+	}
+	if !kedaFound {
+		disableFor = append(disableFor, &kedav1alpha1.ScaledObject{})
+	}
+	otelFound, err := utils.IsCrdAvailable(cfg, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
+	if err != nil {
+		return client.Options{}, err
+	}
+	if !otelFound {
+		disableFor = append(disableFor, &otelv1beta1.OpenTelemetryCollector{})
+	}
+
+	return client.Options{Cache: &client.CacheOptions{DisableFor: disableFor}}, nil
 }

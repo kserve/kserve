@@ -146,6 +146,11 @@ func main() {
 		setupLog.Error(err, "unable to create cache options")
 		os.Exit(1)
 	}
+	clientOpts, err := v1beta1controller.NewClientOptions(cfg)
+	if err != nil {
+		setupLog.Error(err, "unable to create client options")
+		os.Exit(1)
+	}
 
 	// Cache policies resolve custom resource types while the manager is created.
 	scheme := runtime.NewScheme()
@@ -175,7 +180,7 @@ func main() {
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
 		Cache:                  cacheOpts,
-		Client:                 v1beta1controller.NewClientOptions(),
+		Client:                 clientOpts,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")

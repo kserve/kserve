@@ -69,7 +69,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
-		WithManagerOptions(func(opts *ctrl.Options) {
+		WithManagerOptions(func(opts *ctrl.Options, _ *rest.Config) {
 			// This suite exercises multiple nodes with one manager. Production
 			// additionally restricts Jobs and LocalModelNodes to NODE_NAME.
 			var err error

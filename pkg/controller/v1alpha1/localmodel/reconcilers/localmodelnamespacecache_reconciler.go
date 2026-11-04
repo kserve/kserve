@@ -458,6 +458,13 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		}
 	}
 
+	// nodeFuncNamespaceCache reads node groups on every Node event (once per
+	// cache, per node). Register the shared informer explicitly so those reads
+	// hit the cache instead of the API server under Node churn at scale.
+	if _, err := mgr.GetCache().GetInformer(context.Background(), &v1alpha1.LocalModelNodeGroup{}); err != nil {
+		return err
+	}
+
 	return controllerBuilder.
 		Watches(&v1alpha1.LocalModelNamespaceCache{}, handler.EnqueueRequestsFromMapFunc(c.deletedCacheFuncNamespaceCache), builder.WithPredicates(cacheDeletePredicates)).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFuncNamespaceCache), builder.WithPredicates(nodePredicates)).

@@ -69,8 +69,10 @@ var _ = Describe("managed resource cache", func() {
 	It("filters child watches while retaining direct reads of legacy resources", func(ctx SpecContext) {
 		opts, err := NewCacheOptions()
 		Expect(err).NotTo(HaveOccurred())
+		clientOpts, err := NewClientOptions(cfg)
+		Expect(err).NotTo(HaveOccurred())
 		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-			Scheme: k8sClient.Scheme(), Cache: opts, Client: NewClientOptions(),
+			Scheme: k8sClient.Scheme(), Cache: opts, Client: clientOpts,
 			Metrics: metricsserver.Options{BindAddress: "0"},
 		})
 		Expect(err).NotTo(HaveOccurred())

@@ -213,6 +213,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	clientOpts, err := llmisvc.NewClientOptions(cfg)
+	if err != nil {
+		setupLog.Error(err, "unable to create client options")
+		os.Exit(1)
+	}
 	mgrOpts := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
@@ -222,7 +227,7 @@ func main() {
 		LeaderElectionID:       "llminferenceservice-kserve-controller-manager",
 		Controller:             ctrlconfig.Controller{MaxConcurrentReconciles: options.maxConcurrentReconciles},
 		Cache:                  llmisvc.NewCacheOptions(),
-		Client:                 llmisvc.NewClientOptions(),
+		Client:                 clientOpts,
 	}
 
 	if err := customizeManagerOptions(&mgrOpts); err != nil {

@@ -24,24 +24,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func NewCacheOptions() cache.Options {
-	// These selectors contain only fixed, valid label keys.
-	isvcSelector, _ := labels.Parse(constants.LocalModelLabel)
+	// This selector contains only fixed, valid label keys.
 	jobSelector, _ := labels.Parse("model,modelNamespace")
 	return cache.Options{
 		ReaderFailOnMissingInformer: true,
 		ByObject: map[client.Object]cache.ByObject{
-			&v1beta1.InferenceService{}: {Label: isvcSelector},
-			&batchv1.Job{}:              {Label: jobSelector},
+			&batchv1.Job{}: {Label: jobSelector},
 		},
 		// Nodes can match arbitrary affinity rules. LLMInferenceServices can
-		// reference LoRA caches through annotations alone. Neither has a safe
-		// static label filter. PV/PVC watches use metadata only; user-provided
-		// shared PVCs must remain visible without requiring KServe labels.
+		// reference LoRA caches through annotations alone; the KernelCache
+		// capture controllers select them through annotations as well, so the
+		// shared InferenceService informer must stay unfiltered. Neither has
+		// a safe static label filter. PV/PVC watches use metadata only;
+		// user-provided shared PVCs must remain visible without KServe labels.
 	}
 }
 
@@ -51,6 +49,9 @@ func NewClientOptions() client.Options {
 		&batchv1.Job{},
 		// Typed volume reads must not create a second, full-object informer.
 		&corev1.PersistentVolume{}, &corev1.PersistentVolumeClaim{},
-		&v1alpha1.LocalModelNodeGroup{}, &v1alpha1.ClusterStorageContainer{},
+		// registryauth.Revoke Get+Deletes ephemeral pull Secrets; nothing
+		// watches Secrets in this binary, so keep those reads direct.
+		&corev1.Secret{},
+		&v1alpha1.ClusterStorageContainer{},
 	}}}
 }

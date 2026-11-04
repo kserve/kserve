@@ -1503,6 +1503,46 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
+
+			It("Should recreate the service when it is deleted because the graph controller owns it", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				// Define InferenceGraph
+				serviceNamespace := "default"
+				graphName := "raw-service-recreate-ig"
+				graphServiceKey := types.NamespacedName{Name: graphName, Namespace: serviceNamespace}
+				ig := defaultRawIG(graphServiceKey)
+				ig.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+				defer k8sClient.Delete(ctx, ig)
+
+				// Check the inference graph
+				expectResourceToExist(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectDeploymentToBeReady(context.Background(), graphServiceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, apis.ConditionReady, corev1.ConditionTrue)
+
+				// Delete the managed Service directly. Deleting an owned resource must
+				// re-enqueue the owning InferenceGraph (via the .Owns(&corev1.Service{})
+				// watch) so the controller recreates it instead of leaving the graph's
+				// route pointing at a deleted Service.
+				ownedService := &corev1.Service{}
+				Expect(k8sClient.Get(ctx, graphServiceKey, ownedService)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, ownedService.DeepCopy())).NotTo(HaveOccurred())
+				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
+
+				// The service must be recreated by the graph controller.
+				expectResourceToExist(ctx, &corev1.Service{}, graphServiceKey)
+
+				// And the graph must report Ready again once its service is restored.
+				expectIGConditionStatus(ctx, graphServiceKey, apis.ConditionReady, corev1.ConditionTrue)
+			})
 		})
 	})
 

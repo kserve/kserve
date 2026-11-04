@@ -95,9 +95,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
-		WithManagerOptions(func(opts *ctrl.Options) {
+		WithManagerOptions(func(opts *ctrl.Options, cfg *rest.Config) {
 			opts.Cache = cacheOpts
-			opts.Client = NewClientOptions()
+			clientOpts, err := NewClientOptions(cfg)
+			Expect(err).NotTo(HaveOccurred())
+			opts.Client = clientOpts
 		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())

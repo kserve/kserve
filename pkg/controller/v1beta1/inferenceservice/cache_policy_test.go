@@ -171,16 +171,20 @@ var _ = Describe("controller cache policies", func() {
 		Expect(err).NotTo(HaveOccurred())
 		nodeOptions, err := localmodelnodecontroller.NewCacheOptions("test-node")
 		Expect(err).NotTo(HaveOccurred())
+		mainClient, err := NewClientOptions(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		llmisvcClient, err := llmisvccontroller.NewClientOptions(cfg)
+		Expect(err).NotTo(HaveOccurred())
 		for _, policy := range []struct {
 			name   string
 			cache  cache.Options
 			client client.Options
 			scheme func(*runtime.Scheme) error
 		}{
-			{"manager", mainOptions, NewClientOptions(), kservescheme.AddAll},
+			{"manager", mainOptions, mainClient, kservescheme.AddAll},
 			{"localmodel", localmodelcontroller.NewCacheOptions(), localmodelcontroller.NewClientOptions(), kservescheme.AddControllerAPIs},
 			{"localmodelnode", nodeOptions, localmodelnodecontroller.NewClientOptions(), kservescheme.AddControllerAPIs},
-			{"llmisvc", llmisvccontroller.NewCacheOptions(), llmisvccontroller.NewClientOptions(), kservescheme.AddLLMISVCAPIs},
+			{"llmisvc", llmisvccontroller.NewCacheOptions(), llmisvcClient, kservescheme.AddLLMISVCAPIs},
 		} {
 			By(policy.name)
 			Expect(policy.cache.ReaderFailOnMissingInformer).To(BeTrue())
