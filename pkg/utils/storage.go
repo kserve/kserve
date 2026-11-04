@@ -404,6 +404,32 @@ func modelcarCommand(modelPath string) string {
 	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", ShellQuote(modelPath))
 }
 
+// modelcarSecurityContext returns the security context for the modelcar
+// containers, carrying the fields the Pod Security Standards "restricted"
+// profile requires. allowPrivilegeEscalation and capabilities can only be
+// set per container, and the seccomp profile mirrors the
+// LLMInferenceService templates hardened in #5302. If a UID is configured,
+// runAsUser is set from it and runAsNonRoot is derived from it — false for
+// UID 0, since the kubelet rejects runAsNonRoot together with runAsUser 0.
+// With no UID configured, both fields stay unset so pod-level policy or
+// admission mutators decide.
+func modelcarSecurityContext(uid *int64) *corev1.SecurityContext {
+	sc := &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr.To(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+	if uid != nil {
+		sc.RunAsUser = uid
+		sc.RunAsNonRoot = ptr.To(*uid != 0)
+	}
+	return sc
+}
+
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
 // The container is configured with CPU, memory, and UID settings from the storage initializer configuration.
 //
@@ -455,11 +481,7 @@ func CreateModelcarContainer(containerName string, image string, modelPath strin
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
 
-	if storageConfig.UidModelcar != nil {
-		modelContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser: storageConfig.UidModelcar,
-		}
-	}
+	modelContainer.SecurityContext = modelcarSecurityContext(storageConfig.UidModelcar)
 
 	return modelContainer
 }
@@ -506,6 +528,8 @@ func CreateModelcarInitContainer(containerName string, image string, storageConf
 		},
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
+
+	modelContainer.SecurityContext = modelcarSecurityContext(storageConfig.UidModelcar)
 
 	return modelContainer
 }

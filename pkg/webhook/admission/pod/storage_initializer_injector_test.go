@@ -4049,7 +4049,12 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 		assert.Equal(t, resource.MustParse(constants.MemoryModelcarDefault), modelcarContainer.Resources.Limits["memory"])
 		assert.Equal(t, resource.MustParse(constants.CpuModelcarDefault), modelcarContainer.Resources.Requests["cpu"])
 		assert.Equal(t, resource.MustParse(constants.MemoryModelcarDefault), modelcarContainer.Resources.Requests["memory"])
-		assert.Nil(t, modelcarContainer.SecurityContext)
+		assert.NotNil(t, modelcarContainer.SecurityContext)
+		assert.NotNil(t, modelcarContainer.SecurityContext.AllowPrivilegeEscalation)
+		assert.False(t, *modelcarContainer.SecurityContext.AllowPrivilegeEscalation)
+		assert.Equal(t, []corev1.Capability{"ALL"}, modelcarContainer.SecurityContext.Capabilities.Drop)
+		assert.NotNil(t, modelcarContainer.SecurityContext.SeccompProfile)
+		assert.Equal(t, corev1.SeccompProfileTypeRuntimeDefault, modelcarContainer.SecurityContext.SeccompProfile.Type)
 	})
 
 	t.Run("Test uidModelcar config", func(t *testing.T) {
