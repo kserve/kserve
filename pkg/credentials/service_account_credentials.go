@@ -387,9 +387,8 @@ func (c *CredentialBuilder) mountSecretCredential(ctx context.Context, secretNam
 		log.Info("Setting secret envs for huggingface", "HfSecret", secret.Name)
 		envs := hf.BuildSecretEnvs(secret)
 		container.Env = append(container.Env, envs...)
-	} else if _, ok := secret.Data[ms.MSTokenKey]; ok {
+	} else if envs := ms.BuildSecretEnvs(secret); len(envs) > 0 {
 		log.Info("Setting secret envs for modelscope", "MsSecret", secret.Name)
-		envs := ms.BuildSecretEnvs(secret)
 		container.Env = append(container.Env, envs...)
 	} else {
 		log.V(5).Info("Skipping unsupported secret", "Secret", secret.Name)
