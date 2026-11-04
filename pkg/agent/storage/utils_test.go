@@ -53,6 +53,83 @@ func TestCreate(t *testing.T) {
 	g.Expect(mode.Perm()).To(gomega.Equal(expectedMode))
 }
 
+func TestCreateLocalModelFileNormalizesObjectPath(t *testing.T) {
+	modelDir := t.TempDir()
+	want := filepath.Join(modelDir, "model1", "nested", "model.bin")
+
+	for _, tc := range []struct {
+		name       string
+		objectPath string
+	}{
+		{name: "canonical", objectPath: "nested/model.bin"},
+		{name: "repeated slash", objectPath: "nested//model.bin"},
+		{name: "dot component", objectPath: "nested/./model.bin"},
+		{name: "leading dot", objectPath: "./nested/model.bin"},
+		{name: "combined", objectPath: "/nested//./model.bin"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			file, fileName, err := createLocalModelFile(modelDir, "model1", tc.objectPath)
+			if err != nil {
+				t.Fatalf("expected object path to be accepted: %v", err)
+			}
+			if err := file.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if fileName != want {
+				t.Fatalf("file name = %q, want canonical destination %q", fileName, want)
+			}
+			if !FileExists(want) {
+				t.Fatalf("expected canonical destination %q to exist", want)
+			}
+		})
+	}
+}
+
+func TestCreateLocalModelFileRejectsInvalidObjectPaths(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		objectPath string
+	}{
+		{name: "empty", objectPath: ""},
+		{name: "only slash", objectPath: "/"},
+		{name: "dot", objectPath: "."},
+		{name: "dot and slash", objectPath: "./"},
+		{name: "only dot components", objectPath: "/.//./"},
+		{name: "leading parent", objectPath: "../model.bin"},
+		{name: "internal parent", objectPath: "nested/../model.bin"},
+		{name: "parent with repeated slash", objectPath: "nested//../model.bin"},
+		{name: "parent with dot", objectPath: "nested/./../model.bin"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			modelDir := t.TempDir()
+			file, _, err := createLocalModelFile(modelDir, "model1", tc.objectPath)
+			if file != nil {
+				_ = file.Close()
+			}
+			if err == nil {
+				t.Fatal("expected invalid object path to be rejected")
+			}
+			if _, err := os.Stat(filepath.Join(modelDir, "model1")); !os.IsNotExist(err) {
+				t.Fatalf("invalid object path created a destination: %v", err)
+			}
+		})
+	}
+}
+
+func TestCreateLocalModelFileRejectsSiblingModel(t *testing.T) {
+	modelDir := t.TempDir()
+	file, _, err := createLocalModelFile(modelDir, "model1", "../model2/weights.bin")
+	if file != nil {
+		_ = file.Close()
+	}
+	if err == nil {
+		t.Fatal("expected sibling traversal to be rejected")
+	}
+	if _, statErr := os.Stat(filepath.Join(modelDir, "model2")); !os.IsNotExist(statErr) {
+		t.Fatalf("sibling model directory created: %v", statErr)
+	}
+}
+
 func TestCreateLocalModelFileRejectsSymlinkEscape(t *testing.T) {
 	modelDir := t.TempDir()
 	outsideDir := t.TempDir()

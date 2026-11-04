@@ -19,6 +19,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -76,6 +77,9 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 				continue
 			}
 			subObjectKey := strings.TrimPrefix(*object.Key, prefix)
+			if subObjectKey == "" {
+				subObjectKey = path.Base(*object.Key)
+			}
 			file, fileName, err := createLocalModelFile(modelDir, modelName, subObjectKey)
 			if err != nil {
 				return err

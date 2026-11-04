@@ -17,14 +17,64 @@ limitations under the License.
 package storage
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"syscall"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
+
 	"github.com/kserve/kserve/pkg/agent/mocks"
 )
+
+type s3ContentTransferClient struct {
+	mocks.MockS3TransferClient
+	requestedKey string
+	contents     []byte
+}
+
+func (m *s3ContentTransferClient) DownloadObject(_ context.Context, input *transfermanager.DownloadObjectInput, _ ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+	m.requestedKey = aws.ToString(input.Key)
+	if _, err := input.WriterAt.WriteAt(m.contents, 0); err != nil {
+		return nil, err
+	}
+	return &transfermanager.DownloadObjectOutput{}, nil
+}
+
+func TestDownloadModel_ExactObjectPath(t *testing.T) {
+	const (
+		objectKey     = "models/model.bin"
+		modelName     = "model1"
+		modelContents = "Model Contents"
+	)
+
+	transferClient := &s3ContentTransferClient{contents: []byte(modelContents)}
+	provider := &S3Provider{
+		Client: &mocks.MockS3PaginatedClient{
+			Pages: [][]string{{objectKey}},
+		},
+		TransferClient: transferClient,
+	}
+
+	modelDir := t.TempDir()
+	if err := provider.DownloadModel(modelDir, modelName, "s3://test-bucket/"+objectKey); err != nil {
+		t.Fatalf("expected exact-object download to succeed: %v", err)
+	}
+	if transferClient.requestedKey != objectKey {
+		t.Fatalf("requested object key = %q, want %q", transferClient.requestedKey, objectKey)
+	}
+
+	got, err := os.ReadFile(filepath.Join(modelDir, modelName, "model.bin")) //nolint:gosec // G304: test path is rooted in t.TempDir
+	if err != nil {
+		t.Fatalf("failed to read downloaded model: %v", err)
+	}
+	if string(got) != modelContents {
+		t.Fatalf("downloaded contents = %q, want %q", string(got), modelContents)
+	}
+}
 
 func TestDownloadModel_SinglePage(t *testing.T) {
 	syscall.Umask(0)

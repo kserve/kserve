@@ -134,7 +134,7 @@ func TestGCSDownloadWithEmptyModelNameRejectsPathTraversal(t *testing.T) {
 	provider := newTestGCSProvider(t)
 	writeGCSObject(t, provider, "../../outside.txt", "malicious")
 
-	modelDir := filepath.Join(tmpDir, "models")
+	modelDir := filepath.Join(tmpDir, "models", "nested")
 	if err := provider.DownloadModel(modelDir, "", "gs://testBucket/"); err == nil {
 		t.Fatal("expected whole-bucket traversal object to be rejected")
 	}

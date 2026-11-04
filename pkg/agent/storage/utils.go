@@ -54,13 +54,20 @@ func createLocalModelFile(modelDir string, modelName string, objectPath string) 
 	if modelName != "" && !fs.ValidPath(modelName) {
 		return nil, "", fmt.Errorf("invalid model name: %s", modelName)
 	}
-	if !fs.ValidPath(trimmedObjectPath) {
+	// Reject parent segments before cleaning so normalization cannot hide them.
+	for _, segment := range strings.Split(trimmedObjectPath, "/") {
+		if segment == ".." {
+			return nil, "", fmt.Errorf("invalid object path: %s", objectPath)
+		}
+	}
+	cleanedObjectPath := path.Clean(trimmedObjectPath)
+	if cleanedObjectPath == "." || !fs.ValidPath(cleanedObjectPath) {
 		return nil, "", fmt.Errorf("invalid object path: %s", objectPath)
 	}
 
-	relativePath := trimmedObjectPath
+	relativePath := cleanedObjectPath
 	if modelName != "" {
-		relativePath = path.Join(modelName, trimmedObjectPath)
+		relativePath = path.Join(modelName, cleanedObjectPath)
 	}
 	if err := os.MkdirAll(modelDir, os.ModePerm); err != nil { //nolint:gosec // G301: agent and model server run as different UIDs sharing an emptyDir volume
 		return nil, "", err
