@@ -33,7 +33,7 @@ Name | Type | Description | Notes
 **lightgbm** | [**V1beta1LightGBMSpec**](V1beta1LightGBMSpec.md) |  | [optional] 
 **logger** | [**V1beta1LoggerSpec**](V1beta1LoggerSpec.md) |  | [optional] 
 **max_replicas** | **int** | Maximum number of replicas for autoscaling. | [optional] 
-**min_replicas** | **int** | Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. | [optional] 
+**min_replicas** | **int** | Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. Scale-to-zero is not supported with the 'hpa' autoscaler class (the default for Standard deployment mode); use the 'keda' or 'none' autoscaler class instead. | [optional] 
 **model** | [**V1beta1ModelSpec**](V1beta1ModelSpec.md) |  | [optional] 
 **name** | **str** | Name optionally identifies this predictor variant. When set, the Deployment and Service are named {isvc}-{name}-predictor instead of the default {isvc}-predictor. Required when used in a canary entry. | [optional] 
 **node_name** | **str** | NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename | [optional] 
