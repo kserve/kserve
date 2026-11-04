@@ -70,7 +70,7 @@ var _ admission.Validator[*InferenceService] = &InferenceServiceValidator{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
 	validatorLogger.Info("validate create", "name", isvc.Name)
-	return validateInferenceService(isvc)
+	return validateInferenceService(isvc, nil)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -85,7 +85,7 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldIsvc,
 	if err := validatePredictorNameChange(isvc, oldIsvc); err != nil {
 		return nil, err
 	}
-	return validateInferenceService(isvc)
+	return validateInferenceService(isvc, oldIsvc)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -94,7 +94,12 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, isvc *In
 	return nil, nil
 }
 
-func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {
+// validateInferenceService validates the InferenceService. oldIsvc is the
+// previous state of the object on updates, or nil on creation; it is used to
+// grandfather spec values that were accepted before a validation was
+// tightened, so tightening validation does not block updates of existing
+// objects (including finalizer and label changes made by controllers).
+func validateInferenceService(isvc *InferenceService, oldIsvc *InferenceService) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
 	annotations := isvc.Annotations
 
@@ -136,19 +141,34 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
-	for _, component := range []Component{
+	components := []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
 		isvc.Spec.Explainer,
-	} {
+	}
+	oldComponents := []Component{}
+	if oldIsvc != nil {
+		oldComponents = []Component{
+			&oldIsvc.Spec.Predictor,
+			oldIsvc.Spec.Transformer,
+			oldIsvc.Spec.Explainer,
+		}
+	}
+	for i, component := range components {
 		if !reflect.ValueOf(component).IsNil() {
 			if err := validateExactlyOneImplementation(component); err != nil {
 				return allWarnings, err
 			}
+			// The previous spec of the same component, used to grandfather
+			// values that were accepted before a validation was tightened.
+			var oldExtensions *ComponentExtensionSpec
+			if i < len(oldComponents) && !reflect.ValueOf(oldComponents[i]).IsNil() {
+				oldExtensions = oldComponents[i].GetExtensions()
+			}
 			if err := utils.FirstNonNilError([]error{
 				component.GetImplementation().Validate(),
 				component.GetExtensions().Validate(),
-				validateAutoScalingCompExtension(annotations, component.GetExtensions()),
+				validateAutoScalingCompExtension(annotations, component.GetExtensions(), oldExtensions),
 			}); err != nil {
 				return allWarnings, err
 			}
@@ -458,8 +478,9 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 	return nil
 }
 
-// Validate scaling options component extensions
-func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec *ComponentExtensionSpec) error {
+// Validate scaling options component extensions. oldCompExtSpec is the
+// previous spec of the same component on updates, or nil on creation.
+func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec *ComponentExtensionSpec, oldCompExtSpec *ComponentExtensionSpec) error {
 	deploymentMode := annotations["serving.kserve.io/deploymentMode"]
 	annotationClass := annotations[autoscaling.ClassAnnotationKey]
 	autoscalerClass := annotations[constants.AutoscalerClass]
@@ -468,15 +489,42 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	case string(constants.Standard):
 		switch autoscalerClass {
 		case string(constants.AutoscalerClassHPA):
-			return validateScalingHPACompExtension(compExtSpec)
+			return validateScalingHPACompExtension(compExtSpec, oldCompExtSpec)
 		case string(constants.AutoscalerClassKeda):
 			return validateScalingKedaCompExtension(compExtSpec)
+		case "":
+			// When no autoscaler class is specified in Standard deployment mode, the
+			// autoscaler defaults to HPA, which cannot scale to zero. Reject
+			// minReplicas=0 instead of letting the HPA reconciler silently clamp it
+			// to 1 (see https://github.com/kserve/kserve/issues/6001).
+			return validateHPAReplicaBounds(compExtSpec, oldCompExtSpec)
 		}
 	default:
 		if annotationClass == autoscaling.HPA {
-			return validateScalingHPACompExtension(compExtSpec)
+			return validateScalingHPACompExtension(compExtSpec, oldCompExtSpec)
 		}
 		return validateScalingKPACompExtension(compExtSpec)
+	}
+	return nil
+}
+
+// validateHPAReplicaBounds rejects minReplicas=0 for components managed by the
+// Kubernetes HorizontalPodAutoscaler. The HPA does not support scale-to-zero:
+// the reconciler clamps minReplicas to at least 1, so accepting the value
+// would silently override the user's intent. Scale-to-zero is supported with
+// the 'keda' and 'none' autoscaler classes in Standard deployment mode, and
+// with the Knative Pod Autoscaler in Knative deployment mode.
+// An update of an object that already carries minReplicas=0 is allowed, so
+// tightening this validation does not block updates of existing objects.
+func validateHPAReplicaBounds(compExtSpec *ComponentExtensionSpec, oldCompExtSpec *ComponentExtensionSpec) error {
+	if compExtSpec == nil {
+		return nil
+	}
+	if compExtSpec.MinReplicas != nil && *compExtSpec.MinReplicas < constants.DefaultMinReplicas {
+		if oldCompExtSpec != nil && oldCompExtSpec.MinReplicas != nil && *oldCompExtSpec.MinReplicas == 0 {
+			return nil
+		}
+		return errors.New(HPAMinReplicasZeroError)
 	}
 	return nil
 }
@@ -570,7 +618,11 @@ func validateKedaScaleTarget(target MetricTarget) error {
 	return validateScaleTarget(target)
 }
 
-func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error {
+func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec, oldCompExtSpec *ComponentExtensionSpec) error {
+	if err := validateHPAReplicaBounds(compExtSpec, oldCompExtSpec); err != nil {
+		return err
+	}
+
 	metric := MetricCPU
 	if compExtSpec.ScaleMetric != nil {
 		metric = *compExtSpec.ScaleMetric

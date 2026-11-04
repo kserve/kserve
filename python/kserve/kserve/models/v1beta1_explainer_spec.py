@@ -990,7 +990,7 @@ class V1beta1ExplainerSpec(object):
     def min_replicas(self):
         """Gets the min_replicas of this V1beta1ExplainerSpec.  # noqa: E501
 
-        Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.  # noqa: E501
+        Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. Scale-to-zero is not supported with the 'hpa' autoscaler class (the default for Standard deployment mode); use the 'keda' or 'none' autoscaler class instead.  # noqa: E501
 
         :return: The min_replicas of this V1beta1ExplainerSpec.  # noqa: E501
         :rtype: int
@@ -1001,7 +1001,7 @@ class V1beta1ExplainerSpec(object):
     def min_replicas(self, min_replicas):
         """Sets the min_replicas of this V1beta1ExplainerSpec.
 
-        Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.  # noqa: E501
+        Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. Scale-to-zero is not supported with the 'hpa' autoscaler class (the default for Standard deployment mode); use the 'keda' or 'none' autoscaler class instead.  # noqa: E501
 
         :param min_replicas: The min_replicas of this V1beta1ExplainerSpec.  # noqa: E501
         :type: int

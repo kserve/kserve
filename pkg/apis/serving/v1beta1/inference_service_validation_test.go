@@ -2233,6 +2233,147 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 	}
 }
 
+func TestValidateAutoScalingCompExtensionMinReplicasZero(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scaleToZero := &ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(0)),
+	}
+	oneReplica := &ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+	}
+
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		spec        *ComponentExtensionSpec
+		wantErr     string
+	}{
+		{
+			name: "invalid: Standard deployment mode defaults to HPA and rejects minReplicas 0",
+			annotations: map[string]string{
+				"serving.kserve.io/deploymentMode": "Standard",
+			},
+			spec:    scaleToZero,
+			wantErr: "'MinReplicas' cannot be 0",
+		},
+		{
+			name: "invalid: Standard deployment mode with explicit HPA autoscaler class rejects minReplicas 0",
+			annotations: map[string]string{
+				"serving.kserve.io/deploymentMode":  "Standard",
+				"serving.kserve.io/autoscalerClass": "hpa",
+			},
+			spec:    scaleToZero,
+			wantErr: "'MinReplicas' cannot be 0",
+		},
+		{
+			name: "valid: Standard deployment mode with KEDA autoscaler class allows minReplicas 0",
+			annotations: map[string]string{
+				"serving.kserve.io/deploymentMode":  "Standard",
+				"serving.kserve.io/autoscalerClass": "keda",
+			},
+			spec: scaleToZero,
+		},
+		{
+			name: "valid: Standard deployment mode with none autoscaler class allows minReplicas 0",
+			annotations: map[string]string{
+				"serving.kserve.io/deploymentMode":  "Standard",
+				"serving.kserve.io/autoscalerClass": "none",
+			},
+			spec: scaleToZero,
+		},
+		{
+			name:        "valid: Knative deployment mode (default) allows minReplicas 0",
+			annotations: map[string]string{},
+			spec:        scaleToZero,
+		},
+		{
+			name: "invalid: Knative deployment mode with Knative HPA class rejects minReplicas 0",
+			annotations: map[string]string{
+				"autoscaling.knative.dev/class": "hpa.autoscaling.knative.dev",
+			},
+			spec:    scaleToZero,
+			wantErr: "'MinReplicas' cannot be 0",
+		},
+		{
+			name: "valid: Standard deployment mode defaults to HPA and accepts minReplicas 1",
+			annotations: map[string]string{
+				"serving.kserve.io/deploymentMode": "Standard",
+			},
+			spec: oneReplica,
+		},
+		{
+			name: "valid: unset minReplicas is accepted in Standard deployment mode",
+			annotations: map[string]string{
+				"serving.kserve.io/deploymentMode": "Standard",
+			},
+			spec: &ComponentExtensionSpec{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAutoScalingCompExtension(tt.annotations, tt.spec, nil)
+			if tt.wantErr == "" {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			} else {
+				g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tt.wantErr)))
+			}
+		})
+	}
+}
+
+func TestValidateUpdateMinReplicasZeroGrandfathered(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+
+	newIsvc := func(minReplicas *int32) *InferenceService {
+		return &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+				Annotations: map[string]string{
+					"serving.kserve.io/deploymentMode": "Standard",
+				},
+			},
+			Spec: InferenceServiceSpec{
+				Predictor: PredictorSpec{
+					ComponentExtensionSpec: ComponentExtensionSpec{
+						MinReplicas: minReplicas,
+					},
+					Model: &ModelSpec{
+						ModelFormat: ModelFormat{Name: "sklearn"},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("create with minReplicas 0 is rejected", func(t *testing.T) {
+		_, err := validator.ValidateCreate(t.Context(), newIsvc(ptr.To(int32(0))))
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("'MinReplicas' cannot be 0")))
+	})
+
+	t.Run("update introducing minReplicas 0 is rejected", func(t *testing.T) {
+		updated := newIsvc(ptr.To(int32(0)))
+		updated.Labels = map[string]string{"app": "foo"}
+		_, err := validator.ValidateUpdate(t.Context(), newIsvc(ptr.To(int32(1))), updated)
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("'MinReplicas' cannot be 0")))
+	})
+
+	t.Run("update of an existing minReplicas 0 object is allowed", func(t *testing.T) {
+		updated := newIsvc(ptr.To(int32(0)))
+		updated.Labels = map[string]string{"app": "foo"}
+		_, err := validator.ValidateUpdate(t.Context(), newIsvc(ptr.To(int32(0))), updated)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	})
+
+	t.Run("moving an existing minReplicas 0 object back to 1 is allowed", func(t *testing.T) {
+		_, err := validator.ValidateUpdate(t.Context(), newIsvc(ptr.To(int32(0))), newIsvc(ptr.To(int32(1))))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	})
+}
+
 func intPtr(i int) *int {
 	return &i
 }
