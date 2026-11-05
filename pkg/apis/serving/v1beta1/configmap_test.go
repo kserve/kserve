@@ -1212,6 +1212,28 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(cfg.OciModelMode).To(gomega.Equal("fetch"))
 	})
+
+	t.Run("empty cpuLimit is accepted", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				StorageInitializerConfigMapKeyName: `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","caBundleConfigMapName":"","caBundleVolumeMountPath":"/etc/ssl/custom-certs"}`,
+			},
+		}
+		cfg, err := GetStorageInitializerConfigs(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.CpuLimit).To(gomega.BeEmpty())
+	})
+
+	t.Run("invalid cpuLimit returns error", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				StorageInitializerConfigMapKeyName: `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"not-a-quantity","caBundleConfigMapName":"","caBundleVolumeMountPath":"/etc/ssl/custom-certs"}`,
+			},
+		}
+		_, err := GetStorageInitializerConfigs(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("cpuLimit"))
+	})
 }
 
 func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
