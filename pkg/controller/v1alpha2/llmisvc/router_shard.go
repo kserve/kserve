@@ -711,6 +711,17 @@ func httpRouteShardHandoff(stored, desired []*gwapiv1.HTTPRoute) ([]*gwapiv1.HTT
 		if len(kept) == 0 || len(route.Spec.Rules)+len(kept) > httpRouteMaxRules {
 			continue
 		}
+		// The retained rules must also fit the total matches limit, or the
+		// gateway API rejects the merged route and the update cannot progress.
+		matches := 0
+		for _, rules := range [][]gwapiv1.HTTPRouteRule{route.Spec.Rules, kept} {
+			for j := range rules {
+				matches += ruleMatchCount(&rules[j])
+			}
+		}
+		if matches > httpRouteMaxTotalMatches {
+			continue
+		}
 		merged := route.DeepCopy()
 		merged.Spec.Rules = append(merged.Spec.Rules, kept...)
 		out[i] = merged

@@ -714,6 +714,28 @@ func TestHTTPRouteShardHandoff(t *testing.T) {
 		require.Equal(t, []string{"/x"}, paths(out[0]))
 	})
 
+	t.Run("moved rule is not kept when the merged route exceeds the total matches limit", func(t *testing.T) {
+		wide := func(prefix string, n int) gwapiv1.HTTPRouteRule {
+			var r gwapiv1.HTTPRouteRule
+			for i := range n {
+				r.Matches = append(r.Matches, gwapiv1.HTTPRouteMatch{Path: &gwapiv1.HTTPPathMatch{
+					Type: ptr.To(gwapiv1.PathMatchPathPrefix), Value: ptr.To(fmt.Sprintf("%s/%d", prefix, i)),
+				}})
+			}
+			return r
+		}
+		n := httpRouteMaxTotalMatches / 2
+		a, b, c, d := wide("/a", n), wide("/b", n), wide("/c", n), wide("/d", n)
+		stored := []*gwapiv1.HTTPRoute{route("s0", 1, 1), route("s1", 1, 1)}
+		stored[0].Spec.Rules = []gwapiv1.HTTPRouteRule{a, b}
+		stored[1].Spec.Rules = []gwapiv1.HTTPRouteRule{c}
+		desired := []*gwapiv1.HTTPRoute{route("s0", 0, 0), route("s1", 0, 0)}
+		desired[0].Spec.Rules = []gwapiv1.HTTPRouteRule{d, a}
+		desired[1].Spec.Rules = []gwapiv1.HTTPRouteRule{b, c}
+		out, _ := httpRouteShardHandoff(stored, desired)
+		require.Len(t, out[0].Spec.Rules, 2, "keeping b would push s0 past the total matches limit")
+	})
+
 	t.Run("stale shard stays while its rules are unsettled", func(t *testing.T) {
 		stored := []*gwapiv1.HTTPRoute{route("a", 1, 1, "/x"), route("b", 1, 1, "/y")}
 		desired := []*gwapiv1.HTTPRoute{route("a", 0, 0, "/x", "/y")}
