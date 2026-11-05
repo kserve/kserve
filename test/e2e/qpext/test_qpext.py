@@ -37,8 +37,9 @@ from kserve import (
     KServeClient,
     V1beta1InferenceService,
     V1beta1InferenceServiceSpec,
+    V1beta1ModelFormat,
+    V1beta1ModelSpec,
     V1beta1PredictorSpec,
-    V1beta1SKLearnSpec,
 )
 from kserve.logging import logger
 from kubernetes.client import V1ResourceRequirements
@@ -57,7 +58,9 @@ async def test_qpext_kserve(rest_v2_client, network_layer, test_namespace):
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        sklearn=V1beta1SKLearnSpec(
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(name="sklearn"),
+            runtime="kserve-sklearnserver",
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             protocol_version=protocol_version,
             resources=V1ResourceRequirements(
