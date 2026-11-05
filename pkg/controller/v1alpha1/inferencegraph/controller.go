@@ -306,7 +306,18 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				Type:               v1beta1.Stopped,
 				Status:             corev1.ConditionFalse,
 			}
-			graph.Status.Conditions = append(graph.Status.Conditions, resumeCondition)
+			// Replace the Stopped condition rather than adding a second one.
+			// PropagateRawStatus keeps the existing conditions, including
+			// Stopped, so appending here would leave Stopped=True first in the
+			// list and GetCondition would keep reporting the graph as stopped.
+			conditions := make([]apis.Condition, 0, len(graph.Status.Conditions)+1)
+			for _, existing := range graph.Status.Conditions {
+				if existing.Type != v1beta1.Stopped {
+					conditions = append(conditions, existing)
+				}
+			}
+			conditions = append(conditions, resumeCondition)
+			graph.Status.Conditions = conditions
 		}
 	}
 
