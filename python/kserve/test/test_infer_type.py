@@ -23,6 +23,7 @@ from kserve.errors import InvalidInput
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
     ModelInferRequest,
     InferParameter,
+    InferTensorContents,
     ModelInferResponse,
 )
 from kserve.protocol.infer_type import (
@@ -1120,3 +1121,58 @@ def test_contains_fp16_datatype_with_no_outputs():
     )
 
     assert _contains_fp16_datatype(infer_response) is False
+
+
+@pytest.mark.parametrize(
+    "shape, data",
+    [
+        ([2], ["hello", "world"]),
+        ([2], [b"hello", b"world"]),
+        ([1, 2], [[b"hello", b"world"]]),
+    ],
+)
+def test_infer_input_as_string(shape, data):
+    infer_input = InferInput(name="input-0", shape=shape, datatype="BYTES", data=data)
+
+    assert infer_input.as_string() == ["hello", "world"]
+
+
+def test_infer_input_as_string_from_grpc_and_rest_requests():
+    grpc_request = ModelInferRequest(
+        model_name="test_model",
+        inputs=[
+            ModelInferRequest.InferInputTensor(
+                name="input-0",
+                datatype="BYTES",
+                shape=[2],
+                contents=InferTensorContents(bytes_contents=[b"hello", b"world"]),
+            )
+        ],
+    )
+    rest_request = InferRequest.from_bytes(
+        b'{"inputs": [{"name": "input-0", "shape": [2], "datatype": "BYTES", "data": ["hello", "world"]}]}',
+        None,
+        "test_model",
+    )
+
+    assert InferRequest.from_grpc(grpc_request).inputs[0].as_string() == [
+        "hello",
+        "world",
+    ]
+    assert rest_request.inputs[0].as_string() == ["hello", "world"]
+
+
+def test_infer_input_as_string_with_binary_data():
+    infer_input = InferInput(name="input-0", shape=[2], datatype="BYTES")
+    infer_input.set_data_from_numpy(
+        np.array([b"hello", b"world"], dtype=np.object_), binary_data=True
+    )
+
+    assert infer_input.as_string() == ["hello", "world"]
+
+
+def test_infer_input_as_string_rejects_other_datatypes():
+    infer_input = InferInput(name="input-0", shape=[1], datatype="INT32", data=[1])
+
+    with pytest.raises(InvalidInput, match="invalid datatype INT32 in the input"):
+        infer_input.as_string()
