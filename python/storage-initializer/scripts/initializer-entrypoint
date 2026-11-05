@@ -30,3 +30,35 @@ except RuntimeError as e:
 except Exception as e:
     logger.error("Unexpected error during storage initialization: %s", e)
     sys.exit(1)
+
+# Post-download decryption for confidential model serving
+if os.environ.get("CONFIDENTIAL_ENABLED", "").lower() == "true":
+    from kserve_storage.confidential import JWEDecryptor, CDHSecretResolver
+
+    resource_id = os.environ.get("CONFIDENTIAL_RESOURCE_ID", "")
+    if not resource_id:
+        logger.error("CONFIDENTIAL_RESOURCE_ID must be set when confidential mode is enabled")
+        sys.exit(1)
+    logger.info("Confidential mode enabled, resource_id=%s", resource_id)
+
+    try:
+        # Select the appropriate SecretResolver based on available configuration.
+        # CDHSecretResolver talks to the Confidential Data Hub (CDH) running
+        # inside the TEE guest.  CDH handles attestation and key retrieval
+        # regardless of the underlying KBS/RATS implementation.
+        # Future alternatives for non-CoCo environments:
+        # - File-based resolver: read key from a mounted Kubernetes Secret
+        # - Environment variable resolver: key passed directly via env var
+        # - Cloud KMS resolver: retrieve key from a cloud provider KMS
+        resolver = CDHSecretResolver()
+        decryptor = JWEDecryptor(resolver, resource_id=resource_id)
+
+        total_decrypted = 0
+        for dest_path in dest_paths:
+            decrypted = decryptor.decrypt_directory(dest_path, resource_id=resource_id)
+            total_decrypted += len(decrypted)
+
+        logger.info("Confidential decryption complete: %d files decrypted", total_decrypted)
+    except Exception as e:
+        logger.error("Confidential decryption failed: %s", e)
+        sys.exit(1)

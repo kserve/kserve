@@ -149,7 +149,7 @@ func TestValidateCreate(t *testing.T) {
 func TestValidateUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	temptTm := makeTestTrainModel()
-	old := temptTm.DeepCopyObject()
+	old := temptTm.DeepCopy()
 	newMemory := "300Mi"
 
 	scenarios := map[string]struct {

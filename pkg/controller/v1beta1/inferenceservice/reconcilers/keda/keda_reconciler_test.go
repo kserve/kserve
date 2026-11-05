@@ -25,15 +25,20 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 func TestNewKedaReconciler(t *testing.T) {
@@ -85,6 +90,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType(t *testing.T) {
 	assert.Equal(t, "http://prometheus-server", triggers[0].Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", triggers[0].Metadata["query"])
 	assert.Equal(t, "100.9", triggers[0].Metadata["threshold"])
+	assert.Empty(t, triggers[0].MetricType)
 }
 
 func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
@@ -103,6 +109,96 @@ func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
 	// The metricQuery should now include namespace and deployment selectors
 	assert.Equal(t, "sum(otel_query{namespace=\"test-namespace\", deployment=\"test-component\"})", triggers[0].Metadata["metricQuery"])
 	assert.Equal(t, "200", triggers[0].Metadata["targetValue"])
+	assert.Empty(t, triggers[0].MetricType)
+}
+
+func TestGetKedaMetrics_ExternalAndPodMetricTargetTypes(t *testing.T) {
+	tests := []struct {
+		name          string
+		metricType    v1beta1.MetricSourceType
+		target        v1beta1.MetricTarget
+		expectedType  autoscalingv2.MetricTargetType
+		metadataKey   string
+		expectedValue string
+	}{
+		{
+			name:       "external Value",
+			metricType: v1beta1.ExternalMetricSourceType,
+			target: v1beta1.MetricTarget{
+				Type:  v1beta1.ValueMetricType,
+				Value: v1beta1.NewMetricQuantity("10"),
+			},
+			expectedType:  autoscalingv2.ValueMetricType,
+			metadataKey:   "threshold",
+			expectedValue: "10",
+		},
+		{
+			name:       "external AverageValue",
+			metricType: v1beta1.ExternalMetricSourceType,
+			target: v1beta1.MetricTarget{
+				Type:         v1beta1.AverageValueMetricType,
+				AverageValue: v1beta1.NewMetricQuantity("20"),
+			},
+			expectedType:  autoscalingv2.AverageValueMetricType,
+			metadataKey:   "threshold",
+			expectedValue: "20",
+		},
+		{
+			name:       "pod metric Value",
+			metricType: v1beta1.PodMetricSourceType,
+			target: v1beta1.MetricTarget{
+				Type:  v1beta1.ValueMetricType,
+				Value: v1beta1.NewMetricQuantity("30"),
+			},
+			expectedType:  autoscalingv2.ValueMetricType,
+			metadataKey:   "targetValue",
+			expectedValue: "30",
+		},
+		{
+			name:       "pod metric AverageValue",
+			metricType: v1beta1.PodMetricSourceType,
+			target: v1beta1.MetricTarget{
+				Type:         v1beta1.AverageValueMetricType,
+				AverageValue: v1beta1.NewMetricQuantity("40"),
+			},
+			expectedType:  autoscalingv2.AverageValueMetricType,
+			metadataKey:   "targetValue",
+			expectedValue: "40",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			componentExt := &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{{Type: tt.metricType}},
+				},
+			}
+			metric := &componentExt.AutoScaling.Metrics[0]
+			switch tt.metricType {
+			case v1beta1.ExternalMetricSourceType:
+				metric.External = &v1beta1.ExternalMetricSource{
+					Metric: v1beta1.ExternalMetrics{Backend: v1beta1.PrometheusBackend},
+					Target: tt.target,
+				}
+			case v1beta1.PodMetricSourceType:
+				metric.PodMetric = &v1beta1.PodMetricSource{
+					Metric: v1beta1.PodMetrics{Backend: v1beta1.OpenTelemetryBackend},
+					Target: tt.target,
+				}
+			}
+
+			triggers, err := getKedaMetrics(
+				metav1.ObjectMeta{Name: "test-component", Namespace: "test-namespace"},
+				componentExt,
+				&corev1.ConfigMap{},
+			)
+			require.NoError(t, err)
+			require.Len(t, triggers, 1)
+			assert.Equal(t, tt.expectedType, triggers[0].MetricType)
+			assert.Equal(t, tt.expectedValue, triggers[0].Metadata[tt.metadataKey])
+		})
+	}
 }
 
 func TestCreateKedaScaledObject(t *testing.T) {
@@ -580,6 +676,91 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 	assert.Equal(t, "bearer", trigger.Metadata["authModes"])
 	assert.NotNil(t, trigger.AuthenticationRef)
 	assert.Equal(t, "auth-secret", trigger.AuthenticationRef.Name)
+	assert.Empty(t, trigger.AuthenticationRef.Kind)
+}
+
+func TestGetKedaMetrics_ExternalMetricSourceType_WithTriggerAuthentication(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Metrics: []v1beta1.MetricsSpec{
+				{
+					Type: v1beta1.ExternalMetricSourceType,
+					External: &v1beta1.ExternalMetricSource{
+						Metric: v1beta1.ExternalMetrics{
+							Backend:       v1beta1.PrometheusBackend,
+							ServerAddress: "http://prometheus-server",
+							Query:         "http_requests_total",
+						},
+						Target: v1beta1.MetricTarget{
+							Value: v1beta1.NewMetricQuantity("123"),
+						},
+						Authentication: &v1beta1.ExtMetricAuthentication{
+							AuthModes: "bearer",
+							AuthenticationRef: v1beta1.AuthenticationRef{
+								Name: "namespaced-auth",
+								Kind: v1beta1.TriggerAuthenticationKindNamespaced,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Len(t, triggers, 1)
+	trigger := triggers[0]
+	assert.Equal(t, "bearer", trigger.Metadata["authModes"])
+	assert.NotNil(t, trigger.AuthenticationRef)
+	assert.Equal(t, "namespaced-auth", trigger.AuthenticationRef.Name)
+	assert.Equal(t, "TriggerAuthentication", trigger.AuthenticationRef.Kind)
+}
+
+func TestGetKedaMetrics_ExternalMetricSourceType_WithClusterTriggerAuthentication(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Metrics: []v1beta1.MetricsSpec{
+				{
+					Type: v1beta1.ExternalMetricSourceType,
+					External: &v1beta1.ExternalMetricSource{
+						Metric: v1beta1.ExternalMetrics{
+							Backend:       v1beta1.PrometheusBackend,
+							ServerAddress: "http://prometheus-server",
+							Query:         "http_requests_total",
+						},
+						Target: v1beta1.MetricTarget{
+							Value: v1beta1.NewMetricQuantity("123"),
+						},
+						Authentication: &v1beta1.ExtMetricAuthentication{
+							AuthModes: "bearer",
+							AuthenticationRef: v1beta1.AuthenticationRef{
+								Name: "cluster-auth",
+								Kind: v1beta1.TriggerAuthenticationKindCluster,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Len(t, triggers, 1)
+	trigger := triggers[0]
+	assert.Equal(t, "bearer", trigger.Metadata["authModes"])
+	assert.NotNil(t, trigger.AuthenticationRef)
+	assert.Equal(t, "cluster-auth", trigger.AuthenticationRef.Name)
+	assert.Equal(t, "ClusterTriggerAuthentication", trigger.AuthenticationRef.Kind)
 }
 
 func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testing.T) {
@@ -1014,4 +1195,38 @@ func TestGetOriginalStringMQ(t *testing.T) {
 			assert.Equal(t, tt.expectedOut, result)
 		})
 	}
+}
+
+func TestCleanupOrphans(t *testing.T) {
+	s := runtime.NewScheme()
+	_ = kedav1alpha1.AddToScheme(s)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	expected := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+	orphan := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(expected, orphan).Build()
+	reconciler := &KedaReconciler{client: fakeClient, scheme: s}
+
+	expectedNames := sets.New("my-isvc-predictor")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: client.MatchingLabels(labels), RetainNames: expectedNames,
+	})
+	require.NoError(t, err)
+
+	// Orphan should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &kedav1alpha1.ScaledObject{})
+	assert.True(t, apierr.IsNotFound(err))
+
+	// Expected should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &kedav1alpha1.ScaledObject{})
+	assert.NoError(t, err)
 }

@@ -14,20 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script adds copyright to the python and go files.
+# This script adds copyright to the Git-visible Python and Go files.
 
-while IFS= read -r -d '' file
-do
-  if ! grep -q Copyright "$file"
-    then
-      cat hack/boilerplate.go.txt "$file" > "$file".new && mv "$file".new "$file"
-    fi
-done <   <(find ./pkg ./cmd -name '*.go' -print0)
-
-while IFS= read -r -d '' file
-do
-  if ! grep -q Copyright "$file"
-    then
-      cat hack/boilerplate.python.txt "$file" > "$file".new && mv "$file".new "$file"
-    fi
-done <   <(find ./python -name '*.py' -print0)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec python3 "$SCRIPT_DIR/boilerplate.py" "$@"

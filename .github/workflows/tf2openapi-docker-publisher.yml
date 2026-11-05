@@ -13,7 +13,7 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "tools/**"
+      - "tools/tf2openapi/**"
       - "!python/**"
       - "!.github/**"
       - "!docs/**"
@@ -36,6 +36,7 @@ jobs:
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout source
@@ -69,6 +70,7 @@ jobs:
     needs: test
 
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event_name == 'push'
 
     steps:

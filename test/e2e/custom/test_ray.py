@@ -1,3 +1,17 @@
+# Copyright 2019 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,12 +38,12 @@ from kserve import (
     KServeClient,
 )
 from kserve.constants import constants
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
+from ..common.utils import predict_isvc
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_custom_model_http_ray(rest_v1_client):
+async def test_custom_model_http_ray(rest_v1_client, test_namespace):
     service_name = "custom-model-http-ray"
     model_name = "custom-model"
 
@@ -38,7 +52,6 @@ async def test_custom_model_http_ray(rest_v1_client):
             V1Container(
                 name="kserve-container",
                 image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
-                # Override the entrypoint to run the model using ray
                 command=["python", "-m", "custom_model.model_remote"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "1", "memory": "1Gi"},
@@ -52,9 +65,7 @@ async def test_custom_model_http_ray(rest_v1_client):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -62,15 +73,15 @@ async def test_custom_model_http_ray(rest_v1_client):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     response = await predict_isvc(
         rest_v1_client,
         service_name=service_name,
         input="./data/custom_model_input.json",
         model_name=model_name,
+        namespace=test_namespace,
     )
     outputs = response["predictions"]
     points = ["%.3f" % (point) for point in outputs[0]]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

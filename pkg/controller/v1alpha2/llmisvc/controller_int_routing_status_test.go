@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ var _ = Describe("Routing Status", func() {
 		It("populates status.router.gateways after reconcile", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-routing-status"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -80,7 +80,7 @@ var _ = Describe("Routing Status", func() {
 		It("sets status.router to nil when force-stop annotation is applied", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-routing-stop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -129,7 +129,7 @@ var _ = Describe("Routing Status", func() {
 		It("leaves status.router nil when spec.router is nil", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-routing-nil"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -156,7 +156,7 @@ var _ = Describe("Routing Status", func() {
 		It("does not change status.router on consecutive reconciles with no spec change", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-routing-stable"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -208,7 +208,7 @@ var _ = Describe("Routing Status", func() {
 	Context("Status addresses contain model names", func() {
 		It("populates status.addresses[].models with the base model name", func(ctx SpecContext) {
 			svcName := "test-llm-addr-models"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			gwName := "addr-models-gw"
 			gw := Gateway(gwName,
@@ -260,7 +260,7 @@ var _ = Describe("Routing Status", func() {
 
 		It("includes LoRA adapter model names in status.addresses", func(ctx SpecContext) {
 			svcName := "test-llm-addr-lora"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			gwName := "addr-lora-gw"
 			gw := Gateway(gwName,
@@ -308,6 +308,59 @@ var _ = Describe("Routing Status", func() {
 						g.Expect(modelNames).To(ContainElement("adapter-1"))
 					}
 				}
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("HTTPRoute readiness before a Gateway observes the route", func() {
+		It("does not report HTTPRoutesReady until a Gateway controller accepts the managed route", func(ctx SpecContext) {
+			// given - a service with a managed route, and deliberately nothing simulating
+			// a Gateway controller writing route status. This is what a real cluster looks
+			// like between the route being created and a gateway reconciling it.
+			svcName := "test-llm-route-unobserved"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// The managed route reaches the cluster...
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+			}).WithContext(ctx).Should(Succeed(), "the managed HTTPRoute should be created")
+
+			// then - ...but readiness must not follow from its mere existence. No
+			// ensureRouterManagedResourcesAreReady here on purpose: that helper is what
+			// makes every other HTTPRoutesReady=True assertion in this suite pass, so
+			// calling it would defeat this test.
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.HTTPRoutesReady)
+				g.Expect(cond).ToNot(BeNil(), "HTTPRoutesReady should be set")
+				g.Expect(cond.IsFalse()).To(BeTrue(), "HTTPRoutesReady should be False while unobserved")
+				g.Expect(cond.Reason).To(Equal("WaitingForGateway"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// and it stays that way - a cache miss on a re-read must not be mistaken for
+			// "no routes to evaluate" and flip the condition to True.
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.HTTPRoutesReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.IsTrue()).To(BeFalse(), "HTTPRoutesReady must never read True before a Gateway accepts the route")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})

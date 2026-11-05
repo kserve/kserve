@@ -24,9 +24,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -69,12 +73,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			DisableIstioVirtualHost: false,
 		}
 
+		// Mirror the production wiring in cmd/manager/main.go: a broadcaster is only
+		// useful once it is recording to a sink, otherwise events are silently dropped.
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
+
 		return (&InferenceServiceReconciler{
 			Client:    mgr.GetClient(),
 			Clientset: clientset,
 			Scheme:    mgr.GetScheme(),
 			Log:       ctrl.Log.WithName("V1beta1InferenceServiceController"),
-			Recorder:  mgr.GetEventRecorderFor("V1beta1InferenceServiceController"),
+			Recorder: eventBroadcaster.NewRecorder(
+				mgr.GetScheme(), corev1.EventSource{Component: "V1beta1InferenceServiceController"}),
 		}).SetupWithManager(mgr, deployConfig, ingressConfig)
 	}
 
@@ -82,6 +92,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		WithControllers(ctrlFunc).
 		WithManagerOptions(func(opts *ctrl.Options) {
 			opts.Cache = cacheOpts
+			opts.Client = NewClientOptions()
 		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
@@ -112,6 +123,31 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}
 	Expect(k8sClient.Create(ctx, configAutoscaler)).Should(Succeed())
 })
+
+// absentObject is an object a spec expects the controller not to create.
+type absentObject struct {
+	obj client.Object
+	key types.NamespacedName
+}
+
+func absent(obj client.Object, key types.NamespacedName) absentObject {
+	return absentObject{obj: obj, key: key}
+}
+
+// expectAbsent asserts that every object stays NotFound for fastTimeout. All objects
+// are polled in the same window, so checking N objects costs one window, not N.
+// Call it after waiting for a condition the controller writes at the end of a
+// reconcile (such as Stopped), so the window cannot pass before the controller acts.
+func expectAbsent(ctx context.Context, objs ...absentObject) {
+	GinkgoHelper()
+	Consistently(func(g Gomega) {
+		for _, o := range objs {
+			err := k8sClient.Get(ctx, o.key, o.obj)
+			g.Expect(err).To(HaveOccurred(), "%T %s should not be created", o.obj, o.key)
+			g.Expect(apierr.IsNotFound(err)).To(BeTrue(), "%T %s: want NotFound, got %v", o.obj, o.key, err)
+		}
+	}, fastTimeout, interval).Should(Succeed())
+}
 
 // getBaseTestConfigs returns the common test configuration shared by all deployment modes
 func getBaseTestConfigs() map[string]string {

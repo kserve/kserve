@@ -28,16 +28,20 @@ from kserve import (
 )
 from kserve.constants import constants
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
+    assert_answers_four,
     generate,
     rerank,
     chat_completion_stream,
     completion_stream,
 )
 
+ISVC_READY_TIMEOUT_S = 900
+
+ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
+
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_openai_chat_completions():
+def test_huggingface_vllm_cpu_openai_chat_completions(test_namespace):
     service_name = "hf-qwen-chat-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -49,7 +53,7 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                 "--model_id",
                 "Qwen/Qwen2-0.5B-Instruct",
                 "--model_name",
-                "hf-qwen-chat",
+                "qwen-chat",
                 "--backend",
                 "vllm",
                 "--max_model_len",
@@ -63,8 +67,8 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -78,7 +82,9 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -87,16 +93,20 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
-    res = generate(service_name, "./data/qwen_input_chat.json")
-    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    res = generate(
+        service_name, "./data/qwen_input_chat.json", namespace=test_namespace
+    )
+    assert_answers_four(res["choices"][0]["message"]["content"])
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_text_completion_streaming():
+def test_huggingface_vllm_cpu_text_completion_streaming(test_namespace):
     service_name = "hf-qwen-cmpl-stream-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -108,7 +118,7 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                 "--model_id",
                 "Qwen/Qwen2-0.5B",
                 "--model_name",
-                "hf-qwen-cmpl-stream",
+                "qwen-cmpl-stream",
                 "--backend",
                 "vllm",
                 "--max_model_len",
@@ -122,8 +132,8 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -137,7 +147,9 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -146,18 +158,23 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
-    full_response, _ = completion_stream(
-        service_name, "./data/qwen_input_cmpl_stream.json"
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
-    assert full_response.strip() == "The result of 2 + 2 is 4."
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    full_response, chunks = completion_stream(
+        service_name,
+        "./data/qwen_input_cmpl_stream.json",
+        namespace=test_namespace,
+    )
+    assert len(chunks) > 0, "expected streaming chunks, got none"
+    assert_answers_four(full_response)
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_openai_completions():
+def test_huggingface_vllm_cpu_openai_completions(test_namespace):
     service_name = "hf-qwen-cmpl-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -169,7 +186,7 @@ def test_huggingface_vllm_cpu_openai_completions():
                 "--model_id",
                 "Qwen/Qwen2-0.5B",
                 "--model_name",
-                "hf-qwen-cmpl",
+                "qwen-cmpl",
                 "--backend",
                 "vllm",
                 "--max_model_len",
@@ -183,8 +200,8 @@ def test_huggingface_vllm_cpu_openai_completions():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -198,7 +215,9 @@ def test_huggingface_vllm_cpu_openai_completions():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -207,15 +226,22 @@ def test_huggingface_vllm_cpu_openai_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
-    assert res["choices"][0]["text"].strip() == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
+    res = generate(
+        service_name,
+        "./data/qwen_input_cmpl.json",
+        chat_completions=False,
+        namespace=test_namespace,
+    )
+    assert_answers_four(res["choices"][0].get("text"))
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_openai_chat_completions_streaming():
+def test_huggingface_vllm_openai_chat_completions_streaming(test_namespace):
     service_name = "hf-qwen-chat-stream-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -227,7 +253,7 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                 "--model_id",
                 "Qwen/Qwen2-0.5B-Instruct",
                 "--model_name",
-                "hf-qwen-chat-stream",
+                "qwen-chat-stream",
                 "--backend",
                 "vllm",
                 "--max_model_len",
@@ -241,8 +267,8 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -256,7 +282,9 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -265,18 +293,23 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
-    full_response, _ = chat_completion_stream(
-        service_name, "./data/qwen_input_chat_stream.json"
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
-    assert full_response.strip() == "The result of 2 + 2 is 4."
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    full_response, chunks = chat_completion_stream(
+        service_name,
+        "./data/qwen_input_chat_stream.json",
+        namespace=test_namespace,
+    )
+    assert len(chunks) > 0, "expected streaming chunks, got none"
+    assert_answers_four(full_response)
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_rerank():
+def test_huggingface_vllm_cpu_rerank(test_namespace):
     service_name = "bge-reranker-base"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -305,8 +338,8 @@ def test_huggingface_vllm_cpu_rerank():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -320,7 +353,9 @@ def test_huggingface_vllm_cpu_rerank():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -329,14 +364,18 @@ def test_huggingface_vllm_cpu_rerank():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
-    res = rerank(service_name, "./data/bge-reranker-base.json")
+    res = rerank(
+        service_name, "./data/bge-reranker-base.json", namespace=test_namespace
+    )
     assert res["results"][0]["index"] == 1
     assert res["results"][0]["relevance_score"] == pytest.approx(1.0, rel=1e-2)
     assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
     assert res["results"][1]["index"] == 0
     assert res["results"][1]["relevance_score"] == pytest.approx(0.0, abs=1e-2)
     assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

@@ -16,6 +16,11 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+)
+
 type LocalModelCacheStatus struct {
 	// Status of the model on a node, like NodeDownloaded or NodeNotReady
 	NodeStatus map[string]NodeStatus `json:"nodeStatus,omitempty"`
@@ -27,8 +32,39 @@ type LocalModelCacheStatus struct {
 	InferenceServices []NamespacedName `json:"inferenceServices,omitempty"`
 	// LLM inference services using this local model
 	LLMInferenceServices []NamespacedName `json:"llmInferenceServices,omitempty"`
+
+	// Conditions describes the observed state of the cache. For shared-PVC mode
+	// (LocalModelNamespaceCache with pvcRef) a positive-polarity Ready condition is the
+	// stable readiness contract for serving admission and downstream consumers.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
+	// SharedPVCImport records the last successful shared-PVC import. It is set only for a
+	// LocalModelNamespaceCache in shared-PVC mode and is the durable evidence that the
+	// destination was published as Ready, so the controller does not start a new import
+	// writer against data that active consumers still read once the retained Job is gone.
+	// While it is present, a consumer already bound to the cache keeps its binding through
+	// NotReady; it is cleared when the referenced claim is gone or a fresh import starts,
+	// which releases bound consumers from a claim that holds no data they can use.
+	// +optional
+	SharedPVCImport *SharedPVCImportStatus `json:"sharedPVCImport,omitempty"`
 }
 
+// SharedPVCImportStatus describes a completed shared-PVC import.
+type SharedPVCImportStatus struct {
+	// PVCUID is the UID of the referenced PersistentVolumeClaim the model was imported onto.
+	// A claim recreated under the same name has a different UID and is imported again.
+	PVCUID types.UID `json:"pvcUID"`
+	// CompletionTime is when the import Job completed.
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+}
+
+// +k8s:openapi-gen=true
 type NamespacedName struct {
 	Namespace string `json:"namespace,omitempty"`
 	Name      string `json:"name,omitempty"`

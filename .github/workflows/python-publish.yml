@@ -13,6 +13,7 @@ concurrency:
 jobs:
   publish-kserve:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout source
@@ -34,6 +35,7 @@ jobs:
           uv publish
   publish-storage:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout source

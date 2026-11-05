@@ -31,7 +31,7 @@ from kserve import (
 )
 from kserve.constants import constants
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
+    assert_answers_four,
     generate,
     embed,
     predict_isvc,
@@ -45,9 +45,20 @@ from .test_output import (
 
 from kserve.logging import trace_logger
 
+# Cold model loads + pinned-revision HuggingFace pulls can outrun the 600s default
+# on contended CI runners. Increase the timeout for all tests in this file.
+ISVC_READY_TIMEOUT_S = 900
+
+# Knative's per-revision progress deadline (cluster default 600s) decides when a
+# slow-to-start Revision is permanently marked ``RevisionFailed``. Once that
+# happens, no amount of polling in ``wait_isvc_ready`` will recover. KServe
+# propagates this annotation onto the Knative revision template, so raising it
+# here gives first-time HuggingFace model pulls room to finish.
+ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
+
 
 @pytest.mark.llm
-def test_huggingface_openai_chat_completions():
+def test_huggingface_openai_chat_completions(test_namespace):
     service_name = "hf-qwen-chat"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -62,6 +73,8 @@ def test_huggingface_openai_chat_completions():
                 "huggingface",
                 "--max_model_len",
                 "512",
+                "--model_name",
+                "qwen-chat",
                 "--dtype",
                 "bfloat16",
             ],
@@ -76,7 +89,9 @@ def test_huggingface_openai_chat_completions():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -85,16 +100,20 @@ def test_huggingface_openai_chat_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
-    res = generate(service_name, "./data/qwen_input_chat.json")
-    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    res = generate(
+        service_name, "./data/qwen_input_chat.json", namespace=test_namespace
+    )
+    assert_answers_four(res["choices"][0]["message"]["content"])
 
 
 @pytest.mark.llm
-def test_huggingface_openai_chat_completions_streaming():
+def test_huggingface_openai_chat_completions_streaming(test_namespace):
     service_name = "hf-qwen-chat-stream"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -105,6 +124,8 @@ def test_huggingface_openai_chat_completions_streaming():
             args=[
                 "--model_id",
                 "Qwen/Qwen2-0.5B-Instruct",
+                "--model_name",
+                "qwen-chat-stream",
                 "--backend",
                 "huggingface",
                 "--max_model_len",
@@ -129,7 +150,9 @@ def test_huggingface_openai_chat_completions_streaming():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -138,22 +161,26 @@ def test_huggingface_openai_chat_completions_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     # Test streaming response
-    full_response, _ = chat_completion_stream(
-        service_name, "./data/qwen_input_chat_stream.json"
+    full_response, chunks = chat_completion_stream(
+        service_name,
+        "./data/qwen_input_chat_stream.json",
+        namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
 
-    # Verify we got a valid response
-    assert full_response.strip() == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    assert len(chunks) > 0, "expected streaming chunks, got none"
+    assert_answers_four(full_response)
 
 
 @pytest.mark.llm
-def test_huggingface_openai_text_completion_qwen2():
+def test_huggingface_openai_text_completion_qwen2(test_namespace):
     service_name = "hf-qwen-cmpl"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -164,6 +191,8 @@ def test_huggingface_openai_text_completion_qwen2():
             args=[
                 "--model_id",
                 "Qwen/Qwen2-0.5B",
+                "--model_name",
+                "qwen-cmpl",
                 "--backend",
                 "huggingface",
                 "--max_model_len",
@@ -182,7 +211,9 @@ def test_huggingface_openai_text_completion_qwen2():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -191,16 +222,23 @@ def test_huggingface_openai_text_completion_qwen2():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
-    res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
-    assert res["choices"][0].get("text").strip() == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    res = generate(
+        service_name,
+        "./data/qwen_input_cmpl.json",
+        chat_completions=False,
+        namespace=test_namespace,
+    )
+    assert_answers_four(res["choices"][0].get("text"))
 
 
 @pytest.mark.llm
-def test_huggingface_openai_text_completion_streaming():
+def test_huggingface_openai_text_completion_streaming(test_namespace):
     service_name = "hf-qwen-cmpl-stream"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -211,6 +249,8 @@ def test_huggingface_openai_text_completion_streaming():
             args=[
                 "--model_id",
                 "Qwen/Qwen2-0.5B",
+                "--model_name",
+                "qwen-cmpl-stream",
                 "--backend",
                 "huggingface",
                 "--max_model_len",
@@ -229,7 +269,9 @@ def test_huggingface_openai_text_completion_streaming():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -238,20 +280,27 @@ def test_huggingface_openai_text_completion_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
-    full_response, _ = completion_stream(
-        service_name, "./data/qwen_input_cmpl_stream.json"
+    full_response, chunks = completion_stream(
+        service_name,
+        "./data/qwen_input_cmpl_stream.json",
+        namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
-    assert full_response.strip() == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    assert len(chunks) > 0, "expected streaming chunks, got none"
+    assert_answers_four(full_response)
 
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_sequence_classification(rest_v2_client, network_layer):
+async def test_huggingface_v2_sequence_classification(
+    test_namespace, rest_v2_client, network_layer
+):
     service_name = "hf-bert-sequence-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -282,7 +331,9 @@ async def test_huggingface_v2_sequence_classification(rest_v2_client, network_la
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -291,22 +342,25 @@ async def test_huggingface_v2_sequence_classification(rest_v2_client, network_la
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/bert_sequence_classification_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v1_fill_mask(rest_v1_client, network_layer):
+async def test_huggingface_v1_fill_mask(test_namespace, rest_v1_client, network_layer):
     service_name = "hf-bert-fill-mask-v1"
     protocol_version = "v1"
     predictor = V1beta1PredictorSpec(
@@ -331,7 +385,9 @@ async def test_huggingface_v1_fill_mask(rest_v1_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -340,22 +396,27 @@ async def test_huggingface_v1_fill_mask(rest_v1_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v1_client,
         service_name,
         "./data/bert_fill_mask_v1.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == ["paris", "france"]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_token_classification(rest_v2_client, network_layer):
+async def test_huggingface_v2_token_classification(
+    test_namespace, rest_v2_client, network_layer
+):
     service_name = "hf-bert-token-classification-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -387,7 +448,9 @@ async def test_huggingface_v2_token_classification(rest_v2_client, network_layer
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -396,21 +459,24 @@ async def test_huggingface_v2_token_classification(rest_v2_client, network_layer
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/bert_token_classification_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.llm
-def test_huggingface_openai_text_2_text():
+def test_huggingface_openai_text_2_text(test_namespace):
     service_name = "hf-t5-small"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -437,7 +503,9 @@ def test_huggingface_openai_text_2_text():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -446,19 +514,26 @@ def test_huggingface_openai_text_2_text():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = generate(
-        service_name, "./data/t5_small_generate.json", chat_completions=False
+        service_name,
+        "./data/t5_small_generate.json",
+        chat_completions=False,
+        namespace=test_namespace,
     )
     assert res["choices"][0]["text"] == "Das ist für Deutschland"
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_text_embedding(rest_v2_client, network_layer):
+async def test_huggingface_v2_text_embedding(
+    test_namespace, rest_v2_client, network_layer
+):
     service_name = "hf-text-embedding-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -493,7 +568,9 @@ async def test_huggingface_v2_text_embedding(rest_v2_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -502,22 +579,25 @@ async def test_huggingface_v2_text_embedding(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/text_embedding_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == huggingface_text_embedding_expected_output
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_openai_text_embedding():
+async def test_huggingface_openai_text_embedding(test_namespace):
     service_name = "hf-text-embedding-openai"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -532,6 +612,8 @@ async def test_huggingface_openai_text_embedding():
                 "8b3219a92973c328a8e22fadcfa821b5dc75636a",
                 "--tokenizer_revision",
                 "8b3219a92973c328a8e22fadcfa821b5dc75636a",
+                "--model_name",
+                "text-embedding-openai",
                 "--task",
                 "text_embedding",
                 "--backend",
@@ -548,7 +630,9 @@ async def test_huggingface_openai_text_embedding():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -557,16 +641,28 @@ async def test_huggingface_openai_text_embedding():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     # Validate float output
-    res = embed(service_name, "./data/text_embedding_input_openai_float.json")
+    res = embed(
+        service_name,
+        "./data/text_embedding_input_openai_float.json",
+        namespace=test_namespace,
+    )
     assert len(res["data"]) == 1
     assert res["data"][0]["embedding"] == huggingface_text_embedding_expected_output
 
     # Validate base64 output. Decoded as the OpenAI library:
     # https://github.com/openai/openai-python/blob/v1.59.7/src/openai/resources/embeddings.py#L118-L120
-    res = embed(service_name, "./data/text_embedding_input_openai_base64.json")
+    res = embed(
+        service_name,
+        "./data/text_embedding_input_openai_base64.json",
+        namespace=test_namespace,
+    )
     embedding = np.frombuffer(
         base64.b64decode(res["data"][0]["embedding"]), dtype="float32"
     ).tolist()
@@ -577,12 +673,11 @@ async def test_huggingface_openai_text_embedding():
     assert res["usage"]["prompt_tokens"] == 8
     assert res["usage"]["total_tokens"] == 8
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
 async def test_huggingface_v2_sequence_classification_with_raw_logits(
+    test_namespace,
     rest_v2_client,
     network_layer,
 ):
@@ -617,7 +712,9 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -626,13 +723,18 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/bert_sequence_classification_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
 
     result = res.outputs[0].data[0]
@@ -646,12 +748,11 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
         == huggingface_sequence_classification_with_raw_logits_expected_output
     )
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
 async def test_huggingface_v2_sequence_classification_with_probabilities(
+    test_namespace,
     rest_v2_client,
     network_layer,
 ):
@@ -686,7 +787,9 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=test_namespace,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -695,15 +798,18 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=test_namespace,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/bert_sequence_classification_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     output = ast.literal_eval(res.outputs[0].data[0])
     assert output == {0: 0.0094, 1: 0.9906}
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

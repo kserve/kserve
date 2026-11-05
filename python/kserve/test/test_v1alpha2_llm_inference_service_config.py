@@ -53,7 +53,7 @@ class TestV1alpha2LLMInferenceServiceConfig(unittest.TestCase):
         # model = kserve.models.v1alpha2_llm_inference_service_config.V1alpha2LLMInferenceServiceConfig()  # noqa: E501
         if include_optional:
             return V1alpha2LLMInferenceServiceConfig(
-                api_version="0", kind="0", metadata=None, spec=None
+                api_version="0", kind="0", metadata=None, spec=None, status=None
             )
         else:
             return V1alpha2LLMInferenceServiceConfig()

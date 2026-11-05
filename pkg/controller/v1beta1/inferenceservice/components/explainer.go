@@ -90,7 +90,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 
 	explainerName := constants.ExplainerServiceName(isvc.Name)
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 
 	// Labels and annotations from explainer component
 	// Label filter will be handled in ksvc_reconciler
@@ -128,6 +128,10 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	}
 
 	podSpec := corev1.PodSpec(isvc.Spec.Explainer.PodSpec)
+	if err := injectTLSSecurityProfile(ctx, e.client, &podSpec); err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "failed to inject TLS security profile into explainer")
+	}
+	isvcutils.InjectComponentTracing(isvc.Spec.Tracing, isvc.Namespace, isvc.Name, "", "", string(v1beta1.ExplainerComponent), &podSpec.Containers[0])
 
 	// Here we allow switch between knative and vanilla deployment
 	if e.deploymentMode == constants.Standard {
@@ -191,21 +195,7 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 	}
-	// set Workload Controller
-	if err := r.Workload.SetControllerReferences(isvc, e.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set workload owner reference for explainer")
-	}
-
-	// set Service Controller
-	if err := r.Service.SetControllerReferences(isvc, e.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set service owner reference for explainer")
-	}
-	// set autoscaler Controller
-	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, e.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set autoscaler owner references for explainer")
-	}
-
-	deployment, err := r.Reconcile(ctx)
+	deployment, err := r.Reconcile(ctx, isvc)
 	if err != nil {
 		return errors.Wrapf(err, "fails to reconcile explainer")
 	}

@@ -1,0 +1,521 @@
+# Copyright 2025 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import base64
+import json
+import os
+import stat
+from unittest.mock import MagicMock, patch
+
+import pytest
+from jwcrypto import jwe, jwk
+from kserve_storage.confidential import (
+    CDHSecretResolver,
+    JWEDecryptor,
+    SecretResolutionError,
+    SecretResolver,
+)
+
+# --- Helpers ---
+
+
+class StubSecretResolver(SecretResolver):
+    """A test resolver that returns a fixed key."""
+
+    def __init__(self, key: bytes):
+        self._key = key
+
+    def resolve_key(self, resource_id: str) -> bytes:
+        return self._key
+
+
+class FailingSecretResolver(SecretResolver):
+    """A test resolver that always fails."""
+
+    def resolve_key(self, resource_id: str) -> bytes:
+        raise SecretResolutionError("resolver failure")
+
+
+def _encrypt_jwe(
+    plaintext: bytes,
+    key_bytes: bytes,
+    protected: dict | None = None,
+) -> str:
+    """Create a JWE Compact Serialization token."""
+    if protected is None:
+        protected = {"alg": "A256KW", "enc": "A256GCM"}
+    symmetric_key = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
+    token = jwe.JWE(plaintext, protected=protected)
+    token.add_recipient(symmetric_key)
+    return token.serialize(compact=True)
+
+
+# --- SecretResolver interface ---
+
+
+class TestSecretResolverContract:
+    def test_stub_resolver_returns_key(self):
+        key = b"0123456789abcdef0123456789abcdef"
+        resolver = StubSecretResolver(key)
+        assert resolver.resolve_key("kbs:///repo/type/tag") == key
+
+    def test_failing_resolver_raises(self):
+        resolver = FailingSecretResolver()
+        with pytest.raises(SecretResolutionError, match="resolver failure"):
+            resolver.resolve_key("kbs:///repo/type/tag")
+
+    def test_cannot_instantiate_abstract_class(self):
+        with pytest.raises(TypeError):
+            SecretResolver()
+
+
+# --- CDHSecretResolver ---
+
+
+class TestCDHSecretResolver:
+    def test_default_cdh_addr(self, monkeypatch):
+        monkeypatch.delenv("CDH_ADDR", raising=False)
+        resolver = CDHSecretResolver()
+        assert resolver._cdh_addr == "http://127.0.0.1:8006"
+
+    def test_explicit_cdh_addr(self):
+        resolver = CDHSecretResolver(cdh_addr="http://localhost:9999")
+        assert resolver._cdh_addr == "http://localhost:9999"
+
+    def test_invalid_resource_id_raises(self):
+        resolver = CDHSecretResolver()
+        with pytest.raises(SecretResolutionError, match="Invalid resource ID"):
+            resolver.resolve_key("invalid-id")
+
+    @patch("kserve_storage.confidential.cdh_client.requests.get")
+    def test_valid_resource_id_format(self, mock_get):
+        key_data = b"0123456789abcdef0123456789abcdef"
+        mock_response = MagicMock()
+        mock_response.content = key_data
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        resolver = CDHSecretResolver()
+        result = resolver.resolve_key("kbs:///default/key/model-key")
+
+        assert result == key_data
+        mock_get.assert_called_once_with(
+            "http://127.0.0.1:8006/cdh/resource/default/key/model-key",
+            timeout=30,
+        )
+
+
+# --- JWEDecryptor ---
+
+
+class TestJWEDecryptorDetection:
+    def test_detect_by_extension(self, tmp_path):
+        jwe_file = tmp_path / "model.bin.jwe"
+        jwe_file.write_text("dummy content")
+        assert JWEDecryptor.is_encrypted(jwe_file) is True
+
+    def test_detect_by_header_magic(self, tmp_path):
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(b"secret data", key_bytes)
+        encrypted_file = tmp_path / "model.bin"
+        encrypted_file.write_text(token)
+        assert JWEDecryptor.is_encrypted(encrypted_file) is True
+
+    def test_not_encrypted_plain_file(self, tmp_path):
+        plain_file = tmp_path / "model.bin"
+        plain_file.write_bytes(b"plain model data")
+        assert JWEDecryptor.is_encrypted(plain_file) is False
+
+    def test_not_encrypted_nonexistent(self, tmp_path):
+        assert JWEDecryptor.is_encrypted(tmp_path / "nonexistent") is False
+
+
+class TestJWEDecryptorRoundTrip:
+    def test_decrypt_file_with_jwe_extension(self, tmp_path):
+        plaintext = b"model weights data here"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token)
+
+        kbs_key = jwk.base64url_encode(key_bytes).encode("utf-8")
+        resolver = StubSecretResolver(kbs_key)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output == tmp_path / "model.bin"
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
+
+    def test_decrypt_file_without_jwe_extension(self, tmp_path):
+        plaintext = b"model weights data here"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+
+        encrypted_file = tmp_path / "model.bin"
+        encrypted_file.write_text(token)
+
+        resolver = StubSecretResolver(key_bytes)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output == encrypted_file
+        assert output.read_bytes() == plaintext
+
+    def test_decrypt_file_no_resource_id_raises(self, tmp_path):
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(b"data", key_bytes)
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token)
+
+        resolver = StubSecretResolver(key_bytes)
+        decryptor = JWEDecryptor(resolver)
+        with pytest.raises(ValueError, match="No resource_id"):
+            decryptor.decrypt_file(encrypted_file)
+
+    def test_decrypt_file_with_full_jwk_json(self, tmp_path):
+        """Test decryption when resolver returns a full JWK JSON object."""
+        plaintext = b"model weights data here"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token)
+
+        # Create a full JWK JSON object
+        full_jwk = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
+        jwk_json = full_jwk.export().encode("utf-8")
+
+        # Resolver returns the full JWK JSON as bytes
+        resolver = StubSecretResolver(jwk_json)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output == tmp_path / "model.bin"
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
+
+    def test_decrypt_file_with_full_jwk_json_with_metadata(self, tmp_path):
+        """Test decryption when resolver returns a JWK with algorithm and key_ops."""
+        plaintext = b"model weights data here"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token)
+
+        # Create a JWK with additional metadata (as KBS might store it)
+        jwk_dict = {
+            "alg": "A256GCM",
+            "k": jwk.base64url_encode(key_bytes),
+            "key_ops": ["encrypt", "decrypt"],
+            "kty": "oct",
+        }
+        jwk_json = json.dumps(jwk_dict).encode("utf-8")
+
+        # Resolver returns the full JWK JSON as bytes
+        resolver = StubSecretResolver(jwk_json)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output == tmp_path / "model.bin"
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
+
+    @pytest.mark.parametrize(
+        "alg, enc, key_len",
+        [
+            ("A128KW", "A128GCM", 16),
+            ("A128KW", "A256GCM", 16),
+            ("A192KW", "A192GCM", 24),
+            ("A256KW", "A128GCM", 32),
+            ("A256KW", "A256GCM", 32),
+            ("dir", "A128GCM", 16),
+            ("dir", "A256GCM", 32),
+        ],
+        ids=lambda v: str(v) if isinstance(v, str) else "",
+    )
+    def test_decrypt_file_alg_enc_combos(self, tmp_path, alg, enc, key_len):
+        """Round-trip every supported alg+enc combination."""
+        plaintext = b"round-trip all combos"
+        key_bytes = os.urandom(key_len)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(
+            _encrypt_jwe(plaintext, key_bytes, {"alg": alg, "enc": enc})
+        )
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
+
+    def test_decrypt_file_json_serialization_rejected(self, tmp_path):
+        plaintext = b"json serialized jwe"
+        key_bytes = os.urandom(32)
+        symmetric_key = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
+        token = jwe.JWE(
+            plaintext,
+            protected={"alg": "A256KW", "enc": "A256GCM"},
+        )
+        token.add_recipient(symmetric_key)
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token.serialize(compact=False))
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData, match="JSON serialization"):
+            decryptor.decrypt_file(encrypted_file)
+
+    @pytest.mark.parametrize(
+        "header_override, match",
+        [
+            ({"zip": "DEF"}, "zip"),
+            ({"crit": ["exp"]}, "crit"),
+            ({"alg": "RSA-OAEP"}, "unsupported JWE alg"),
+            ({"enc": "A128CBC-HS256"}, "unsupported JWE enc"),
+        ],
+        ids=["zip", "crit", "unsupported-alg", "unsupported-enc"],
+    )
+    def test_decrypt_file_rejects_unsupported_headers(
+        self, tmp_path, header_override, match
+    ):
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(b"test data", key_bytes)
+        parts = token.split(".")
+        orig_header = json.loads(base64.urlsafe_b64decode(parts[0] + "=="))
+        orig_header.update(header_override)
+        parts[0] = (
+            base64.urlsafe_b64encode(json.dumps(orig_header).encode())
+            .rstrip(b"=")
+            .decode()
+        )
+        modified = ".".join(parts)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(modified)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData, match=match):
+            decryptor.decrypt_file(encrypted_file)
+
+    def test_decrypt_file_empty_plaintext(self, tmp_path):
+        key_bytes = os.urandom(32)
+        encrypted_file = tmp_path / "empty.bin.jwe"
+        encrypted_file.write_text(_encrypt_jwe(b"", key_bytes))
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+        assert output.read_bytes() == b""
+
+    def test_decrypt_file_trailing_newline(self, tmp_path):
+        plaintext = b"model with trailing newline in compact jwe"
+        key_bytes = os.urandom(32)
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_bytes(_encrypt_jwe(plaintext, key_bytes).encode() + b"\n")
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+        assert output.read_bytes() == plaintext
+
+    def test_decrypt_file_wrapped_ciphertext(self, tmp_path, monkeypatch):
+        """76-column wrapped ciphertext exercises whitespace strip and carry."""
+        import textwrap
+
+        from kserve_storage.confidential import jwe_decryptor as decryptor_mod
+
+        plaintext = os.urandom(4096)
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+        parts = token.split(".")
+        parts[3] = "\r\n".join(textwrap.wrap(parts[3], 76))
+        wrapped = ".".join(parts)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(wrapped)
+
+        monkeypatch.setattr(decryptor_mod, "_STREAM_CHUNK_SIZE", 1000)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+        assert output.read_bytes() == plaintext
+
+    def test_decrypt_file_large_payload_does_not_slurp(self, tmp_path, monkeypatch):
+        """Ciphertext must be streamed; jwcrypto deserialize loads the whole token."""
+        from pathlib import Path as PathlibPath
+
+        from kserve_storage.confidential import jwe_decryptor as decryptor_mod
+
+        plaintext = os.urandom(64 * 1024)
+        key_bytes = os.urandom(32)
+        encrypted_file = tmp_path / "weights.bin.jwe"
+        encrypted_file.write_text(_encrypt_jwe(plaintext, key_bytes))
+
+        def _forbid_deserialize(*_args, **_kwargs):
+            raise AssertionError(
+                "in-memory JWE.deserialize must not be used for compact files"
+            )
+
+        orig_read_text = PathlibPath.read_text
+        orig_read_bytes = PathlibPath.read_bytes
+        encrypted_resolved = encrypted_file.resolve()
+
+        def _guarded_read_text(self, *args, **kwargs):
+            if self.resolve() == encrypted_resolved:
+                raise AssertionError(f"should not slurp {self} via read_text")
+            return orig_read_text(self, *args, **kwargs)
+
+        def _guarded_read_bytes(self, *args, **kwargs):
+            if self.resolve() == encrypted_resolved:
+                raise AssertionError(f"should not slurp {self} via read_bytes")
+            return orig_read_bytes(self, *args, **kwargs)
+
+        monkeypatch.setattr(jwe.JWE, "deserialize", _forbid_deserialize)
+        monkeypatch.setattr(decryptor_mod, "_STREAM_CHUNK_SIZE", 1024)
+        monkeypatch.setattr(PathlibPath, "read_text", _guarded_read_text)
+        monkeypatch.setattr(PathlibPath, "read_bytes", _guarded_read_bytes)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
+
+    @pytest.mark.parametrize("filename", ["model.bin.jwe", "model.bin"])
+    def test_decrypt_file_tampered_ciphertext_leaves_original(self, tmp_path, filename):
+        plaintext = b"authenticated model bytes"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+        parts = token.split(".")
+        first_char = parts[3][0]
+        replacement = "B" if first_char != "B" else "C"
+        parts[3] = replacement + parts[3][1:]
+        tampered = ".".join(parts)
+
+        encrypted_file = tmp_path / filename
+        encrypted_file.write_text(tampered)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData, match="tag verification"):
+            decryptor.decrypt_file(encrypted_file)
+
+        assert encrypted_file.exists()
+        assert encrypted_file.read_text() == tampered
+        if filename.endswith(".jwe"):
+            assert not (tmp_path / filename.removesuffix(".jwe")).exists()
+        assert list(tmp_path.glob(".jwe-decrypt.*")) == []
+
+    def test_decrypt_file_wrong_key_leaves_original(self, tmp_path):
+        plaintext = b"model weights"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(os.urandom(32)), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData, match="unwrap"):
+            decryptor.decrypt_file(encrypted_file)
+
+        assert encrypted_file.read_text() == token
+        assert list(tmp_path.glob(".jwe-decrypt.*")) == []
+
+    @pytest.mark.parametrize("filename", ["model.bin.jwe", "model.bin"])
+    def test_decrypt_preserves_source_file_mode(self, tmp_path, filename):
+        plaintext = b"mode preservation test"
+        key_bytes = os.urandom(32)
+
+        encrypted_file = tmp_path / filename
+        encrypted_file.write_text(_encrypt_jwe(plaintext, key_bytes))
+        encrypted_file.chmod(0o644)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output.read_bytes() == plaintext
+        assert stat.S_IMODE(output.stat().st_mode) == 0o644
+
+
+class TestJWEDecryptorDirectory:
+    def test_decrypt_directory(self, tmp_path):
+        plaintext_a = b"weights file a"
+        plaintext_b = b"weights file b"
+        key_bytes = os.urandom(32)
+
+        # Encrypted file with .jwe extension
+        (tmp_path / "model_a.bin.jwe").write_text(_encrypt_jwe(plaintext_a, key_bytes))
+
+        # Encrypted file detected by header (no .jwe extension)
+        (tmp_path / "model_b.bin").write_text(_encrypt_jwe(plaintext_b, key_bytes))
+
+        # Plain file (not encrypted)
+        (tmp_path / "config.json").write_text('{"key": "value"}')
+
+        # Nested directory with encrypted file
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+        (subdir / "adapter.jwe").write_text(_encrypt_jwe(b"adapter data", key_bytes))
+
+        resolver = StubSecretResolver(key_bytes)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        decrypted = decryptor.decrypt_directory(tmp_path)
+
+        assert len(decrypted) == 3
+        assert (tmp_path / "model_a.bin").read_bytes() == plaintext_a
+        assert (tmp_path / "model_b.bin").read_bytes() == plaintext_b
+        assert (subdir / "adapter").read_bytes() == b"adapter data"
+        assert (tmp_path / "config.json").read_text() == '{"key": "value"}'
+
+    def test_decrypt_directory_empty(self, tmp_path):
+        resolver = StubSecretResolver(os.urandom(32))
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        decrypted = decryptor.decrypt_directory(tmp_path)
+        assert decrypted == []
+
+    def test_decrypt_directory_sweeps_stale_temp_files(self, tmp_path):
+        """Stale .jwe-decrypt.*.tmp left by SIGKILL are removed before decrypt."""
+        key_bytes = os.urandom(32)
+        (tmp_path / "model.bin.jwe").write_text(_encrypt_jwe(b"real model", key_bytes))
+
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+        (tmp_path / ".jwe-decrypt.abc123.tmp").write_bytes(b"stale root")
+        (subdir / ".jwe-decrypt.def456.tmp").write_bytes(b"stale nested")
+
+        resolver = StubSecretResolver(key_bytes)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        decrypted = decryptor.decrypt_directory(tmp_path)
+
+        assert len(decrypted) == 1
+        assert (tmp_path / "model.bin").read_bytes() == b"real model"
+        assert list(tmp_path.rglob(".jwe-decrypt.*.tmp")) == []

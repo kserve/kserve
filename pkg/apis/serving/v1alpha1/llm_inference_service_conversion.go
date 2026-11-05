@@ -22,7 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+
+	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -108,6 +109,11 @@ func (src *LLMInferenceServiceConfig) ConvertTo(dstRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
 
+	// Status conversion (controller-managed, only duckv1.Status)
+	dst.Status = v1alpha2.LLMInferenceServiceConfigStatus{
+		Status: src.Status.Status,
+	}
+
 	return nil
 }
 
@@ -121,6 +127,12 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
 
+	// ReferencedBy is intentionally not converted: v1alpha1 has no equivalent field,
+	// and the controller re-populates it on the next reconciliation of the hub type.
+	dst.Status = LLMInferenceServiceConfigStatus{
+		Status: src.Status.Status,
+	}
+
 	// Restore criticality values from annotations
 	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
 
@@ -130,6 +142,7 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceServiceSpec {
 	dst := v1alpha2.LLMInferenceServiceSpec{
 		Model:    convertModelSpecToV1Alpha2(&src.Model),
+		Runtime:  src.Runtime,
 		BaseRefs: src.BaseRefs,
 	}
 
@@ -154,12 +167,23 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		dst.Prefill = &prefill
 	}
 
+	// Tracing
+	if src.Tracing != nil {
+		dst.Tracing = &v1alpha2.TracingSpec{
+			ExporterEndpoint: src.Tracing.ExporterEndpoint,
+			Sampler:          src.Tracing.Sampler,
+			SamplerArg:       src.Tracing.SamplerArg,
+			Exporter:         src.Tracing.Exporter,
+		}
+	}
+
 	return dst
 }
 
 func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInferenceServiceSpec {
 	dst := LLMInferenceServiceSpec{
 		Model:    convertModelSpecFromV1Alpha2(&src.Model),
+		Runtime:  src.Runtime,
 		BaseRefs: src.BaseRefs,
 	}
 
@@ -182,6 +206,16 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	if src.Prefill != nil {
 		prefill := convertWorkloadSpecFromV1Alpha2(src.Prefill)
 		dst.Prefill = &prefill
+	}
+
+	// Tracing
+	if src.Tracing != nil {
+		dst.Tracing = &TracingSpec{
+			ExporterEndpoint: src.Tracing.ExporterEndpoint,
+			Sampler:          src.Tracing.Sampler,
+			SamplerArg:       src.Tracing.SamplerArg,
+			Exporter:         src.Tracing.Exporter,
+		}
 	}
 
 	return dst
@@ -207,15 +241,12 @@ func convertScalingSpecToV1Alpha2(src *ScalingSpec) *v1alpha2.ScalingSpec {
 			}
 		}
 		if src.WVA.KEDA != nil {
-			dst.WVA.KEDA = &v1alpha2.KEDAScalingSpec{
-				PollingInterval:       src.WVA.KEDA.PollingInterval,
-				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
-				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
-				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
-				Fallback:              src.WVA.KEDA.Fallback,
-				Advanced:              src.WVA.KEDA.Advanced,
-			}
+			dst.WVA.KEDA = convertKEDAScalingSpecToV1Alpha2(src.WVA.KEDA)
 		}
+	}
+
+	if src.KEDA != nil {
+		dst.KEDA = convertDirectKEDAScalingSpecToV1Alpha2(src.KEDA)
 	}
 
 	return dst
@@ -241,18 +272,63 @@ func convertScalingSpecFromV1Alpha2(src *v1alpha2.ScalingSpec) *ScalingSpec {
 			}
 		}
 		if src.WVA.KEDA != nil {
-			dst.WVA.KEDA = &KEDAScalingSpec{
-				PollingInterval:       src.WVA.KEDA.PollingInterval,
-				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
-				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
-				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
-				Fallback:              src.WVA.KEDA.Fallback,
-				Advanced:              src.WVA.KEDA.Advanced,
-			}
+			dst.WVA.KEDA = convertKEDAScalingSpecFromV1Alpha2(src.WVA.KEDA)
 		}
 	}
 
+	if src.KEDA != nil {
+		dst.KEDA = convertDirectKEDAScalingSpecFromV1Alpha2(src.KEDA)
+	}
+
 	return dst
+}
+
+func convertKEDAScalingSpecToV1Alpha2(src *KEDAScalingSpec) *v1alpha2.KEDAScalingSpec {
+	if src == nil {
+		return nil
+	}
+	return &v1alpha2.KEDAScalingSpec{
+		PollingInterval:       src.PollingInterval,
+		CooldownPeriod:        src.CooldownPeriod,
+		InitialCooldownPeriod: src.InitialCooldownPeriod,
+		IdleReplicaCount:      src.IdleReplicaCount,
+		Fallback:              src.Fallback,
+		Advanced:              src.Advanced,
+	}
+}
+
+func convertKEDAScalingSpecFromV1Alpha2(src *v1alpha2.KEDAScalingSpec) *KEDAScalingSpec {
+	if src == nil {
+		return nil
+	}
+	return &KEDAScalingSpec{
+		PollingInterval:       src.PollingInterval,
+		CooldownPeriod:        src.CooldownPeriod,
+		InitialCooldownPeriod: src.InitialCooldownPeriod,
+		IdleReplicaCount:      src.IdleReplicaCount,
+		Fallback:              src.Fallback,
+		Advanced:              src.Advanced,
+	}
+}
+
+func convertDirectKEDAScalingSpecToV1Alpha2(src *DirectKEDAScalingSpec) *v1alpha2.DirectKEDAScalingSpec {
+	if src == nil {
+		return nil
+	}
+	return &v1alpha2.DirectKEDAScalingSpec{
+		KEDAScalingSpec: *convertKEDAScalingSpecToV1Alpha2(&src.KEDAScalingSpec),
+		Triggers:        src.Triggers,
+	}
+}
+
+func convertDirectKEDAScalingSpecFromV1Alpha2(src *v1alpha2.DirectKEDAScalingSpec) *DirectKEDAScalingSpec {
+	if src == nil {
+		return nil
+	}
+	return &DirectKEDAScalingSpec{
+		KEDAScalingSpec: *convertKEDAScalingSpecFromV1Alpha2(&src.KEDAScalingSpec),
+		Triggers:        src.Triggers,
+	}
 }
 
 func convertModelSpecToV1Alpha2(src *LLMModelSpec) v1alpha2.LLMModelSpec {
@@ -264,6 +340,13 @@ func convertModelSpecToV1Alpha2(src *LLMModelSpec) v1alpha2.LLMModelSpec {
 
 	if src.LoRA != nil {
 		dst.LoRA = convertLoRASpecToV1Alpha2(src.LoRA)
+	}
+
+	if src.Confidential != nil {
+		dst.Confidential = &v1alpha2.ConfidentialSpec{
+			Enabled:    src.Confidential.Enabled,
+			ResourceId: src.Confidential.ResourceId,
+		}
 	}
 
 	return dst
@@ -278,6 +361,13 @@ func convertModelSpecFromV1Alpha2(src *v1alpha2.LLMModelSpec) LLMModelSpec {
 
 	if src.LoRA != nil {
 		dst.LoRA = convertLoRASpecFromV1Alpha2(src.LoRA)
+	}
+
+	if src.Confidential != nil {
+		dst.Confidential = &ConfidentialSpec{
+			Enabled:    src.Confidential.Enabled,
+			ResourceId: src.Confidential.ResourceId,
+		}
 	}
 
 	return dst
@@ -341,6 +431,17 @@ func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 		dst.Scaling = convertScalingSpecToV1Alpha2(src.Scaling)
 	}
 
+	if src.KVCacheOffloading != nil {
+		dst.KVCacheOffloading = convertKVCacheOffloadingToV1Alpha2(src.KVCacheOffloading)
+	}
+
+	if src.RolloutStrategy != nil {
+		dst.RolloutStrategy = &v1alpha2.RolloutStrategy{
+			MaxUnavailable: src.RolloutStrategy.MaxUnavailable,
+			MaxSurge:       src.RolloutStrategy.MaxSurge,
+		}
+	}
+
 	return dst
 }
 
@@ -368,6 +469,87 @@ func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 		dst.Scaling = convertScalingSpecFromV1Alpha2(src.Scaling)
 	}
 
+	if src.KVCacheOffloading != nil {
+		dst.KVCacheOffloading = convertKVCacheOffloadingFromV1Alpha2(src.KVCacheOffloading)
+	}
+
+	if src.RolloutStrategy != nil {
+		dst.RolloutStrategy = &RolloutStrategy{
+			MaxUnavailable: src.RolloutStrategy.MaxUnavailable,
+			MaxSurge:       src.RolloutStrategy.MaxSurge,
+		}
+	}
+
+	return dst
+}
+
+func convertKVCacheOffloadingToV1Alpha2(src *KVCacheOffloadingSpec) *v1alpha2.KVCacheOffloadingSpec {
+	dst := &v1alpha2.KVCacheOffloadingSpec{
+		CPU:            src.CPU,
+		EvictionPolicy: src.EvictionPolicy,
+	}
+	for _, s := range src.Secondary {
+		dst.Secondary = append(dst.Secondary, convertSecondaryTierToV1Alpha2(&s))
+	}
+	return dst
+}
+
+func convertKVCacheOffloadingFromV1Alpha2(src *v1alpha2.KVCacheOffloadingSpec) *KVCacheOffloadingSpec {
+	dst := &KVCacheOffloadingSpec{
+		CPU:            src.CPU,
+		EvictionPolicy: src.EvictionPolicy,
+	}
+	for _, s := range src.Secondary {
+		dst.Secondary = append(dst.Secondary, convertSecondaryTierFromV1Alpha2(&s))
+	}
+	return dst
+}
+
+func convertSecondaryTierToV1Alpha2(src *SecondaryTierSpec) v1alpha2.SecondaryTierSpec {
+	dst := v1alpha2.SecondaryTierSpec{}
+	if src.FileSystem != nil {
+		dst.FileSystem = &v1alpha2.FileSystemTierSpec{}
+		if src.FileSystem.EmptyDir != nil {
+			dst.FileSystem.EmptyDir = &v1alpha2.EmptyDirTierSpec{
+				Size: src.FileSystem.EmptyDir.Size,
+			}
+		}
+		if src.FileSystem.PVC != nil {
+			dst.FileSystem.PVC = &v1alpha2.PVCTierSpec{
+				Spec: src.FileSystem.PVC.Spec,
+			}
+			if src.FileSystem.PVC.Ref != nil {
+				dst.FileSystem.PVC.Ref = &v1alpha2.PVCRefTierSpec{
+					Name: src.FileSystem.PVC.Ref.Name,
+					Path: src.FileSystem.PVC.Ref.Path,
+				}
+			}
+		}
+	}
+	return dst
+}
+
+func convertSecondaryTierFromV1Alpha2(src *v1alpha2.SecondaryTierSpec) SecondaryTierSpec {
+	dst := SecondaryTierSpec{}
+	if src.FileSystem != nil {
+		dst.FileSystem = &FileSystemTierSpec{}
+		if src.FileSystem.EmptyDir != nil {
+			dst.FileSystem.EmptyDir = &EmptyDirTierSpec{
+				Size: src.FileSystem.EmptyDir.Size,
+			}
+		}
+		if src.FileSystem.PVC != nil {
+			dst.FileSystem.PVC = &PVCTierSpec{
+				Spec: src.FileSystem.PVC.Spec,
+			}
+			if src.FileSystem.PVC.Ref != nil {
+				dst.FileSystem.PVC.Ref = &PVCRefTierSpec{
+					Name: src.FileSystem.PVC.Ref.Name,
+					Path: src.FileSystem.PVC.Ref.Path,
+				}
+			}
+		}
+	}
 	return dst
 }
 
@@ -386,6 +568,8 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Spec: src.Route.HTTP.Spec,
 			}
 		}
+		dst.Route.Group = src.Route.Group
+		dst.Route.Weight = src.Route.Weight
 	}
 
 	if src.Gateway != nil {
@@ -430,6 +614,11 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Ref:    src.Scheduler.Config.Ref,
 			}
 		}
+		if src.Scheduler.Tokenizer != nil {
+			dst.Scheduler.Tokenizer = &v1alpha2.TokenizerSpec{
+				Template: src.Scheduler.Tokenizer.Template,
+			}
+		}
 	}
 
 	return dst
@@ -470,6 +659,8 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 				Spec: src.Route.HTTP.Spec,
 			}
 		}
+		dst.Route.Group = src.Route.Group
+		dst.Route.Weight = src.Route.Weight
 	}
 
 	if src.Gateway != nil {
@@ -512,6 +703,11 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 			dst.Scheduler.Config = &SchedulerConfigSpec{
 				Inline: src.Scheduler.Config.Inline,
 				Ref:    src.Scheduler.Config.Ref,
+			}
+		}
+		if src.Scheduler.Tokenizer != nil {
+			dst.Scheduler.Tokenizer = &TokenizerSpec{
+				Template: src.Scheduler.Tokenizer.Template,
 			}
 		}
 	}

@@ -23,6 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/kserve/kserve/pkg/oteljson"
 )
 
 func TestGetOptions(t *testing.T) {
@@ -45,6 +47,7 @@ func TestGetOptions(t *testing.T) {
 				enableLeaderElection: defaults.enableLeaderElection,
 				probeAddr:            defaults.probeAddr,
 				zapOpts:              defaults.zapOpts,
+				logFormat:            defaults.logFormat,
 			},
 		},
 		{
@@ -56,6 +59,7 @@ func TestGetOptions(t *testing.T) {
 				enableLeaderElection: defaults.enableLeaderElection,
 				probeAddr:            defaults.probeAddr,
 				zapOpts:              defaults.zapOpts,
+				logFormat:            defaults.logFormat,
 			},
 		},
 		{
@@ -67,6 +71,7 @@ func TestGetOptions(t *testing.T) {
 				enableLeaderElection: true,
 				probeAddr:            defaults.probeAddr,
 				zapOpts:              defaults.zapOpts,
+				logFormat:            defaults.logFormat,
 			},
 		},
 		{
@@ -78,6 +83,7 @@ func TestGetOptions(t *testing.T) {
 				enableLeaderElection: defaults.enableLeaderElection,
 				probeAddr:            ":8090",
 				zapOpts:              defaults.zapOpts,
+				logFormat:            defaults.logFormat,
 			},
 		},
 		{
@@ -91,6 +97,19 @@ func TestGetOptions(t *testing.T) {
 				zapOpts: zap.Options{
 					Development: true,
 				},
+				logFormat: defaults.logFormat,
+			},
+		},
+		{
+			"withOTelLogFormat",
+			[]string{"-log-format=otel-json"},
+			Options{
+				metricsAddr:          defaults.metricsAddr,
+				webhookPort:          defaults.webhookPort,
+				enableLeaderElection: defaults.enableLeaderElection,
+				probeAddr:            defaults.probeAddr,
+				zapOpts:              defaults.zapOpts,
+				logFormat:            oteljson.FormatOTelJSON,
 			},
 		},
 		{
@@ -102,6 +121,7 @@ func TestGetOptions(t *testing.T) {
 				enableLeaderElection: true,
 				probeAddr:            defaults.probeAddr,
 				zapOpts:              defaults.zapOpts,
+				logFormat:            defaults.logFormat,
 			},
 		},
 		{
@@ -115,6 +135,7 @@ func TestGetOptions(t *testing.T) {
 				zapOpts: zap.Options{
 					Development: true,
 				},
+				logFormat: defaults.logFormat,
 			},
 		},
 	}

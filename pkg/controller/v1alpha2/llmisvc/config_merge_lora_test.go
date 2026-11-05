@@ -193,6 +193,43 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			},
 		},
 		{
+			name: "expands consolidated model-routing rule with all endpoints",
+			rules: []gwapiv1.HTTPRouteRule{
+				ruleWithMatches(
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions/", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/chat/completions", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/chat/completions/", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/responses", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/responses/", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/messages", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/messages/", "publishers/ns/models/base-model"),
+				),
+			},
+			namespace:  "ns",
+			adapters:   adapters,
+			headerName: headerName,
+			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
+				// 8 base matches + 8 matches x 2 adapters = 24 total
+				assert.Len(t, rules[0].Matches, 24)
+				for i, adapter := range []string{"adapter-a", "adapter-b"} {
+					for j, path := range []string{
+						"/v1/completions", "/v1/completions/",
+						"/v1/chat/completions", "/v1/chat/completions/",
+						"/v1/responses", "/v1/responses/",
+						"/v1/messages", "/v1/messages/",
+					} {
+						idx := 8 + i + j*2
+						m := rules[0].Matches[idx]
+						assert.Equal(t, "publishers/ns/models/"+adapter, m.Headers[0].Value,
+							"match[%d] adapter header", idx)
+						assert.Equal(t, path, *m.Path.Value,
+							"match[%d] path", idx)
+					}
+				}
+			},
+		},
+		{
 			name: "uses correct namespace in header value",
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(
@@ -204,6 +241,25 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			headerName: headerName,
 			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
 				assert.Equal(t, "publishers/prod/models/lora-1", rules[0].Matches[1].Headers[0].Value)
+			},
+		},
+		{
+			name: "adapter order is stable regardless of input order",
+			rules: []gwapiv1.HTTPRouteRule{
+				ruleWithMatches(
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
+				),
+			},
+			namespace: "ns",
+			adapters: []v1alpha2.LLMModelSpec{
+				{Name: ptr.To("zebra")},
+				{Name: ptr.To("alpha")},
+			},
+			headerName: headerName,
+			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
+				assert.Len(t, rules[0].Matches, 3)
+				assert.Equal(t, "publishers/ns/models/alpha", rules[0].Matches[1].Headers[0].Value)
+				assert.Equal(t, "publishers/ns/models/zebra", rules[0].Matches[2].Headers[0].Value)
 			},
 		},
 	}

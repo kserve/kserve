@@ -76,10 +76,6 @@ type ClusterStorageContainerList struct {
 	Items           []ClusterStorageContainer `json:"items" validate:"required"`
 }
 
-func init() {
-	SchemeBuilder.Register(&ClusterStorageContainer{}, &ClusterStorageContainerList{})
-}
-
 func (sc *ClusterStorageContainer) IsDisabled() bool {
 	return sc.Disabled != nil && *sc.Disabled
 }

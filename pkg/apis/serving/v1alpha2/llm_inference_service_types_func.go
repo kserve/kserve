@@ -17,8 +17,13 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"strings"
+
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+
+	"github.com/kserve/kserve/pkg/constants"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
 func (s *SchedulerSpec) InferencePoolName(llmSvc *LLMInferenceService) string {
@@ -32,10 +37,29 @@ func (s *SchedulerSpec) InferencePoolName(llmSvc *LLMInferenceService) string {
 func (r *RouterSpec) EPPServiceName(llmSvc *LLMInferenceService) string {
 	if r != nil && r.Scheduler != nil && r.Scheduler.Pool != nil &&
 		!r.Scheduler.Pool.HasRef() &&
-		r.Scheduler.Pool.Spec != nil && r.Scheduler.Pool.Spec.EndpointPickerRef.Name != "" {
+		r.Scheduler.Pool.Spec != nil && r.Scheduler.Pool.Spec.EndpointPickerRef != nil &&
+		r.Scheduler.Pool.Spec.EndpointPickerRef.Name != "" {
 		return string(r.Scheduler.Pool.Spec.EndpointPickerRef.Name)
 	}
 	return kmeta.ChildName(llmSvc.GetName(), "-epp-service")
+}
+
+func (r *RouterSpec) HasGroup() bool {
+	return r != nil && r.Route != nil && r.Route.Group != nil
+}
+
+func (r *RouterSpec) Group() *string {
+	if r == nil || r.Route == nil {
+		return nil
+	}
+	return r.Route.Group
+}
+
+func (r *RouterSpec) Weight() *int32 {
+	if r == nil || r.Route == nil {
+		return nil
+	}
+	return r.Route.Weight
 }
 
 func (in *GatewaySpec) HasRefs() bool {
@@ -106,6 +130,10 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	// Use applied configs from the last successful reconciliation when available.
 	if len(s.Status.AppliedConfigRefs) > 0 {
 		for i := range s.Status.AppliedConfigRefs {
+			if s.Status.AppliedConfigRefs[i].Source == AppliedConfigSourceServingRuntime {
+				continue
+			}
+
 			if string(s.Status.AppliedConfigRefs[i].Name) != name {
 				continue
 			}
@@ -118,7 +146,7 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	}
 
 	// Fallback: appliedConfigs is empty (not yet reconciled, or cleared on stop).
-	for _, value := range s.Status.Annotations {
+	for _, value := range s.PinnedConfigNames() {
 		if value == name {
 			return true
 		}
@@ -131,4 +159,81 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	}
 
 	return false
+}
+
+// PinnedConfigNames returns the config names pinned in Status.Annotations
+// by the WellKnownConfigResolver, identified by key prefix (allowlist).
+func (s *LLMInferenceService) PinnedConfigNames() []string {
+	var names []string
+	for key, value := range s.Status.Annotations {
+		if strings.HasPrefix(key, constants.WellKnownConfigPinAnnotationPrefix) {
+			names = append(names, value)
+		}
+	}
+	return names
+}
+
+// HasManagedDRA reports whether managed DRA is enabled via annotations.
+func (s *LLMInferenceService) HasManagedDRA() bool {
+	if s == nil {
+		return false
+	}
+	return kservevalidation.HasManagedDRA(s.Annotations)
+}
+
+// ModelExpressMode returns the ModelExpress mode requested via annotation, or ""
+// when ModelExpress is not enabled.
+func (s *LLMInferenceService) ModelExpressMode() (kservevalidation.ModelExpressMode, error) {
+	if s == nil {
+		return "", nil
+	}
+	return kservevalidation.ModelExpressModeFromAnnotations(s.Annotations)
+}
+
+// DisaggregatedSetRequested reports whether this service asks for the DisaggregatedSet
+// workload backend via its spec.annotations. The controller calls it on the spec
+// merged with its presets, which is where the default comes from.
+//
+// A request is not sufficient on its own: the DisaggregatedSet feature gate must be on
+// and the DisaggregatedSet CRD must be installed. The controller combines all three.
+func (s *LLMInferenceService) DisaggregatedSetRequested() bool {
+	if s == nil {
+		return false
+	}
+	return kservevalidation.DisaggregatedSetEnabled(s.Spec.Annotations)
+}
+
+// ManagedDRADeviceClass returns the trimmed device-class annotation value and
+// whether it is set.
+func (s *LLMInferenceService) ManagedDRADeviceClass() (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	return kservevalidation.ManagedDRADeviceClass(s.Annotations)
+}
+
+// ManagedDRADeviceCount returns the requested device count, defaulting to 1.
+func (s *LLMInferenceService) ManagedDRADeviceCount() (int, error) {
+	if s == nil {
+		return 1, nil
+	}
+	return kservevalidation.ManagedDRADeviceCount(s.Annotations)
+}
+
+// ManagedDRACelSelectors returns the newline-separated CEL expressions, with
+// empty lines and surrounding whitespace stripped.
+func (s *LLMInferenceService) ManagedDRACelSelectors() []string {
+	if s == nil {
+		return nil
+	}
+	return kservevalidation.ManagedDRACelSelectors(s.Annotations)
+}
+
+// ManagedDRAContainerName returns the trimmed container-name annotation value
+// and whether it is set.
+func (s *LLMInferenceService) ManagedDRAContainerName() (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	return kservevalidation.ManagedDRAContainerName(s.Annotations)
 }

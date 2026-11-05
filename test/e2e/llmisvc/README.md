@@ -13,21 +13,85 @@ pytest.param(
 
 The `llm_config_factory` fixture automatically creates/cleans up `LLMInferenceServiceConfig` objects.
 
-## Test Filtering
+## Test Markers
 
-Tests are marked with both general and cluster-specific capability markers:
+Tests carry two kinds of markers: **group markers** (what the test covers) and
+**cluster markers** (what hardware/environment it needs). Group markers are
+assigned automatically from the filename; cluster markers are set explicitly
+via `pytest.param(..., marks=...)`.
 
-- `@pytest.mark.llminferenceservice` - All LLM inference service tests
+### Auto-assigned group markers (implicit, from file naming)
+
+`conftest.py` hooks into `pytest_collection_modifyitems` and assigns group
+markers based on the test file name. **No `@pytest.mark` decorator is needed on
+individual tests for these** — the filename alone decides the group.
+
+All tests collected from the `llmisvc/` directory automatically receive the
+`llminferenceservice` marker. In addition, each test gets a sub-group marker:
+
+| File pattern | Assigned markers | Example file |
+|---|---|---|
+| `test_llm_autoscaling_<variant>.py` | `llminferenceservice` + `llmisvc_autoscaling` + `autoscaling_<variant>` | `test_llm_autoscaling_direct_keda.py` → `llminferenceservice`, `llmisvc_autoscaling`, `autoscaling_direct_keda` |
+| Files in `_LLMISVC_CORE_EXCLUDED` | `llminferenceservice` only (manually marked for sub-group) | `test_llm_tracing.py` has its own `tracing` marker, `test_llm_inference_service_config_deletion.py` and `test_llm_canary_lifecycle.py` carry `llmisvc_serial` |
+| Everything else | `llminferenceservice` + `llmisvc_core` | `test_llm_inference_service.py`, `test_pod_watch.py` |
+
+**Key rules:**
+
+1. **`llminferenceservice` is always automatic** — every test file under
+   `test/e2e/llmisvc/` gets this marker. Do not add it manually.
+2. **Autoscaling variants** — name the file `test_llm_autoscaling_<variant>.py`
+   and the variant marker (`autoscaling_<variant>`) is derived automatically.
+   Adding `test_llm_autoscaling_keda.py` creates the `autoscaling_keda` marker
+   with no further code changes.
+3. **Excluded files** — files in `_LLMISVC_CORE_EXCLUDED` (e.g.
+   `test_llm_tracing.py`) opt out of automatic `llmisvc_core` and must carry
+   their own explicit sub-group markers.
+4. **Default** — every other `test_*.py` under `test/e2e/llmisvc/` receives
+   `llmisvc_core` automatically.
+
+When adding a new test file, decide which group it belongs to:
+
+- Core LLMISVC functionality → just name it `test_*.py` (auto-gets `llminferenceservice` + `llmisvc_core`).
+- New autoscaling backend → name it `test_llm_autoscaling_<backend>.py`.
+- Completely new category → add the file to `_LLMISVC_CORE_EXCLUDED` and apply
+  an explicit marker; register the marker in `pytest_configure` and `pytest.ini`.
+- Touches shared cluster state (the `kserve` namespace, cluster-scoped objects,
+  the controller) or asserts on traffic through the shared ingress gateway → add
+  the file to `_LLMISVC_CORE_EXCLUDED` and mark it `llmisvc_serial`. CI runs `llmisvc_core` on two xdist workers, then
+  `llmisvc_serial` one test at a time.
+- Needs an llmisvc feature gate → keep it in its own CI job. Feature gates are
+  cluster-wide (the `llmisvc` key of the `inferenceservice-config` ConfigMap),
+  so tests must not flip them. `test_llm_disaggregated_set.py` carries
+  `llmisvc_disaggregated_set` and runs only in the
+  `test-llmisvc-disaggregated-set` job, which enables the gate with
+  `test/scripts/gh-actions/enable-llmisvc-feature-gates.sh disaggregatedSet`
+  before the tests. Each test fails fast if the gate is off.
+
+### Cluster capability markers (explicit, per test param)
+
+These are set on individual `pytest.param(...)` entries and describe what
+hardware or environment the test needs:
+
 - `@pytest.mark.cluster_cpu` - CPU-only tests
 - `@pytest.mark.cluster_amd` - AMD GPU tests
 - `@pytest.mark.cluster_nvidia` - NVIDIA GPU tests
 - `@pytest.mark.cluster_nvidia_roce` - NVIDIA ROCe tests
 - `@pytest.mark.cluster_intel` - Intel GPU tests
+- `@pytest.mark.cluster_single_node` / `cluster_multi_node` - topology
 
 Examples:
 
 ```bash
-# Run all LLM inference service tests
+# Run all core LLMISVC tests
+pytest -m "llmisvc_core" test/e2e/llmisvc/
+
+# Run all LLMISVC autoscaling variants
+pytest -m "llmisvc_autoscaling" test/e2e/llmisvc/
+
+# Run core tests on CPU clusters only
+pytest -m "llmisvc_core and cluster_cpu" test/e2e/llmisvc/
+
+# Run all LLM inference service tests (any group)
 pytest -m "llminferenceservice" test/e2e/llmisvc/
 
 # Run only CPU tests

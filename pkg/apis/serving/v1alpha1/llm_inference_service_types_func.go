@@ -41,6 +41,10 @@ func (p *ParallelismSpec) IsTensorParallel() bool {
 	return ptr.Deref(p.Tensor, 0) > 0
 }
 
+func (r *HTTPRouteSpec) HasRefs() bool {
+	return r != nil && len(r.Refs) > 0
+}
+
 func (p *ParallelismSpec) GetSize() *int32 {
 	if p == nil {
 		return nil

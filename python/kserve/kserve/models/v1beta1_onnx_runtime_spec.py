@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2020 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ class V1beta1ONNXRuntimeSpec(object):
     openapi_types = {
         'args': 'list[str]',
         'command': 'list[str]',
+        'confidential': 'V1beta1ConfidentialSpec',
         'env': 'list[V1EnvVar]',
         'env_from': 'list[V1EnvFromSource]',
         'image': 'str',
@@ -81,6 +82,7 @@ class V1beta1ONNXRuntimeSpec(object):
     attribute_map = {
         'args': 'args',
         'command': 'command',
+        'confidential': 'confidential',
         'env': 'env',
         'env_from': 'envFrom',
         'image': 'image',
@@ -110,7 +112,7 @@ class V1beta1ONNXRuntimeSpec(object):
         'working_dir': 'workingDir'
     }
 
-    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, restart_policy_rules=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, confidential=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, restart_policy_rules=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ONNXRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -118,6 +120,7 @@ class V1beta1ONNXRuntimeSpec(object):
 
         self._args = None
         self._command = None
+        self._confidential = None
         self._env = None
         self._env_from = None
         self._image = None
@@ -151,6 +154,8 @@ class V1beta1ONNXRuntimeSpec(object):
             self.args = args
         if command is not None:
             self.command = command
+        if confidential is not None:
+            self.confidential = confidential
         if env is not None:
             self.env = env
         if env_from is not None:
@@ -251,6 +256,27 @@ class V1beta1ONNXRuntimeSpec(object):
         """
 
         self._command = command
+
+    @property
+    def confidential(self):
+        """Gets the confidential of this V1beta1ONNXRuntimeSpec.  # noqa: E501
+
+
+        :return: The confidential of this V1beta1ONNXRuntimeSpec.  # noqa: E501
+        :rtype: V1beta1ConfidentialSpec
+        """
+        return self._confidential
+
+    @confidential.setter
+    def confidential(self, confidential):
+        """Sets the confidential of this V1beta1ONNXRuntimeSpec.
+
+
+        :param confidential: The confidential of this V1beta1ONNXRuntimeSpec.  # noqa: E501
+        :type: V1beta1ConfidentialSpec
+        """
+
+        self._confidential = confidential
 
     @property
     def env(self):
@@ -480,7 +506,7 @@ class V1beta1ONNXRuntimeSpec(object):
     def resize_policy(self):
         """Gets the resize_policy of this V1beta1ONNXRuntimeSpec.  # noqa: E501
 
-        Resources resize policy for the container.  # noqa: E501
+        Resources resize policy for the container. This field cannot be set on ephemeral containers.  # noqa: E501
 
         :return: The resize_policy of this V1beta1ONNXRuntimeSpec.  # noqa: E501
         :rtype: list[V1ContainerResizePolicy]
@@ -491,7 +517,7 @@ class V1beta1ONNXRuntimeSpec(object):
     def resize_policy(self, resize_policy):
         """Sets the resize_policy of this V1beta1ONNXRuntimeSpec.
 
-        Resources resize policy for the container.  # noqa: E501
+        Resources resize policy for the container. This field cannot be set on ephemeral containers.  # noqa: E501
 
         :param resize_policy: The resize_policy of this V1beta1ONNXRuntimeSpec.  # noqa: E501
         :type: list[V1ContainerResizePolicy]

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Install KServe LLM InferenceService KEDA autoscaling dependencies (Prometheus, KEDA, WVA)
+# Install KServe LLM InferenceService KEDA autoscaling dependencies (Prometheus, KEDA)
 #
 # AUTO-GENERATED from: llmisvc-autoscaling-keda-dependency-install.definition
 # DO NOT EDIT MANUALLY
@@ -633,8 +633,7 @@ export RELEASE
 #================================================
 
 GOLANGCI_LINT_VERSION=v2.9.0
-CONTROLLER_TOOLS_VERSION=v0.19.0
-ENVTEST_VERSION=release-0.19
+CONTROLLER_TOOLS_VERSION=v0.21.0
 YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.8.1
@@ -642,24 +641,27 @@ HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+SHELLCHECK_VERSION=v0.11.0
+CODESPELL_VERSION=2.4.3
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.7.0
-ENVOY_AI_GATEWAY_VERSION=v0.6.0
+ENVOY_GATEWAY_VERSION=v1.8.1
+ENVOY_AI_GATEWAY_VERSION=v1.1.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
-KSERVE_VERSION=v0.19.0-rc0
-ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.18.0
-OPENTELEMETRY_OPERATOR_VERSION=0.74.3
-LWS_VERSION=v0.8.0
-GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.1
-WVA_VERSION=v0.7.0
+JAEGER_VERSION=4.7.0
+KSERVE_VERSION=v0.21.0
+ISTIO_VERSION=1.31.2
+KEDA_VERSION=2.20.2
+OPENTELEMETRY_OPERATOR_VERSION=0.114.1
+LWS_VERSION=v1.0.0
+GATEWAY_API_VERSION=v1.6.2
+GIE_VERSION=v1.6.2
+LLMD_ROUTER_VERSION=v1.0.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -671,7 +673,6 @@ KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
 PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
 PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
-WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -692,9 +693,6 @@ KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
 PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
 PROMETHEUS_RELEASE_NAME="${PROMETHEUS_RELEASE_NAME:-prometheus}"
-WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
-WVA_RELEASE_NAME="${WVA_RELEASE_NAME:-llm-d-wva}"
-WVA_PROMETHEUS_URL="${WVA_PROMETHEUS_URL:-https://prometheus-kube-prometheus-prometheus.monitoring:9090}"
 
 #================================================
 # Template Functions (EMBED_TEMPLATES MODE)
@@ -938,63 +936,6 @@ install_keda_helm() {
     log_success "KEDA is ready!"
 }
 
-# ----------------------------------------
-# CLI/Component: wva-helm
-# ----------------------------------------
-
-uninstall_wva_helm() {
-    log_info "Uninstalling WVA..."
-
-    helm uninstall "${WVA_RELEASE_NAME}" -n "${WVA_NAMESPACE}" 2>/dev/null || true
-    kubectl delete all --all -n "${WVA_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${WVA_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-
-    log_success "WVA uninstalled"
-}
-
-install_wva_helm() {
-    if helm list -n "${WVA_NAMESPACE}" 2>/dev/null | grep -q "${WVA_RELEASE_NAME}"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "WVA is already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling WVA..."
-            uninstall_wva_helm
-        fi
-    fi
-
-    # Strip leading 'v' from WVA_VERSION if present (chart uses semver without prefix)
-    local chart_version="${WVA_VERSION#v}"
-
-    log_info "Installing WVA ${chart_version}..."
-    helm install "${WVA_RELEASE_NAME}" oci://ghcr.io/llm-d/workload-variant-autoscaler \
-        --namespace "${WVA_NAMESPACE}" \
-        --create-namespace \
-        --version "${chart_version}" \
-        --set controller.enabled=true \
-        --set wva.enabled=true \
-        --set wva.replicaCount=1 \
-        --set wva.namespaceScoped=false \
-        --set wva.prometheus.baseURL="${WVA_PROMETHEUS_URL}" \
-        --set wva.prometheus.tls.insecureSkipVerify=true \
-        --set wva.prometheus.serviceAccountName="prometheus-kube-prometheus-prometheus" \
-        --set wva.prometheus.monitoringNamespace="${PROMETHEUS_NAMESPACE:-monitoring}" \
-        --set wva.metrics.secure=false \
-        --set va.enabled=false \
-        --set hpa.enabled=false \
-        --set vllmService.enabled=false \
-        --set llmd.namespace="${WVA_NAMESPACE}" \
-        --wait \
-        --timeout 5m \
-        ${WVA_EXTRA_ARGS:-}
-
-    log_success "Successfully installed WVA ${chart_version} via Helm"
-
-    wait_for_pods "${WVA_NAMESPACE}" "control-plane=controller-manager" "300s"
-
-    log_success "WVA is ready!"
-}
-
 
 
 #================================================
@@ -1006,7 +947,6 @@ main() {
         echo "=========================================="
         echo "Uninstalling components..."
         echo "=========================================="
-        uninstall_wva_helm
         uninstall_keda_helm
         uninstall_prometheus_helm
         
@@ -1017,7 +957,7 @@ main() {
     fi
 
     echo "=========================================="
-    echo "Install KServe LLM InferenceService KEDA autoscaling dependencies (Prometheus, KEDA, WVA)"
+    echo "Install KServe LLM InferenceService KEDA autoscaling dependencies (Prometheus, KEDA)"
     echo "=========================================="
 
     export EMBED_TEMPLATES="true"
@@ -1025,7 +965,6 @@ main() {
     install_helm
     install_prometheus_helm
     install_keda_helm
-    install_wva_helm
 
     echo "=========================================="
     echo "✅ Installation completed successfully!"

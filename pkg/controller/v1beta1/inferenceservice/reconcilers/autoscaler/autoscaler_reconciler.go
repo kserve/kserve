@@ -29,12 +29,14 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/keda"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 // Autoscaler Interface implemented by all autoscalers
 type Autoscaler interface {
 	Reconcile(ctx context.Context) error
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
+	CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error
 }
 
 // NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
@@ -45,6 +47,10 @@ func (*NoOpAutoscaler) Reconcile(ctx context.Context) error {
 }
 
 func (a *NoOpAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	return nil
+}
+
+func (a *NoOpAutoscaler) CleanupOrphans(_ context.Context, _ isvcutils.OrphanScope) error {
 	return nil
 }
 
@@ -89,6 +95,15 @@ func createAutoscaler(client client.Client,
 	configMap *corev1.ConfigMap,
 ) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
+	// When KEDA is selected at the ISVC level, only create a ScaledObject for
+	// components that explicitly declare an autoScaling spec. Unlike HPA, KEDA
+	// has no legacy fallback and would produce an invalid ScaledObject with
+	// empty triggers. Components without autoScaling get a NoOpAutoscaler,
+	// allowing predictor, transformer, and explainer to be configured
+	// independently.
+	if ac == constants.AutoscalerClassKeda && (componentExt == nil || componentExt.AutoScaling == nil) {
+		return &NoOpAutoscaler{}, nil
+	}
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal, constants.AutoscalerClassNone:
 		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
@@ -107,4 +122,9 @@ func (r *AutoscalerReconciler) Reconcile(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// CleanupOrphans delegates orphan cleanup to the underlying autoscaler implementation.
+func (r *AutoscalerReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return r.Autoscaler.CleanupOrphans(ctx, scope)
 }

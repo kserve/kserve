@@ -35,6 +35,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/credentials"
 
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
@@ -286,4 +287,188 @@ func TestReconcileSingleNodeMainServiceAccount_RoutingEnabled_Default_DeletesMan
 
 	g.Expect(apierrors.IsNotFound(err)).To(BeTrue(),
 		"managed ServiceAccount must be deleted when routing is enabled but routing sidecar is not present")
+}
+
+func TestExpectedSingleNodePrefillPodTemplate_CascadesMainServiceAccount(t *testing.T) {
+	g := NewGomegaWithT(t)
+	ctx := t.Context()
+
+	scheme := runtime.NewScheme()
+	g.Expect(appsv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
+	ns := "test-ns"
+	llmName := "test-llm"
+	mainSAName := llmName + "-main-sa"
+
+	mainSA := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mainSAName,
+			Namespace: ns,
+			Annotations: map[string]string{
+				credentials.AwsIrsaAnnotationKey: "arn:aws:iam::123456789012:role/kserve-s3",
+			},
+		},
+	}
+
+	// Main template sets the ServiceAccount; the prefill template sets none.
+	llmSvc := LLMInferenceService(
+		llmName,
+		InNamespace[*v1alpha2.LLMInferenceService](ns),
+		WithModelURI("pvc://test-pvc"),
+		WithTemplate(&corev1.PodSpec{
+			ServiceAccountName: mainSAName,
+		}),
+		WithPrefill(&corev1.PodSpec{}),
+	)
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(mainSA, llmSvc).
+		Build()
+
+	reconciler := &llmisvc.LLMISVCReconciler{
+		Client:        fakeClient,
+		EventRecorder: record.NewFakeRecorder(10),
+		Clientset:     k8sfake.NewSimpleClientset(),
+	}
+
+	podTemplate, err := llmisvc.ExpectedSingleNodePrefillPodTemplateForTest(ctx, reconciler, llmSvc, &llmisvc.Config{}, corev1.PodSpec{})
+	g.Expect(err).ToNot(HaveOccurred())
+
+	g.Expect(podTemplate.Template.Spec.ServiceAccountName).To(Equal(mainSAName),
+		"prefill pod must run with the main workload ServiceAccount when the prefill template sets none")
+}
+
+func TestExpectedSingleNodePrefillPodTemplate_PreservesDeployedServiceAccount(t *testing.T) {
+	scenarios := map[string]struct {
+		deployedServiceAccountName string
+	}{
+		// A prefill deployment from before the inheritance change runs with
+		// the namespace default ServiceAccount.
+		"LegacyDefaultServiceAccount": {deployedServiceAccountName: ""},
+		// A prefill deployment whose ServiceAccount was removed from the
+		// spec afterwards keeps the identity it runs with.
+		"LegacyNamedServiceAccount": {deployedServiceAccountName: "legacy-prefill-sa"},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			ctx := t.Context()
+
+			scheme := runtime.NewScheme()
+			g.Expect(appsv1.AddToScheme(scheme)).To(Succeed())
+			g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+			g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
+			g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
+			ns := "test-ns"
+			llmName := "test-llm"
+
+			// Main template sets the ServiceAccount; the prefill template
+			// sets none.
+			llmSvc := LLMInferenceService(
+				llmName,
+				InNamespace[*v1alpha2.LLMInferenceService](ns),
+				WithModelURI("pvc://test-pvc"),
+				WithTemplate(&corev1.PodSpec{
+					ServiceAccountName: llmName + "-main-sa",
+				}),
+				WithPrefill(&corev1.PodSpec{}),
+			)
+
+			// The deployed pod spec comes from whichever backend deploys
+			// the prefill workload: the Deployment of the single-node path
+			// or a role of a DisaggregatedSet.
+			deployed := corev1.PodSpec{
+				Containers:         []corev1.Container{{Name: "main"}},
+				ServiceAccountName: scenario.deployedServiceAccountName,
+			}
+
+			objects := []client.Object{llmSvc}
+			if scenario.deployedServiceAccountName != "" {
+				objects = append(objects, &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      scenario.deployedServiceAccountName,
+						Namespace: ns,
+					},
+				})
+			}
+
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(objects...).
+				Build()
+
+			reconciler := &llmisvc.LLMISVCReconciler{
+				Client:        fakeClient,
+				EventRecorder: record.NewFakeRecorder(10),
+				Clientset:     k8sfake.NewSimpleClientset(),
+			}
+
+			podTemplate, err := llmisvc.ExpectedSingleNodePrefillPodTemplateForTest(ctx, reconciler, llmSvc, &llmisvc.Config{}, deployed)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			g.Expect(podTemplate.Template.Spec.ServiceAccountName).To(Equal(scenario.deployedServiceAccountName),
+				"a deployed prefill workload keeps the ServiceAccount it runs with")
+		})
+	}
+}
+
+func TestExpectedSingleNodePrefillPodTemplate_FallsBackToWorkerServiceAccount(t *testing.T) {
+	g := NewGomegaWithT(t)
+	ctx := t.Context()
+
+	scheme := runtime.NewScheme()
+	g.Expect(appsv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
+	ns := "test-ns"
+	llmName := "test-llm-prefill-worker-sa"
+	workerSAName := llmName + "-worker-sa"
+
+	workerSA := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workerSAName,
+			Namespace: ns,
+		},
+	}
+
+	// Mixed topology: the main workload is multi-node and names its
+	// ServiceAccount on the worker spec, and the single-node prefill
+	// template sets none. At creation, prefill must inherit the worker
+	// ServiceAccount the same way the tokenizer does, so prefill pods run
+	// with the main workload identity, including IRSA annotations for model
+	// download.
+	llmSvc := LLMInferenceService(
+		llmName,
+		InNamespace[*v1alpha2.LLMInferenceService](ns),
+		WithModelURI("pvc://test-pvc"),
+		WithWorker(&corev1.PodSpec{
+			ServiceAccountName: workerSAName,
+		}),
+		WithPrefill(&corev1.PodSpec{}),
+	)
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(workerSA, llmSvc).
+		Build()
+
+	reconciler := &llmisvc.LLMISVCReconciler{
+		Client:        fakeClient,
+		EventRecorder: record.NewFakeRecorder(10),
+		Clientset:     k8sfake.NewSimpleClientset(),
+	}
+
+	podTemplate, err := llmisvc.ExpectedSingleNodePrefillPodTemplateForTest(ctx, reconciler, llmSvc, &llmisvc.Config{}, corev1.PodSpec{})
+	g.Expect(err).ToNot(HaveOccurred())
+
+	g.Expect(podTemplate.Template.Spec.ServiceAccountName).To(Equal(workerSAName),
+		"prefill pod must fall back to the main workload worker ServiceAccount when the main template sets none")
 }

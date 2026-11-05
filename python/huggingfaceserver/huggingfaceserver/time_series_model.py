@@ -100,7 +100,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
 
     def load(self):
         model_kwargs = {}
-        model_kwargs["torch_dtype"] = self.dtype
+        model_kwargs["dtype"] = self.dtype
 
         self._model = AutoModelForTimeSeriesPrediction.from_pretrained(
             self.model_id_or_path,

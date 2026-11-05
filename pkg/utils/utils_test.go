@@ -929,12 +929,13 @@ func TestSetAvailableResourcesForApi(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			// Reset the cache before each test
-			gvResourcesCache = nil
+			gvResourcesCache.Clear()
 
 			SetAvailableResourcesForApi(scenario.groupVersion, scenario.resources)
 
-			g.Expect(gvResourcesCache).ToNot(gomega.BeNil())
-			g.Expect(gvResourcesCache[scenario.groupVersion]).To(gomega.BeComparableTo(scenario.resources))
+			cached, ok := gvResourcesCache.Load(scenario.groupVersion)
+			g.Expect(ok).To(gomega.BeTrue())
+			g.Expect(cached.(*metav1.APIResourceList)).To(gomega.BeComparableTo(scenario.resources))
 		})
 	}
 }
@@ -979,6 +980,37 @@ func TestStringToInt32(t *testing.T) {
 				}
 			} else if !errors.Is(err, scenario.err) {
 				t.Errorf("got %v, want %v", err, scenario.err)
+			}
+		})
+	}
+}
+
+func TestParsePort(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected int32
+		wantErr  bool
+	}{
+		{name: "minimum port", value: "1", expected: 1},
+		{name: "maximum port", value: "65535", expected: 65535},
+		{name: "zero", value: "0", wantErr: true},
+		{name: "negative", value: "-1", wantErr: true},
+		{name: "negative zero", value: "-0", wantErr: true},
+		{name: "large negative", value: "-65535", wantErr: true},
+		{name: "below int32 range", value: "-2147483649", wantErr: true},
+		{name: "above maximum", value: "65536", wantErr: true},
+		{name: "outside int32 range", value: "2147483648", wantErr: true},
+		{name: "malformed", value: "not-a-port", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			port, err := ParsePort(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParsePort(%q) error = %v, wantErr %t", tt.value, err, tt.wantErr)
+			}
+			if port != tt.expected {
+				t.Errorf("ParsePort(%q) = %d, want %d", tt.value, port, tt.expected)
 			}
 		})
 	}

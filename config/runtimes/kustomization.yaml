@@ -14,6 +14,10 @@ resources:
 - kserve-torchserve.yaml
 - kserve-huggingfaceserver.yaml
 - kserve-huggingfaceserver-multinode.yaml
+- kserve-autogluonserver.yaml
+- kserve-vllmserver.yaml
+- kserve-llm-sglang.yaml
+- kserve-llm-omni.yaml
 
 images:
   # SMS Only Runtimes
@@ -52,6 +56,10 @@ images:
 - name: kserve-predictiveserver
   newName: kserve/predictiveserver
   newTag: latest
+
+- name: kserve-autogluonserver
+  newName: kserve/autogluonserver
+  newTag: latest
   
 - name: kserve-torchserve
   newName: pytorch/torchserve-kfs
@@ -64,3 +72,7 @@ images:
 - name: huggingfaceserver-gpu
   newName: kserve/huggingfaceserver
   newTag: latest-gpu
+  
+- name: vllmserver
+  newName: vllm/vllm-openai
+  newTag: latest

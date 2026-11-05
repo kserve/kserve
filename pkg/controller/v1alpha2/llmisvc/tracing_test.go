@@ -1,0 +1,378 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package llmisvc
+
+import (
+	"testing"
+
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
+)
+
+func TestInjectSchedulerTracing_NilSpec(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "main"}
+	mutated := injectSchedulerTracing(nil, "ns", "my-svc", container)
+	g.Expect(mutated).To(BeFalse())
+	g.Expect(container.Args).To(BeEmpty())
+	g.Expect(container.Env).To(BeEmpty())
+}
+
+func TestInjectSchedulerTracing_EmptySpec(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "main"}
+	mutated := injectSchedulerTracing(&v1alpha2.TracingSpec{}, "test-ns", "my-svc", container)
+	g.Expect(mutated).To(BeTrue())
+
+	g.Expect(container.Args).To(ContainElement("--tracing=true"))
+
+	envMap := envToMap(container.Env)
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", defaultSchedulerServiceName))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", ""))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_EXPORTER", ""))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", ""))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER_ARG", ""))
+	g.Expect(envMap).To(HaveKey("OTEL_RESOURCE_ATTRIBUTES"))
+	g.Expect(envMap["OTEL_RESOURCE_ATTRIBUTES"]).To(ContainSubstring("k8s.namespace.name=test-ns"))
+	g.Expect(envMap["OTEL_RESOURCE_ATTRIBUTES"]).To(ContainSubstring("llmisvc.name=my-svc"))
+}
+
+func TestInjectSchedulerTracing_CustomFields(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "main"}
+	spec := &v1alpha2.TracingSpec{
+		ExporterEndpoint: ptr.To("http://collector:4317"),
+		Sampler:          ptr.To("parentbased_traceidratio"),
+		SamplerArg:       ptr.To("0.1"),
+		Exporter:         ptr.To("otlp"),
+	}
+	injectSchedulerTracing(spec, "prod-ns", "llm-prod", container)
+
+	envMap := envToMap(container.Env)
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", defaultSchedulerServiceName))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317"))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", "parentbased_traceidratio"))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER_ARG", "0.1"))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_EXPORTER", "otlp"))
+}
+
+func TestInjectSchedulerTracing_DoesNotDuplicateTracingArg(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{
+		Name: "main",
+		Args: []string{"--tracing=true"},
+	}
+	injectSchedulerTracing(&v1alpha2.TracingSpec{}, "ns", "svc", container)
+
+	count := 0
+	for _, a := range container.Args {
+		if a == "--tracing=true" {
+			count++
+		}
+	}
+	g.Expect(count).To(Equal(1))
+}
+
+func TestInjectSchedulerTracing_PreservesExistingEnv(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{
+		Name: "main",
+		Env: []corev1.EnvVar{
+			{Name: "OTEL_SERVICE_NAME", Value: "user-override"},
+		},
+	}
+	injectSchedulerTracing(&v1alpha2.TracingSpec{}, "ns", "svc", container)
+
+	envMap := envToMap(container.Env)
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "user-override"))
+}
+
+func TestInjectSchedulerTracing_CommandOverrideCompatibility(t *testing.T) {
+	for _, version := range []string{"", "1", "2"} {
+		t.Run("version="+version, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			command := []string{"epp", "--tracing=false"}
+			container := &corev1.Container{Name: "main", Command: command}
+			if version != "" {
+				container.Env = []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: version}}
+			}
+			injectSchedulerTracing(&v1alpha2.TracingSpec{}, "ns", "svc", container)
+			// Legacy controllers appended this flag even when Command supplied it.
+			want := []string{"--tracing=true"}
+			if version == "1" {
+				want = nil
+			}
+			g.Expect(container.Args).To(Equal(want))
+			g.Expect(container.Command).To(Equal(command))
+		})
+	}
+}
+
+func TestInjectServerTracing_NilSpec(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "main"}
+	mutated := injectServerTracing(nil, "ns", "svc", "-decode", container)
+	g.Expect(mutated).To(BeFalse())
+	g.Expect(container.Args).To(BeEmpty())
+	g.Expect(container.Env).To(BeEmpty())
+}
+
+func TestInjectServerTracing_EmptySpec_NoEndpoint_Skips(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "main"}
+	mutated := injectServerTracing(&v1alpha2.TracingSpec{}, "test-ns", "my-llm", "-decode", container)
+	g.Expect(mutated).To(BeFalse())
+	g.Expect(container.Args).To(BeEmpty())
+	g.Expect(container.Env).To(BeEmpty())
+}
+
+func TestInjectServerTracing_WithEndpoint_Decode(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "main"}
+	mutated := injectServerTracing(&v1alpha2.TracingSpec{
+		ExporterEndpoint: ptr.To("http://collector:4317"),
+	}, "test-ns", "my-llm", "-decode", container)
+	g.Expect(mutated).To(BeTrue())
+
+	g.Expect(container.Args).To(ContainElements("--otlp-traces-endpoint", "http://collector:4317"))
+	g.Expect(container.Args).To(ContainElements("--collect-detailed-traces", "all"))
+
+	envMap := envToMap(container.Env)
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", defaultServerServiceName+"-decode"))
+	g.Expect(envMap).To(HaveKey("OTEL_RESOURCE_ATTRIBUTES"))
+	g.Expect(envMap["OTEL_RESOURCE_ATTRIBUTES"]).To(ContainSubstring("llmisvc.name=my-llm"))
+}
+
+func TestInjectServerTracing_WithEndpoint_Prefill(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "main"}
+	injectServerTracing(&v1alpha2.TracingSpec{
+		ExporterEndpoint: ptr.To("http://collector:4317"),
+	}, "test-ns", "my-llm", "-prefill", container)
+
+	envMap := envToMap(container.Env)
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", defaultServerServiceName+"-prefill"))
+}
+
+func TestInjectServerTracing_CustomEndpoint(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "main"}
+	spec := &v1alpha2.TracingSpec{
+		ExporterEndpoint: ptr.To("http://my-collector:4317"),
+		Sampler:          ptr.To("always_on"),
+		SamplerArg:       ptr.To("1.0"),
+		Exporter:         ptr.To("otlp"),
+	}
+	injectServerTracing(spec, "prod", "llm-prod", "-decode", container)
+
+	g.Expect(container.Args).To(ContainElements("--otlp-traces-endpoint", "http://my-collector:4317"))
+
+	envMap := envToMap(container.Env)
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", "http://my-collector:4317"))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", "always_on"))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER_ARG", "1.0"))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_EXPORTER", "otlp"))
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", defaultServerServiceName+"-decode"))
+}
+
+func TestInjectServerTracing_DoesNotDuplicateArgs(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{
+		Name: "main",
+		Args: []string{"--otlp-traces-endpoint", "http://existing:4317", "--collect-detailed-traces", "model"},
+	}
+	injectServerTracing(&v1alpha2.TracingSpec{
+		ExporterEndpoint: ptr.To("http://new:4317"),
+	}, "ns", "svc", "-decode", container)
+
+	count := 0
+	for _, a := range container.Args {
+		if a == "--otlp-traces-endpoint" {
+			count++
+		}
+	}
+	g.Expect(count).To(Equal(1))
+	g.Expect(container.Args[1]).To(Equal("http://existing:4317"))
+}
+
+func TestInjectServerTracing_PreservesExistingEnv(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{
+		Name: "main",
+		Env: []corev1.EnvVar{
+			{Name: "OTEL_TRACES_SAMPLER", Value: "user-sampler"},
+		},
+	}
+	injectServerTracing(&v1alpha2.TracingSpec{
+		Sampler: ptr.To("injected-sampler"),
+	}, "ns", "svc", "-decode", container)
+
+	envMap := envToMap(container.Env)
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", "user-sampler"))
+}
+
+func TestInjectServerTracing_CommandOverrideCompatibility(t *testing.T) {
+	for _, version := range []string{"", "1", "2"} {
+		t.Run("version="+version, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			command := []string{"vllm", "serve", "model", "--otlp-traces-endpoint=http://custom:4317"}
+			container := &corev1.Container{Name: "main", Command: command}
+			if version != "" {
+				container.Env = []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: version}}
+			}
+			injectServerTracing(&v1alpha2.TracingSpec{ExporterEndpoint: ptr.To("http://collector:4317")}, "ns", "svc", "-decode", container)
+			want := []string{"--collect-detailed-traces", "all"}
+			if version != "1" {
+				want = append([]string{"--otlp-traces-endpoint", "http://collector:4317"}, want...)
+			}
+			g.Expect(container.Args).To(Equal(want))
+			g.Expect(container.Command).To(Equal(command))
+		})
+	}
+}
+
+func TestInjectServerTracingIntoPodSpec_FindsMainContainer(t *testing.T) {
+	g := NewGomegaWithT(t)
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "sidecar"},
+			{Name: "main"},
+		},
+	}
+	mutated := injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{
+		ExporterEndpoint: ptr.To("http://collector:4317"),
+	}, "ns", "svc", "-decode", podSpec)
+	g.Expect(mutated).To(BeTrue())
+
+	g.Expect(podSpec.Containers[0].Env).To(BeEmpty())
+	g.Expect(podSpec.Containers[1].Env).NotTo(BeEmpty())
+
+	envMap := envToMap(podSpec.Containers[1].Env)
+	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", defaultServerServiceName+"-decode"))
+}
+
+func TestInjectServerTracingIntoPodSpec_NoMainContainer(t *testing.T) {
+	g := NewGomegaWithT(t)
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "sidecar"},
+		},
+	}
+	mutated := injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{}, "ns", "svc", "-decode", podSpec)
+	g.Expect(mutated).To(BeFalse())
+	g.Expect(podSpec.Containers[0].Env).To(BeEmpty())
+}
+
+func TestInjectServerTracingIntoPodSpec_RoutingSidecar(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		version      string
+		command      []string
+		args         []string
+		expectedArgs []string
+	}{
+		{name: "legacy preset", command: []string{"/app/pd-sidecar", "--port=8000"}},
+		{name: "unknown version", version: "2"},
+		{name: "enabled", version: "1", command: []string{"/app/pd-sidecar", "--port=8000"}, expectedArgs: []string{"--tracing=true"}},
+		{name: "command override", version: "1", command: []string{"/app/pd-sidecar", "--tracing=false"}},
+		{name: "args override", version: "1", args: []string{"--tracing=false"}, expectedArgs: []string{"--tracing=false"}},
+		{name: "split args override", version: "1", args: []string{"--tracing", "false"}, expectedArgs: []string{"--tracing", "false"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			sampler := corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "tracing"}, Key: "sampler"},
+			}}
+			pod := &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: "main"}, {Name: "unrelated"}},
+				InitContainers: []corev1.Container{{Name: "storage-initializer"}, {
+					Name: constants.LLMISVCRoutingSidecarContainerName, Command: tt.command, Args: tt.args,
+					Env: []corev1.EnvVar{sampler},
+				}},
+			}
+			sidecar := &pod.InitContainers[1]
+			if tt.version != "" {
+				sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: tt.version})
+			}
+			original := sidecar.DeepCopy()
+			spec := &v1alpha2.TracingSpec{
+				ExporterEndpoint: ptr.To("http://collector:4317"), Sampler: ptr.To("always_on"),
+			}
+			g.Expect(injectServerTracingIntoPodSpec(spec, "ns", "svc", "-decode", pod)).To(BeTrue())
+			g.Expect(sidecar.Command).To(Equal(tt.command))
+			g.Expect(sidecar.Args).To(Equal(tt.expectedArgs))
+			g.Expect(sidecar.Env).To(ContainElement(sampler))
+			if tt.version == "1" {
+				g.Expect(envToMap(sidecar.Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "routing-sidecar"))
+				g.Expect(envToMap(sidecar.Env)).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317"))
+			} else {
+				g.Expect(sidecar).To(Equal(original), "old presets must not roll out on controller upgrade")
+			}
+			g.Expect(envToMap(pod.Containers[0].Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "inference-server-decode"))
+			g.Expect(pod.InitContainers[0].Env).To(BeEmpty())
+			g.Expect(pod.Containers[1].Env).To(BeEmpty())
+			before := pod.DeepCopy()
+			injectServerTracingIntoPodSpec(spec, "ns", "svc", "-decode", pod)
+			g.Expect(pod).To(Equal(before))
+		})
+	}
+}
+
+func TestInjectServerTracingIntoPodSpec_RoutingSidecarDisabled(t *testing.T) {
+	g := NewGomegaWithT(t)
+	pod := &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "main"}},
+		InitContainers: []corev1.Container{{
+			Name: constants.LLMISVCRoutingSidecarContainerName,
+			Env:  []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: "1"}},
+		}},
+	}
+	before := pod.DeepCopy()
+	g.Expect(injectServerTracingIntoPodSpec(nil, "ns", "svc", "-decode", pod)).To(BeFalse())
+	g.Expect(pod).To(Equal(before))
+}
+
+func TestOtelResourceAttributeEnvVars(t *testing.T) {
+	g := NewGomegaWithT(t)
+	envVars := otelResourceAttributeEnvVars("my-namespace", "my-service")
+
+	g.Expect(envVars).To(HaveLen(3))
+
+	g.Expect(envVars[0].Name).To(Equal("OTEL_RESOURCE_ATTRIBUTES_NODE_NAME"))
+	g.Expect(envVars[0].ValueFrom.FieldRef.FieldPath).To(Equal("spec.nodeName"))
+
+	g.Expect(envVars[1].Name).To(Equal("OTEL_RESOURCE_ATTRIBUTES_POD_NAME"))
+	g.Expect(envVars[1].ValueFrom.FieldRef.FieldPath).To(Equal("metadata.name"))
+
+	g.Expect(envVars[2].Name).To(Equal("OTEL_RESOURCE_ATTRIBUTES"))
+	g.Expect(envVars[2].Value).To(ContainSubstring("k8s.namespace.name=my-namespace"))
+	g.Expect(envVars[2].Value).To(ContainSubstring("llmisvc.name=my-service"))
+	g.Expect(envVars[2].Value).To(ContainSubstring("k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME)"))
+	g.Expect(envVars[2].Value).To(ContainSubstring("k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)"))
+}
+
+func envToMap(envVars []corev1.EnvVar) map[string]string {
+	m := make(map[string]string, len(envVars))
+	for _, e := range envVars {
+		m[e.Name] = e.Value
+	}
+	return m
+}

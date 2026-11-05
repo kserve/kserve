@@ -19,6 +19,8 @@ package llmisvc
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
@@ -39,4 +41,16 @@ func ReconcileMultiNodePrefillServiceAccountForTest(
 	llmSvc *v1alpha2.LLMInferenceService,
 ) error {
 	return r.reconcileMultiNodePrefillServiceAccount(ctx, llmSvc)
+}
+
+// ExpectedMultiNodePrefillLeaderWorkerTemplateForTest exposes expectedMultiNodePrefillLeaderWorkerTemplate for testing.
+func ExpectedMultiNodePrefillLeaderWorkerTemplateForTest(
+	ctx context.Context,
+	r *LLMISVCReconciler,
+	llmSvc *v1alpha2.LLMInferenceService,
+	config *Config,
+	deployedLeader *corev1.PodSpec,
+	deployedWorker corev1.PodSpec,
+) (*multiNodeTemplate, error) {
+	return r.expectedMultiNodePrefillLeaderWorkerTemplate(ctx, llmSvc, config, deployedLeader, deployedWorker)
 }

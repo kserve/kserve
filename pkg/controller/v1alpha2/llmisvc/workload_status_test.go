@@ -17,17 +17,33 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
 	"testing"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 )
+
+// observeWorkloadStatusForTest observes the workloads of svc with the DisaggregatedSet
+// feature gate on and its CRD installed. Reading replica counts fails on the empty
+// client, which these tests ignore: they check the workload references only.
+func observeWorkloadStatusForTest(svc *v1alpha2.LLMInferenceService) {
+	r := &LLMISVCReconciler{
+		Client:                    fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build(),
+		DisaggregatedSetAvailable: true,
+	}
+	config := &Config{FeatureGates: FeatureGates{DisaggregatedSet: true}}
+	_ = r.observeWorkloadStatus(context.Background(), svc, config)
+}
 
 func TestObserveWorkloadStatus(t *testing.T) {
 	tests := []struct {
@@ -39,11 +55,11 @@ func TestObserveWorkloadStatus(t *testing.T) {
 			name:   "single-node, no prefill, no scheduler",
 			modify: func(_ *v1alpha2.LLMInferenceService) {},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
@@ -58,16 +74,16 @@ func TestObserveWorkloadStatus(t *testing.T) {
 				}
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve",
-				},
-				Prefill: &corev1.TypedLocalObjectReference{
+				}},
+				Prefill: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve-prefill",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
@@ -82,16 +98,16 @@ func TestObserveWorkloadStatus(t *testing.T) {
 				}
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve",
-				},
-				Prefill: &corev1.TypedLocalObjectReference{
+				}},
+				Prefill: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
 					Kind:     "LeaderWorkerSet",
 					Name:     "test-svc-kserve-mn-prefill",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
@@ -104,11 +120,11 @@ func TestObserveWorkloadStatus(t *testing.T) {
 				svc.Spec.Worker = &corev1.PodSpec{}
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
 					Kind:     "LeaderWorkerSet",
 					Name:     "test-svc-kserve-mn",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
@@ -124,16 +140,16 @@ func TestObserveWorkloadStatus(t *testing.T) {
 				}
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
 					Kind:     "LeaderWorkerSet",
 					Name:     "test-svc-kserve-mn",
-				},
-				Prefill: &corev1.TypedLocalObjectReference{
+				}},
+				Prefill: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve-prefill",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
@@ -149,16 +165,16 @@ func TestObserveWorkloadStatus(t *testing.T) {
 				}
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
 					Kind:     "LeaderWorkerSet",
 					Name:     "test-svc-kserve-mn",
-				},
-				Prefill: &corev1.TypedLocalObjectReference{
+				}},
+				Prefill: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
 					Kind:     "LeaderWorkerSet",
 					Name:     "test-svc-kserve-mn-prefill",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
@@ -175,20 +191,20 @@ func TestObserveWorkloadStatus(t *testing.T) {
 				}
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
 				},
-				Scheduler: &corev1.TypedLocalObjectReference{
+				Scheduler: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve-router-scheduler",
-				},
+				}},
 			},
 		},
 		{
@@ -206,11 +222,11 @@ func TestObserveWorkloadStatus(t *testing.T) {
 				}
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
@@ -225,14 +241,40 @@ func TestObserveWorkloadStatus(t *testing.T) {
 				}
 				// Pre-populate to verify it gets cleared.
 				svc.Status.Workloads = &v1alpha2.WorkloadStatus{
-					Primary: &corev1.TypedLocalObjectReference{
+					Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 						APIGroup: ptr.To("apps"),
 						Kind:     "Deployment",
 						Name:     "stale",
-					},
+					}},
 				}
 			},
 			expectedWorkloads: nil,
+		},
+		{
+			// The decision is recomputed from the merged spec and the configuration,
+			// as reconcileWorkload makes it, instead of being passed in or read back
+			// from status.
+			name: "disaggregated P/D on a DisaggregatedSet",
+			modify: func(svc *v1alpha2.LLMInferenceService) {
+				svc.Spec.Annotations = map[string]string{constants.LLMDisaggregatedSetAnnotationKey: "true"}
+				svc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
+			},
+			expectedWorkloads: &v1alpha2.WorkloadStatus{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("disaggregatedset.x-k8s.io"),
+					Kind:     "DisaggregatedSet",
+					Name:     "test-svc-kserve-pd",
+				}},
+				Prefill: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("disaggregatedset.x-k8s.io"),
+					Kind:     "DisaggregatedSet",
+					Name:     "test-svc-kserve-pd",
+				}},
+				Service: &corev1.TypedLocalObjectReference{
+					Kind: "Service",
+					Name: "test-svc-kserve-workload-svc",
+				},
+			},
 		},
 		{
 			name: "idempotency - calling twice produces identical results",
@@ -247,28 +289,28 @@ func TestObserveWorkloadStatus(t *testing.T) {
 					},
 				}
 				// Call once before the main test invocation to pre-populate.
-				observeWorkloadStatus(svc)
+				observeWorkloadStatusForTest(svc)
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
-				Primary: &corev1.TypedLocalObjectReference{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
 					Kind:     "LeaderWorkerSet",
 					Name:     "test-svc-kserve-mn",
-				},
-				Prefill: &corev1.TypedLocalObjectReference{
+				}},
+				Prefill: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
 					Kind:     "LeaderWorkerSet",
 					Name:     "test-svc-kserve-mn-prefill",
-				},
+				}},
 				Service: &corev1.TypedLocalObjectReference{
 					Kind: "Service",
 					Name: "test-svc-kserve-workload-svc",
 				},
-				Scheduler: &corev1.TypedLocalObjectReference{
+				Scheduler: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     "test-svc-kserve-router-scheduler",
-				},
+				}},
 			},
 		},
 	}
@@ -295,9 +337,21 @@ func TestObserveWorkloadStatus(t *testing.T) {
 
 			tc.modify(svc)
 
-			observeWorkloadStatus(svc)
+			observeWorkloadStatusForTest(svc)
 
 			assert.Equal(t, tc.expectedWorkloads, svc.Status.Workloads)
 		})
+	}
+}
+
+func TestExpectedDirectScaledObjectDoesNotAddLegacyConfiguration(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"}}
+	scaling := &v1alpha2.ScalingSpec{MaxReplicas: 3, KEDA: &v1alpha2.DirectKEDAScalingSpec{Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu"}}}}
+	obj := expectedDirectScaledObject(svc, scaling, mainScaleTargetRef(svc, false), "svc-kserve-keda")
+	if len(obj.Annotations) != 0 {
+		t.Fatalf("unexpected annotations: %v", obj.Annotations)
+	}
+	if len(obj.Spec.Triggers) != 1 || obj.Spec.Triggers[0].Type != "cpu" {
+		t.Fatalf("unexpected triggers: %#v", obj.Spec.Triggers)
 	}
 }

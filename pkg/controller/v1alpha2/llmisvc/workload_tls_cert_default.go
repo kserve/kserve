@@ -1,7 +1,7 @@
 //go:build !distro
 
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import "context"
 // ca.crt is therefore identical to tls.crt.
 func (r *LLMISVCReconciler) createWorkloadCertificate(_ context.Context, dnsNames []string, ips []string) createCertFunc {
 	return func() (*certBundle, error) {
-		keyBytes, certBytes, err := createSelfSignedTLSCertificate(dnsNames, ips)
+		keyBytes, certBytes, err := createSelfSignedTLSCertificate(dnsNames, ips, r.generateCertificateKey)
 		if err != nil {
 			return nil, err
 		}

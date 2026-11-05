@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # This script explains how to make a http request to an inference service hosted behind a GCP IAP.
 
 # Prerequisites:

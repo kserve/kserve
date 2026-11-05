@@ -206,6 +206,39 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  name: kserve-autogluonserver
+  annotations:
+    serving.kserve.io/server-type: autogluonserver
+spec:
+  disabled: {{ .Values.kserve.servingruntime.autogluonserver.disabled }}
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.autogluonserver.image }}:{{ .Values.kserve.servingruntime.autogluonserver.tag | default .Values.kserve.version }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.autogluonserver.imagePullPolicy }}
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+      securityContext:
+          {{- with .Values.kserve.servingruntime.autogluonserver.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+  {{- with .Values.kserve.servingruntime.autogluonserver.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
   name: kserve-tensorflow-serving
   annotations:
     serving.kserve.io/server-type: tensorflow-serving
@@ -600,4 +633,47 @@ spec:
     imagePullSecrets:
       {{- toYaml . | nindent 4 }}
     {{- end }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-vllmserver
+spec:
+  disabled: {{ .Values.kserve.servingruntime.vllmserver.disabled }}
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.vllmserver.image }}:{{ .Values.kserve.servingruntime.vllmserver.tag | default .Values.kserve.version }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.vllmserver.imagePullPolicy }}
+      args:
+        - "--port=8080"
+        - "--model=/mnt/models"
+        - "--served-model-name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}"
+      env:
+        - name: LMCACHE_USE_EXPERIMENTAL
+          value: "{{ .Values.kserve.servingruntime.vllmserver.lmcacheUseExperimental }}"
+      securityContext:
+          {{- with .Values.kserve.servingruntime.vllmserver.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      {{- if .Values.kserve.servingruntime.vllmserver.devShm.enabled }}
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
+      {{- end }}
+  {{- if .Values.kserve.servingruntime.vllmserver.devShm.enabled }}
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+        {{- with .Values.kserve.servingruntime.vllmserver.devShm.sizeLimit }}
+        sizeLimit: {{ . }}
+        {{- end }}
+  {{- end }}
+  {{- with .Values.kserve.servingruntime.vllmserver.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.kserve.servingruntime.vllmserver.hostIPC.enabled }}
+  hostIPC: true
+  {{- end }}
 {{- end }}

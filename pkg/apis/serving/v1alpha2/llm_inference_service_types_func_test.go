@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,12 +19,17 @@ package v1alpha2
 import (
 	"testing"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestEPPServiceName(t *testing.T) {
@@ -61,7 +66,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: igwapi.ObjectName(defaultName),
 							},
 						},
@@ -82,7 +87,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "my-custom-epp",
 							},
 						},
@@ -109,7 +114,7 @@ func TestEPPServiceName(t *testing.T) {
 					Pool: &InferencePoolSpec{
 						Ref: &corev1.LocalObjectReference{Name: "external-pool"},
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "should-be-ignored",
 							},
 						},
@@ -124,7 +129,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "",
 							},
 						},
@@ -142,6 +147,20 @@ func TestEPPServiceName(t *testing.T) {
 				t.Errorf("EPPServiceName() = %q, want %q", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestValidateWorkloadScalingDirectKEDA(t *testing.T) {
+	workload := &WorkloadSpec{Scaling: &ScalingSpec{MinReplicas: ptr.To(int32(1)), MaxReplicas: 4, KEDA: &DirectKEDAScalingSpec{Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu"}}}}}
+	if errs := ValidateWorkloadScaling(field.NewPath("spec"), workload); len(errs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", errs)
+	}
+}
+
+func TestValidateWorkloadScalingRequiresKEDA(t *testing.T) {
+	workload := &WorkloadSpec{Scaling: &ScalingSpec{MaxReplicas: 4}}
+	if errs := ValidateWorkloadScaling(field.NewPath("spec"), workload); len(errs) == 0 {
+		t.Fatal("expected missing KEDA validation error")
 	}
 }
 
@@ -399,6 +418,32 @@ func TestIsUsingLLMInferenceServiceConfig(t *testing.T) {
 			configName: "target-config",
 			want:       true,
 		},
+		{
+			name: "ignores ServingRuntime entries in appliedConfigRefs",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "kserve-llm-sglang", Source: AppliedConfigSourceServingRuntime},
+					},
+				},
+			},
+			configName: "kserve-llm-sglang",
+			want:       false,
+		},
+		{
+			name: "accelerator annotation value is not a config reference",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							constants.LLMAcceleratorAnnotationKey: "gpu",
+						},
+					},
+				},
+			},
+			configName: "gpu",
+			want:       false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -460,6 +505,19 @@ func TestIsUsingLLMInferenceServiceConfigInNamespace(t *testing.T) {
 				},
 			},
 			configName:      "kserve-config-llm-template",
+			configNamespace: "kserve",
+			want:            false,
+		},
+		{
+			name: "ignores ServingRuntime entries when matching namespace",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "kserve-llm-sglang", Source: AppliedConfigSourceServingRuntime},
+					},
+				},
+			},
+			configName:      "kserve-llm-sglang",
 			configNamespace: "kserve",
 			want:            false,
 		},
@@ -535,6 +593,18 @@ func TestDetermineWorkloadReadiness_ScalingConditions(t *testing.T) {
 		assert.Equal(t, "FailedGetExternalMetric", cond.Reason)
 	})
 
+	t.Run("unsupported WVA scaling does not block WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkScalingNotReady(WVAUnsupportedReason, "WVA autoscaling is no longer supported")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, ScalingReady))
+		assert.Equal(t, WVAUnsupportedReason, svc.GetStatus().GetCondition(ScalingReady).Reason)
+		assert.Equal(t, "True", getConditionStatus(svc, WorkloadReady))
+	})
+
 	t.Run("PrefillScalingReady=False blocks WorkloadsReady", func(t *testing.T) {
 		svc := newTestLLMISVC()
 		svc.MarkMainWorkloadReady()
@@ -606,4 +676,299 @@ func TestDetermineWorkloadReadiness_ScalingConditions(t *testing.T) {
 		cond := svc.GetStatus().GetCondition(WorkloadReady)
 		assert.Equal(t, "DeploymentUnavailable", cond.Reason, "MainWorkloadReady comes first in order")
 	})
+
+	t.Run("PVCEvictorReady=False blocks WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkPVCEvictorNotReady("PVCEvictorNotReady", "%s", "evictor unavailable")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, WorkloadReady))
+		assert.Equal(t, "PVCEvictorNotReady", svc.GetStatus().GetCondition(WorkloadReady).Reason)
+	})
+}
+
+func TestHasManagedDRA(t *testing.T) {
+	tests := []struct {
+		name        string
+		llmSvc      *LLMInferenceService
+		annotations map[string]string
+		want        bool
+	}{
+		{name: "nil receiver", llmSvc: nil, want: false},
+		{name: "no annotations", annotations: nil, want: false},
+		{name: "unrelated annotation", annotations: map[string]string{"foo": "bar"}, want: false},
+		{
+			name:        "device class set",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-device-class": "gpu.nvidia.com"},
+			want:        true,
+		},
+		{
+			name: "only ancillary annotations set is not enough",
+			annotations: map[string]string{
+				"serving.kserve.io/exp-dra-device-count":   "2",
+				"serving.kserve.io/exp-dra-container-name": "main",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := tt.llmSvc
+			if svc == nil && tt.name != "nil receiver" {
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+			}
+			if got := svc.HasManagedDRA(); got != tt.want {
+				t.Errorf("HasManagedDRA() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestManagedDRADeviceClass(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilReceiver bool
+		annotations map[string]string
+		wantValue   string
+		wantPresent bool
+	}{
+		{name: "nil receiver", nilReceiver: true, wantValue: "", wantPresent: false},
+		{name: "annotation not set", wantValue: "", wantPresent: false},
+		{
+			name:        "set with normal value",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-device-class": "gpu.nvidia.com"},
+			wantValue:   "gpu.nvidia.com",
+			wantPresent: true,
+		},
+		{
+			name:        "set with surrounding whitespace is trimmed",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-device-class": "  gpu.nvidia.com  "},
+			wantValue:   "gpu.nvidia.com",
+			wantPresent: true,
+		},
+		{
+			name:        "set to whitespace only is present but empty",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-device-class": "   "},
+			wantValue:   "",
+			wantPresent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var svc *LLMInferenceService
+			if !tt.nilReceiver {
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+			}
+			gotValue, gotPresent := svc.ManagedDRADeviceClass()
+			if gotValue != tt.wantValue || gotPresent != tt.wantPresent {
+				t.Errorf("ManagedDRADeviceClass() = (%q, %v), want (%q, %v)",
+					gotValue, gotPresent, tt.wantValue, tt.wantPresent)
+			}
+		})
+	}
+}
+
+func TestManagedDRADeviceCount(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilReceiver bool
+		value       string
+		wantCount   int
+		wantErr     bool
+	}{
+		{name: "nil receiver returns default", nilReceiver: true, wantCount: 1},
+		{name: "annotation not set returns default", value: "", wantCount: 1},
+		{name: "annotation set to whitespace returns default", value: "   ", wantCount: 1},
+		{name: "valid value 1", value: "1", wantCount: 1},
+		{name: "valid value 2", value: "2", wantCount: 2},
+		{name: "valid value 8 with surrounding whitespace", value: " 8 ", wantCount: 8},
+		{name: "invalid: zero", value: "0", wantErr: true},
+		{name: "invalid: negative", value: "-1", wantErr: true},
+		{name: "invalid: non-numeric", value: "abc", wantErr: true},
+		{name: "invalid: float", value: "1.5", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var svc *LLMInferenceService
+			if !tt.nilReceiver {
+				ann := map[string]string{}
+				if tt.value != "" {
+					ann["serving.kserve.io/exp-dra-device-count"] = tt.value
+				}
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: ann}}
+			}
+			gotCount, gotErr := svc.ManagedDRADeviceCount()
+			if (gotErr != nil) != tt.wantErr {
+				t.Fatalf("ManagedDRADeviceCount() err = %v, wantErr = %v", gotErr, tt.wantErr)
+			}
+			if !tt.wantErr && gotCount != tt.wantCount {
+				t.Errorf("ManagedDRADeviceCount() count = %d, want %d", gotCount, tt.wantCount)
+			}
+		})
+	}
+}
+
+func TestManagedDRACelSelectors(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilReceiver bool
+		value       string
+		set         bool
+		want        []string
+	}{
+		{name: "nil receiver", nilReceiver: true, want: nil},
+		{name: "annotation not set", want: nil},
+		{name: "annotation set to empty", set: true, value: "", want: nil},
+		{name: "annotation set to whitespace only", set: true, value: "   \n  \n", want: nil},
+		{
+			name:  "single expression",
+			set:   true,
+			value: "device.attributes['gpu.nvidia.com']['type'] == 'A100'",
+			want:  []string{"device.attributes['gpu.nvidia.com']['type'] == 'A100'"},
+		},
+		{
+			name: "multiple expressions newline-separated",
+			set:  true,
+			value: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
+				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+			want: []string{
+				"device.attributes['gpu.nvidia.com']['type'] == 'A100'",
+				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+			},
+		},
+		{
+			name: "blank lines and indentation are stripped",
+			set:  true,
+			value: "\n  device.attributes['gpu.nvidia.com']['type'] == 'A100'  \n" +
+				"\n  device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0\n",
+			want: []string{
+				"device.attributes['gpu.nvidia.com']['type'] == 'A100'",
+				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var svc *LLMInferenceService
+			if !tt.nilReceiver {
+				ann := map[string]string{}
+				if tt.set {
+					ann["serving.kserve.io/exp-dra-cel-selector"] = tt.value
+				}
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: ann}}
+			}
+			got := svc.ManagedDRACelSelectors()
+			if len(got) != len(tt.want) {
+				t.Fatalf("ManagedDRACelSelectors() = %v (len=%d), want %v (len=%d)",
+					got, len(got), tt.want, len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("ManagedDRACelSelectors()[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestManagedDRAContainerName(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilReceiver bool
+		annotations map[string]string
+		wantValue   string
+		wantPresent bool
+	}{
+		{name: "nil receiver", nilReceiver: true, wantValue: "", wantPresent: false},
+		{name: "annotation not set", wantValue: "", wantPresent: false},
+		{
+			name:        "set with normal value",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-container-name": "main"},
+			wantValue:   "main",
+			wantPresent: true,
+		},
+		{
+			name:        "set with surrounding whitespace is trimmed",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-container-name": "  worker  "},
+			wantValue:   "worker",
+			wantPresent: true,
+		},
+		{
+			name:        "set to whitespace only is present but empty",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-container-name": "   "},
+			wantValue:   "",
+			wantPresent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var svc *LLMInferenceService
+			if !tt.nilReceiver {
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+			}
+			gotValue, gotPresent := svc.ManagedDRAContainerName()
+			if gotValue != tt.wantValue || gotPresent != tt.wantPresent {
+				t.Errorf("ManagedDRAContainerName() = (%q, %v), want (%q, %v)",
+					gotValue, gotPresent, tt.wantValue, tt.wantPresent)
+			}
+		})
+	}
+}
+
+func TestDisaggregatedSetRequested(t *testing.T) {
+	tests := []struct {
+		name                string
+		llmSvc              *LLMInferenceService
+		specAnnotations     map[string]string
+		metadataAnnotations map[string]string
+		want                bool
+	}{
+		{name: "nil receiver", llmSvc: nil, want: false},
+		{name: "no annotations", specAnnotations: nil, want: false},
+		{name: "unrelated annotation", specAnnotations: map[string]string{"foo": "bar"}, want: false},
+		{
+			name:            "opted in",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
+			want:            true,
+		},
+		{
+			name:            "opted out",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "false"},
+			want:            false,
+		},
+		{
+			// Read from spec.annotations, where the presets that turn it on by default
+			// can set it; presets cannot set the service's metadata.
+			name:                "metadata annotations are not consulted",
+			metadataAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
+			want:                false,
+		},
+		{
+			name:            "malformed value is not opt-in",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "yes"},
+			want:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := tt.llmSvc
+			if svc == nil && tt.name != "nil receiver" {
+				svc = &LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Annotations: tt.metadataAnnotations},
+					Spec:       LLMInferenceServiceSpec{WorkloadSpec: WorkloadSpec{Annotations: tt.specAnnotations}},
+				}
+			}
+			if got := svc.DisaggregatedSetRequested(); got != tt.want {
+				t.Errorf("DisaggregatedSetRequested() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

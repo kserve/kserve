@@ -633,8 +633,7 @@ export RELEASE
 #================================================
 
 GOLANGCI_LINT_VERSION=v2.9.0
-CONTROLLER_TOOLS_VERSION=v0.19.0
-ENVTEST_VERSION=release-0.19
+CONTROLLER_TOOLS_VERSION=v0.21.0
 YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.8.1
@@ -642,24 +641,27 @@ HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+SHELLCHECK_VERSION=v0.11.0
+CODESPELL_VERSION=2.4.3
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.7.0
-ENVOY_AI_GATEWAY_VERSION=v0.6.0
+ENVOY_GATEWAY_VERSION=v1.8.1
+ENVOY_AI_GATEWAY_VERSION=v1.1.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
-KSERVE_VERSION=v0.19.0-rc0
-ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.18.0
-OPENTELEMETRY_OPERATOR_VERSION=0.74.3
-LWS_VERSION=v0.8.0
-GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.1
-WVA_VERSION=v0.7.0
+JAEGER_VERSION=4.7.0
+KSERVE_VERSION=v0.21.0
+ISTIO_VERSION=1.31.2
+KEDA_VERSION=2.20.2
+OPENTELEMETRY_OPERATOR_VERSION=0.114.1
+LWS_VERSION=v1.0.0
+GATEWAY_API_VERSION=v1.6.2
+GIE_VERSION=v1.6.2
+LLMD_ROUTER_VERSION=v1.0.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -671,7 +673,6 @@ KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
 PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
 PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
-WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -1159,7 +1160,10 @@ install_istio() {
     fi
 
     log_info "Adding Istio Helm repository..."
-    helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
+    helm repo add istio https://blob.istio.io/istio-release/charts --force-update
+
+    # Allow callers to override the version from kserve-deps.env
+    ISTIO_VERSION="${ISTIO_VERSION_OVERRIDE:-$ISTIO_VERSION}"
 
     log_info "Installing istio-base ${ISTIO_VERSION}..."
     helm install istio-base istio/base \
@@ -1176,6 +1180,7 @@ install_istio() {
         --version "${ISTIO_VERSION}" \
         --set proxy.autoInject=disabled \
         --set pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true \
+        --set pilot.env.SUPPORT_GATEWAY_API_INFERENCE_EXTENSION=true `# Istio <1.28 uses SUPPORT_, >=1.28 uses ENABLE_` \
         --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
         --wait \
         ${ISTIOD_EXTRA_ARGS:-}
@@ -1393,6 +1398,9 @@ install_kserve_helm() {
             config_args+=(--set "kserve.localmodel.enabled=true")
             config_args+=(--set "kserve.localmodel.defaultJobImage=kserve/storage-initializer")
             config_args+=(--set "kserve.localmodel.defaultJobImageTag=${KSERVE_VERSION}")
+            config_args+=(--set "kserve.kernelcache.enabled=true")
+            config_args+=(--set "kserve.kernelcache.mcvImage=kserve/kserve-mcv")
+            config_args+=(--set "kserve.kernelcache.mcvTag=${KSERVE_VERSION}-minimal")
         fi
         # Add custom configurations if provided
         if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
@@ -1500,6 +1508,41 @@ install_kserve_helm() {
 
     log_success "Successfully installed KServe"
 
+    # Helm's sortManifestsByKind applies the llmisvc-controller-manager Deployment
+    # (a known kind) before cert-manager's Certificate CR (a custom kind, sorted
+    # last), so the pod can be scheduled and attempt to mount
+    # llmisvc-webhook-server-cert before cert-manager has issued it, hitting
+    # FailedMount and kubelet's mount-retry backoff. Wait for the Certificate to
+    # be issued and restart the deployment to reset that backoff before waiting
+    # for it to become ready.
+    if is_positive "${ENABLE_LLMISVC}"; then
+        log_info "Waiting for llmisvc webhook Certificate to be ready..."
+        kubectl wait --for=condition=Ready certificate/llmisvc-serving-cert \
+            -n "${KSERVE_NAMESPACE}" --timeout=180s
+
+        log_info "Restarting llmisvc-controller-manager to pick up the freshly-issued cert..."
+        kubectl rollout restart deployment/llmisvc-controller-manager -n "${KSERVE_NAMESPACE}"
+
+        # Wait for the NEW ReplicaSet to be fully rolled out. The wait_for_deployment
+        # helper below uses --for=condition=Available, which is satisfied by the OLD
+        # ReplicaSet's Ready pod during the rolling restart: it returns instantly but
+        # does not guarantee the new pod is serving the webhook. The subsequent
+        # kserve-runtime-configs install then applies LLMInferenceServiceConfig presets
+        # whose validating webhook must authorize each, and can hit the webhook Service
+        # before the new pod is a ready endpoint (dial ...:443: connect: connection refused).
+        log_info "Waiting for llmisvc-controller-manager rollout to complete..."
+        kubectl rollout status deployment/llmisvc-controller-manager \
+            -n "${KSERVE_NAMESPACE}" --timeout=300s
+
+        # Additionally wait for the webhook Service to have ready endpoints, covering the
+        # window between pod-ready and kube-proxy programming the Service endpoints.
+        log_info "Waiting for llmisvc webhook Service endpoints..."
+        kubectl wait --for=jsonpath='{.subsets[0].addresses}' \
+            endpoints/llmisvc-webhook-server-service \
+            -n "${KSERVE_NAMESPACE}" --timeout=60s
+        log_info "llmisvc webhook is ready."
+    fi
+
     # Wait for all controller managers to be ready
     log_info "Waiting for KServe controllers to be ready..."
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
@@ -1583,7 +1626,7 @@ main() {
         if [ -n "${SET_KSERVE_VERSION}" ]; then
             PULL_POLICY_KSERVE="--set kserve.controller.imagePullPolicy=IfNotPresent"
             PULL_POLICY_LLMISVC="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
-            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent --set kserve.kernelcachenode.controller.imagePullPolicy=IfNotPresent"
         fi
         
         if is_positive "${ENABLE_KSERVE}"; then

@@ -20,10 +20,12 @@ package llmisvc
 
 import (
 	"context"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
 // discoverAdditionalURLs is a hook for distribution-specific URL discovery
 // (e.g. OpenShift Routes fronting ClusterIP-backed Gateways).
-func (r *LLMISVCReconciler) discoverAdditionalURLs(_ context.Context, _ []DiscoveredURL) ([]DiscoveredURL, error) {
+func (r *LLMISVCReconciler) discoverAdditionalURLs(_ context.Context, _ *v1alpha2.LLMInferenceService, _ []DiscoveredURL) ([]DiscoveredURL, error) {
 	return nil, nil
 }

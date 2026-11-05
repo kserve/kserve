@@ -30,6 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
 
@@ -38,6 +39,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -60,7 +62,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should create a basic single node deployment with just base refs", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
@@ -163,7 +165,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}
 			}, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 				g.Expect(current.Status.Workloads).NotTo(BeNil())
-				g.Expect(current.Status.Workloads.Primary).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Primary).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Primary.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve"),
@@ -176,11 +179,21 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// Scheduler is populated because "router-managed" config includes a
 				// scheduler spec and the well-known kserve-config-llm-scheduler preset
 				// provides the template.
-				g.Expect(current.Status.Workloads.Scheduler).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Scheduler).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 				}))
+
+				// The refs are populated on the first reconcile after the
+				// Deployments exist, before the Deployment status writes this test
+				// makes are observed. Ready plus the observed replica counts is
+				// what tells us the status has settled, which the idempotency
+				// snapshot below depends on.
+				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
+				g.Expect(current.Status.Workloads.Primary.ReadyReplicas).To(Equal(ptr.To[int32](1)))
+				g.Expect(current.Status.Workloads.Scheduler.ReadyReplicas).To(Equal(ptr.To[int32](1)))
 			})).WithContext(ctx).Should(Succeed())
 
 			// Idempotency: trigger a no-op requeue and verify status.workloads
@@ -215,10 +228,530 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
+		DescribeTable("should carry merged KV cache configuration into a stable single-node workload",
+			func(ctx SpecContext, testName, expectedSpecName string, secondary []v1alpha2.SecondaryTierSpec) {
+				svcName := "test-kv-carrier-" + testName
+				testNs := NewTestNamespace(ctx, envTest)
+
+				modelConfig := LLMInferenceServiceConfig("model-config",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigModelURI("hf://facebook/opt-125m"),
+				)
+				workloadConfig := LLMInferenceServiceConfig("workload-config",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: []corev1.Container{{
+						Name:  "main",
+						Image: "quay.io/pierdipi/vllm-cpu:latest",
+						Env:   []corev1.EnvVar{{Name: "KSERVE_KV_TRANSFER_ARGS"}},
+					}}}),
+				)
+				workloadConfig.Spec.KVCacheOffloading = &v1alpha2.KVCacheOffloadingSpec{
+					CPU:       resource.MustParse("10Gi"),
+					Secondary: secondary,
+				}
+
+				Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+				Expect(envTest.Create(ctx, workloadConfig)).To(Succeed())
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithBaseRefs(
+						corev1.LocalObjectReference{Name: modelConfig.Name},
+						corev1.LocalObjectReference{Name: workloadConfig.Name},
+					),
+				)
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer testNs.DeleteAndWait(ctx, llmSvc)
+
+				key := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
+				deployment := &appsv1.Deployment{}
+				Eventually(func(g Gomega, ctx context.Context) {
+					g.Expect(envTest.Get(ctx, key, deployment)).To(Succeed())
+					g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+					g.Expect(deployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(And(
+						HaveField("Name", "KSERVE_KV_TRANSFER_ARGS"),
+						HaveField("Value", ContainSubstring(`"spec_name":"`+expectedSpecName+`"`)),
+					)))
+					// The shipped single-node preset declares dshm at 1Gi for NCCL and
+					// asks for 120% of the tier on top, so this pins the annotation, the
+					// arithmetic and the preset's own baseline together against the real
+					// preset rather than a synthetic one.
+					shm := volumeByName(deployment.Spec.Template.Spec.Volumes, "dshm")
+					g.Expect(shm).ToNot(BeNil())
+					wantShm := resource.MustParse("13Gi")
+					g.Expect(shm.EmptyDir.SizeLimit.Cmp(wantShm)).To(Equal(0),
+						"dshm sizeLimit = %s, want 13Gi (1Gi preset baseline + 120%% of a 10Gi tier)",
+						shm.EmptyDir.SizeLimit)
+				}).WithContext(ctx).Should(Succeed())
+				firstPodTemplate := deployment.Spec.Template.DeepCopy()
+				firstGeneration := deployment.Generation
+
+				// Touch the service to force another reconcile. Filling the slot is
+				// string assembly, so a re-render that is not byte-identical rewrites
+				// the pod template and rolls the workload.
+				beforeTriggerRV := ""
+				Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					current := &v1alpha2.LLMInferenceService{}
+					if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+						return err
+					}
+					if current.Annotations == nil {
+						current.Annotations = map[string]string{}
+					}
+					current.Annotations["test/kv-carrier-idempotency"] = "1"
+					beforeTriggerRV = current.ResourceVersion
+					return envTest.Update(ctx, current)
+				})).To(Succeed())
+
+				// Wait for the trigger to land and for the controller to stop writing
+				// before asserting anything held still. Requiring two consecutive reads
+				// at the same ResourceVersion is what separates "settled" from "the
+				// update landed but the status write has not happened yet" - the latter
+				// moves the version in the middle of the window below. The polling interval
+				// is that quiet period, so it is pinned rather than taken from the suite
+				// default: it has to outlast the controller's status write under load.
+				var afterTriggerRV string
+				Eventually(func(g Gomega, ctx context.Context) {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Annotations).To(HaveKeyWithValue("test/kv-carrier-idempotency", "1"))
+					g.Expect(current.ResourceVersion).NotTo(Equal(beforeTriggerRV))
+					previous := afterTriggerRV
+					afterTriggerRV = current.ResourceVersion
+					g.Expect(afterTriggerRV).To(Equal(previous), "resource version is still moving")
+				}).WithContext(ctx).WithPolling(250 * time.Millisecond).Should(Succeed())
+
+				// A settled ResourceVersion is what makes the rest meaningful: a
+				// controller still writing would keep moving it.
+				Consistently(func(g Gomega, ctx context.Context) {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.ResourceVersion).To(Equal(afterTriggerRV))
+
+					currentDeployment := &appsv1.Deployment{}
+					g.Expect(envTest.Get(ctx, key, currentDeployment)).To(Succeed())
+					g.Expect(&currentDeployment.Spec.Template).To(Equal(firstPodTemplate))
+					g.Expect(currentDeployment.Generation).To(Equal(firstGeneration))
+				}).WithContext(ctx).WithTimeout(2 * time.Second).Should(Succeed())
+			},
+			Entry("for CPU-only offloading", "cpu", "CPUOffloadingSpec", nil),
+			Entry("for tiered offloading", "tiered", "TieringOffloadingSpec", []v1alpha2.SecondaryTierSpec{{
+				FileSystem: &v1alpha2.FileSystemTierSpec{EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("10Gi")}},
+			}}),
+		)
+
+		DescribeTable("should keep reconciling a service whose merged config carries a degenerate cpu tier",
+			func(ctx SpecContext, testName, cpu string) {
+				// A cpu that predates the current rules can already be sitting in a stored
+				// config, and config merging runs on every reconcile. Re-rendering it must not
+				// be what takes a running service down.
+				testNs := NewTestNamespace(ctx, envTest)
+
+				modelConfig := LLMInferenceServiceConfig("model-config",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigModelURI("hf://facebook/opt-125m"),
+				)
+				workloadConfig := LLMInferenceServiceConfig("workload-config",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: []corev1.Container{{
+						Name:  "main",
+						Image: "quay.io/pierdipi/vllm-cpu:latest",
+					}}}),
+				)
+				workloadConfig.Spec.KVCacheOffloading = &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse(cpu),
+				}
+
+				Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+				Expect(envTest.Create(ctx, workloadConfig)).To(Succeed())
+
+				svcName := "test-kv-degenerate-" + testName
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithBaseRefs(
+						corev1.LocalObjectReference{Name: modelConfig.Name},
+						corev1.LocalObjectReference{Name: workloadConfig.Name},
+					),
+				)
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer testNs.DeleteAndWait(ctx, llmSvc)
+
+				Eventually(func(g Gomega, ctx context.Context) {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
+				}).WithContext(ctx).Should(Succeed())
+
+				Eventually(func(g Gomega, ctx context.Context) {
+					deployment := &appsv1.Deployment{}
+					g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}, deployment)).To(Succeed())
+				}).WithContext(ctx).Should(Succeed())
+			},
+			Entry("for a zero cpu", "zero", "0"),
+		)
+
+		It("should report a spec that writes to the transfer-argument slot", func(ctx SpecContext) {
+			// env merges by name, so a value the spec declares lands on the slot the
+			// preset left empty for the controller. Filling over it would ignore it
+			// silently; the service is marked instead, with its own reason, and keeps
+			// whatever it was already serving.
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelConfig := LLMInferenceServiceConfig("model-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+			workloadConfig := LLMInferenceServiceConfig("workload-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: []corev1.Container{{
+					Name:  "main",
+					Image: "quay.io/pierdipi/vllm-cpu:latest",
+					Env: []corev1.EnvVar{{
+						Name:  "KSERVE_KV_TRANSFER_ARGS",
+						Value: `--kv-transfer-config '{"kv_connector":"MyConnector"}'`,
+					}},
+				}}}),
+			)
+			workloadConfig.Spec.KVCacheOffloading = &v1alpha2.KVCacheOffloadingSpec{
+				CPU: resource.MustParse("10Gi"),
+			}
+
+			Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Create(ctx, workloadConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService("test-kv-slot-conflict",
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: modelConfig.Name},
+					corev1.LocalObjectReference{Name: workloadConfig.Name},
+				),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
+				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
+				g.Expect(cond).NotTo(BeNil())
+				// Its own reason, not the generic CombineBaseError - the user has to
+				// edit the spec, and the message says what to edit and where to put it.
+				g.Expect(cond.Reason).To(Equal("KVTransferSlotConflict"))
+				g.Expect(cond.Message).To(ContainSubstring("KSERVE_KV_TRANSFER_ARGS"))
+				g.Expect(cond.Message).To(ContainSubstring("VLLM_ADDITIONAL_ARGS"))
+				// The requeue policy is not something a user can act on.
+				g.Expect(cond.Message).ToNot(ContainSubstring("terminal error"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should report a negative cpu against the field that carries it", func(ctx SpecContext) {
+			// Admission only sees the user's own spec, so a size arriving from a preset
+			// is caught by the dry-run over the merged config instead. The point is that
+			// it names spec.kvCacheOffloading.cpu either way, rather than surfacing as an
+			// engine crash once the pod is running.
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelConfig := LLMInferenceServiceConfig("model-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+			workloadConfig := LLMInferenceServiceConfig("workload-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: []corev1.Container{{
+					Name:  "main",
+					Image: "quay.io/pierdipi/vllm-cpu:latest",
+				}}}),
+			)
+			workloadConfig.Spec.KVCacheOffloading = &v1alpha2.KVCacheOffloadingSpec{
+				CPU: resource.MustParse("-1Gi"),
+			}
+
+			Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Create(ctx, workloadConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService("test-kv-negative-cpu",
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: modelConfig.Name},
+					corev1.LocalObjectReference{Name: workloadConfig.Name},
+				),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
+				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Message).To(ContainSubstring("spec.kvCacheOffloading.cpu"))
+				g.Expect(cond.Message).To(ContainSubstring("must not be negative"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		DescribeTable("should create a single node deployment with managed DRA",
+			func(ctx SpecContext, testName string, containers []corev1.Container, extraAnnotations map[string]string, targetContainer string) {
+				// given
+				svcName := "test-llm-dra-" + testName
+				testNs := NewTestNamespace(ctx, envTest)
+
+				modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigModelName("facebook/opt-125m"),
+					WithConfigModelURI("hf://facebook/opt-125m"),
+				)
+				routerConfig := LLMInferenceServiceConfig("router-managed",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigManagedRouter(),
+				)
+				workloadConfig := LLMInferenceServiceConfig("workload-single-cpu",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: containers}),
+				)
+
+				Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, workloadConfig)).To(Succeed())
+
+				annotations := map[string]string{
+					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+					constants.ManagedDRADeviceCountAnnotationKey: "2",
+					constants.ManagedDRACelSelectorAnnotationKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
+						"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+				}
+				for k, v := range extraAnnotations {
+					annotations[k] = v
+				}
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithAnnotations(annotations),
+					WithBaseRefs(
+						corev1.LocalObjectReference{Name: "model-fb-opt-125m"},
+						corev1.LocalObjectReference{Name: "router-managed"},
+						corev1.LocalObjectReference{Name: "workload-single-cpu"},
+					),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				// then
+				expectedDeployment := &appsv1.Deployment{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					return envTest.Get(ctx, types.NamespacedName{
+						Name:      svcName + "-kserve",
+						Namespace: testNs.Name,
+					}, expectedDeployment)
+				}).WithContext(ctx).Should(Succeed())
+
+				// Verify the ResourceClaimTemplate was created with correct values
+				expectedTemplate := &resourcev1.ResourceClaimTemplate{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					return envTest.Get(ctx, types.NamespacedName{
+						Name:      svcName + "-managed-dra",
+						Namespace: testNs.Name,
+					}, expectedTemplate)
+				}).WithContext(ctx).Should(Succeed())
+
+				// Check that it parsed the annotations correctly
+				Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(1))
+				Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("device"))
+				Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
+				Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.Count).To(Equal(int64(2)))
+
+				for _, req := range expectedTemplate.Spec.Spec.Devices.Requests {
+					Expect(req.Exactly.Selectors).To(HaveLen(2))
+					Expect(req.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring("type"))
+					Expect(req.Exactly.Selectors[1].CEL.Expression).To(ContainSubstring("memory"))
+				}
+
+				// Verify the deployment has the DRA pod-level claim
+				Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
+				Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("managed-device"))
+				Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
+				Expect(*expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
+
+				// Verify only the target container received the container-level claim
+				var targetSeen bool
+				for _, c := range expectedDeployment.Spec.Template.Spec.Containers {
+					if c.Name == targetContainer {
+						targetSeen = true
+						Expect(c.Resources.Claims).To(HaveLen(1), "%s should receive the device claim", c.Name)
+						Expect(c.Resources.Claims[0].Name).To(Equal("managed-device"))
+					} else {
+						Expect(c.Resources.Claims).To(BeEmpty(), "%s must not receive the device claim", c.Name)
+					}
+				}
+				Expect(targetSeen).To(BeTrue(), "target container %q should be present in the deployment", targetContainer)
+			},
+			Entry("main-named workload, no container annotation -> claim on main",
+				"main",
+				[]corev1.Container{
+					{Name: "main", Image: "quay.io/pierdipi/vllm-cpu:latest"},
+					{Name: "sidecar", Image: "busybox:latest"},
+				},
+				nil,
+				"main",
+			),
+			Entry("non-main first container, no container annotation -> claim on first container",
+				"fallback",
+				[]corev1.Container{
+					{Name: "vllm", Image: "quay.io/pierdipi/vllm-cpu:latest"},
+					{Name: "sidecar", Image: "busybox:latest"},
+				},
+				nil,
+				"vllm",
+			),
+			Entry("container annotation set -> claim on annotated container",
+				"annotated",
+				[]corev1.Container{
+					{Name: "init", Image: "busybox:latest"},
+					{Name: "worker", Image: "quay.io/pierdipi/vllm-cpu:latest"},
+					{Name: "sidecar", Image: "busybox:latest"},
+				},
+				map[string]string{constants.ManagedDRAContainerNameAnnotationKey: "worker"},
+				"worker",
+			),
+		)
+
+		It("should clean up the ResourceClaimTemplate when managed DRA is disabled", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-dra-cleanup"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelName("facebook/opt-125m"),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+			routerConfig := LLMInferenceServiceConfig("router-managed",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigManagedRouter(),
+			)
+			workloadConfig := LLMInferenceServiceConfig("workload-single-cpu",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigWorkloadTemplate(&corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "main", Image: "quay.io/pierdipi/vllm-cpu:latest"},
+					},
+				}),
+			)
+			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, workloadConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithAnnotations(map[string]string{
+					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+				}),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: "model-fb-opt-125m"},
+					corev1.LocalObjectReference{Name: "router-managed"},
+					corev1.LocalObjectReference{Name: "workload-single-cpu"},
+				),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			templateName := types.NamespacedName{Name: svcName + "-managed-dra", Namespace: testNs.Name}
+
+			// First reconcile creates the template
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, templateName, &resourcev1.ResourceClaimTemplate{})
+			}).WithContext(ctx).Should(Succeed())
+
+			// Disable managed DRA by removing the annotation
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				delete(current.Annotations, constants.ManagedDRADeviceClassAnnotationKey)
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// Reconcile must clean up the orphaned template instead of leaving it
+			// to accumulate until the LLMInferenceService is deleted.
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				err := envTest.Get(ctx, templateName, &resourcev1.ResourceClaimTemplate{})
+				return errors.IsNotFound(err)
+			}).WithContext(ctx).Should(BeTrue(),
+				"orphaned ResourceClaimTemplate must be deleted when managed DRA is disabled")
+		})
+		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-pinning-stable"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - wait for initial reconciliation to populate Status.Annotations.
+			// We check for PresetsCombined=True which indicates config merging completed,
+			// without requiring the full router readiness flow.
+			var pinnedAnnotations map[string]string
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
+				g.Expect(current.Status.Annotations).NotTo(BeNil())
+				pinnedAnnotations = make(map[string]string, len(current.Status.Annotations))
+				for k, v := range current.Status.Annotations {
+					pinnedAnnotations[k] = v
+				}
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// Trigger a new reconciliation by changing a spec field.
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Model.Name = ptr.To(*llmSvc.Spec.Model.Name + "-v2")
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify annotations are stable after re-reconciliation.
+			// Use Consistently to confirm they remain unchanged over a short observation window.
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.Annotations).NotTo(BeNil())
+				for key, wantValue := range pinnedAnnotations {
+					g.Expect(current.Status.Annotations).To(
+						HaveKeyWithValue(key, wantValue),
+						fmt.Sprintf("pinned annotation %q should be stable across reconciliations", key),
+					)
+				}
+			}).WithContext(ctx).Should(Succeed())
+		})
+
 		It("should propagate kueue labels and annotations to the deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-kueue"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			localQueueName := "test-local-q"
 			preemptPriority := "0"
@@ -279,7 +812,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 		It("should not propagate model-based-routing annotation to pod template", func(ctx SpecContext) {
 			svcName := "test-llm-no-mbr-anno"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -308,7 +841,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-preserve-replicas"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITHOUT specifying replicas
@@ -374,7 +907,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should override externally set replicas when owner specifies replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-override-replicas"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITH explicit replicas
@@ -443,7 +976,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// given
 			svcName := "test-llm-ips-singlenode"
 			testNs := NewTestNamespace(ctx, envTest,
-				WithIstioShadowService(svcName),
 				WithDefaultServiceAccountImagePullSecrets(
 					corev1.LocalObjectReference{Name: "my-registry-secret"},
 					corev1.LocalObjectReference{Name: "other-pull-secret"},
@@ -492,7 +1024,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should create single-node SA with empty imagePullSecrets when default SA has none", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-ips-sn-empty"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -535,7 +1067,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should create routes pointing to the default gateway when both are managed", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-create-http-route"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(svcName,
 					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -611,7 +1143,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should use referenced external InferencePool", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-create-http-route-inf-pool-ref"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
 
@@ -668,7 +1200,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should refresh InferencePoolReady when referenced external InferencePool status changes", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-inf-pool-ref-status-watch"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
 
@@ -708,7 +1240,9 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// when - external pool becomes ready
 				updatedPool := &igwapi.InferencePool{}
 				Expect(envTest.Get(ctx, client.ObjectKeyFromObject(infPool), updatedPool)).To(Succeed())
-				WithInferencePoolReadyStatus()(updatedPool)
+				routes := &gwapiv1.HTTPRouteList{}
+				Expect(envTest.Client.List(ctx, routes, client.InNamespace(testNs.Name))).To(Succeed())
+				WithInferencePoolReadyStatus(InferencePoolParentRefsFromRoutes(routes.Items)...)(updatedPool)
 				Expect(envTest.Client.Status().Update(ctx, updatedPool)).To(Succeed())
 
 				// then - LLMInferenceService status should follow the external pool update.
@@ -719,10 +1253,52 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}).WithContext(ctx).Should(Succeed())
 			})
 
+			It("should create routes with normalized publisher paths when the model name has empty segments", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-publisher-path-slashes"
+				modelName := "/app/root//model"
+				testNs := NewTestNamespace(ctx, envTest)
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithModelName(modelName),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithManagedScheduler(),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				// then
+				Eventually(func(g Gomega, ctx context.Context) {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+
+					var publisherPaths []string
+					for _, rule := range routes[0].Spec.Rules {
+						for _, match := range rule.Matches {
+							if path := ptr.Deref(match.Path, gwapiv1.HTTPPathMatch{}).Value; path != nil && strings.HasPrefix(*path, "/publishers/") {
+								publisherPaths = append(publisherPaths, *path)
+							}
+						}
+					}
+					g.Expect(publisherPaths).ToNot(BeEmpty())
+					for _, path := range publisherPaths {
+						g.Expect(path).To(HavePrefix("/" + publisherModel(testNs.Name, "app/root/model")))
+					}
+				}).WithContext(ctx).Should(Succeed())
+			})
+
 			It("should create routes pointing to workload service when no scheduler is configured", func(ctx SpecContext) {
 				// given
 				llmSvcName := "test-llm-create-http-route-no-scheduler"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(llmSvcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(llmSvcName,
 					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -781,7 +1357,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should create HTTPRoute with defined spec", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-defined-http-route"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(svcName,
 					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -816,8 +1392,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				WithHTTPRouteReadyStatus(DefaultGatewayControllerName)(updatedRoute)
 				Expect(envTest.Client.Status().Update(ctx, updatedRoute)).To(Succeed())
 
-				ensureSchedulerDeploymentReady(ctx, envTest.Client, llmSvc)
-
 				Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "True"))
 				})).WithContext(ctx).Should(Succeed())
@@ -826,7 +1400,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should delete managed HTTPRoute when ref is defined", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-update-http-route"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				// Create the Gateway that the router-managed preset references
 				gateway := Gateway("my-ingress-gateway",
@@ -904,7 +1478,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should evaluate HTTPRoute readiness conditions", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-httproute-conditions"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				ingressGateway := DefaultGateway(testNs.Name)
 				Expect(envTest.Client.Create(ctx, ingressGateway)).To(Succeed())
@@ -959,7 +1533,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should expand HTTPRoute with LoRA adapter header matches", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-lora-routing"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(svcName,
 					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -996,6 +1570,62 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, adapterAHeaderValue))
 				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, adapterBHeaderValue))
 			})
+
+			It("should prune HTTPRoute adapter matches when all LoRA adapters are removed", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-lora-removal"
+				testNs := NewTestNamespace(ctx, envTest)
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithModelName("base-model"),
+					WithLoRAAdapters("lora-adapter-a", "lora-adapter-b"),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithManagedScheduler(),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				headerName := "X-Gateway-Model-Name"
+				baseHeaderValue := publisherModel(testNs.Name, "base-model")
+
+				Eventually(func(g Gomega, ctx context.Context) error {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, publisherModel(testNs.Name, "lora-adapter-a")))
+					g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, publisherModel(testNs.Name, "lora-adapter-b")))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed(), "adapter matches should be expanded before removal")
+
+				// when - every adapter is removed
+				errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+						llmSvc.Spec.Model.LoRA = nil
+						return nil
+					})
+					return errUpdate
+				})
+				Expect(errRetry).ToNot(HaveOccurred())
+
+				// then - the route matches on the base model and nothing else
+				Eventually(func(g Gomega, ctx context.Context) error {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					g.Expect(modelRoutingHeaderValues(&routes[0], headerName)).To(HaveEach(baseHeaderValue))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed(), "adapter matches should be pruned once the adapters are gone")
+
+				expectRouteConverged(ctx, llmSvc)
+			})
 		})
 
 		When("transitioning from managed to unmanaged router", func() {
@@ -1004,7 +1634,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				func(ctx SpecContext, testName string, initialRouterSpec *v1alpha2.RouterSpec, specMutation func(*v1alpha2.LLMInferenceService)) {
 					// given
 					svcName := "test-llm-" + testName
-					testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+					testNs := NewTestNamespace(ctx, envTest)
 
 					llmSvc := LLMInferenceService(svcName,
 						InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1112,7 +1742,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				},
 			}
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -1180,7 +1809,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should propagate SectionName to managed HTTPRoute ParentRef", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-section-name"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			gatewayName := "my-sectioned-gateway"
 			listenerName := "https"
@@ -1244,7 +1873,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should not set SectionName on managed HTTPRoute ParentRef when unspecified", func(ctx SpecContext) {
 			// given - backward compatibility: no SectionName means ParentRef.SectionName is nil
 			svcName := "test-llm-no-section"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			gatewayName := "my-plain-gateway"
 			gateway := Gateway(gatewayName,
@@ -1632,7 +2261,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should clear SchedulerWorkloadReady condition when scheduler is no longer configured", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-stale-scheduler-condition"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				// Create LLMInferenceService with scheduler
 				llmSvc := LLMInferenceService(svcName,
@@ -1689,7 +2318,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should update InferencePoolReady when the referenced pool becomes ready", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-stale-inferencepool-condition"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
 
 				infPool := InferencePool(infPoolName,
@@ -1755,7 +2384,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 	Context("Readiness Event Emission", func() {
 		It("should emit a Normal LLMInferenceServiceReady Event when transitioning NotReady to Ready", func(ctx SpecContext) {
 			svcName := "test-llm-event-ready"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1785,7 +2414,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 		It("should emit a Warning LLMInferenceServiceNotReady Event with MainWorkloadReady when transitioning Ready to NotReady", func(ctx SpecContext) {
 			svcName := "test-llm-event-notready"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1824,7 +2453,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 		It("should not emit a readiness Event when status is unchanged", func(ctx SpecContext) {
 			svcName := "test-llm-event-noop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1909,6 +2538,45 @@ func managedRoutes(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([
 	}
 	err := envTest.List(ctx, httpRoutes, listOpts)
 	return httpRoutes.Items, ignoreNoMatch(err)
+}
+
+func publisherModel(namespace, model string) string {
+	return fmt.Sprintf("publishers/%s/models/%s", namespace, model)
+}
+
+// modelRoutingHeaderValues returns all values matched by the named header.
+func modelRoutingHeaderValues(route *gwapiv1.HTTPRoute, headerName string) []string {
+	var values []string
+	for _, rule := range route.Spec.Rules {
+		for _, match := range rule.Matches {
+			for _, h := range match.Headers {
+				if string(h.Name) == headerName {
+					values = append(values, h.Value)
+				}
+			}
+		}
+	}
+
+	return values
+}
+
+// expectRouteConverged verifies that reconciliation stops updating the route spec.
+// The generation changes only when the spec changes.
+func expectRouteConverged(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) {
+	routes, err := managedRoutes(ctx, llmSvc)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(routes).To(HaveLen(1))
+	generation := routes[0].Generation
+
+	Consistently(func(g Gomega, ctx context.Context) error {
+		current, errList := managedRoutes(ctx, llmSvc)
+		g.Expect(errList).ToNot(HaveOccurred())
+		g.Expect(current).To(HaveLen(1))
+		g.Expect(current[0].Generation).To(Equal(generation))
+
+		return nil
+	}).WithContext(ctx).WithTimeout(2*time.Second).WithPolling(250*time.Millisecond).
+		Should(Succeed(), "HTTPRoute should converge instead of being rewritten on every reconcile")
 }
 
 func ignoreNoMatch(err error) error {
@@ -2009,7 +2677,9 @@ func ensureHTTPRouteReady(ctx context.Context, c client.Client, route *gwapiv1.H
 	}).WithContext(ctx).Should(BeTrue())
 }
 
-// ensureInferencePoolReady sets up InferencePool status conditions to simulate a ready InferencePool
+// ensureInferencePoolReady sets up InferencePool status conditions to simulate a ready InferencePool.
+// Gateway parent refs are derived from HTTPRoutes in the pool's namespace so that the pool's
+// status parents match the gateways the reconciler actually resolves.
 func ensureInferencePoolReady(ctx context.Context, c client.Client, pool *igwapi.InferencePool) {
 	if envTest.UsingExistingCluster() {
 		return
@@ -2017,10 +2687,14 @@ func ensureInferencePoolReady(ctx context.Context, c client.Client, pool *igwapi
 
 	createdPool := &igwapi.InferencePool{}
 	Expect(c.Get(ctx, client.ObjectKeyFromObject(pool), createdPool)).To(Succeed())
-	WithInferencePoolReadyStatus()(createdPool)
+
+	routes := &gwapiv1.HTTPRouteList{}
+	Expect(c.List(ctx, routes, client.InNamespace(pool.Namespace))).To(Succeed())
+	gatewayRefs := InferencePoolParentRefsFromRoutes(routes.Items)
+
+	WithInferencePoolReadyStatus(gatewayRefs...)(createdPool)
 	Expect(c.Status().Update(ctx, createdPool)).To(Succeed())
 
-	// Verify the InferencePool is now ready
 	updatedPool := &igwapi.InferencePool{}
 	Eventually(func(g Gomega, ctx context.Context) bool {
 		updatedPool = &igwapi.InferencePool{}
@@ -2083,20 +2757,32 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 		if err != nil && !errors.IsNotFound(err) {
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 		}
-		logf.FromContext(ctx).Info("Marking InferencePool resources ready", "inferencepools", infPools)
+		gatewayRefs := InferencePoolParentRefsFromRoutes(httpRoutes.Items)
+		logf.FromContext(ctx).Info("Marking InferencePool resources ready", "inferencepools", infPools, "gatewayRefs", gatewayRefs)
 		for _, pool := range infPools.Items {
 			updatedPool := pool.DeepCopy()
-			WithInferencePoolReadyStatus()(updatedPool)
+			WithInferencePoolReadyStatus(gatewayRefs...)(updatedPool)
 			g.Expect(c.Status().Update(ctx, updatedPool)).To(gomega.Succeed())
 		}
 
-		ensureSchedulerDeploymentReady(ctx, c, llmSvc)
+		// A managed InferencePool exists exactly when a scheduler Deployment does:
+		// reconcileSchedulerDeployment and reconcileSchedulerInferencePool are gated
+		// on the same predicate, and the Deployment is reconciled first. Specs
+		// without a scheduler spec, or with an external pool ref, have neither.
+		if len(infPools.Items) > 0 {
+			g.Expect(ensureSchedulerDeploymentReady(ctx, c, llmSvc)).To(gomega.Succeed())
+		}
+		g.Expect(ensureMainDeploymentAvailable(ctx, c, llmSvc)).To(gomega.Succeed())
 	}).WithContext(ctx).Should(gomega.Succeed())
 }
 
-func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+// ensureSchedulerDeploymentReady writes ready status onto the scheduler Deployment,
+// standing in for the Deployment controller that envtest does not run. It errors when
+// there is none, so it cannot report success having written nothing. Only call it for
+// specs that configure a scheduler.
+func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) error {
 	if envTest.UsingExistingCluster() {
-		return
+		return nil
 	}
 
 	schedulerListOpts := &client.ListOptions{
@@ -2104,20 +2790,86 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 		LabelSelector: labels.SelectorFromSet(llmisvc.SchedulerLabels(llmSvc)),
 	}
 	deployments := &appsv1.DeploymentList{}
-	err := c.List(ctx, deployments, schedulerListOpts)
-	if err != nil && !errors.IsNotFound(err) {
-		Expect(err).NotTo(gomega.HaveOccurred())
+	if err := c.List(ctx, deployments, schedulerListOpts); err != nil {
+		return fmt.Errorf("failed to list scheduler deployments for %s: %w", llmSvc.Name, err)
+	}
+	if len(deployments.Items) == 0 {
+		return fmt.Errorf("no scheduler Deployment for %s alongside the managed InferencePool", llmSvc.Name)
 	}
 
-	logf.FromContext(ctx).Info("Marking scheduler ready (if any)", "deployments", deployments)
+	logf.FromContext(ctx).Info("Marking scheduler ready", "deployments", deployments)
 	for _, d := range deployments.Items {
 		dep := d.DeepCopy()
+		dep.Status.Replicas = 1
+		dep.Status.ReadyReplicas = 1
+		dep.Status.AvailableReplicas = 1
 		dep.Status.Conditions = append(dep.Status.Conditions, appsv1.DeploymentCondition{
 			Type:   appsv1.DeploymentAvailable,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(c.Status().Update(ctx, dep)).To(gomega.Succeed())
+		if err := c.Status().Update(ctx, dep); err != nil {
+			return fmt.Errorf("failed to update scheduler deployment %s status: %w", dep.Name, err)
+		}
 	}
+	return nil
+}
+
+// ensureMainDeploymentAvailable writes available status onto the main workload
+// Deployment, standing in for the Deployment controller that envtest does not run. The
+// workload is a Deployment for single-node specs and a LeaderWorkerSet when spec.worker
+// is set, so it errors unless one of the two exists and cannot report success having
+// written nothing.
+func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) error {
+	if envTest.UsingExistingCluster() {
+		return nil
+	}
+
+	workloadListOpts := &client.ListOptions{
+		Namespace: llmSvc.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			constants.KubernetesAppNameLabelKey: llmSvc.Name,
+			constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
+		}),
+	}
+	deployments := &appsv1.DeploymentList{}
+	if err := c.List(ctx, deployments, workloadListOpts); err != nil {
+		return fmt.Errorf("failed to list workload deployments for %s: %w", llmSvc.Name, err)
+	}
+
+	if len(deployments.Items) == 0 {
+		// An LWS carries the kserve component label only when its leader template is
+		// nil, so the workload selector above cannot find it. App name and part-of are
+		// set unconditionally. This matches the prefill LWS too, which is fine for an
+		// existence check.
+		lwss := &lwsapi.LeaderWorkerSetList{}
+		if err := c.List(ctx, lwss, &client.ListOptions{
+			Namespace: llmSvc.Namespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				constants.KubernetesAppNameLabelKey: llmSvc.Name,
+				constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+			}),
+		}); err != nil {
+			return fmt.Errorf("failed to list leader worker sets for %s: %w", llmSvc.Name, err)
+		}
+		if len(lwss.Items) == 0 {
+			return fmt.Errorf("no main workload for %s as either a Deployment or a LeaderWorkerSet", llmSvc.Name)
+		}
+	}
+
+	for _, d := range deployments.Items {
+		dep := d.DeepCopy()
+		dep.Status.Replicas = 1
+		dep.Status.ReadyReplicas = 1
+		dep.Status.AvailableReplicas = 1
+		dep.Status.Conditions = append(dep.Status.Conditions, appsv1.DeploymentCondition{
+			Type:   appsv1.DeploymentAvailable,
+			Status: corev1.ConditionTrue,
+		})
+		if err := c.Status().Update(ctx, dep); err != nil {
+			return fmt.Errorf("failed to update workload deployment %s status: %w", dep.Name, err)
+		}
+	}
+	return nil
 }
 
 func customRouteSpec(ctx context.Context, c client.Client, nsName, gatewayRefName, backendRefName string) *gwapiv1.HTTPRouteSpec {
@@ -2236,4 +2988,14 @@ func countReadinessEvents(ctx context.Context, c client.Client, llmSvc *v1alpha2
 		}
 	}
 	return count
+}
+
+// volumeByName returns the named volume, or nil when the pod spec has none.
+func volumeByName(volumes []corev1.Volume, name string) *corev1.Volume {
+	for i := range volumes {
+		if volumes[i].Name == name {
+			return &volumes[i]
+		}
+	}
+	return nil
 }

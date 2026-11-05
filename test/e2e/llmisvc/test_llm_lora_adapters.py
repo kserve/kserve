@@ -22,12 +22,13 @@ from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 from kubernetes import client
 from typing import List, Optional
 
-from .diagnostic import print_all_events_table
+from .diagnostic import collect_diagnostics
 from .fixtures import (
-    KSERVE_TEST_NAMESPACE,
+    DEFAULT_LLMISVC_ANNOTATIONS,
     LLMINFERENCESERVICE_CONFIGS,
     _create_or_update_llmisvc_config,
     _get_model_name_from_configs,
+    ensure_pvc_with_base_model_and_lora,
     generate_k8s_safe_suffix,
     generate_test_id,
     inject_k8s_proxy,
@@ -58,26 +59,30 @@ class LoRATestCase:
     expected_adapter_names: List[str]
     service_name: Optional[str] = None
     endpoint: str = "/v1/completions"
-    max_tokens: int = 100
+    max_tokens: int = 20
     wait_timeout: int = 900
     response_timeout: int = 60
+    # Populate the shared LoRA PVC before creating the service, for pvc:// adapters.
+    needs_lora_pvc: bool = False
 
 
 def build_llm_service_from_refs(
-    service_name: str, base_refs: List[str]
+    service_name: str, base_refs: List[str], namespace: str
 ) -> V1alpha1LLMInferenceService:
     """Build an LLMInferenceService from base reference configs."""
     return V1alpha1LLMInferenceService(
         api_version="serving.kserve.io/v1alpha1",
         kind="LLMInferenceService",
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=namespace,
+            annotations=dict(DEFAULT_LLMISVC_ANNOTATIONS) or None,
         ),
         spec={"baseRefs": [{"name": ref} for ref in base_refs]},
     )
 
 
-def run_lora_test(test_case: LoRATestCase):
+def run_lora_test(test_case: LoRATestCase, namespace: str):
     """Execute a LoRA adapter test case."""
     inject_k8s_proxy()
     kserve_client = KServeClient(
@@ -90,6 +95,9 @@ def run_lora_test(test_case: LoRATestCase):
     model_name = _get_model_name_from_configs(test_case.base_refs)
     created_configs = []
     llm_service = None
+
+    if test_case.needs_lora_pvc:
+        ensure_pvc_with_base_model_and_lora(namespace=namespace)
 
     try:
         # Create unique LLMInferenceServiceConfig resources for each base ref
@@ -108,26 +116,31 @@ def run_lora_test(test_case: LoRATestCase):
                 "kind": "LLMInferenceServiceConfig",
                 "metadata": {
                     "name": unique_config_name,
-                    "namespace": KSERVE_TEST_NAMESPACE,
+                    "namespace": namespace,
                 },
                 "spec": config,
             }
 
-            logger.info("Creating LLMInferenceServiceConfig: %s", unique_config_name)
-            _create_or_update_llmisvc_config(
-                kserve_client, config_body, KSERVE_TEST_NAMESPACE
+            logger.info(
+                "Creating LLMInferenceServiceConfig: %s",
+                unique_config_name,
             )
+            _create_or_update_llmisvc_config(kserve_client, config_body, namespace)
             created_configs.append(unique_config_name)
 
         # Create the service with unique base refs
-        llm_service = build_llm_service_from_refs(service_name, unique_base_refs)
+        llm_service = build_llm_service_from_refs(
+            service_name, unique_base_refs, namespace
+        )
         logger.info("Creating LLMInferenceService: %s", service_name)
         create_llmisvc(kserve_client, llm_service)
 
         # Wait for service to be ready
         logger.info("Waiting for service %s to be ready...", service_name)
         wait_for_llm_isvc_ready(
-            kserve_client, llm_service, timeout_seconds=test_case.wait_timeout
+            kserve_client,
+            llm_service,
+            timeout_seconds=test_case.wait_timeout,
         )
 
         # Get inference URL
@@ -149,7 +162,7 @@ def run_lora_test(test_case: LoRATestCase):
         )
 
         assert_200_with_choices(base_response)
-        logger.info("✓ Base model inference successful")
+        logger.info("Base model inference successful")
 
         # Test LoRA adapter inference
         for adapter_name in test_case.expected_adapter_names:
@@ -167,9 +180,16 @@ def run_lora_test(test_case: LoRATestCase):
             )
 
             assert_200_with_choices(lora_response)
-            logger.info("✓ LoRA adapter %s inference successful", adapter_name)
+            logger.info("LoRA adapter %s inference successful", adapter_name)
 
     finally:
+        # Collect diagnostics before cleanup deletes the pods
+        collect_diagnostics(
+            service_name,
+            namespace,
+            kserve_client=kserve_client,
+        )
+
         # Cleanup service
         if llm_service is not None:
             try:
@@ -185,15 +205,12 @@ def run_lora_test(test_case: LoRATestCase):
                 kserve_client.api_instance.delete_namespaced_custom_object(
                     constants.KSERVE_GROUP,
                     constants.KSERVE_V1ALPHA1_VERSION,
-                    KSERVE_TEST_NAMESPACE,
+                    namespace,
                     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
                     config_name,
                 )
             except Exception as e:
                 logger.warning(f"Config cleanup failed for {config_name}: {e}")
-
-        # Print diagnostics
-        print_all_events_table(KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.parametrize(
@@ -211,7 +228,6 @@ def run_lora_test(test_case: LoRATestCase):
                 service_name="lora-single-adapter-test",
             ),
             marks=[
-                pytest.mark.llminferenceservice,
                 pytest.mark.cluster_cpu,
                 pytest.mark.lora,
             ],
@@ -229,15 +245,55 @@ def run_lora_test(test_case: LoRATestCase):
                 service_name="lora-multiple-adapters-test",
             ),
             marks=[
-                pytest.mark.llminferenceservice,
                 pytest.mark.cluster_cpu,
                 pytest.mark.lora,
             ],
             id="multiple-lora-adapters",
         ),
+        pytest.param(
+            LoRATestCase(
+                base_refs=[
+                    "router-no-scheduler",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m-with-single-lora-pvc",
+                ],
+                prompt="What is Kubernetes?",
+                expected_adapter_names=["lora-adapter-1"],
+                service_name="lora-pvc-single-adapter-test",
+                needs_lora_pvc=True,
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.lora,
+            ],
+            # A claim backing one adapter keeps the per-adapter volume name; this is the
+            # case per-claim naming must leave alone.
+            id="single-lora-adapter-pvc",
+        ),
+        pytest.param(
+            LoRATestCase(
+                base_refs=[
+                    "router-no-scheduler",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m-with-lora-pvc",
+                ],
+                prompt="What is Kubernetes?",
+                expected_adapter_names=["lora-adapter-1", "lora-adapter-2"],
+                service_name="lora-pvc-adapters-test",
+                needs_lora_pvc=True,
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.lora,
+            ],
+            # The base model and both adapters share one claim. Before per-claim volume
+            # naming the pod template declared three Volumes for it and the workload never
+            # became Ready on Kubernetes 1.34, which is what CI runs.
+            id="multiple-lora-adapters-one-pvc",
+        ),
     ],
 )
 @log_execution
-def test_llm_with_lora_adapters(test_case: LoRATestCase):
+def test_llm_with_lora_adapters(test_case: LoRATestCase, test_namespace):
     """Test LLMInferenceService with LoRA adapters."""
-    run_lora_test(test_case)
+    run_lora_test(test_case, namespace=test_namespace)

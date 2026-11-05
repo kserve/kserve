@@ -326,7 +326,7 @@ def verify_doc_links() -> [(str, int, str, str)]:
 
 
 def apply_monkey_patch_to_force_ipv4_connections():
-    # Monkey-patch socket.getaddrinfo to force IPv4 conections, since some older
+    # Monkey-patch socket.getaddrinfo to force IPv4 connections, since some older
     # routers and some internet providers don't support IPv6, in which case Python
     # will first try an IPv6 connection which will hang until timeout and only
     # then attempt a successful IPv4 connection

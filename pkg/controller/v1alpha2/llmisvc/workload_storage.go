@@ -29,11 +29,11 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -51,21 +51,24 @@ var tokenizerOnlyDownload = corev1.EnvVar{
 	Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
 }
 
-// stripPriorControllerStorageInitializer removes the storage-initializer init container that would
-// duplicate the one the controller is about to add: merged/user templates often already
-// define "storage-initializer".
-func stripPriorControllerStorageInitializer(podSpec *corev1.PodSpec) {
+// extractAndStripStorageInitializer removes the storage-initializer init container from the
+// podSpec and returns a deep copy of it. Returns nil if no storage-initializer was present.
+func extractAndStripStorageInitializer(podSpec *corev1.PodSpec) *corev1.Container {
 	if podSpec == nil {
-		return
+		return nil
 	}
+	var extracted *corev1.Container
 	keptInit := podSpec.InitContainers[:0]
-	for _, ic := range podSpec.InitContainers {
-		if ic.Name == constants.StorageInitializerContainerName {
+	for i := range podSpec.InitContainers {
+		if podSpec.InitContainers[i].Name == constants.StorageInitializerContainerName {
+			c := podSpec.InitContainers[i].DeepCopy()
+			extracted = c
 			continue
 		}
-		keptInit = append(keptInit, ic)
+		keptInit = append(keptInit, podSpec.InitContainers[i])
 	}
 	podSpec.InitContainers = keptInit
+	return extracted
 }
 
 // attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
@@ -100,8 +103,10 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return nil
 	}
 
+	nativeModelExpress := containerName == mainContainerName && config.ModelExpress.native()
+
 	// Rewrite model URI to use cached PVC when local model cache is active
-	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok {
+	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok && !nativeModelExpress {
 		sourceUri, ok := llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey]
 		if !ok {
 			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelSourceUriAnnotationKey)
@@ -110,18 +115,19 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		if !ok {
 			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelPVCNameAnnotationKey)
 		}
-		subPath, _ := strings.CutPrefix(modelUri, sourceUri)
-		if !strings.HasPrefix(subPath, "/") {
-			subPath = "/" + subPath
-		}
-		storageKey := v1alpha1.GetStorageKey(sourceUri)
-		modelUri = "pvc://" + pvcName + "/models/" + storageKey + subPath
+		modelUri = localmodelcache.BuildCachedPVCURI(sourceUri, pvcName, modelUri)
 		schema = "pvc"
 	}
 
+	var resolvedLoRAAdapters []resolvedLoRAAdapter
 	var loraPairs []storageDownloadPair
 	if attachLoRA {
-		loraPairs = collectLoRADownloadPairs(config.ResolvedLoRAAdapters)
+		var err error
+		resolvedLoRAAdapters, err = rewriteLoRAAdaptersFromLocalModelCache(ctx, r.Client, llmSvc, config.ResolvedLoRAAdapters)
+		if err != nil {
+			return fmt.Errorf("rewrite LoRA adapters from local model cache: %w", err)
+		}
+		loraPairs = collectLoRADownloadPairs(resolvedLoRAAdapters)
 	}
 
 	// Handle model artifact downloads based on URI scheme
@@ -134,15 +140,13 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
 				return err
 			}
+		} else {
+			extractAndStripStorageInitializer(podSpec)
 		}
 
-	case constants.OciURIPrefix:
-		// Check of OCI is enabled
-		if !config.StorageConfig.EnableOciImageSource {
-			return errors.New("OCI modelcars is not enabled")
-		}
-
-		if err := r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
+	case constants.OciNativeURIPrefix:
+		_, normalizedURI, _ := utils.ParseOciScheme(modelUri)
+		if err := r.attachOciNativeModelArtifact(normalizedURI, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
 			return err
 		}
 		if len(loraPairs) > 0 {
@@ -151,12 +155,42 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			}
 		}
 
-	case constants.HfURIPrefix:
-		if len(loraPairs) == 0 {
-			if err := r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
+	case constants.OciURIPrefix:
+		effectiveMode := kserveTypes.ResolveOciModelMode(config.StorageConfig)
+		if effectiveMode == "" {
+			return errors.New("OCI modelcars is not enabled")
+		}
+		switch effectiveMode {
+		case kserveTypes.OciModelModeNative:
+			if err := r.attachOciNativeModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
+				return err
+			}
+		default: // "modelcar" (and "fetch" handled in a future commit)
+			if err := r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
+				return err
+			}
+		}
+		if len(loraPairs) > 0 {
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
 				return err
 			}
 		} else {
+			extractAndStripStorageInitializer(podSpec)
+		}
+
+	case constants.HfURIPrefix:
+		switch {
+		case nativeModelExpress && len(loraPairs) > 0:
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
+				return err
+			}
+		case nativeModelExpress:
+			extractAndStripStorageInitializer(podSpec)
+		case len(loraPairs) == 0:
+			if err := r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
+				return err
+			}
+		default:
 			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
 				return err
@@ -167,6 +201,11 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		if len(loraPairs) == 0 {
 			if err := r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
 				return err
+			}
+			if nativeModelExpress {
+				if err := attachModelExpressObjectStore(podSpec, containerName, modelUri); err != nil {
+					return err
+				}
 			}
 		} else {
 			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
@@ -181,7 +220,7 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 
 	// Attach LoRA adapters (PVC mounts + vLLM flag injection) after model downloads
 	if attachLoRA {
-		if err := r.attachLoRAAdapters(ctx, llmSvc, podSpec, config.ResolvedLoRAAdapters); err != nil {
+		if err := r.attachLoRAAdapters(ctx, llmSvc, podSpec, resolvedLoRAAdapters); err != nil {
 			return err
 		}
 	}
@@ -207,6 +246,10 @@ func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *cor
 	}
 
 	return nil
+}
+
+func (r *LLMISVCReconciler) attachOciNativeModelArtifact(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
+	return utils.ConfigureOciNativeToContainer(modelUri, podSpec, containerName, modelPath, storageConfig)
 }
 
 // attachPVCModelArtifact mounts a model artifact from a PersistentVolumeClaim (PVC) to the specified PodSpec.
@@ -259,7 +302,7 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -310,7 +353,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -336,13 +379,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		}
 
 		currentInitContainer := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-
-		// Add HF default env vars when the init container is new or already has HF_ env vars
-		// from a previous reconciliation. Skip only when upgrading from an older operator version
-		// that didn't set these vars, to avoid unnecessary pod restarts.
-		if currentInitContainer == nil || slices.ContainsFunc(currentInitContainer.Env, func(e corev1.EnvVar) bool {
-			return strings.HasPrefix(e.Name, "HF_")
-		}) {
+		if addsDefaultHFEnv(currentInitContainer, initContainer.Args) {
 			utils.AddDefaultHuggingFaceEnvVars(initContainer)
 		}
 
@@ -352,6 +389,21 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 	}
 
 	return nil
+}
+
+// addsDefaultHFEnv reports whether the storage-initializer gets the default Hugging
+// Face download environment variables. It returns true when there is no live init
+// container, when the live container downloads a different set of arguments, or when
+// the live container already carries an HF_ variable. A live container that runs the
+// same downloads without any HF_ variable keeps that environment, so a controller
+// upgrade does not restart its pod.
+func addsDefaultHFEnv(current *corev1.Container, args []string) bool {
+	if current == nil || !slices.Equal(current.Args, args) {
+		return true
+	}
+	return slices.ContainsFunc(current.Env, func(e corev1.EnvVar) bool {
+		return strings.HasPrefix(e.Name, "HF_")
+	})
 }
 
 // attachStorageInitializer configures a PodSpec to use KServe storage-initializer for
@@ -365,23 +417,26 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
-	stripPriorControllerStorageInitializer(podSpec)
+func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
+	confidential := llmSvc.Spec.Model.Confidential
+	userOverride := extractAndStripStorageInitializer(podSpec)
 
 	containerArgs := []string{
 		modelUri,
 		constants.DefaultModelLocalMountPath,
 	}
 	storageMountParams := utils.StorageMountParams{
-		MountPath:  constants.DefaultModelLocalMountPath,
-		VolumeName: constants.StorageInitializerVolumeName,
-		ReadOnly:   false,
+		MountPath:           constants.DefaultModelLocalMountPath,
+		VolumeName:          constants.StorageInitializerVolumeName,
+		ReadOnly:            false,
+		DefaultVolumeSource: storageConfig.ModelVolumeSource,
 	}
+
+	copied := *storageConfig
 
 	// Preserve the existing storage-initializer image from the current deployment
 	// to avoid unnecessary pod restarts during operator upgrades when the model
 	// hasn't changed.
-	copied := *storageConfig
 	for _, initContainer := range curr.InitContainers {
 		if initContainer.Name == constants.StorageInitializerContainerName {
 			copied.Image = initContainer.Image
@@ -389,6 +444,31 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	}
 
 	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
+
+	// Inject confidential env vars before appending to the pod spec
+	if confidential != nil && confidential.Enabled {
+		resourceId := ""
+		if confidential.ResourceId != nil {
+			resourceId = *confidential.ResourceId
+		}
+		utils.ApplyConfidentialContainerConfig(initContainer, resourceId)
+	}
+
+	if userOverride != nil {
+		if len(userOverride.Args) > 0 || len(userOverride.Command) > 0 {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "StorageInitializerOverride",
+				"User-specified Args/Command on storage-initializer were overridden by controller")
+		}
+		merged, err := utils.MergeContainerWithPatch(*initContainer, *userOverride)
+		if err != nil {
+			return fmt.Errorf("failed to merge user storage-initializer customizations: %w", err)
+		}
+		merged.Name = initContainer.Name
+		merged.Args = initContainer.Args
+		merged.Command = initContainer.Command
+		initContainer = &merged
+	}
+
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
 	if err := utils.AddModelMount(storageMountParams, initContainer.Name, podSpec); err != nil {
@@ -421,7 +501,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	if len(pairs) == 0 {
 		return nil
 	}
-	stripPriorControllerStorageInitializer(podSpec)
+	userOverride := extractAndStripStorageInitializer(podSpec)
 
 	paths := make([]string, len(pairs))
 	for i, p := range pairs {
@@ -446,20 +526,34 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	}
 
 	initC := utils.CreateInitContainerWithConfig(&copied, args)
+
+	if userOverride != nil {
+		merged, err := utils.MergeContainerWithPatch(*initC, *userOverride)
+		if err != nil {
+			return fmt.Errorf("failed to merge user storage-initializer customizations: %w", err)
+		}
+		merged.Name = initC.Name
+		merged.Args = initC.Args
+		merged.Command = initC.Command
+		initC = &merged
+	}
+
 	podSpec.InitContainers = append(podSpec.InitContainers, *initC)
 	iname := initC.Name
 
 	if err := utils.AddModelMount(utils.StorageMountParams{
-		MountPath:  parent,
-		VolumeName: constants.StorageInitializerVolumeName,
-		ReadOnly:   false,
+		MountPath:           parent,
+		VolumeName:          constants.StorageInitializerVolumeName,
+		ReadOnly:            false,
+		DefaultVolumeSource: storageConfig.ModelVolumeSource,
 	}, iname, podSpec); err != nil {
 		return err
 	}
 	if err := utils.AddModelMount(utils.StorageMountParams{
-		MountPath:  parent,
-		VolumeName: constants.StorageInitializerVolumeName,
-		ReadOnly:   true,
+		MountPath:           parent,
+		VolumeName:          constants.StorageInitializerVolumeName,
+		ReadOnly:            true,
+		DefaultVolumeSource: storageConfig.ModelVolumeSource,
 	}, containerName, podSpec); err != nil {
 		return err
 	}
@@ -494,9 +588,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 		return strings.HasPrefix(p.uri, constants.HfURIPrefix)
 	})
 	currentInit := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-	if needHF && (currentInit == nil || slices.ContainsFunc(currentInit.Env, func(e corev1.EnvVar) bool {
-		return strings.HasPrefix(e.Name, "HF_")
-	})) {
+	if needHF && addsDefaultHFEnv(currentInit, initPtr.Args) {
 		utils.AddDefaultHuggingFaceEnvVars(initPtr)
 	}
 

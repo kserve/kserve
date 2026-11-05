@@ -21,26 +21,37 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-// Top-level conditions. Ready aggregates WorkloadsReady and RouterReady via the
-// Knative LivingConditionSet. PresetsCombined is an independent gate that blocks
-// reconciliation when False but is not part of the Ready rollup.
+// WVAUnsupportedReason identifies the non-blocking condition reported for
+// existing resources that still contain deprecated WVA configuration.
+const WVAUnsupportedReason = "WVAUnsupported"
+
+// Top-level conditions. Ready aggregates PresetsCombined, WorkloadsReady and
+// RouterReady via the Knative LivingConditionSet.
 const (
 	// PresetsCombined is True when all referenced LLMInferenceServiceConfig resources
-	// have been found and merged successfully. False with reason ConfigNotFound when a
-	// referenced config does not exist, or CombineBaseError on merge failure.
+	// have been found, merged and checked. False with reason ConfigNotFound when a
+	// referenced config does not exist, LoRAMountPathCollision when two adapters resolve
+	// to the same mount path, CombineBaseError on merge failure, or InvalidRenderedConfig
+	// when the API server rejects the merged spec. Unknown with reason
+	// ValidationUnavailable when the merged spec could not be checked at all.
 	// Set by the config reconciler (config_merge.go). Always present.
-	// Not part of the Ready rollup - blocks reconciliation instead.
+	//
+	// Counts towards Ready: when this is not True the controller stops before creating
+	// any child resource, leaving WorkloadsReady and RouterReady stale. Including it
+	// keeps Ready from reading True off those stale values, and puts the failure's
+	// reason and message on Ready itself.
 	PresetsCombined apis.ConditionType = "PresetsCombined"
 
 	// WorkloadReady is True when all workload sub-conditions (MainWorkloadReady,
 	// WorkerWorkloadReady, PrefillWorkloadReady, PrefillWorkerWorkloadReady,
-	// ScalingReady, PrefillScalingReady) that are present are True.
+	// ScalingReady, PrefillScalingReady, PVCEvictorReady) that are present are True.
 	// Aggregated by DetermineWorkloadReadiness. Always present.
 	WorkloadReady apis.ConditionType = "WorkloadsReady"
 
 	// RouterReady is True when all router sub-conditions (GatewaysReady,
-	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady) that are
-	// present are True. Aggregated by DetermineRouterReadiness. Always present.
+	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady,
+	// TokenizerReady) that are present are True. Aggregated by
+	// DetermineRouterReadiness. Always present.
 	RouterReady apis.ConditionType = "RouterReady"
 )
 
@@ -79,6 +90,11 @@ const (
 	// Only present when autoscaling is configured for the prefill workload in
 	// P/D disaggregated serving topologies; cleared (unset) otherwise.
 	PrefillScalingReady apis.ConditionType = "PrefillScalingReady"
+
+	// PVCEvictorReady is True when all shared PVC evictor Deployments required by
+	// this service have available replicas. Only present when pvc.ref evictors
+	// are configured.
+	PVCEvictorReady apis.ConditionType = "PVCEvictorReady"
 )
 
 // Router sub-conditions rolled up into RouterReady.
@@ -87,6 +103,12 @@ const (
 	// Deployment has reached its desired replica count. Set by the scheduler
 	// reconciler. Only present when the scheduler is enabled.
 	SchedulerWorkloadReady apis.ConditionType = "SchedulerWorkloadReady"
+
+	// TokenizerReady is True when the standalone tokenizer Deployment has
+	// reached its desired replica count and all pods are passing readiness
+	// probes. Set by the tokenizer reconciler. Only present when
+	// spec.router.scheduler.tokenizer is set.
+	TokenizerReady apis.ConditionType = "TokenizerReady"
 )
 
 const (
@@ -104,9 +126,57 @@ const (
 	// created and is ready. Set by the router reconciler.
 	// Only present when the scheduler is enabled.
 	InferencePoolReady apis.ConditionType = "InferencePoolReady"
+
+	// GroupReady is True when the routing group is healthy and all
+	// members have valid backends. False with reason ModelNameMismatch when
+	// group members serve different model names, ModelNameAmbiguous when no
+	// strict majority exists, or BackendResolutionFailed when no members
+	// could be resolved.
+	// Independent of the Ready rollup - a broken group does not block the
+	// resource from being Ready, since individual routing still works.
+	// Only present when traffic splitting is configured (group + weight set).
+	GroupReady apis.ConditionType = "GroupReady"
+
+	// GroupDegraded is True when the group is serving but some members
+	// could not be resolved (e.g., broken baseRef configs). Traffic splitting
+	// continues with available members. False (or unset) when fully healthy.
+	// Only present when traffic splitting is configured (group + weight set).
+	GroupDegraded apis.ConditionType = "GroupDegraded"
+
+	// PerModelPathsDropped reports whether the managed HTTPRoute, as last
+	// written, dropped its per-model path matches because of the
+	// serving.kserve.io/model-based-routing-only annotation. True with reason
+	// SetOnService or SetOnAllGateways. False when the annotation is
+	// configured but the paths are kept, with reason, in order of precedence:
+	// DisabledOnService (the service says "false" while a parent Gateway says
+	// "true"), UnrecognizedValue, NotSetOnAllGateways,
+	// ModelBasedRoutingNotEnabled or NoModelRoutingMatches.
+	// Independent of the Ready rollup - kept paths still serve every client.
+	// Only present when the annotation is configured on the service or on a
+	// parent Gateway of a managed route; absent means not configured.
+	PerModelPathsDropped apis.ConditionType = "PerModelPathsDropped"
+
+	// DisaggregatedSetUsed reports whether a service that requests the
+	// DisaggregatedSet backend, by default through its P/D presets or in its own
+	// spec.annotations, runs on it. False when the service keeps its current
+	// workloads, with reason FeatureGateDisabled, CRDNotInstalled,
+	// NoPrefillWorkload, RoleScalerNotInstalled or ReplicasMismatch.
+	// Independent of the Ready rollup - the current workloads keep serving.
+	// Only present when the backend is requested; absent means not requested.
+	DisaggregatedSetUsed apis.ConditionType = "DisaggregatedSetUsed"
+)
+
+const (
+	// ModelExpressReady is True when ModelExpress is configured into the engine
+	// pods. False in native mode means the workload is not rendered; False in
+	// layered mode means the workload renders without ModelExpress.
+	// Independent of the Ready rollup.
+	// Only present when serving.kserve.io/exp-modelexpress-mode is set.
+	ModelExpressReady apis.ConditionType = "ModelExpressReady"
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
+	PresetsCombined,
 	WorkloadReady,
 	RouterReady,
 )
@@ -167,6 +237,18 @@ func (in *LLMInferenceService) MarkPrefillWorkerWorkloadUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PrefillWorkerWorkloadReady)
 }
 
+func (in *LLMInferenceService) MarkModelExpressReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(ModelExpressReady)
+}
+
+func (in *LLMInferenceService) MarkModelExpressNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(ModelExpressReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkModelExpressUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(ModelExpressReady)
+}
+
 func (in *LLMInferenceService) MarkScalingReady() {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(ScalingReady)
 }
@@ -191,6 +273,18 @@ func (in *LLMInferenceService) MarkPrefillScalingUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PrefillScalingReady)
 }
 
+func (in *LLMInferenceService) MarkPVCEvictorReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(PVCEvictorReady)
+}
+
+func (in *LLMInferenceService) MarkPVCEvictorNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(PVCEvictorReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkPVCEvictorUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PVCEvictorReady)
+}
+
 // DetermineWorkloadReadiness rolls up sub-conditions into the top-level WorkloadsReady
 // condition. Any sub-condition that is False blocks overall readiness.
 //
@@ -207,10 +301,16 @@ func (in *LLMInferenceService) DetermineWorkloadReadiness() {
 		in.GetStatus().GetCondition(PrefillWorkerWorkloadReady),
 		in.GetStatus().GetCondition(ScalingReady),
 		in.GetStatus().GetCondition(PrefillScalingReady),
+		in.GetStatus().GetCondition(PVCEvictorReady),
 	}
 
 	for _, cond := range subConditions {
 		if cond == nil {
+			continue
+		}
+		// Existing WVA resources remain operational with autoscaling disabled. Keep
+		// the persistent warning visible without making the workload NotReady.
+		if (cond.Type == ScalingReady || cond.Type == PrefillScalingReady) && cond.Reason == WVAUnsupportedReason {
 			continue
 		}
 		if cond.IsFalse() {
@@ -229,6 +329,12 @@ func (in *LLMInferenceService) MarkPresetsCombinedNotReady(reason, messageFormat
 	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(PresetsCombined, reason, messageFormat, messageA...)
 }
 
+// MarkPresetsCombinedUnknown reports that the merged config could not be checked,
+// as opposed to being rejected.
+func (in *LLMInferenceService) MarkPresetsCombinedUnknown(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkUnknown(PresetsCombined, reason, messageFormat, messageA...)
+}
+
 func (in *LLMInferenceService) MarkSchedulerWorkloadReady() {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(SchedulerWorkloadReady)
 }
@@ -239,6 +345,18 @@ func (in *LLMInferenceService) MarkSchedulerWorkloadNotReady(reason, messageForm
 
 func (in *LLMInferenceService) MarkSchedulerWorkloadUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(SchedulerWorkloadReady)
+}
+
+func (in *LLMInferenceService) MarkTokenizerReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(TokenizerReady)
+}
+
+func (in *LLMInferenceService) MarkTokenizerNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(TokenizerReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkTokenizerUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(TokenizerReady)
 }
 
 func (in *LLMInferenceService) MarkGatewaysReady() {
@@ -277,12 +395,59 @@ func (in *LLMInferenceService) MarkInferencePoolReadyUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(InferencePoolReady)
 }
 
+func (in *LLMInferenceService) MarkGroupReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(GroupReady)
+}
+
+func (in *LLMInferenceService) MarkGroupNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(GroupReady, reason, messageFormat, messageA...)
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupDegraded)
+}
+
+func (in *LLMInferenceService) MarkGroupReadyUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupReady)
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupDegraded)
+}
+
+func (in *LLMInferenceService) MarkGroupDegraded(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrueWithReason(GroupDegraded, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkGroupNotDegraded() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupDegraded)
+}
+
+func (in *LLMInferenceService) MarkPerModelPathsDropped(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrueWithReason(PerModelPathsDropped, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkPerModelPathsKept(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(PerModelPathsDropped, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkPerModelPathsDroppedUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PerModelPathsDropped)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetUsed() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(DisaggregatedSetUsed)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetNotUsed(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(DisaggregatedSetUsed, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetUsedUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(DisaggregatedSetUsed)
+}
+
 func (in *LLMInferenceService) DetermineRouterReadiness() {
 	subConditions := []*apis.Condition{
 		in.GetStatus().GetCondition(GatewaysReady),
 		in.GetStatus().GetCondition(HTTPRoutesReady),
 		in.GetStatus().GetCondition(InferencePoolReady),
 		in.GetStatus().GetCondition(SchedulerWorkloadReady),
+		in.GetStatus().GetCondition(TokenizerReady),
 	}
 
 	for _, cond := range subConditions {
@@ -294,5 +459,6 @@ func (in *LLMInferenceService) DetermineRouterReadiness() {
 			return
 		}
 	}
+
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(RouterReady)
 }

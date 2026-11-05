@@ -25,12 +25,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
@@ -48,6 +51,14 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	// Mirror the production manager wiring in cmd/manager/main.go: the
+	// Deployment/Service informer caches are scoped to objects carrying the
+	// KServe managed label, while reads for these types bypass the cache via
+	// NewClientOptions. This ensures the InferenceGraph controller tests
+	// exercise the same watch paths as production.
+	cacheOpts, err := v1beta1controller.NewCacheOptions()
+	Expect(err).ToNot(HaveOccurred())
+
 	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
 		clientset, err := kubernetes.NewForConfig(restCfg)
 		if err != nil {
@@ -56,17 +67,27 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 		deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
 
+		// Mirror the production wiring in cmd/manager/main.go: a broadcaster is only
+		// useful once it is recording to a sink, otherwise events are silently dropped.
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
+
 		return (&InferenceGraphReconciler{
 			Client:    mgr.GetClient(),
 			Clientset: clientset,
 			Scheme:    mgr.GetScheme(),
 			Log:       ctrl.Log.WithName("V1alpha1InferenceGraphController"),
-			Recorder:  mgr.GetEventRecorderFor("V1alpha1InferenceGraphController"),
+			Recorder: eventBroadcaster.NewRecorder(
+				mgr.GetScheme(), corev1.EventSource{Component: "V1alpha1InferenceGraphController"}),
 		}).SetupWithManager(mgr, deployConfig)
 	}
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
+		WithManagerOptions(func(opts *ctrl.Options) {
+			opts.Cache = cacheOpts
+			opts.Client = v1beta1controller.NewClientOptions()
+		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
 

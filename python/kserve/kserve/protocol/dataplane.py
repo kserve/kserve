@@ -462,6 +462,7 @@ class DataPlane:
 
         .. _CloudEvent: https://cloudevents.io/
         """
+        logger.info("Handling inference request for model %s", model_name)
         # call model locally or remote model workers
         response_headers = {}
         model = await self.get_model(model_name)
@@ -488,7 +489,9 @@ class DataPlane:
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            Dict: Explanation result.
+            Tuple[Union[str, bytes, Dict, InferResponse], Dict[str, str]]:
+                - response: The explanation result.
+                - response_headers: Headers to construct the HTTP response.
 
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.

@@ -1,0 +1,41 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kernelcache-root-ca
+  namespace: kserve
+spec:
+  isCA: true
+  duration: 8760h
+  commonName: kernelcache-root-ca
+  secretName: kernelcache-root-ca
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: kernelcache-ca
+  namespace: kserve
+spec:
+  ca:
+    secretName: kernelcache-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kernelcache-signer
+  namespace: kserve
+spec:
+  secretName: kernelcache-signer
+  commonName: kernelcache-signer
+  uris:
+    - spiffe://kserve/kernelcache-signer
+  usages:
+    - digital signature
+    - code signing
+  issuerRef:
+    name: kernelcache-ca
+    kind: Issuer
+    group: cert-manager.io
