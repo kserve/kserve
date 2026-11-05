@@ -949,6 +949,30 @@ class TestInferResponse:
         )
         assert json_length == 301
 
+    def test_infer_response_to_rest_requested_output_without_binary_data_uses_default(
+        self,
+    ):
+        # Regression: a requested output that does not set its own binary_data
+        # must fall back to the response-level use_binary_outputs default,
+        # rather than being forced to JSON (which dropped the default).
+        infer_output = InferOutput(
+            name="output1",
+            shape=[3],
+            datatype="INT32",
+            data=[1, 2, 3],
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[infer_output],
+            use_binary_outputs=True,
+            requested_outputs=[RequestedOutput(name="output1")],
+        )
+        result, json_length = infer_response.to_rest()
+        # Response-level default is True, so the output must be returned as binary.
+        assert isinstance(result, bytes)
+        assert json_length is not None
+
     def test_infer_response_to_rest_with_raw_data_with_binary_data_false(
         self,
     ):
