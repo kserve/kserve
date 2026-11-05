@@ -19,8 +19,6 @@ package fixture
 import (
 	"context"
 	"fmt"
-
-	"github.com/kserve/kserve/pkg/kernelcache/security"
 )
 
 // FakeSecretSource is an in-memory security.SecretSource for tests. Keys use the
@@ -29,8 +27,6 @@ type FakeSecretSource struct {
 	Secrets    map[string]map[string][]byte
 	ConfigMaps map[string]map[string]string
 }
-
-var _ security.SecretSource = (*FakeSecretSource)(nil)
 
 // GetSecret returns a copy of the stored Secret data, or an error if the ref is
 // absent. The copy (map and byte slices) prevents a caller from mutating the

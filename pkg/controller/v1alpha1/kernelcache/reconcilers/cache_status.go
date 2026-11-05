@@ -71,7 +71,7 @@ func (r *KernelCacheReconciler) reconcileArtifactVerification(
 			RegistryInsecure: config.Registry.Insecure,
 		},
 	}
-	if config.ArtifactSecurity.Mode == string(kernelcachetypes.ModeCert) {
+	if config.ArtifactSecurity.Mode == string(kernelcachetypes.ModeCert) || mode == string(kernelcachetypes.ModeKeyless) {
 		registryAccess, registryAccessErr := registry.NewControllerRegistryAccess(ctx, reader, kernelCache.Namespace, config.Registry, request.ImageRef)
 		if registryAccessErr != nil {
 			statusErr := r.updateVerificationStatus(ctx, kernelCache, v1alpha1.KernelCacheVerificationStatus{
