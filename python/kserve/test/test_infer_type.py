@@ -536,6 +536,41 @@ class TestInferRequest:
                 "test_model",
             )
 
+    @pytest.mark.parametrize(
+        "json_part, binary_part",
+        [
+            # Not a JSON object, or no "inputs" list.
+            (b"[1, 2]", b""),
+            (b'{"id": "1"}', b""),
+            # An input without its "datatype".
+            (b'{"inputs": [{"name": "input1", "shape": [2]}]}', b""),
+            # binary_data_size that isn't a non-negative integer.
+            (
+                b'{"inputs": [{"name": "input1", "shape": [2], "datatype": "INT32", "parameters": {"binary_data_size": "8"}}]}',
+                b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            ),
+            (
+                b'{"inputs": [{"name": "input1", "shape": [2], "datatype": "INT32", "parameters": {"binary_data_size": -4}}]}',
+                b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            ),
+            # Fewer bytes after the JSON than binary_data_size says.
+            (
+                b'{"inputs": [{"name": "input1", "shape": [2], "datatype": "INT32", "parameters": {"binary_data_size": 8}}]}',
+                b"\x01\x00\x00\x00",
+            ),
+            # Binary data that doesn't fit the shape.
+            (
+                b'{"inputs": [{"name": "input1", "shape": [3], "datatype": "INT32", "parameters": {"binary_data_size": 8}}]}',
+                b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            ),
+        ],
+    )
+    def test_infer_request_from_bytes_malformed_request(self, json_part, binary_part):
+        with pytest.raises(InvalidInput):
+            InferRequest.from_bytes(
+                json_part + binary_part, len(json_part), "test_model"
+            )
+
     def test_infer_request_from_bytes_fp16_data_via_json(self):
         infer_request_bytes = b'{"id": "1", "inputs": [{"name": "input1", "shape": [1], "datatype": "FP16", "data": [1]}'
         with pytest.raises(InvalidInput):
