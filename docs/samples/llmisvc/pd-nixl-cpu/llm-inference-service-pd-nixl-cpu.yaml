@@ -1,0 +1,142 @@
+# Prefill/decode disaggregation on CPU with a real KV transfer over NIXL (UCX/TCP).
+# Mirrors the e2e TestCase base_refs=["router-managed", "workload-pd-cpu", "model-fb-opt-125m"],
+# with three differences: the image adds NIXL, both workloads set --kv-transfer-config,
+# and the model comes from the PVC that model-pvc.yaml fills.
+#
+# ${VLLM_NIXL_CPU_IMAGE} is the image built from ./Dockerfile; run.sh substitutes it.
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: opt-125m-pd-nixl-cpu
+spec:
+  model:
+    uri: pvc://opt-125m-model
+    name: facebook/opt-125m
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            resources:
+              requests:
+                cpu: 256m
+                memory: 500Mi
+    route: {}
+    gateway: {}
+  # Decode workload. The preset runs vLLM on 8001 behind the routing sidecar on 8000.
+  template:
+    containers:
+      - name: main
+        image: ${VLLM_NIXL_CPU_IMAGE}
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: DEBUG
+          - name: VLLM_CPU_KVCACHE_SPACE
+            value: "1"
+          - name: VLLM_ENABLE_V1_MULTIPROCESSING
+            value: "0"
+          - name: USER
+            value: nonroot
+          - name: TORCHINDUCTOR_CACHE_DIR
+            value: /tmp/torchinductor-cache
+          # The preset launches vLLM through `eval`, so the JSON keeps its double quotes
+          # only inside single quotes. A user-supplied --kv-transfer-config always wins
+          # over the one the preset would inject.
+          - name: VLLM_ADDITIONAL_ARGS
+            value: >-
+              --kv-transfer-config '{"kv_connector":"NixlConnector","kv_role":"kv_both","kv_buffer_device":"cpu"}'
+          # Separate pods, so UCX carries the KV over TCP.
+          - name: UCX_TLS
+            value: tcp,self
+          # vLLM's CPU thread autobind needs NUMA nodes in sysfs, which some VMs
+          # (Docker Desktop among them) do not expose.
+          - name: VLLM_CPU_OMP_THREADS_BIND
+            value: nobind
+        resources:
+          limits:
+            cpu: "2"
+            memory: 7Gi
+          requests:
+            cpu: 200m
+            memory: 2Gi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 180
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 8
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+  # Prefill workload. vLLM listens on 8000 directly.
+  prefill:
+    template:
+      # Both workloads mount the ReadWriteOnce model claim, which most block storage
+      # attaches to one node at a time, so prefill runs on the decode pod's node.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: opt-125m-pd-nixl-cpu
+                  app.kubernetes.io/component: llminferenceservice-workload
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: main
+          image: ${VLLM_NIXL_CPU_IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: VLLM_LOGGING_LEVEL
+              value: DEBUG
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: "1"
+            - name: VLLM_ENABLE_V1_MULTIPROCESSING
+              value: "0"
+            - name: USER
+              value: nonroot
+            - name: TORCHINDUCTOR_CACHE_DIR
+              value: /tmp/torchinductor-cache
+            - name: VLLM_ADDITIONAL_ARGS
+              value: >-
+                --kv-transfer-config '{"kv_connector":"NixlConnector","kv_role":"kv_both","kv_buffer_device":"cpu"}'
+            - name: UCX_TLS
+              value: tcp,self
+            - name: VLLM_CPU_OMP_THREADS_BIND
+              value: nobind
+          resources:
+            limits:
+              cpu: "2"
+              memory: 7Gi
+            requests:
+              cpu: 200m
+              memory: 2Gi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 180
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 8
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
