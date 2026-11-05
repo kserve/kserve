@@ -1534,11 +1534,20 @@ var _ = Describe("Inference Graph controller test", func() {
 				// route pointing at a deleted Service.
 				ownedService := &corev1.Service{}
 				Expect(k8sClient.Get(ctx, graphServiceKey, ownedService)).To(Succeed())
+				originalUID := ownedService.UID
 				Expect(k8sClient.Delete(ctx, ownedService.DeepCopy())).NotTo(HaveOccurred())
-				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
 
-				// The service must be recreated by the graph controller.
-				expectResourceToExist(ctx, &corev1.Service{}, graphServiceKey)
+				// The controller may recreate the Service before a Get observes
+				// NotFound, so wait for a replacement with a different UID rather
+				// than asserting the Service is gone in between.
+				Eventually(func() (types.UID, error) {
+					recreated := &corev1.Service{}
+					err := k8sClient.Get(ctx, graphServiceKey, recreated)
+					if err != nil {
+						return "", err
+					}
+					return recreated.UID, nil
+				}, timeout, interval).Should(Not(Equal(originalUID)), "the graph controller should recreate the deleted Service")
 
 				// And the graph must report Ready again once its service is restored.
 				expectIGConditionStatus(ctx, graphServiceKey, apis.ConditionReady, corev1.ConditionTrue)
