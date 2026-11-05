@@ -1,4 +1,8 @@
 clusterStorageContainerCRD:
-  # Set to false if the ClusterStorageContainer CRD is already managed by another chart
-  # (e.g., kserve-crd-minimal) to avoid conflicts.
+  # -- Whether this chart may install the ClusterStorageContainer CRD. The CRD is shared by the
+  # kserve-crd and kserve-llmisvc-crd charts (and their -minimal variants), and a Helm release cannot
+  # own it if another release already does. When true, the CRD is rendered unless a different Helm
+  # release in the cluster already owns it. That check needs cluster access, so tools that render
+  # offline (helm template, Argo CD, kustomize --enable-helm) always render it. Set this to false on
+  # one of the charts when using those tools, so that the CRD is rendered only once.
   install: true

@@ -1,3 +1,20 @@
-{{- if .Values.clusterStorageContainerCRD.install }}
+{{- /*
+The kserve-crd and kserve-llmisvc-crd charts (and their -minimal variants) all ship this CRD, and only
+one Helm release can own it. The lookup skips it when another release is the owner. A lookup is always
+empty when rendering offline, so offline tools need clusterStorageContainerCRD.install=false on one chart.
+*/ -}}
+{{- $install := ne (toString (dig "install" true (default dict .Values.clusterStorageContainerCRD))) "false" -}}
+{{- $render := $install -}}
+{{- $existing := lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" "" "clusterstoragecontainers.serving.kserve.io" -}}
+{{- if $existing -}}
+  {{- $annotations := default dict $existing.metadata.annotations -}}
+  {{- $owner := get $annotations "meta.helm.sh/release-name" -}}
+  {{- if and $owner (ne $owner .Release.Name) -}}
+    {{- $render = false -}}
+  {{- else if and (not $install) (eq $owner .Release.Name) (ne (get $annotations "helm.sh/resource-policy") "keep") -}}
+    {{- fail (printf "clusterStorageContainerCRD.install=false would delete the ClusterStorageContainer CRD and all its objects, because release %q owns it. To stop managing the CRD without deleting it, first run: kubectl annotate crd clusterstoragecontainers.serving.kserve.io helm.sh/resource-policy=keep" .Release.Name) -}}
+  {{- end -}}
+{{- end -}}
+{{- if $render }}
 {{ .Files.Get "files/serving.kserve.io_clusterstoragecontainers.yaml" }}
 {{- end }}
