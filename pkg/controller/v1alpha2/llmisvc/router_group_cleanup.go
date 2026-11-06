@@ -23,8 +23,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -42,49 +40,66 @@ func (r *LLMISVCReconciler) reconcileTerminatingGroupBackends(ctx context.Contex
 		return nil
 	}
 
-	route := &gwapiv1.HTTPRoute{}
-	key := client.ObjectKey{Namespace: llmSvc.Namespace, Name: kmeta.ChildName(llmSvc.Name, "-kserve-route")}
-	if err := r.Get(ctx, key, route); err != nil {
-		if meta.IsNoMatchError(err) {
-			return nil
+	// The logical route may be split over several HTTPRoutes; prune each one.
+	routes, err := managedHTTPRoutes(ctx, r, llmSvc)
+	if err != nil {
+		return err
+	}
+
+	// A partial write after a group change can leave shards labelled with
+	// different groups, so members are listed per group, not once.
+	membersByGroup := map[string][]v1alpha2.LLMInferenceService{}
+	firstGroup := ""
+	for _, route := range routes {
+		group := route.Labels[constants.LLMRoutingGroupLabelKey]
+		if group == "" {
+			continue
 		}
-		return client.IgnoreNotFound(err)
-	}
 
-	group := route.Labels[constants.LLMRoutingGroupLabelKey]
-	if group == "" {
-		return nil
-	}
-	if !metav1.IsControlledBy(route, llmSvc) {
-		return fmt.Errorf("cannot prune group HTTPRoute %s/%s: not controlled by this service", route.Namespace, route.Name)
-	}
-
-	members := &v1alpha2.LLMInferenceServiceList{}
-	if err := r.List(ctx, members, client.InNamespace(route.Namespace),
-		client.MatchingFields{groupFieldIndex: route.Namespace + "/" + group}); err != nil {
-		return fmt.Errorf("failed to list routing group %q: %w", group, err)
-	}
-
-	stored := route.DeepCopy()
-	if removed := removeTerminatingGroupBackends(route, members.Items); len(removed) > 0 {
-		if err := r.Patch(ctx, route, client.MergeFromWithOptions(stored, client.MergeFromWithOptimisticLock{})); err != nil {
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-				return nil
+		members, listed := membersByGroup[group]
+		if !listed {
+			list := &v1alpha2.LLMInferenceServiceList{}
+			if err := r.List(ctx, list, client.InNamespace(route.Namespace),
+				client.MatchingFields{groupFieldIndex: route.Namespace + "/" + group}); err != nil {
+				return fmt.Errorf("failed to list routing group %q: %w", group, err)
 			}
-			return fmt.Errorf("failed to prune terminating backends from group HTTPRoute %s/%s: %w",
-				route.Namespace, route.Name, err)
+			members = list.Items
+			membersByGroup[group] = members
+			if firstGroup == "" {
+				firstGroup = group
+			}
 		}
+
+		stored := route.DeepCopy()
+		if removed := removeTerminatingGroupBackends(route, members); len(removed) > 0 {
+			if err := r.Patch(ctx, route, client.MergeFromWithOptions(stored, client.MergeFromWithOptimisticLock{})); err != nil {
+				if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+					continue
+				}
+				return fmt.Errorf("failed to prune terminating backends from group HTTPRoute %s/%s: %w",
+					route.Namespace, route.Name, err)
+			}
+		}
+	}
+	if firstGroup == "" {
+		return nil
 	}
 
 	// Recompute membership even when nothing was pruned here: an earlier reconcile
 	// may have patched the route successfully and then failed to persist status.
 	// Membership comes from the member list rather than the route, so a route this
-	// service was unable to write cannot erase a live peer from status.
+	// service was unable to write cannot erase a live peer from status. The
+	// status names its group; without a listed match, the first shard's group
+	// is used as before.
 	if llmSvc.Status.Router != nil && llmSvc.Status.Router.Group != nil {
-		live := make(map[string]bool, len(members.Items))
-		for i := range members.Items {
-			if members.Items[i].DeletionTimestamp.IsZero() {
-				live[members.Items[i].Name] = true
+		members, ok := membersByGroup[llmSvc.Status.Router.Group.Name]
+		if !ok {
+			members = membersByGroup[firstGroup]
+		}
+		live := make(map[string]bool, len(members))
+		for i := range members {
+			if members[i].DeletionTimestamp.IsZero() {
+				live[members[i].Name] = true
 			}
 		}
 		llmSvc.Status.Router.Group.Members = slices.DeleteFunc(llmSvc.Status.Router.Group.Members,

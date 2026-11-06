@@ -116,6 +116,18 @@ manifests: controller-gen kustomize yq ## After API type or RBAC marker changes:
 	done; \
 	$(YQ) "$$strip | $$required" -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml; \
 	$(YQ) "$$required" -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	# The inline route may hold more rules than one HTTPRoute; the controller shards it into HTTPRoutes that each fit the
+	# Gateway API limits, and every emitted HTTPRoute is dry-run against the Gateway API CRD before it is written. Raise the
+	# rule count limit to 256 (16 HTTPRoutes of 16 rules) and drop the nested route validations (including the total
+	# matches rule) on both versions of both APIs, so v1alpha1 and v1alpha2 accept the same routes and conversion stays an
+	# identity. The validating webhook checks the match count and dry-runs the inline rules as HTTPRoutes instead.
+	@for crd in llminferenceservices llminferenceserviceconfigs; do \
+		for ver in 0 1; do \
+			path=".spec.versions[$$ver].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec"; \
+			$(YQ) "$$path.properties.rules.maxItems = 256" -i config/crd/full/llmisvc/serving.kserve.io_$$crd.yaml; \
+			$(YQ) "($$path | .. | select(has(\"x-kubernetes-validations\"))) |= del(.\"x-kubernetes-validations\")" -i config/crd/full/llmisvc/serving.kserve.io_$$crd.yaml; \
+		done; \
+	done
 
 	# InferenceService CRD edits, as one yq pipeline:
 	#remove the required property on framework as name field needs to be optional

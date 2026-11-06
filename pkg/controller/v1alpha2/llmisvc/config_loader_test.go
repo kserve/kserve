@@ -347,3 +347,35 @@ func TestLoadConfigFeatureGates(t *testing.T) {
 			"a typo in the gate block must surface loudly rather than read as gates-off")
 	})
 }
+
+func TestLoadConfigHTTPRouteMaxShards(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		input   int // ingress key left unset when zero
+		want    int
+		wantErr string
+	}{
+		{name: "defaults to one when omitted", want: constants.DefaultHTTPRouteMaxShards},
+		{name: "accepts a value in range", input: 4, want: 4},
+		{name: "accepts the upper bound", input: 16, want: 16},
+		{name: "rejects negative values", input: -1, wantErr: "httpRouteMaxShards must be between 1 and 16, got -1"},
+		{name: "rejects values above the bound", input: 17, wantErr: "httpRouteMaxShards must be between 1 and 16, got 17"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+			if tt.input != 0 {
+				fixture.SetIngressConfigKey(cm, "httpRouteMaxShards", tt.input)
+			}
+			c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+
+			got, err := llmisvc.LoadConfig(t.Context(), c)
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got.HTTPRouteMaxShards)
+		})
+	}
+}

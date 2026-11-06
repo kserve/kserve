@@ -23,12 +23,8 @@ import (
 	"slices"
 	"strings"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
-	kmeta "knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -271,25 +267,20 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 		if members[i].Name == llmSvc.Name || !members[i].DeletionTimestamp.IsZero() {
 			continue
 		}
-		route := &gwapiv1.HTTPRoute{}
-		routeKey := types.NamespacedName{
-			Name:      kmeta.ChildName(members[i].GetName(), "-kserve-route"),
-			Namespace: members[i].GetNamespace(),
+		// A member's logical route may be split over several HTTPRoutes; any
+		// of them can still carry this service's backend.
+		routes, err := managedHTTPRoutes(ctx, r, &members[i])
+		if err != nil {
+			return false, fmt.Errorf("checking member %s routes for stale backendRefs: %w", members[i].Name, err)
 		}
-		if err := r.Get(ctx, routeKey, route); err != nil {
-			// An uninstalled Gateway API holds no reference to release; erroring
-			// here would block deletion forever.
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-				continue
+		for _, route := range routes {
+			if routeReferencesMember(route, llmSvc) {
+				logger.Info("Waiting for member to remove backendRef before deletion",
+					"member", members[i].Name, "route", route.Name)
+				llmSvc.MarkGroupNotReady(reasonFinalizationPending,
+					"waiting for member %s to remove backendRef before deletion", members[i].Name)
+				return false, nil
 			}
-			return false, fmt.Errorf("checking member route %s for stale backendRefs: %w", routeKey.Name, err)
-		}
-		if routeReferencesMember(route, llmSvc) {
-			logger.Info("Waiting for member to remove backendRef before deletion",
-				"member", members[i].Name)
-			llmSvc.MarkGroupNotReady(reasonFinalizationPending,
-				"waiting for member %s to remove backendRef before deletion", members[i].Name)
-			return false, nil
 		}
 	}
 
