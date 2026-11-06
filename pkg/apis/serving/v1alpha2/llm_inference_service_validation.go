@@ -80,7 +80,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	var allErrs field.ErrorList
 	var warnings admission.Warnings
 
-	routerWarnings, routerErrs := l.validateRouterCrossFieldConstraints(llmSvc)
+	routerWarnings, routerErrs := l.validateRouterCrossFieldConstraints(prev, llmSvc)
 	warnings = append(warnings, routerWarnings...)
 	allErrs = append(allErrs, routerErrs...)
 
@@ -159,7 +159,7 @@ func workloadSpec(spec *LLMInferenceServiceSpec) *WorkloadSpec {
 	return &spec.WorkloadSpec
 }
 
-func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(prev, llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
 	router := llmSvc.Spec.Router
 	if router == nil || router.Route == nil {
 		return nil, nil
@@ -211,11 +211,19 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 	// If they conflict, reject.
 	if httpRoute.Spec != nil && len(httpRoute.Spec.ParentRefs) > 0 &&
 		router.Gateway != nil && len(router.Gateway.Refs) > 0 {
-		if parentRefsMatchGatewayRefs(httpRoute.Spec.ParentRefs, router.Gateway.Refs) {
+		switch {
+		case parentRefsMatchGatewayRefs(httpRoute.Spec.ParentRefs, router.Gateway.Refs):
 			warnings = append(warnings,
 				fmt.Sprintf("%s.parentRefs can be omitted when %s is set; parentRefs will be derived automatically from gateway refs",
 					httpRouteSpec, gwRefsPath))
-		} else {
+		case routeParentsUnchanged(prev, llmSvc):
+			// Earlier releases accepted a parent of another kind that shares a gateway
+			// ref's name; keep such objects editable until the parents are fixed.
+			warnings = append(warnings,
+				fmt.Sprintf("%s.parentRefs conflict with %s and are replaced by parentRefs derived from it; "+
+					"either remove '%s' or '%s.parentRefs'",
+					httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec))
+		default:
 			allErrs = append(allErrs, field.Invalid(
 				httpRoutePath.Child("spec"),
 				httpRoute.Spec,
@@ -228,6 +236,24 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 	}
 
 	return warnings, allErrs
+}
+
+// routeParentsUnchanged reports whether an update keeps the managed route
+// parentRefs and the gateway refs of prev, and whether those parentRefs
+// include one that is not a Gateway: the only conflict earlier releases let
+// through.
+func routeParentsUnchanged(prev, llmSvc *LLMInferenceService) bool {
+	if prev == nil || prev.Spec.Router == nil || prev.Spec.Router.Route == nil || !prev.Spec.Router.Route.HTTP.HasSpec() ||
+		prev.Spec.Router.Gateway == nil {
+		return false
+	}
+	parentRefs := llmSvc.Spec.Router.Route.HTTP.Spec.ParentRefs
+	hasNonGatewayParent := slices.ContainsFunc(parentRefs, func(ref gwapiv1.ParentReference) bool {
+		return ptr.Deref(ref.Group, gwapiv1.GroupName) != gwapiv1.GroupName || ptr.Deref(ref.Kind, "Gateway") != "Gateway"
+	})
+	return hasNonGatewayParent &&
+		equality.Semantic.DeepEqual(prev.Spec.Router.Route.HTTP.Spec.ParentRefs, parentRefs) &&
+		equality.Semantic.DeepEqual(prev.Spec.Router.Gateway.Refs, llmSvc.Spec.Router.Gateway.Refs)
 }
 
 // parentRefsMatchGatewayRefs checks whether the parentRefs on an HTTPRoute are
@@ -260,6 +286,12 @@ func parentRefsMatchGatewayRefs(parentRefs []gwapiv1.ParentReference, gatewayRef
 
 	pKeys := make([]key, len(parentRefs))
 	for i, ref := range parentRefs {
+		// Gateway refs only ever derive Gateway parents. A parent of another kind,
+		// such as a ListenerSet sharing a Gateway's name, can never match one, and
+		// treating it as a match would let the derived Gateway parent replace it.
+		if ptr.Deref(ref.Group, gwapiv1.GroupName) != gwapiv1.GroupName || ptr.Deref(ref.Kind, "Gateway") != "Gateway" {
+			return false
+		}
 		pKeys[i] = toKey(ref.Name, ptr.Deref(ref.Namespace, ""), ref.SectionName)
 	}
 	gKeys := make([]key, len(gatewayRefs))

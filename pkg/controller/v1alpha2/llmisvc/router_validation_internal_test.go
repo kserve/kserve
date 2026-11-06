@@ -17,11 +17,19 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
 	"slices"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -310,4 +318,97 @@ func TestFindModelNameCollisions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateParentRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := gwapiv1.Install(scheme); err != nil {
+		t.Fatal(err)
+	}
+	r := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "shared-gw", Namespace: "ingress"}},
+		&gwapiv1.ListenerSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "tenant-https", Namespace: "ingress"},
+			Spec:       gwapiv1.ListenerSetSpec{ParentRef: gwapiv1.ParentGatewayReference{Name: "shared-gw"}},
+		},
+		&gwapiv1.ListenerSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "orphan-https", Namespace: "ingress"},
+			Spec:       gwapiv1.ListenerSetSpec{ParentRef: gwapiv1.ParentGatewayReference{Name: "gone-gw"}},
+		},
+		&gwapiv1.ListenerSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "tenant-https", Namespace: "tenant"},
+			Spec: gwapiv1.ListenerSetSpec{ParentRef: gwapiv1.ParentGatewayReference{
+				Name: "shared-gw", Namespace: ptr.To(gwapiv1.Namespace("ingress")),
+			}},
+		},
+	).Build()}
+	listenerSetRef := func(name string) gwapiv1.ParentReference {
+		return gwapiv1.ParentReference{Kind: ptr.To(gwapiv1.Kind("ListenerSet")), Name: gwapiv1.ObjectName(name), Namespace: ptr.To(gwapiv1.Namespace("ingress"))}
+	}
+
+	tests := []struct {
+		name string
+		ref  gwapiv1.ParentReference
+		want string
+	}{
+		{
+			name: "existing Gateway",
+			ref:  gwapiv1.ParentReference{Name: "shared-gw", Namespace: ptr.To(gwapiv1.Namespace("ingress"))},
+		},
+		{
+			name: "missing Gateway",
+			ref:  gwapiv1.ParentReference{Name: "missing-gw", Namespace: ptr.To(gwapiv1.Namespace("ingress"))},
+			want: "non-existent Gateway ingress/missing-gw",
+		},
+		{
+			name: "ListenerSet whose Gateway exists",
+			ref:  listenerSetRef("tenant-https"),
+		},
+		{
+			name: "ListenerSet whose Gateway is in another namespace",
+			ref:  gwapiv1.ParentReference{Kind: ptr.To(gwapiv1.Kind("ListenerSet")), Name: "tenant-https"},
+		},
+		{
+			name: "missing ListenerSet",
+			ref:  listenerSetRef("missing-https"),
+			want: "non-existent ListenerSet ingress/missing-https",
+		},
+		{
+			name: "ListenerSet whose Gateway is missing",
+			ref:  listenerSetRef("orphan-https"),
+			want: "ListenerSet ingress/orphan-https whose Gateway ingress/gone-gw does not exist",
+		},
+		{
+			name: "parent of an unsupported kind",
+			ref:  gwapiv1.ParentReference{Group: ptr.To(gwapiv1.Group("")), Kind: ptr.To(gwapiv1.Kind("Service")), Name: "mesh-svc"},
+			want: "parent tenant/mesh-svc of unsupported kind Service (core group); only Gateway and ListenerSet parents are supported",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := r.validateParentRef(t.Context(), tt.ref, "tenant")
+			if tt.want == "" {
+				if err != nil {
+					t.Fatalf("validateParentRef() = %v, want no error", err)
+				}
+				return
+			}
+			if !IsValidationError(err) || err.Error() != tt.want {
+				t.Errorf("validateParentRef() = %v, want validation error %q", err, tt.want)
+			}
+		})
+	}
+
+	t.Run("ListenerSet parent without the ListenerSet CRD", func(t *testing.T) {
+		noCRD := &LLMISVCReconciler{Client: interceptor.NewClient(fake.NewClientBuilder().WithScheme(scheme).Build(), interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				return &meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: gwapiv1.GroupName, Kind: "ListenerSet"}}
+			},
+		})}
+		want := "ListenerSet ingress/tenant-https, but the ListenerSet CRD is not installed"
+		if err := noCRD.validateParentRef(t.Context(), listenerSetRef("tenant-https"), "tenant"); !IsValidationError(err) || err.Error() != want {
+			t.Errorf("validateParentRef() = %v, want validation error %q", err, want)
+		}
+	})
 }
