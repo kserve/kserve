@@ -670,7 +670,7 @@ func TestHTTPRouteShardHandoff(t *testing.T) {
 		return r
 	}
 	paths := func(r *gwapiv1.HTTPRoute) []string {
-		var out []string
+		out := make([]string, 0, len(r.Spec.Rules))
 		for _, rule := range r.Spec.Rules {
 			out = append(out, *rule.Matches[0].Path.Value)
 		}
@@ -746,3 +746,4 @@ func TestHTTPRouteShardHandoff(t *testing.T) {
 		require.False(t, pending)
 	})
 }
+
