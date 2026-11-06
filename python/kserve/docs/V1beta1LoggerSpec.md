@@ -4,6 +4,7 @@ LoggerSpec specifies optional payload logging available for all components
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**agent** | [**V1beta1LoggerAgentSpec**](V1beta1LoggerAgentSpec.md) |  | [optional] 
 **batch_interval** | **str** | Max duration to wait before flushing a partial batch (e.g. \&quot;5s\&quot;, \&quot;100ms\&quot;). Only used when BatchSize &gt; 1. Defaults to \&quot;0\&quot; (no time-based flushing). | [optional] 
 **batch_size** | **int** | Number of log records per batch for blob storage. Defaults to 1 (immediate). | [optional] 
 **marshaller_url** | **str** | URL of the log marshaller service that transforms log records before storage. Defaults to the embedded JSON marshaller at http://localhost:9083/marshal. | [optional] 
