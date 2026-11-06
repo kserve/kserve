@@ -1619,11 +1619,16 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 
-				// Stop the inference graph
-				actualIG := expectIGToExist(ctx, graphServiceKey)
-				updatedIG := actualIG.DeepCopy()
-				updatedIG.Annotations[constants.StopAnnotationKey] = "true"
-				Expect(k8sClient.Update(ctx, updatedIG)).NotTo(HaveOccurred())
+				// Stop the inference graph. Retry on conflict because the controller
+				// writes status while the Deployment is not available yet.
+				Eventually(func() error {
+					actualIG := &v1alpha1.InferenceGraph{}
+					if err := k8sClient.Get(ctx, graphServiceKey, actualIG); err != nil {
+						return err
+					}
+					actualIG.Annotations[constants.StopAnnotationKey] = "true"
+					return k8sClient.Update(ctx, actualIG)
+				}, timeout).Should(Succeed())
 
 				// Check that the service and deployment were deleted
 				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
@@ -1658,11 +1663,15 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGToExist(context.Background(), graphServiceKey)
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 
-				// Resume the inference graph
-				actualIG := expectIGToExist(ctx, graphServiceKey)
-				updatedIG := actualIG.DeepCopy()
-				updatedIG.Annotations[constants.StopAnnotationKey] = "false"
-				Expect(k8sClient.Update(ctx, updatedIG)).NotTo(HaveOccurred())
+				// Resume the inference graph. Retry on conflict for the same reason.
+				Eventually(func() error {
+					actualIG := &v1alpha1.InferenceGraph{}
+					if err := k8sClient.Get(ctx, graphServiceKey, actualIG); err != nil {
+						return err
+					}
+					actualIG.Annotations[constants.StopAnnotationKey] = "false"
+					return k8sClient.Update(ctx, actualIG)
+				}, timeout).Should(Succeed())
 
 				// Check the inference graph
 				expectResourceToExist(context.Background(), &appsv1.Deployment{}, graphServiceKey)
