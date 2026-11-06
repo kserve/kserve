@@ -347,3 +347,41 @@ func TestLoadConfigFeatureGates(t *testing.T) {
 			"a typo in the gate block must surface loudly rather than read as gates-off")
 	})
 }
+
+func TestLoadConfigDisableHTTPRouteTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		ingress string
+		want    bool
+	}{
+		{
+			name:    "flag true propagates",
+			ingress: `{"kserveIngressGateway": "kserve/kserve-ingress-gateway", "ingressGateway": "knative-serving/knative-ingress-gateway", "disableHTTPRouteTimeout": true}`,
+			want:    true,
+		},
+		{
+			name:    "flag omitted defaults to false",
+			ingress: `{"kserveIngressGateway": "kserve/kserve-ingress-gateway", "ingressGateway": "knative-serving/knative-ingress-gateway"}`,
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configMap := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+			configMap.Data["ingress"] = tt.ingress
+			c := fake.NewClientBuilder().
+				WithScheme(clientgoscheme.Scheme).
+				WithObjects(configMap).
+				Build()
+
+			got, err := llmisvc.LoadConfig(t.Context(), c)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.DisableHTTPRouteTimeout != tt.want {
+				t.Errorf("DisableHTTPRouteTimeout = %v, want %v", got.DisableHTTPRouteTimeout, tt.want)
+			}
+		})
+	}
+}
