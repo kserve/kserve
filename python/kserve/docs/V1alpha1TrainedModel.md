@@ -8,7 +8,7 @@ Name | Type | Description | Notes
 **kind** | **str** | Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds | [optional] 
 **metadata** | [**V1ObjectMeta**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ObjectMeta.md) |  | [optional] 
 **spec** | [**V1alpha1TrainedModelSpec**](V1alpha1TrainedModelSpec.md) |  | [optional] 
-**status** | [**V1alpha1TrainedModelStatus**](V1alpha1TrainedModelStatus.md) |  | [optional] 
+**status** | [**V1alpha1TrainedModelStatus**](../../../pkg/apis/serving/v1alpha1/trained_model_status.go) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

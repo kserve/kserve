@@ -3277,7 +3277,7 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref common.Reference
 					},
 					"labels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Labels that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/labels",
+							Description: "Labels that will be add to the pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -3292,7 +3292,7 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref common.Reference
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Annotations that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+							Description: "Annotations that will be add to the pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -3498,7 +3498,7 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 					},
 					"labels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Labels that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/labels",
+							Description: "Labels that will be add to the pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -3513,7 +3513,7 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Annotations that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+							Description: "Annotations that will be add to the pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,

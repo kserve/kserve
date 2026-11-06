@@ -4,7 +4,7 @@ KernelCacheStatus defines the observed state of a KernelCache.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**conditions** | [**list[V1Condition]**](V1Condition.md) | Conditions represent the latest availability observations. | [optional] 
+**conditions** | [**list[V1Condition]**](https://pkg.go.dev/k8s.io/apimachinery@v0.37.1/pkg/apis/meta/v1#Condition) | Conditions represent the latest availability observations. | [optional] 
 **counts** | [**V1alpha1KernelCacheCounts**](V1alpha1KernelCacheCounts.md) |  | [optional] 
 **mount_type** | **str** | MountType is the observed cache delivery mode. | [optional] 
 **state** | **str** | State is the aggregate node preparation state. | [optional] 
