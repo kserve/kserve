@@ -50,6 +50,12 @@ yq eval-all '. as $item ireduce ({}; . * $item)' \
 
 echo "✅ Generated values.yaml files"
 
+# Sync the shared ClusterStorageContainer CRD template and values to the CRD charts that ship it
+for chart in kserve-crd kserve-crd-minimal kserve-llmisvc-crd kserve-llmisvc-crd-minimal; do
+  cp ${REPO_ROOT}/charts/_common/crd/values.yaml ${REPO_ROOT}/charts/${chart}/values.yaml
+  cp ${REPO_ROOT}/charts/_common/crd/serving.kserve.io_clusterstoragecontainers.yaml ${REPO_ROOT}/charts/${chart}/templates/
+done
+
 # Sync common patch files to charts that need them
 echo "Syncing common patch files..."
 mkdir -p ${REPO_ROOT}/charts/kserve-resources/files/common
