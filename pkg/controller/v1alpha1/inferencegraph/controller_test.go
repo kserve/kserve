@@ -281,7 +281,9 @@ var _ = Describe("Inference Graph controller test", func() {
 					Namespace: constants.AutoscalerConfigmapNamespace,
 				},
 			}
-			configPatch := []byte(`{"data":{}}`)
+			// The suite creates this configmap without the key. A strategic merge patch only
+			// removes a key set to null: `{"data":{}}` merges nothing and leaves it "true".
+			configPatch := []byte(`{"data":{"allow-zero-initial-scale":null}}`)
 			Eventually(func() error {
 				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout).Should(Succeed())
