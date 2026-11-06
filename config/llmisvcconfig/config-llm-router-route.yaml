@@ -294,6 +294,9 @@ spec:
                 request: 0s
             # Publisher-qualified model paths provide a stable, version-independent
             # endpoint using spec.model.name instead of metadata.name.
+            # The controller cleans the model name in these paths: empty and "."
+            # segments are dropped and ".." removes the segment before it, so
+            # /app/root/model is served under /publishers/<ns>/models/app/root/model.
             # The /publishers/ path prefix is reserved for this purpose.
             # These mirror the per-participant endpoint rules above.
             - name: v1-completions-publisher-path

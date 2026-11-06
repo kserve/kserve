@@ -208,14 +208,23 @@ func injectManagedDRA(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodS
 
 // targetContainerForDRA returns the index of the container that should receive
 // the DRA claim: the annotated container when set and present, otherwise the
-// first container. Returns -1 if no suitable container exists.
+// first workload container, skipping the reserved PVC evictor. Returns -1 if
+// no suitable container exists.
 func targetContainerForDRA(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec) int {
 	if len(podSpec.Containers) == 0 {
 		return -1
 	}
 	want, present := llmSvc.ManagedDRAContainerName()
+	if want == pvcEvictorTemplateName {
+		return -1
+	}
 	if !present || want == "" {
-		return 0
+		for i := range podSpec.Containers {
+			if podSpec.Containers[i].Name != pvcEvictorTemplateName {
+				return i
+			}
+		}
+		return -1
 	}
 	for i := range podSpec.Containers {
 		if podSpec.Containers[i].Name == want {

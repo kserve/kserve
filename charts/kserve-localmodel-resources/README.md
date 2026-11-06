@@ -67,6 +67,8 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcache.registry.caConfigMapRef.key | string | `""` |  |
 | kserve.kernelcache.registry.caConfigMapRef.name | string | `""` |  |
 | kserve.kernelcache.registry.endpoint | string | `""` |  |
+| kserve.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
+| kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
 | kserve.kernelcachenode.controller.affinity | object | `{}` |  |
 | kserve.kernelcachenode.controller.image | string | `"kserve/kserve-kernelcachenode-agent"` |  |
 | kserve.kernelcachenode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |

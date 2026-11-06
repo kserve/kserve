@@ -655,13 +655,13 @@ PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
 KSERVE_VERSION=v0.21.0
-ISTIO_VERSION=1.27.1
+ISTIO_VERSION=1.31.2
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v1.0.0
-GATEWAY_API_VERSION=v1.5.1
+GATEWAY_API_VERSION=v1.6.2
 GIE_VERSION=v1.6.2
-LLMD_ROUTER_VERSION=v0.11.0
+LLMD_ROUTER_VERSION=v1.0.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -2255,6 +2255,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -2552,7 +2568,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2622,6 +2638,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -2949,7 +2981,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3319,6 +3351,22 @@ spec:
     serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -3687,7 +3735,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4136,7 +4184,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -6356,7 +6404,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.11.0
+        app.kubernetes.io/version: 1.0.0
       pool:
         spec:
           endpointPickerRef:
@@ -6392,6 +6440,8 @@ spec:
             end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
             }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--metrics-cert-dir=/var/run/kserve/tls{{-
+            end }}'
           - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion
             }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
           - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
@@ -6399,7 +6449,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -6480,7 +6530,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: approx-prefix-cache-producer
@@ -6503,7 +6553,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: always-disagg-pd-decider
@@ -6542,7 +6592,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: active-request-scorer
@@ -6565,6 +6615,22 @@ spec:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c
@@ -6876,6 +6942,8 @@ spec:
             env:
             - name: KSERVE_TRACING_CONFIG_VERSION
               value: "1"
+            - name: KSERVE_PULL_SECRETS_CONFIG_VERSION
+              value: "1"
             - name: HF_HOME
               value: /tmp/hf
             - name: DO_NOT_TRACK
@@ -6955,6 +7023,22 @@ spec:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
+    - image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: IfNotPresent
+      name: pvc-evictor
+      resources:
+        limits:
+          cpu: "4"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
     - command:
       - /bin/bash
       - -c

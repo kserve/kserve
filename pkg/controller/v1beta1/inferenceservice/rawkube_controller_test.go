@@ -58,14 +58,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	configs := getRawKubeTestConfigs()
 
-	// Checks that any Kubernetes object does not exist
-	expectResourceDoesNotExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
-		Consistently(func() bool {
-			err := k8sClient.Get(ctx, objKey, obj)
-			return apierr.IsNotFound(err)
-		}, fastTimeout, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
-	}
-
 	Context("When creating inference service with raw kube predictor", func() {
 		It("Should have httproute/service/deployment/httproute created", func() {
 			By("By creating a new InferenceService")
@@ -1885,26 +1877,25 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				expectIsvcToExist(ctx, serviceKey)
 
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
 				// Check that the deployment was not created
-				expectResourceDoesNotExist(ctx, &appsv1.Deployment{}, predictorKey)
-
-				// check that the service was not created
-				expectResourceDoesNotExist(ctx, &corev1.Service{}, predictorKey)
-
-				// check that the http routes were not created
-				// top level http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, serviceKey)
-				// predictor http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, predictorKey)
-
-				// check that the HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
+				expectAbsent(ctx,
+					absent(&appsv1.Deployment{}, predictorKey),
+					// check that the service was not created
+					absent(&corev1.Service{}, predictorKey),
+					// check that the http routes were not created
+					// top level http route
+					absent(&gwapiv1.HTTPRoute{}, serviceKey),
+					// predictor http route
+					absent(&gwapiv1.HTTPRoute{}, predictorKey),
+					// check that the HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, predictorKey),
+				)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
-
-				// Check that the ISVC status reflects that it is stopped
-				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 			})
 
 			It("Should not create the ingress/service/deployment/keda/otel when gateway api is disabled and the annotation is set to true", func() {
@@ -1955,26 +1946,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				expectIsvcToExist(ctx, serviceKey)
 
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
 				// Check that the OpenTelemetry Collector was not created
-				expectResourceDoesNotExist(ctx, &otelv1beta1.OpenTelemetryCollector{}, predictorKey)
-
-				// Check that the deployment was not created
-				expectResourceDoesNotExist(ctx, &appsv1.Deployment{}, predictorKey)
-
-				// check that the service was not created
-				expectResourceDoesNotExist(ctx, &corev1.Service{}, predictorKey)
-
-				// Check that the ingress was not created
-				expectResourceDoesNotExist(ctx, &netv1.Ingress{}, serviceKey)
-
-				// Check that the KEDA autoscaler was not created
-				expectResourceDoesNotExist(ctx, &kedav1alpha1.ScaledObject{}, predictorKey)
+				expectAbsent(ctx,
+					absent(&otelv1beta1.OpenTelemetryCollector{}, predictorKey),
+					// Check that the deployment was not created
+					absent(&appsv1.Deployment{}, predictorKey),
+					// check that the service was not created
+					absent(&corev1.Service{}, predictorKey),
+					// Check that the ingress was not created
+					absent(&netv1.Ingress{}, serviceKey),
+					// Check that the KEDA autoscaler was not created
+					absent(&kedav1alpha1.ScaledObject{}, predictorKey),
+				)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
-
-				// Check that the ISVC status reflects that it is stopped
-				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 			})
 
 			It("Should delete the httproute/service/deployment/hpa when the annotation is updated to true on an existing ISVC", func() {
@@ -2195,26 +2184,25 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				expectIsvcToExist(ctx, serviceKey)
 
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
 				// Check that the deployment was not created
-				expectResourceDoesNotExist(ctx, &appsv1.Deployment{}, predictorKey)
-
-				// check that the service was not created
-				expectResourceDoesNotExist(ctx, &corev1.Service{}, predictorKey)
-
-				// check that the http routes were not created
-				// top level http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, serviceKey)
-				// predictor http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, predictorKey)
-
-				// check that the predictor HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
+				expectAbsent(ctx,
+					absent(&appsv1.Deployment{}, predictorKey),
+					// check that the service was not created
+					absent(&corev1.Service{}, predictorKey),
+					// check that the http routes were not created
+					// top level http route
+					absent(&gwapiv1.HTTPRoute{}, serviceKey),
+					// predictor http route
+					absent(&gwapiv1.HTTPRoute{}, predictorKey),
+					// check that the predictor HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, predictorKey),
+				)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
-
-				// Check that the ISVC status reflects that it is stopped
-				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 
 				// Resume the inference service
 				updatedIsvc := expectIsvcToExist(ctx, serviceKey)
@@ -2294,26 +2282,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				expectIsvcToExist(ctx, serviceKey)
 
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
 				// Check that the OpenTelemetry Collector was not created
-				expectResourceDoesNotExist(ctx, &otelv1beta1.OpenTelemetryCollector{}, predictorKey)
-
-				// Check that the deployment was not created
-				expectResourceDoesNotExist(ctx, &appsv1.Deployment{}, predictorKey)
-
-				// check that the service was not created
-				expectResourceDoesNotExist(ctx, &corev1.Service{}, predictorKey)
-
-				// Check that the ingress was not created
-				expectResourceDoesNotExist(ctx, &netv1.Ingress{}, serviceKey)
-
-				// Check that the KEDA autoscaler was not created
-				expectResourceDoesNotExist(ctx, &kedav1alpha1.ScaledObject{}, predictorKey)
+				expectAbsent(ctx,
+					absent(&otelv1beta1.OpenTelemetryCollector{}, predictorKey),
+					// Check that the deployment was not created
+					absent(&appsv1.Deployment{}, predictorKey),
+					// check that the service was not created
+					absent(&corev1.Service{}, predictorKey),
+					// Check that the ingress was not created
+					absent(&netv1.Ingress{}, serviceKey),
+					// Check that the KEDA autoscaler was not created
+					absent(&kedav1alpha1.ScaledObject{}, predictorKey),
+				)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
-
-				// Check that the ISVC status reflects that it is stopped
-				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 
 				// Resume the inference service
 				updatedIsvc := expectIsvcToExist(ctx, serviceKey)
@@ -2516,34 +2502,33 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				expectIsvcToExist(ctx, serviceKey)
 
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
 				// Check that the predictor deployment was not created
-				expectResourceDoesNotExist(ctx, &appsv1.Deployment{}, predictorKey)
-				// Check that the transformer deployment was not created
-				expectResourceDoesNotExist(ctx, &appsv1.Deployment{}, transformerKey)
-
-				// check that the predictor service was not created
-				expectResourceDoesNotExist(ctx, &corev1.Service{}, predictorKey)
-				// check that the transformer service was not created
-				expectResourceDoesNotExist(ctx, &corev1.Service{}, transformerKey)
-
-				// check that the http routes were not created
-				// top level http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, serviceKey)
-				// predictor http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, predictorKey)
-				// transformer http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, transformerKey)
-
-				// check that the predictor HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
-				// check that the transformer HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, transformerKey)
+				expectAbsent(ctx,
+					absent(&appsv1.Deployment{}, predictorKey),
+					// Check that the transformer deployment was not created
+					absent(&appsv1.Deployment{}, transformerKey),
+					// check that the predictor service was not created
+					absent(&corev1.Service{}, predictorKey),
+					// check that the transformer service was not created
+					absent(&corev1.Service{}, transformerKey),
+					// check that the http routes were not created
+					// top level http route
+					absent(&gwapiv1.HTTPRoute{}, serviceKey),
+					// predictor http route
+					absent(&gwapiv1.HTTPRoute{}, predictorKey),
+					// transformer http route
+					absent(&gwapiv1.HTTPRoute{}, transformerKey),
+					// check that the predictor HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, predictorKey),
+					// check that the transformer HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, transformerKey),
+				)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
-
-				// Check that the ISVC status reflects that it is stopped
-				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 			})
 
 			It("Should delete the transformer httproute/service/deployment/hpa when the annotation is updated to true on an existing ISVC", func() {
@@ -2688,34 +2673,33 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				expectIsvcToExist(ctx, serviceKey)
 
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
 				// Check that the predictor deployment was not created
-				expectResourceDoesNotExist(ctx, &appsv1.Deployment{}, predictorKey)
-				// Check that the transformer deployment was not created
-				expectResourceDoesNotExist(ctx, &appsv1.Deployment{}, transformerKey)
-
-				// check that the predictor service was not created
-				expectResourceDoesNotExist(ctx, &corev1.Service{}, predictorKey)
-				// check that the transformer service was not created
-				expectResourceDoesNotExist(ctx, &corev1.Service{}, transformerKey)
-
-				// check that the http routes were not created
-				// top level http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, serviceKey)
-				// predictor http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, predictorKey)
-				// transformer http route
-				expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, transformerKey)
-
-				// check that the predictor HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
-				// check that the transformer HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, transformerKey)
+				expectAbsent(ctx,
+					absent(&appsv1.Deployment{}, predictorKey),
+					// Check that the transformer deployment was not created
+					absent(&appsv1.Deployment{}, transformerKey),
+					// check that the predictor service was not created
+					absent(&corev1.Service{}, predictorKey),
+					// check that the transformer service was not created
+					absent(&corev1.Service{}, transformerKey),
+					// check that the http routes were not created
+					// top level http route
+					absent(&gwapiv1.HTTPRoute{}, serviceKey),
+					// predictor http route
+					absent(&gwapiv1.HTTPRoute{}, predictorKey),
+					// transformer http route
+					absent(&gwapiv1.HTTPRoute{}, transformerKey),
+					// check that the predictor HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, predictorKey),
+					// check that the transformer HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, transformerKey),
+				)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
-
-				// Check that the ISVC status reflects that it is stopped
-				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 
 				// Resume the inference service
 				updatedIsvc := expectIsvcToExist(ctx, serviceKey)
@@ -2929,34 +2913,33 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				expectIsvcToExist(ctx, serviceKey)
 
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
 				// Check that the predictor deployment was not created
-				expectResourceDoesNotExist(context.Background(), &appsv1.Deployment{}, predictorKey)
-				// Check that the explainer deployment was not created
-				expectResourceDoesNotExist(context.Background(), &appsv1.Deployment{}, explainerKey)
-
-				// check that the predictor service was not created
-				expectResourceDoesNotExist(context.Background(), &corev1.Service{}, predictorKey)
-				// check that the explainer service was not created
-				expectResourceDoesNotExist(context.Background(), &corev1.Service{}, explainerKey)
-
-				// check that the http routes were not created
-				// top level http route
-				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, serviceKey)
-				// predictor http route
-				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, predictorKey)
-				// explainer http route
-				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, explainerKey)
-
-				// check that the predictor HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
-				// check that the explainer HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, explainerKey)
+				expectAbsent(ctx,
+					absent(&appsv1.Deployment{}, predictorKey),
+					// Check that the explainer deployment was not created
+					absent(&appsv1.Deployment{}, explainerKey),
+					// check that the predictor service was not created
+					absent(&corev1.Service{}, predictorKey),
+					// check that the explainer service was not created
+					absent(&corev1.Service{}, explainerKey),
+					// check that the http routes were not created
+					// top level http route
+					absent(&gwapiv1.HTTPRoute{}, serviceKey),
+					// predictor http route
+					absent(&gwapiv1.HTTPRoute{}, predictorKey),
+					// explainer http route
+					absent(&gwapiv1.HTTPRoute{}, explainerKey),
+					// check that the predictor HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, predictorKey),
+					// check that the explainer HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, explainerKey),
+				)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
-
-				// Check that the ISVC status reflects that it is stopped
-				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 			})
 
 			It("Should delete the explainer httproute/service/deployment/hpa when the annotation is updated to true on an existing ISVC", func() {
@@ -3101,34 +3084,33 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				expectIsvcToExist(ctx, serviceKey)
 
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
 				// Check that the predictor deployment was not created
-				expectResourceDoesNotExist(context.Background(), &appsv1.Deployment{}, predictorKey)
-				// Check that the explainer deployment was not created
-				expectResourceDoesNotExist(context.Background(), &appsv1.Deployment{}, explainerKey)
-
-				// check that the predictor service was not created
-				expectResourceDoesNotExist(context.Background(), &corev1.Service{}, predictorKey)
-				// check that the explainer service was not created
-				expectResourceDoesNotExist(context.Background(), &corev1.Service{}, explainerKey)
-
-				// check that the http routes were not created
-				// top level http route
-				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, serviceKey)
-				// predictor http route
-				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, predictorKey)
-				// explainer http route
-				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, explainerKey)
-
-				// check that the predictor HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
-				// check that the explainer HPA was not created
-				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, explainerKey)
+				expectAbsent(ctx,
+					absent(&appsv1.Deployment{}, predictorKey),
+					// Check that the explainer deployment was not created
+					absent(&appsv1.Deployment{}, explainerKey),
+					// check that the predictor service was not created
+					absent(&corev1.Service{}, predictorKey),
+					// check that the explainer service was not created
+					absent(&corev1.Service{}, explainerKey),
+					// check that the http routes were not created
+					// top level http route
+					absent(&gwapiv1.HTTPRoute{}, serviceKey),
+					// predictor http route
+					absent(&gwapiv1.HTTPRoute{}, predictorKey),
+					// explainer http route
+					absent(&gwapiv1.HTTPRoute{}, explainerKey),
+					// check that the predictor HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, predictorKey),
+					// check that the explainer HPA was not created
+					absent(&autoscalingv2.HorizontalPodAutoscaler{}, explainerKey),
+				)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
-
-				// Check that the ISVC status reflects that it is stopped
-				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 
 				// Resume the inference service
 				updatedIsvc := expectIsvcToExist(ctx, serviceKey)
@@ -3926,12 +3908,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			// check ingress not created
-			// expectResourceDoesNotExist
-			expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, serviceKey)
-			// actualPredictorHttpRoute
-			expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, predictorServiceKey)
-
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
@@ -3989,6 +3965,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout, interval).Should(BeEmpty())
+
+			// check ingress not created
+			expectAbsent(ctx,
+				absent(&gwapiv1.HTTPRoute{}, serviceKey),
+				absent(&gwapiv1.HTTPRoute{}, predictorServiceKey),
+			)
 
 			// check HPA
 			var minReplicas int32 = 1
@@ -9481,15 +9463,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return false
 			}, timeout, interval).Should(BeTrue())
 
-			// Verify if predictor deployment (default deployment) is not created
-			Consistently(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment)
-			}, fastTimeout, interval).ShouldNot(Succeed())
-
-			// Verify if worker node deployment is not created.
-			Consistently(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment)
-			}, fastTimeout, interval).ShouldNot(Succeed())
+			expectAbsent(ctx,
+				// Verify if predictor deployment (default deployment) is not created
+				absent(&appsv1.Deployment{}, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}),
+				// Verify if worker node deployment is not created.
+				absent(&appsv1.Deployment{}, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}),
+			)
 		})
 
 		It("Should deploy even if it assigns more GPUs than the total required GPU resource count.", func() {

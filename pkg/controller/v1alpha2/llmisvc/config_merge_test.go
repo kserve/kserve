@@ -48,6 +48,17 @@ import (
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
+func findMainContainerForConfigMergeTest(t *testing.T, containers []corev1.Container) *corev1.Container {
+	t.Helper()
+	for i := range containers {
+		if containers[i].Name == "main" {
+			return &containers[i]
+		}
+	}
+	t.Fatalf("main container not found in %v", containers)
+	return nil
+}
+
 func TestMergeSpecs(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -2641,7 +2652,7 @@ func TestPresetsInlineNixlConnector(t *testing.T) {
 			}
 			g.Expect(containers).ToNot(BeEmpty())
 
-			g.Expect(strings.Join(containers[0].Command, " ")).To(ContainSubstring(tt.wantArg))
+			g.Expect(strings.Join(findMainContainerForConfigMergeTest(t, containers).Command, " ")).To(ContainSubstring(tt.wantArg))
 		})
 	}
 }
@@ -3245,6 +3256,7 @@ spec:
               - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--metrics-cert-dir=/var/run/kserve/tls{{- end }}'
 `
 
 const tlsProfileSchedulerFixture = `apiVersion: serving.kserve.io/v1alpha1
@@ -3310,12 +3322,14 @@ func TestReplaceVariables_TLSConditional(t *testing.T) {
 				"--secure-serving=true",
 				"--model-server-metrics-scheme=https",
 				"--cert-path=/var/run/kserve/tls",
+				"--metrics-cert-dir=/var/run/kserve/tls",
 			},
 		},
 		{
 			name:      "TLS off: all flags render empty",
 			enableTLS: false,
 			wantArgs: []string{
+				"",
 				"",
 				"",
 				"",
