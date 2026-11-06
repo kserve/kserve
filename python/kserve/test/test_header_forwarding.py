@@ -12,7 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import httpx
+import pytest
+from pytest_httpx import HTTPXMock
+
+from kserve import Model
+from kserve import context as kserve_context
 from kserve.model import append_forwardable_headers, _FORWARDABLE_HEADERS
+from kserve.predictor_config import PredictorConfig
+from kserve.utils.inference_client_factory import InferenceClientFactory
 
 
 class TestFilterHeaders:
@@ -86,3 +94,60 @@ class TestFilterHeaders:
         assert "x-request-id" in _FORWARDABLE_HEADERS
         assert "x-b3-traceid" in _FORWARDABLE_HEADERS
         assert "authorization" in _FORWARDABLE_HEADERS
+
+
+@pytest.mark.asyncio
+class TestModelExplainHeaders:
+    @pytest.mark.parametrize(
+        ("predictor_use_ssl", "scheme"), [(False, "http"), (True, "https")]
+    )
+    async def test_explain_uses_predictor_ssl_configuration(
+        self,
+        predictor_use_ssl: bool,
+        scheme: str,
+        httpx_mock: HTTPXMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(InferenceClientFactory, "_instance", None)
+        kserve_context.set_predictor_config(
+            config=PredictorConfig(
+                predictor_host="predictor.test",
+                predictor_use_ssl=predictor_use_ssl,
+            )
+        )
+        model = Model(name="example")
+        model.explainer_host = "explainer.test"
+        response: dict[str, list[int]] = {"explanations": [1]}
+        url = f"{scheme}://explainer.test/v1/models/example:explain"
+        httpx_mock.add_response(method="POST", url=url, json=response)
+        headers: dict[str, str] = {
+            "authorization": "auth-value",
+            "x-request-id": "request-id",
+            "x-b3-traceid": "trace-id",
+            "host": "transformer.test",
+            "cookie": "session=example",
+        }
+        factory = InferenceClientFactory()
+        try:
+            assert (
+                await model.explain(payload={"instances": [1]}, headers=headers)
+                == response
+            )
+            request: httpx.Request | None = httpx_mock.get_request()
+            assert request is not None
+            assert str(request.url) == url
+            for name in _FORWARDABLE_HEADERS:
+                assert request.headers[name] == headers[name]
+            assert request.headers["host"] == "explainer.test"
+            assert "cookie" not in request.headers
+        finally:
+            await factory.close()
+
+    async def test_explain_requires_predictor_configuration(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(kserve_context, "get_predictor_config", lambda: None)
+        model = Model(name="example")
+        model.explainer_host = "explainer.test"
+        with pytest.raises(NotImplementedError, match="Could not find PredictorConfig"):
+            await model.explain(payload={"instances": [1]})
