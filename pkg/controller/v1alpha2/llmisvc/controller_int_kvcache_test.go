@@ -510,12 +510,16 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 				return envTest.Update(ctx, sa)
 			})).To(Succeed())
 
-			// then the controller leaves the ServiceAccount alone
+			// then the controller leaves the ServiceAccount alone. The check below for what
+			// it holds in the end would miss a write that keeps the same pull secrets. The
+			// hold covers the pass this Update triggers, which is on another informer than
+			// the forced one, and a retry.
+			forceObservedPass(ctx, llmSvc)
 			Consistently(func(g Gomega, ctx context.Context) {
 				current := &corev1.ServiceAccount{}
 				g.Expect(envTest.Get(ctx, evictorSA, current)).To(Succeed())
 				g.Expect(current.ResourceVersion).To(Equal(sa.ResourceVersion))
-			}).WithContext(ctx).WithTimeout(3 * time.Second).Should(Succeed())
+			}).WithContext(ctx).WithTimeout(500 * time.Millisecond).Should(Succeed())
 
 			// when a pull secret is removed from the default ServiceAccount
 			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
