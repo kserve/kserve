@@ -285,6 +285,11 @@ spec:
     samplerArg: "0.05"
 ```
 
+For a collector using a private CA, set `exporterCertificate` to the path of a
+PEM-encoded CA bundle mounted in each tracing component's container template.
+KServe passes this path to the OpenTelemetry exporter; it does not mount the
+certificate file itself.
+
 KServe configures tracing for the EPP, inference server, routing sidecar (when
 present), and standalone HTTP tokenizer (when enabled). Traces use the service
 names `inference-scheduler`, `inference-server-decode`,

@@ -842,6 +842,7 @@ func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha2ToV1Alpha1(t *tes
 
 func TestLLMInferenceServiceConversion_PreservesTracing(t *testing.T) {
 	endpoint := "http://my-collector:4317"
+	certificate := "/etc/otel/ca/ca.crt"
 	sampler := "parentbased_traceidratio"
 	samplerArg := "0.1"
 	exporter := "otlp"
@@ -856,10 +857,11 @@ func TestLLMInferenceServiceConversion_PreservesTracing(t *testing.T) {
 				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
 			},
 			Tracing: &TracingSpec{
-				ExporterEndpoint: &endpoint,
-				Sampler:          &sampler,
-				SamplerArg:       &samplerArg,
-				Exporter:         &exporter,
+				ExporterEndpoint:    &endpoint,
+				ExporterCertificate: &certificate,
+				Sampler:             &sampler,
+				SamplerArg:          &samplerArg,
+				Exporter:            &exporter,
 			},
 		},
 	}
@@ -871,6 +873,7 @@ func TestLLMInferenceServiceConversion_PreservesTracing(t *testing.T) {
 
 	require.NotNil(t, hub.Spec.Tracing)
 	assert.Equal(t, endpoint, *hub.Spec.Tracing.ExporterEndpoint)
+	assert.Equal(t, certificate, *hub.Spec.Tracing.ExporterCertificate)
 	assert.Equal(t, sampler, *hub.Spec.Tracing.Sampler)
 	assert.Equal(t, samplerArg, *hub.Spec.Tracing.SamplerArg)
 	assert.Equal(t, exporter, *hub.Spec.Tracing.Exporter)
@@ -882,6 +885,7 @@ func TestLLMInferenceServiceConversion_PreservesTracing(t *testing.T) {
 
 	require.NotNil(t, restored.Spec.Tracing)
 	assert.Equal(t, endpoint, *restored.Spec.Tracing.ExporterEndpoint)
+	assert.Equal(t, certificate, *restored.Spec.Tracing.ExporterCertificate)
 	assert.Equal(t, sampler, *restored.Spec.Tracing.Sampler)
 	assert.Equal(t, samplerArg, *restored.Spec.Tracing.SamplerArg)
 	assert.Equal(t, exporter, *restored.Spec.Tracing.Exporter)

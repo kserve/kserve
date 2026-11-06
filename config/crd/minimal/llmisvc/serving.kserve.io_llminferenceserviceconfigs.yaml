@@ -21913,6 +21913,8 @@ spec:
                 properties:
                   exporter:
                     type: string
+                  exporterCertificate:
+                    type: string
                   exporterEndpoint:
                     type: string
                   sampler:
