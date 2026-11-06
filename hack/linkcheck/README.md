@@ -50,6 +50,10 @@ downloads scanner data into a separate input directory with a containment-safe
 extractor, and validates it before rendering an issue. Scanner files cannot
 supply the publisher registry. The pinned Lychee release archives are verified
 against checksums stored in this repository; its process receives no API token.
+Observation details are limited to 2,000 characters without control characters.
+In the issue, scanner text cannot form Markdown links or images, mentions, or
+`#` references; bare URLs still autolink and show their destination. Local
+targets above the repository root are listed without a link.
 
 Each UTC day contributes at most one observation. Missing jobs and incomplete
 audits provide no evidence of uptime or downtime. Long observation gaps restart
@@ -65,6 +69,10 @@ The small registry is saved in 30-day artifacts. The publisher first selects
 successful scheduled and manual runs of this workflow on the default branch,
 then looks for their published registry artifact. PR artifacts, other workflows,
 failed runs, and dry-run previews cannot supply history or crowd out discovery.
+The run's commit must be on the default branch itself, since tag runs report
+the tag name as their branch. A run that uploaded a dry-run preview is skipped
+even if it also holds a registry. The recovered registry is validated like
+scanner data, and one malformed record rejects all of it.
 If history is unavailable, unreported website failures start a fresh observation
 window. Already reported targets are recovered from a compact snapshot in the
 bot issue, preventing state loss from closing an unresolved issue. Snapshots keep

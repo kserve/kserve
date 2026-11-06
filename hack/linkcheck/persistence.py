@@ -22,6 +22,33 @@ from urllib.parse import quote
 from .api import GitHubAPI
 
 
+def artifacts(api, repository, run_id, name):
+    status, response = api.get(
+        f"/repos/{repository}/actions/runs/{run_id}/artifacts?name={name}&per_page=100"
+    )
+    if status != 200:
+        raise RuntimeError(
+            f"Could not inspect trusted history artifacts: HTTP {status}"
+        )
+    return [artifact for artifact in response["artifacts"] if artifact["name"] == name]
+
+
+def on_branch(api, repository, sha, branch):
+    """Tag runs report the tag as head_branch, so check the commit itself.
+
+    The ref is qualified because git resolves a short name to a tag first.
+    """
+    status, response = api.get(
+        f"/repos/{repository}/compare/{quote(sha, safe='')}..."
+        f"{quote('refs/heads/' + branch, safe='/')}?per_page=1"
+    )
+    if status == 404:
+        return False  # Unknown commit, for example one rewritten out of the branch.
+    if status != 200:
+        raise RuntimeError(f"Could not verify the audited commit: HTTP {status}")
+    return response["status"] in ("ahead", "identical")
+
+
 def previous_run(api, repository, branch, current_run):
     latest = []
     for event in ("schedule", "workflow_dispatch"):
@@ -50,20 +77,22 @@ def previous_run(api, repository, branch, current_run):
                     != ".github/workflows/check-links.yml"
                 ):
                     continue
-                status, response = api.get(
-                    f"/repos/{repository}/actions/runs/{run_id}/artifacts?name=link-triage-report&per_page=100"
-                )
-                if status != 200:
-                    raise RuntimeError(
-                        f"Could not inspect trusted history artifacts: HTTP {status}"
+                if (
+                    all(
+                        artifact["expired"]
+                        for artifact in artifacts(
+                            api, repository, run_id, "link-triage-report"
+                        )
                     )
-                if any(
-                    artifact["name"] == "link-triage-report" and not artifact["expired"]
-                    for artifact in response["artifacts"]
+                    # A dry run uploads its registry as a preview, so a report
+                    # beside one was uploaded by another job of that run.
+                    or artifacts(api, repository, run_id, "link-triage-preview")
+                    or not on_branch(api, repository, run["head_sha"], branch)
                 ):
-                    latest.append(run_id)
-                    found = True
-                    break
+                    continue
+                latest.append(run_id)
+                found = True
+                break
             if found or len(runs) < 100:
                 break
         else:

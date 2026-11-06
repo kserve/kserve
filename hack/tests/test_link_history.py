@@ -321,3 +321,85 @@ class HistoryRecoveryTests(unittest.TestCase):
         self.assertFalse(
             record(reconcile_from_issue(recovered, existing))["actionable"]
         )
+
+
+class RegistryValidationTests(unittest.TestCase):
+    """Registries come from earlier artifacts; one bad record rejects all of it."""
+
+    def test_malformed_registry_is_rejected_whole(self):
+        saved = observe(None, 1)
+        key, valid = next(iter(saved["records"].items()))
+        record_cases = {
+            "url": ["javascript:alert(1)", "history:" + "z" * 64, 5],
+            "kind": ["other"],
+            "status": ["broken", ["missing"]],
+            "detail": [5, "x" * 2001, "first\rsecond"],
+            "sources": [[{"path": "../outside.md"}], "README.md"],
+            "actionable": ["false", 1, None],
+            "first_failed": [20260101, "20260101", "2026-1-1", "yesterday"],
+            "last_seen": ["2026-01-01T00:00:00", None],
+            "last_failure": ["2026-02-30"],
+            "last_referenced": [None],
+            "last_success": [20260101],
+            "observed_day": ["today"],
+            "samples": [
+                "2026-01-01",
+                ["2026-01-01"],
+                [{"date": "2026-02-30", "status": "missing"}],
+                [{"date": "2026-01-01", "status": "gone"}],
+                [{"date": "2026-01-01", "status": "missing", "checked_at": 5}],
+            ],
+            "checked_at": [5, "later"],
+            "observed_at": [None],
+            "recovered_at": ["soon"],
+            "outage_started_at": [[]],
+            "publication_id": ["abc", 5],
+        }
+        state_cases = {
+            "records": [[], None],
+            "last_run": ["2026/01/01", 5],
+            "checked_at": [5],
+            "issue_number": ["42", True, 0, -1],
+            "closed_checkpoint": [5, "x"],
+        }
+        cases = [
+            (field, value, {**saved, "records": {key: {**valid, field: value}}})
+            for field, values in record_cases.items()
+            for value in values
+        ]
+        cases += [
+            (field, value, {**saved, field: value})
+            for field, values in state_cases.items()
+            for value in values
+        ]
+        cases.append(("identity", "not-a-digest", {**saved, "records": {"x": valid}}))
+        for field, value, previous in cases:
+            with (
+                self.subTest(field=field, value=repr(value)[:40]),
+                self.assertRaisesRegex(ValueError, "link history"),
+            ):
+                observe(previous, 2)
+
+    def test_restored_registry_shapes_remain_valid(self):
+        saved = history((day, "missing") for day in range(1, 9))
+        existing = issue(issue_plan(None, saved)["body"])
+        restored = reconcile_from_issue(None, existing)
+        self.assertTrue(record(restored)["url"].startswith("https://"))
+        restored["records"][identity(observation())]["url"] = "history:" + identity(
+            observation()
+        )
+        published = {**saved, "issue_number": 42, "closed_checkpoint": "0" * 64}
+        for previous in (restored, published):
+            with self.subTest(keys=sorted(previous)):
+                self.assertTrue(record(observe(previous, 9))["actionable"])
+
+    def test_reconciliation_rejects_a_malformed_registry_before_merging(self):
+        # The published snapshot would overwrite this detail; the malformed
+        # registry must still be rejected rather than partly reused.
+        saved = observe(None, 1)
+        existing = issue(
+            issue_plan(None, history((day, "missing") for day in range(1, 9)))["body"]
+        )
+        record(saved)["detail"] = {"html": "<img>"}
+        with self.assertRaisesRegex(ValueError, "link history"):
+            reconcile_from_issue(saved, existing)

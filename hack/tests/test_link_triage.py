@@ -67,6 +67,16 @@ class TriageTests(unittest.TestCase):
                 self.assertFalse((self.root / "state.json").exists())
                 self.assertFalse((self.root / "issue-plan.json").exists())
 
+    def test_malformed_registry_stops_triage_before_any_output(self):
+        saved = advance(None, audit(kind="local"), self.now.date() - timedelta(days=1))
+        next(iter(saved["records"].values()))["actionable"] = "false"
+        write_files(self.root, {"state.json": json.dumps(saved)})
+        result = self.run_cli()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Invalid link history", result.stderr)
+        self.assertFalse((self.root / "issue-plan.json").exists())
+        self.assertEqual(json.loads((self.root / "state.json").read_text()), saved)
+
     def test_publisher_reconciles_an_existing_stale_registry(self):
         triage = load_script("triage-doc-links")
         saved = None

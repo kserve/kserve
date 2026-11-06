@@ -20,7 +20,12 @@ import copy
 import hashlib
 from datetime import date, timedelta
 
-from .validation import canonical_sources, timestamp, validate_observation
+from .validation import (
+    canonical_sources,
+    timestamp,
+    validate_observation,
+    validate_state,
+)
 
 
 def identity(item):
@@ -56,8 +61,8 @@ def advance(previous, report, today):
         or report.get("scope") != "audit"
     ):
         raise ValueError("History requires a complete full audit")
-    if previous is not None and previous.get("version") != 1:
-        raise ValueError("Unsupported link history schema")
+    if previous is not None:
+        validate_state(previous)
     state = copy.deepcopy(previous) if previous else restore_reported({})
     checked_at = report.get("generated_at") or today.isoformat()
     if state.get("checked_at") and timestamp(checked_at) < timestamp(

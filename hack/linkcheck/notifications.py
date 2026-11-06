@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 from .history import restore_reported
-from .validation import canonical_sources
+from .validation import CONTROL, canonical_sources, validate_state
 
 
 MARKER = "<!-- kserve-link-check:v1 -->"
@@ -230,6 +230,8 @@ def reconcile_closed(previous, issue):
 
 def reconcile_from_issue(previous, issue):
     """Merge published facts even when a restored registry predates the issue."""
+    if previous is not None:
+        validate_state(previous)
     if not issue:
         return previous
     if AUTO_CLOSED in (issue.get("body") or ""):
@@ -354,19 +356,22 @@ def find_issue(api, repository, number=None):
     raise RuntimeError("Too many bot issues to safely find the link issue")
 
 
-def safe_text(value):
-    return (
-        html.escape(str(value))
-        .replace("`", "&#96;")
-        .replace("|", "&#124;")
-        .replace("\n", " ")
-        .replace("@", "@\u200b")
-        .replace("#", "#\u200b")
-    )
+def safe_text(value, markup="\\[]"):
+    """Render scanner text inertly inside a table cell.
+
+    Mentions and references are broken before HTML escaping so the entities it
+    adds stay intact. Escaped brackets cannot open links or images. Other
+    Markdown punctuation is left alone: backslashes would show up inside the
+    URLs GitHub autolinks in lychee messages.
+    """
+    text = CONTROL.sub(" ", str(value)).replace("@", "@\u200b").replace("#", "#\u200b")
+    text = re.sub(f"([{re.escape(markup)}])", r"\\\1", text)
+    return html.escape(text).replace("`", "&#96;").replace("|", "&#124;")
 
 
 def link_label(value):
-    return safe_text(value).replace("[", "\\[").replace("]", "\\]")
+    # Link text is never autolinked, so all inline markup can be escaped.
+    return safe_text(value, "\\[]()!*_~")
 
 
 def finding_row(record, repository, sha):
@@ -376,13 +381,16 @@ def finding_row(record, repository, sha):
         if url.startswith("repo:/")
         else quote(url, safe=":/?#%[]@!$&*,;=+-_.~")
     )
-    target = (
-        f"[{link_label(url.removeprefix('repo:/'))}]({destination})"
-        if url.startswith(("repo:/", "http://", "https://"))
-        else link_label(
+    if url.startswith("repo:/") and ".." in url[6:].split("#", 1)[0].split("/"):
+        # Above the repository root nothing exists at this revision, and the
+        # dot segments would resolve to another page on github.com.
+        target = link_label(url.removeprefix("repo:/"))
+    elif url.startswith(("repo:/", "http://", "https://")):
+        target = f"[{link_label(url.removeprefix('repo:/'))}]({destination})"
+    else:
+        target = link_label(
             "Previously reported target " + url.removeprefix("history:")[:12]
         )
-    )
     sources = []
     for source in canonical_sources(record["sources"])[:3]:
         location = f"https://github.com/{repository}/blob/{sha}/" + quote(

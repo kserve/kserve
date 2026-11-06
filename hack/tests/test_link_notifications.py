@@ -11,6 +11,7 @@ from linkcheck.notifications import (
     MARKER,
     finding_row,
     find_issue,
+    link_label,
     reported_keys,
     seed_from_issue,
     publish_plan,
@@ -254,6 +255,95 @@ class PublisherValidationTests(unittest.TestCase):
             report["observations"][0]["sources"] = [source]
             with self.subTest(source=source), self.assertRaises(ValueError):
                 validate_report(report)
+
+    def test_untrusted_report_rejects_oversized_or_multiline_text(self):
+        at_limit = timed_audit()
+        at_limit["observations"][0]["detail"] = "x" * 2000
+        validate_report(at_limit)
+        for field, value in (
+            ("detail", "x" * 2001),
+            ("detail", "first\rsecond"),
+            ("detail", "tab\tseparated"),
+            ("detail", "delete\x7f"),
+            ("url", "https://site.invalid/\x7f"),
+            ("sources", [{"path": "docs/guide\x7f.md"}]),
+        ):
+            report = timed_audit()
+            report["observations"][0][field] = value
+            with (
+                self.subTest(field=field, value=repr(value)[:40]),
+                self.assertRaises(ValueError),
+            ):
+                validate_report(report)
+
+    def test_a_detail_at_the_limit_does_not_hide_the_rest_of_its_group(self):
+        current = state()
+        # Sorts before item(); each quote expands to a six-character entity.
+        first = {
+            **item(),
+            "url": "https://github.com/other/repo/blob/main/a.md",
+            "detail": "'" * 2000,
+        }
+        current["records"][identity(first)] = {**first, "actionable": True}
+        body = issue_plan(None, current)["body"]
+        self.assertIn("Verified GitHub targets (2)", body)
+        self.assertIn(f"[{item()['url']}]", body)
+        self.assertNotIn("Additional targets", body)
+
+    def test_scanner_text_cannot_form_links_images_rows_or_broken_entities(self):
+        for value, expected in (
+            (
+                "See [guide.md:12](https://evil.example/x)",
+                "See \\[guide.md:12\\](https://evil.example/x)",
+            ),
+            (
+                "![t](https://evil.example/p.png)",
+                "!\\[t\\](https://evil.example/p.png)",
+            ),
+            ("one\rtwo\nthree\x7ffour", "one two three four"),
+            (
+                "it's `x` | #12 @me",
+                "it&#x27;s &#96;x&#96; &#124; #\u200b12 @\u200bme",
+            ),
+            ("back\\", "back\\\\"),
+            # Escaping other punctuation would put backslashes into the URLs
+            # that GitHub autolinks in lychee's network error messages.
+            (
+                "url (https://host.invalid/simple_string/)",
+                "url (https://host.invalid/simple_string/)",
+            ),
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(safe_text(value), expected)
+
+    def test_link_labels_escape_markdown_and_keep_their_closing_bracket(self):
+        for value, expected in (
+            ("docs/path\\", "docs/path\\\\"),
+            ("docs/__init__.md", "docs/\\_\\_init\\_\\_.md"),
+            ("a*b~c(d)!e[f]", "a\\*b\\~c\\(d\\)\\!e\\[f\\]"),
+            ("it's#x", "it&#x27;s#\u200bx"),
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(link_label(value), expected)
+
+    def test_targets_above_the_repository_root_are_not_linked(self):
+        local = {**item(), "kind": "local"}
+        sources = (
+            "[README.md:7](https://github.com/kserve/kserve/blob/abc/README.md#L7)"
+        )
+        for url, target in (
+            ("repo:/../../../../evil/repo", "../../../../evil/repo"),
+            ("repo:/../outside.md#a", "../outside.md#\u200ba"),
+            (
+                "repo:/docs/./guide.md#..",
+                "[docs/./guide.md#\u200b..](https://github.com/kserve/kserve/blob/abc/docs/./guide.md#..)",
+            ),
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(
+                    finding_row({**local, "url": url}, "kserve/kserve", "abc"),
+                    f"| {target} | missing: missing | {sources} |",
+                )
 
     def test_lost_registry_does_not_replace_an_unmarked_bot_issue(self):
         class API:
