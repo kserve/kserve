@@ -1,6 +1,6 @@
 """Check policy through HTTP outcomes and the real scanner's CLI."""
 
-from datetime import date
+from datetime import date, timedelta
 import json
 import os
 from pathlib import Path
@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from link_fixtures import API, LYCHEE, checkout, links, notebook, run_check, track
+from linkcheck.validation import DETAIL_LIMIT
 
 
 def http_report(url, code=None, *, timeout=False):
@@ -337,6 +338,60 @@ class ScannerTests(unittest.TestCase):
                 {i["url"]: i["status"] for i in report["observations"]},
                 {urls[0]: "unreachable", urls[1]: "missing"},
             )
+
+    def test_long_or_multiline_details_fit_the_report(self):
+        # The report rejects details over DETAIL_LIMIT characters or with
+        # control characters. Lychee errors embed the URL they failed on, and
+        # exception reasons replace the detail.
+        long_url = "https://www.python.org/" + "a" * DETAIL_LIMIT
+        multiline_url = "https://www.python.org/reset"
+        excepted_url = "https://www.python.org/excepted"
+        errors = {
+            long_url: f"Network error: error sending request for url ({long_url})",
+            multiline_url: "Network error: connection reset\r\ncaused by: peer closed",
+        }
+
+        def http(name, inputs):
+            return {
+                "error_map": {
+                    "stdin": [
+                        {"url": url, "status": {"code": 503, "text": errors[url]}}
+                        for url in inputs
+                    ]
+                }
+            }
+
+        expires = (date.today() + timedelta(days=30)).isoformat()
+        reasons = {
+            "repo:/missing.md": "r" * (DETAIL_LIMIT + 1),
+            excepted_url: "tracked upstream\nsee the release notes",
+        }
+        files = {
+            "README.md": "".join(
+                f"[link]({url})\n" for url in (*errors, excepted_url, "missing.md")
+            ),
+            ".github/link-check-exceptions.json": json.dumps(
+                {
+                    "version": 1,
+                    "exceptions": [
+                        {"url": url, "reason": reason, "expires": expires}
+                        for url, reason in reasons.items()
+                    ],
+                }
+            ),
+        }
+        with checkout(files) as root:
+            code, report, _ = run_check(root, api=API(), http=http, advisory=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            {item["url"]: item["detail"] for item in report["observations"]},
+            {
+                long_url: errors[long_url][: DETAIL_LIMIT - 1] + "…",
+                multiline_url: "Network error: connection reset  caused by: peer closed",
+                excepted_url: "tracked upstream see the release notes",
+                "repo:/missing.md": "r" * (DETAIL_LIMIT - 1) + "…",
+            },
+        )
 
     def test_stdin_markdown_preserves_punctuation_in_urls(self):
         with checkout() as root:

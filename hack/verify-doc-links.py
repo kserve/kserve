@@ -36,6 +36,7 @@ from linkcheck.github import (
     service_status,
 )
 from linkcheck.history import by_target
+from linkcheck.validation import CONTROL, DETAIL_LIMIT
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -81,6 +82,12 @@ def classify_external(first, confirmation):
         else:
             uncertain[url] = entry["status"]["text"]
     return confirmed, uncertain
+
+
+def inert(detail):
+    """Fit free text to the detail rules of validate_observation."""
+    detail = CONTROL.sub(" ", detail)
+    return detail if len(detail) <= DETAIL_LIMIT else detail[: DETAIL_LIMIT - 1] + "…"
 
 
 def document_paths(root):
@@ -571,6 +578,10 @@ def main():
             elif item["status"] in ("unknown", "restricted", "unreachable"):
                 uncertain[item["url"]] = item["detail"]
 
+    # Lychee errors embed the failing URL and exception reasons are unbounded;
+    # one detail that breaks the rules would reject the whole report.
+    for item in observations:
+        item["detail"] = inert(item["detail"])
     audit = {
         "version": 1,
         "complete": not args.offline,

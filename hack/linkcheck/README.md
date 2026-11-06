@@ -50,7 +50,8 @@ downloads scanner data into a separate input directory with a containment-safe
 extractor, and validates it before rendering an issue. Scanner files cannot
 supply the publisher registry. The pinned Lychee release archives are verified
 against checksums stored in this repository; its process receives no API token.
-Observation details are limited to 2,000 characters without control characters.
+The scanner shortens observation details to 2,000 characters and turns control
+characters into spaces; the publisher rejects details that break either rule.
 In the issue, scanner text cannot form Markdown links or images, mentions, or
 `#` references; bare URLs still autolink and show their destination. Local
 targets above the repository root are listed without a link.
