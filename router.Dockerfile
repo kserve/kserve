@@ -26,6 +26,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go install github.com/google/go-licenses@v1.6.0
 
 ARG CMD=router
+ARG GOTAGS=""
+# Scan what the builder stage compiles: build tags can pull in modules an untagged scan misses.
+ENV GOFLAGS="-tags=${GOTAGS}"
 COPY cmd/${CMD}/ cmd/${CMD}/
 COPY pkg/    pkg/
 COPY LICENSE LICENSE
