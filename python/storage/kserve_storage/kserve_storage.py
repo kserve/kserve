@@ -363,6 +363,15 @@ _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
 
 
+def _is_under_prefix(key: str, prefix: str) -> bool:
+    """Match the prefix on a path boundary, so "models/bert" skips "models/bert-v2/"."""
+    return (
+        not prefix
+        or key == prefix
+        or key.startswith(prefix if prefix.endswith("/") else prefix + "/")
+    )
+
+
 def _should_download(
     relative_path: str,
     allow_patterns: Optional[List[str]] = None,
@@ -991,6 +1000,10 @@ class Storage(object):
                     logger.debug("Skipping: %s", obj.key)
                     continue
 
+                if not _is_under_prefix(obj.key, bucket_path):
+                    logger.debug("Skipping %s outside of %s", obj.key, bucket_path)
+                    continue
+
                 logger.info("Found S3 object: %s (%d bytes)", obj.key, obj.size)
 
                 if bucket_path == obj.key:
@@ -1446,6 +1459,9 @@ class Storage(object):
                 blobs = []
                 logger.info("Listing blobs with prefix: %s", prefix)
                 async for blob in container_client.list_blobs(name_starts_with=prefix):
+                    if not _is_under_prefix(blob.name, prefix):
+                        logger.debug("Skipping %s outside of %s", blob.name, prefix)
+                        continue
                     logger.info("Found blob: %s (%d bytes)", blob.name, blob.size)
                     if blob.size > 0:
                         relative_path = blob.name.replace(prefix, "", 1).lstrip("/")
