@@ -247,7 +247,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: constants.AutoscalerConfigmapNamespace,
 				},
 			}
-			configPatch := []byte(`{"data":{}}`)
+			// The suite creates this configmap without the key. A strategic merge patch only
+			// removes a key set to null: `{"data":{}}` merges nothing and leaves it "true".
+			configPatch := []byte(`{"data":{"allow-zero-initial-scale":null}}`)
 			Eventually(func() error {
 				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout, interval).Should(Succeed())
@@ -4742,6 +4744,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
+			// The controller copies the bundle into the user namespace and nothing removes the
+			// copy, while the other specs of this context expect it not to exist.
+			DeferCleanup(func(ctx SpecContext) error {
+				globalCaBundle := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.DefaultGlobalCaBundleConfigMapName,
+					Namespace: "default",
+				}}
+				return client.IgnoreNotFound(k8sClient.Delete(ctx, globalCaBundle))
+			})
 
 			caBundleConfigMap := &corev1.ConfigMap{}
 			Eventually(func() bool {
