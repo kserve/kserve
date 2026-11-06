@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import os
-from typing import Dict, Optional
+from typing import Awaitable, Callable, Dict, Iterator, Optional
 
+from .logging import logger
 from .model import BaseKServeModel
 
 MODEL_MOUNT_DIRS = "/mnt/models"
@@ -53,6 +54,49 @@ class ModelRepository:
         if not model:
             return False
         return await model.healthy()
+
+    def _server_health_models(
+        self, *, readiness_only: bool = False
+    ) -> Iterator[BaseKServeModel]:
+        """Snapshot models and yield each once, optionally filtering readiness."""
+        seen: set[int] = set()
+        for model in list(self.models.values()):
+            model_id = id(model)
+            if model_id in seen or (
+                readiness_only
+                and not getattr(model, "server_health_check_enabled", False)
+            ):
+                continue
+            seen.add(model_id)
+            yield model
+
+    async def _check_server_health(
+        self,
+        check: Callable[[BaseKServeModel], Awaitable[bool]],
+        probe_name: str,
+        *,
+        readiness_only: bool = False,
+    ) -> bool:
+        for model in self._server_health_models(readiness_only=readiness_only):
+            try:
+                if not await check(model):
+                    return False
+            except Exception:
+                logger.exception(
+                    "Server %s check failed for model %s", probe_name, model.name
+                )
+                return False
+        return True
+
+    async def is_server_live(self) -> bool:
+        return await self._check_server_health(
+            lambda model: model.is_live(), "liveness"
+        )
+
+    async def is_server_ready(self) -> bool:
+        return await self._check_server_health(
+            lambda model: model.is_ready(), "readiness", readiness_only=True
+        )
 
     def update(self, model: BaseKServeModel, name: Optional[str] = None):
         """

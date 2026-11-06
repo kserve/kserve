@@ -161,15 +161,12 @@ class DataPlane:
 
     @staticmethod
     async def live() -> Dict[str, str]:
-        """Server live.
-
-        Returns ``{"status": "alive"}`` on successful invocation.
-        Primarily meant to be used for Kubernetes liveness check.
-
-        Returns:
-            Dict: {"status": "alive"}
-        """
+        """Return the legacy heartbeat; health routes use instance ``is_live``."""
         return {"status": "alive"}
+
+    async def is_live(self) -> bool:
+        """Return whether all registered model engines are live."""
+        return await self._model_registry.is_server_live()
 
     def metadata(self) -> Dict:
         """Server metadata.
@@ -250,8 +247,11 @@ class DataPlane:
         Returns ``True``. Primarily meant to be used as Kubernetes readiness check.
 
         Returns:
-            bool: True
+            bool: Whether the server and any configured upstream are ready.
         """
+        if not await self._model_registry.is_server_ready():
+            return False
+
         # If predictor host is present, then it means this is a transformer,
         # We should also need to check the predictor server's health if predictor health check is enabled.
         if self.predictor_config and self.predictor_config.predictor_health_check:
