@@ -378,7 +378,8 @@ func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConf
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.InferenceGraph{}).
-		Owns(&appsv1.Deployment{})
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{})
 
 	if err := r.extendControllerSetup(mgr, ctrlBuilder); err != nil {
 		return err

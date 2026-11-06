@@ -689,6 +689,15 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
+	// The ServingRuntime validating webhook lists ServingRuntimes on every
+	// (pod) replica with failurePolicy: Fail, but webhook servers start
+	// serving before leader election. Register the informer immediately so
+	// strict-cache reads in the webhook do not fail with "not cached" on
+	// secondary replicas. This is idempotent with the controller watch below.
+	if _, err := mgr.GetCache().GetInformer(ctx, &v1alpha1.ServingRuntime{}); err != nil {
+		return err
+	}
+
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.InferenceService{}).
 		Owns(&appsv1.Deployment{}).

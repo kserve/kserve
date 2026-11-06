@@ -222,7 +222,7 @@ func (e *Config) Start(ctx context.Context) *Client {
 	}
 
 	for _, opt := range e.mgrOptions {
-		opt(&mgrOptions)
+		opt(&mgrOptions, cfg)
 	}
 
 	if len(e.webhooksSetupFuncs) > 0 {

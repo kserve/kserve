@@ -25,5 +25,7 @@ import (
 type (
 	SetupFunc       func(cfg *rest.Config, mgr ctrl.Manager) error
 	AddToSchemeFunc func(scheme *runtime.Scheme) error
-	ManagerOption   func(opts *ctrl.Options)
+	// ManagerOption customizes manager options. cfg is the envtest control
+	// plane config, available because options run after envtest.Start().
+	ManagerOption func(opts *ctrl.Options, cfg *rest.Config)
 )

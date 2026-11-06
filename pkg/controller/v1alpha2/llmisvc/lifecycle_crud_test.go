@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -49,6 +50,35 @@ type fakeClientWithRecorder struct {
 
 // neverEqual forces Update past its equality short-circuit so the write is attempted.
 func neverEqual(expected, curr *appsv1.Deployment) bool { return false }
+
+func TestDeleteMissingInformerOnlyIgnoresUnavailableAPI(t *testing.T) {
+	for _, installed := range []bool{false, true} {
+		scheme := runtime.NewScheme()
+		if err := lwsapi.AddToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+		gvk := lwsapi.GroupVersion.WithKind("LeaderWorkerSet")
+		mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{lwsapi.GroupVersion})
+		if installed {
+			mapper.Add(gvk, meta.RESTScopeNamespace)
+		}
+		missing := &cache.ErrResourceNotCached{GVK: gvk}
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithRESTMapper(mapper).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Get: func(context.Context, client.WithWatch, client.ObjectKey, client.Object, ...client.GetOption) error {
+					return missing
+				},
+			}).Build()
+		c := &fakeClientWithRecorder{Client: cl, EventRecorder: record.NewFakeRecorder(1)}
+		err := llmisvc.Delete(t.Context(), c, (*v1alpha2.LLMInferenceService)(nil), &lwsapi.LeaderWorkerSet{})
+		if installed && !errors.Is(err, missing) {
+			t.Fatalf("installed API must retain missing-informer error, got %v", err)
+		}
+		if !installed && err != nil {
+			t.Fatalf("unavailable API has nothing to delete: %v", err)
+		}
+	}
+}
 
 func TestDelete_WhenCRDNotInstalled_ShouldNotFail(t *testing.T) {
 	// given - a client that returns NoMatchError (CRD not installed)

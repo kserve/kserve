@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -60,6 +61,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(err).ToNot(HaveOccurred())
 
 	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
+		// Production shares the manager with the InferenceService controller.
+		if _, err := mgr.GetCache().GetInformer(context.Background(), &v1beta1.InferenceService{}, cache.BlockUntilSynced(false)); err != nil {
+			return err
+		}
 		clientset, err := kubernetes.NewForConfig(restCfg)
 		if err != nil {
 			return err
@@ -84,9 +89,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
-		WithManagerOptions(func(opts *ctrl.Options) {
+		WithManagerOptions(func(opts *ctrl.Options, cfg *rest.Config) {
 			opts.Cache = cacheOpts
-			opts.Client = v1beta1controller.NewClientOptions()
+			clientOpts, err := v1beta1controller.NewClientOptions(cfg)
+			Expect(err).NotTo(HaveOccurred())
+			opts.Client = clientOpts
 		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())

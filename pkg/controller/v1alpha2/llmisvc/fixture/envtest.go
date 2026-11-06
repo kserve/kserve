@@ -98,10 +98,14 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
 		WithWebhooks(SetupWebhooks).
 		WithControllers(llmCtrlFunc, llmConfigCtrlFunc).
-		// Reconcile with the production worker count, so the suite catches reconciles of
-		// different objects interfering with each other.
-		WithManagerOptions(func(opts *ctrl.Options) {
+		WithManagerOptions(func(opts *ctrl.Options, cfg *rest.Config) {
+			clientOpts, err := llmisvc.NewClientOptions(cfg)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			opts.Client = clientOpts
+			// Reconcile with the production worker count, so the suite catches reconciles of
+			// different objects interfering with each other.
 			opts.Controller.MaxConcurrentReconciles = llmisvc.DefaultMaxConcurrentReconciles
+			opts.Cache.ReaderFailOnMissingInformer = true
 		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
