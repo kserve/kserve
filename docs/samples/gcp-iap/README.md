@@ -5,7 +5,7 @@ When using Kubeflow with GCP it is common to use a [GCP Identity Aware Proxy](ht
 
 The following prerequisites will be met if you follow [Full Kubeflow on Google Cloud](https://www.kubeflow.org/docs/distributions/gke/deploy/overview/) deployment.
 
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://kserve.github.io/website/docs/getting-started/quickstart-guide).
 2. Your gcloud config is initialised to the project containing the k8s cluster and has a service-account that can download IAP key file.
 3. You are using Knative serving v0.22.0+
 4. You are using KFServing v0.3+ and v0.7-. (KFserving has renamed to KServe in v0.7, and will use `serving.kserve.io` API guide)
@@ -95,7 +95,7 @@ $ VirtualService/kfserving-iap created
 
 ### Test the external predict endpoint (using iap_request.py)
 
-Perhaps the easiest way to test the inference service's external predict endpoint is by using the [iap_request.py](https://github.com/kubeflow/kubeflow/blob/master/docs/gke/iap_request.py) script described in the [TensorFlow Serving: Sending prediction request through ingress and IAP](https://www.kubeflow.org/docs/external-add-ons/serving/tfserving_new/#sending-prediction-request-through-ingress-and-iap/) documentation.  
+Perhaps the easiest way to test the inference service's external predict endpoint is by using the [iap_request.py](https://github.com/kubeflow/kubeflow/blob/54201e3d28e4673d465e47e464e86aa698ca0dfa/docs/gke/iap_request.py) script described in the [IAP programmatic authentication](https://cloud.google.com/iap/docs/authentication-howto) documentation.
 
 Create a new service account or use existing service account like `<kubeflow-cluster-name>-admin@<project>.iam.gserviceaccount.com`.
 If you need to create a new service account, run command:
@@ -112,7 +112,7 @@ gcloud projects add-iam-policy-binding $PROJECT \
  --member serviceAccount:$SERVICE_ACCOUNT
 ```
 
-Follow the instruction in [make-prediction.sh](./make-prediction.sh) to download service account key [key.json] and [iap_request.py](https://github.com/kubeflow/kubeflow/blob/master/docs/gke/iap_request.py) script to current folder. Continue with the instruction to set parameters in [make-prediction.sh](./make-prediction.sh). This file explains the parameters required by iap_request.py. Finally, run command:
+Follow the instruction in [make-prediction.sh](./make-prediction.sh) to download service account key [key.json] and [iap_request.py](https://github.com/kubeflow/kubeflow/blob/54201e3d28e4673d465e47e464e86aa698ca0dfa/docs/gke/iap_request.py) script to current folder. Continue with the instruction to set parameters in [make-prediction.sh](./make-prediction.sh). This file explains the parameters required by iap_request.py. Finally, run command:
 
 ```
 bash make-prediction.sh
@@ -148,7 +148,7 @@ Exception: Service account <service-account>@<project>.iam.gserviceaccount.com d
 Below is an example of accessing inference service from outside of cluster using user account when authorization is enabled. For more guide on authenticating with IAP, refer to [Programmatic Authentication](https://cloud.google.com/iap/docs/authentication-howto).
 
 
-Set the parameters in [`make-prediction-auth.sh`](./make-prediction-auth.sh), pair the instruction in bash script and [Authenticating from a desktop app](https://cloud.google.com/iap/docs/authentication-howto#authenticating_from_a_desktop_app) to understand the process. This bash script calls [iap_request_auth.py](./iap_request_auth.py), which is an altered version of authentication request script from [KFP SDK auth script](https://github.com/kubeflow/pipelines/blob/master/sdk/python/kfp/deprecated/_auth.py).
+Set the parameters in [`make-prediction-auth.sh`](./make-prediction-auth.sh), pair the instruction in bash script and [Authenticating from a desktop app](https://cloud.google.com/iap/docs/authentication-howto#authenticate_from_a_desktop_app) to understand the process. This bash script calls [iap_request_auth.py](./iap_request_auth.py), which is an altered version of authentication request script from [KFP SDK auth script](https://github.com/kubeflow/pipelines/blob/1.8.22/sdk/python/kfp/_auth.py).
 
 Make request to sidecar injected inference service using command:
 

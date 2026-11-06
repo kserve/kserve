@@ -6,7 +6,7 @@ A custom domain is useful in a microservice architecture when you want to expose
 
 ## Setup
 
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://kserve.github.io/website/docs/getting-started/quickstart-guide).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 3. You own a domain that can be configured to route incoming traffic to a cloud provided kubernetes `Ingress` or the istio-ingressgateway's IP address / Load Balancer.
 
@@ -99,4 +99,4 @@ If you are also using `external-dns` this configuration is enough to automatical
 
 [Configure Ingress with TLS for https access](https://kubernetes.io/docs/concepts/services-networking/ingress/#tls)
 
-[Setup custom domain names and certificates for IKS](https://cloud.ibm.com/docs/containers?topic=containers-serverless-apps-knative#knative-custom-domain-tls)
+[Set up custom domain names for IKS Ingress](https://cloud.ibm.com/docs/containers?topic=containers-ingress-domains)

@@ -107,7 +107,7 @@ Note that this makes the following assumptions:
   `gs://seldon-models/sklearn/iris`.
 - There is a K8s cluster available, accessible through `kubectl`.
 - KServe has already been [installed in your
-  cluster](https://github.com/kserve/kserve#installation).
+  cluster](https://kserve.github.io/website/docs/getting-started/quickstart-guide).
 
 Assuming that we've got a cluster accessible through `kubectl` with KServe
 already installed, we can deploy our model as:
@@ -144,7 +144,7 @@ Now, assuming that our ingress can be accessed at
 `${INGRESS_HOST}:${INGRESS_PORT}`, we can use `curl` to send our inference
 request as:
 
-> You can follow [these instructions](../../../../README.md#determine-the-ingress-ip-and-ports) to find
+> You can follow [these instructions](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) to find
 > out your ingress IP and port.
 
 ```bash

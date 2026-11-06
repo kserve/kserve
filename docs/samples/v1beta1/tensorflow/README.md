@@ -1,6 +1,6 @@
 # Predict on an InferenceService with Tensorflow model
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kubeflow/kfserving/blob/master/docs/DEVELOPER_GUIDE.md#deploy-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://kserve.github.io/website/docs/getting-started/quickstart-guide).
 2. Your cluster's Istio Ingress gateway must be network accessible.
 
 
@@ -37,7 +37,7 @@ flower-sample   http://flower-sample.default.example.com   True           100   
 ```
  
 ### Run a prediction
-The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 ```
 MODEL_NAME=flower-sample
 INPUT_PATH=@./input.json
