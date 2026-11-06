@@ -1,6 +1,6 @@
 # Grafana dashboards
 
-**Kserve EPP metrics** dashboards, based on the [llm-d monitoring docs](https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md):
+**Kserve EPP metrics** dashboards, based on the [llm-d monitoring docs](https://github.com/llm-d/llm-d/blob/main/docs/operations/observability/promql.md):
 
 | Dashboard | File | Description |
 |-----------|------|-------------|
@@ -67,6 +67,6 @@ Repeat for each dashboard you want.
 
 ## Requirements
 
-- Prometheus scraping vLLM and EPP metrics (see [llm-d Observability and Monitoring](https://github.com/llm-d/llm-d/blob/main/docs/monitoring/README.md)).
+- Prometheus scraping vLLM and EPP metrics (see [llm-d Observability and Monitoring](https://github.com/llm-d/llm-d/blob/main/docs/operations/observability/README.md)).
 - Metric names: dashboards use `vllm:prefix_cache_*`, `vllm:kv_cache_usage_perc`, and other llm-d metrics (vLLM uses the colon form in Prometheus).
 - **KV cache usage metric:** The Prefix Caching “Cache utilization %” and P/D Disaggregation “Decode worker utilization” panels use the metric name configured by `--kv-cache-usage-percentage-metric` in the LLM inference service (e.g. `vllm:kv_cache_usage_perc`). If you change that config, update the dashboard queries in `prefix-caching-dashboard.json`, `pd-disaggregation-dashboard.json`, and `kserve-epp-all-dashboard.json` to use the same metric name.
