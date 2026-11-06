@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import atexit
+import asyncio
+import contextvars
+import functools
 import inspect
 import os
 import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, AsyncIterator, Awaitable, Dict, List, Optional, Union
@@ -170,10 +176,51 @@ def get_latency_ms(start: float, end: float) -> float:
 
 
 class Model(InferenceModel):
+    _shared_executor: Optional[ThreadPoolExecutor] = None
+    _max_workers: Optional[int] = None
+    _cleanup_registered: bool = False
+    _executor_lock = threading.Lock()
+
+    @staticmethod
+    def _cleanup_executor():
+        with Model._executor_lock:
+            if Model._shared_executor is not None:
+                Model._shared_executor.shutdown(wait=False, cancel_futures=True)
+                Model._shared_executor = None
+
+    @staticmethod
+    def _get_executor() -> Optional[ThreadPoolExecutor]:
+        # State belongs to Model, not to the subclass invoking this method.
+        # Serialize first use across model classes and event-loop threads.
+        with Model._executor_lock:
+            if Model._shared_executor is not None:
+                return Model._shared_executor
+
+            if Model._max_workers is None:
+                env_workers = os.getenv("ASYNC_MODEL_WORKERS")
+                if env_workers:
+                    try:
+                        Model._max_workers = int(env_workers)
+                    except ValueError:
+                        Model._max_workers = -1
+
+            if Model._max_workers and Model._max_workers > 0:
+                Model._shared_executor = ThreadPoolExecutor(
+                    max_workers=Model._max_workers
+                )
+                if not Model._cleanup_registered:
+                    atexit.register(Model._cleanup_executor)
+                    Model._cleanup_registered = True
+                return Model._shared_executor
+
+            return None
+
     def __init__(
         self,
         name: str,
         return_response_headers: bool = False,
+        *,
+        offload_sync_predict: bool = False,
     ):
         """KServe Model Public Interface
 
@@ -181,6 +228,11 @@ class Model(InferenceModel):
 
         Args:
             name: The name of the model.
+            offload_sync_predict: Run synchronous predict handlers in a worker thread
+                during request handling. Defaults to False. Async handlers and direct
+                predict() calls are unchanged. Enable only for thread-safe models.
+                Positive ASYNC_MODEL_WORKERS limits a shared process-wide pool;
+                otherwise ModelServer's max_asyncio_workers controls the loop pool.
         """
         super().__init__(name)
 
@@ -189,6 +241,7 @@ class Model(InferenceModel):
         self._grpc_client_stub = None
         self.enable_latency_logging = False
         self.required_response_headers = return_response_headers
+        self.offload_sync_predict = offload_sync_predict
 
     @property
     def predictor_config(self) -> Optional[PredictorConfig]:
@@ -242,18 +295,22 @@ class Model(InferenceModel):
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
-                if self.required_response_headers:
-                    response = (
-                        (await self.predict(payload, headers, response_headers))
-                        if inspect.iscoroutinefunction(self.predict)
-                        else self.predict(payload, headers, response_headers)
+                args = (
+                    (payload, headers, response_headers)
+                    if self.required_response_headers
+                    else (payload, headers)
+                )
+                if inspect.iscoroutinefunction(self.predict):
+                    response = await self.predict(*args)
+                elif self.offload_sync_predict:
+                    context = contextvars.copy_context()
+                    response = await asyncio.get_running_loop().run_in_executor(
+                        Model._get_executor(),
+                        context.run,
+                        functools.partial(self.predict, *args),
                     )
                 else:
-                    response = (
-                        (await self.predict(payload, headers))
-                        if inspect.iscoroutinefunction(self.predict)
-                        else self.predict(payload, headers)
-                    )
+                    response = self.predict(*args)
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError

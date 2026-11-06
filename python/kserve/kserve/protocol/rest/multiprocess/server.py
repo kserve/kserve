@@ -136,6 +136,7 @@ class RESTServerMultiProcess:
         timeout_keep_alive: int = 65,
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
+        max_asyncio_workers: Optional[int] = None,
     ) -> None:
         self.log_config_file = log_config_file
         self._rest_server = RESTServer(
@@ -150,6 +151,7 @@ class RESTServerMultiProcess:
             timeout_keep_alive,
             ssl_certfile=ssl_certfile,
             ssl_keyfile=ssl_keyfile,
+            max_asyncio_workers=max_asyncio_workers,
         )
         self._processes: List[RESTServerProcess] = []
         self.should_exit = asyncio.Event()
