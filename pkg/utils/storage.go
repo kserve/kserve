@@ -265,26 +265,44 @@ func GetVolumeNameFromPath(path string) string {
 	return SafeObjectName(strings.ReplaceAll(strings.Trim(path, "/"), "/", "-"))
 }
 
+// defaultHuggingFaceEnvVars are the download settings AddDefaultHuggingFaceEnvVars
+// puts on a storage-initializer.
+var defaultHuggingFaceEnvVars = []corev1.EnvVar{
+	{
+		Name:  "HF_HUB_ENABLE_HF_TRANSFER",
+		Value: "1",
+	},
+	{
+		Name:  "HF_XET_HIGH_PERFORMANCE",
+		Value: "1",
+	},
+	{
+		Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
+		Value: "8",
+	},
+}
+
 // AddDefaultHuggingFaceEnvVars adds default HuggingFace optimization environment variables
 // to the container if they are not already present. This prevents conflicts when merging
 // container specs where users may have defined these variables with different configurations.
 func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
-	defaultHFEnvVars := []corev1.EnvVar{
-		{
-			Name:  "HF_HUB_ENABLE_HF_TRANSFER",
-			Value: "1",
-		},
-		{
-			Name:  "HF_XET_HIGH_PERFORMANCE",
-			Value: "1",
-		},
-		{
-			Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
-			Value: "8",
-		},
-	}
+	AddEnvVars(container, defaultHuggingFaceEnvVars)
+}
 
-	AddEnvVars(container, defaultHFEnvVars)
+// HasDefaultHuggingFaceEnvVar reports whether the container carries any of the
+// environment variables that AddDefaultHuggingFaceEnvVars sets, under any value.
+func HasDefaultHuggingFaceEnvVar(container *corev1.Container) bool {
+	if container == nil {
+		return false
+	}
+	for _, envVar := range container.Env {
+		for _, defaultVar := range defaultHuggingFaceEnvVars {
+			if envVar.Name == defaultVar.Name {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func AddEnvVars(container *corev1.Container, vars []corev1.EnvVar) {

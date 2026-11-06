@@ -346,6 +346,53 @@ func TestAddDefaultHuggingFaceEnvVars(t *testing.T) {
 	}
 }
 
+func TestHasDefaultHuggingFaceEnvVar(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		container *corev1.Container
+		expected  bool
+	}{
+		"NilContainer": {
+			container: nil,
+			expected:  false,
+		},
+		"NoEnvVars": {
+			container: &corev1.Container{},
+			expected:  false,
+		},
+		"DefaultVarWithUserValue": {
+			container: &corev1.Container{Env: []corev1.EnvVar{{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"}}},
+			expected:  true,
+		},
+		"AllDefaultVars": {
+			container: &corev1.Container{Env: []corev1.EnvVar{
+				{Name: "HF_HUB_ENABLE_HF_TRANSFER", Value: "1"},
+				{Name: "HF_XET_HIGH_PERFORMANCE", Value: "1"},
+				{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
+			}},
+			expected: true,
+		},
+		"OnlyHFToken": {
+			container: &corev1.Container{Env: []corev1.EnvVar{{
+				Name:      "HF_TOKEN",
+				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{Key: "HF_TOKEN"}},
+			}}},
+			expected: false,
+		},
+		"OtherHFPrefixedVar": {
+			container: &corev1.Container{Env: []corev1.EnvVar{{Name: "HF_HUB_OFFLINE", Value: "1"}}},
+			expected:  false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g.Expect(HasDefaultHuggingFaceEnvVar(scenario.container)).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
 func TestModelcarNames(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
