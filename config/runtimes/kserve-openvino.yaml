@@ -20,6 +20,12 @@ spec:
     - --rest_port=8080
     - --file_system_poll_wait_seconds=0
     image: openvino/model_server:replace
+    startupProbe:
+      periodSeconds: 5
+      failureThreshold: 999
+      httpGet:
+        path: /v2/health/ready
+        port: 8080
     name: kserve-container
     resources:
       limits:
