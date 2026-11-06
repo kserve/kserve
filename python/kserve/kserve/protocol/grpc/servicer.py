@@ -89,21 +89,17 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
     async def RepositoryModelLoad(
         self, request: pb.RepositoryModelLoadRequest, context
     ) -> pb.RepositoryModelLoadResponse:
-        response = await self._mode_repository_extension.load(
-            model_name=request.model_name
-        )
+        await self._mode_repository_extension.load(model_name=request.model_name)
         return pb.RepositoryModelLoadResponse(
-            model_name=response["name"], isLoaded=response["load"]
+            model_name=request.model_name, isLoaded=True
         )
 
     async def RepositoryModelUnload(
         self, request: pb.RepositoryModelUnloadRequest, context
     ) -> pb.RepositoryModelUnloadResponse:
-        response = await self._mode_repository_extension.unload(
-            model_name=request.model_name
-        )
+        await self._mode_repository_extension.unload(model_name=request.model_name)
         return pb.RepositoryModelUnloadResponse(
-            model_name=response["name"], isUnloaded=response["unload"]
+            model_name=request.model_name, isUnloaded=True
         )
 
     async def ModelInfer(
