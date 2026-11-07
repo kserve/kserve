@@ -218,6 +218,78 @@ func TestInjectSidecarUsesReplicaSetRevisionIdentity(t *testing.T) {
 	require.False(t, *reporterVolume.Projected.Sources[0].Secret.Optional)
 }
 
+func TestInjectSidecarCaptureOverride(t *testing.T) {
+	const annotation = "serving.kserve.io/kernelcache-capture"
+	for _, tc := range []struct {
+		name      string
+		mutate    func(*v1alpha1.KernelCacheCapture)
+		missing   bool
+		terminal  bool
+		wantError string
+	}{
+		{name: "uses user capture"},
+		{name: "missing capture does not fall back", missing: true, wantError: "custom-capture"},
+		{name: "wrong source does not fall back", mutate: func(c *v1alpha1.KernelCacheCapture) {
+			c.Spec.SourceRef.Name = "other-model"
+		}, wantError: "sourceRef"},
+		{name: "completed user capture skips sidecar", terminal: true, mutate: func(c *v1alpha1.KernelCacheCapture) {
+			c.Status.Phase = v1alpha1.KernelCacheCapturePhaseComplete
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, corev1.AddToScheme(scheme))
+			require.NoError(t, v1alpha1.AddToScheme(scheme))
+			capture := &v1alpha1.KernelCacheCapture{
+				ObjectMeta: metav1.ObjectMeta{Name: "custom-capture", Namespace: "team"},
+				Spec: v1alpha1.KernelCacheCaptureSpec{
+					SourceRef:   v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "qwen"},
+					TargetImage: "registry.example/custom:v1",
+					CachePaths:  []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/custom/cache", OCIPath: "io.triton.cache"}},
+				},
+			}
+			if tc.mutate != nil {
+				tc.mutate(capture)
+			}
+			// An automatic capture must not win over an explicit reference, even
+			// when the reference is missing or invalid.
+			automatic := &v1alpha1.KernelCacheCapture{
+				ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "team"},
+				Status:     v1alpha1.KernelCacheCaptureStatus{Phase: v1alpha1.KernelCacheCapturePhaseComplete},
+			}
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(automatic)
+			if !tc.missing {
+				builder.WithObjects(capture)
+			}
+			mutator := &PodMutator{Client: builder.Build()}
+			pod := sidecarTestPod()
+			pod.Namespace = "team"
+			pod.Annotations[annotation] = capture.Name
+			original := pod.DeepCopy()
+			cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
+			err := mutator.injectMCVSidecar(t.Context(), pod, cfg)
+			if tc.wantError != "" {
+				require.ErrorContains(t, err, tc.wantError)
+				require.Equal(t, original, pod)
+				return
+			}
+			require.NoError(t, err)
+			if tc.terminal {
+				require.Equal(t, original, pod)
+				return
+			}
+			require.Len(t, pod.Spec.Containers, 2)
+			var got captureconfig.CaptureConfig
+			require.NoError(t, json.Unmarshal([]byte(containerEnvValue(pod.Spec.Containers[1], captureconfig.CaptureConfigEnv)), &got))
+			require.Equal(t, capture.Name, got.Capture.Name)
+			require.Equal(t, capture.Namespace, got.Capture.Namespace)
+			require.Equal(t, reporter.SecretName(capture.Name), pod.Annotations[reporter.AccessSecretAnnotation])
+			require.Equal(t, capture.Spec.TargetImage, got.TargetImage)
+			require.Equal(t, capture.Spec.CachePaths, got.CachePaths)
+		})
+	}
+}
+
 func TestInjectSidecarConfiguresRegistryAccessForServiceAccountToken(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))

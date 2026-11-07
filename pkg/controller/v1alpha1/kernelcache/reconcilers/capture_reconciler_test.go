@@ -765,6 +765,29 @@ func TestUserManagedUnchangedCaptureIsRetained(t *testing.T) {
 	require.Equal(t, kernelCacheCaptureReasonUnchanged, condition.Reason)
 }
 
+func TestAnnotationSelectedCaptureIsRetainedByAbandonedPolicy(t *testing.T) {
+	inferenceService, configMap, capture := unchangedCaptureFixture()
+	capture.Name = "custom-capture"
+	capture.Labels = nil
+	capture.Status.RuntimeResult[runtimeResultStateKey] = runtimeResultCapturingState
+	inferenceService.Annotations = map[string]string{"serving.kserve.io/kernelcache-capture": capture.Name}
+	configMap.Data["kernelcache"] = `{"enabled":true,"abandonedCapturePolicy":"delete","artifactSecurity":{"mode":"none"}}`
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+	require.NoError(t, v1beta1.AddToScheme(scheme))
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(inferenceService, configMap, capture).WithStatusSubresource(capture).Build()
+	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	require.NoError(t, err)
+	updated := &v1alpha1.KernelCacheCapture{}
+	require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKeyFromObject(capture), updated))
+	require.Equal(t, capture.Spec, updated.Spec)
+	require.Empty(t, updated.Labels)
+	require.Empty(t, updated.OwnerReferences)
+}
+
 func TestGeneratedFailedCaptureIsRetained(t *testing.T) {
 	inferenceService, configMap, capture := unchangedCaptureFixture()
 	capture.Status.RuntimeResult[runtimeResultStateKey] = runtimeResultFailedState
