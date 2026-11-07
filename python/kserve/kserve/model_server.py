@@ -89,6 +89,13 @@ parser.add_argument(
     help="Enable gRPC for the model server.",
 )
 parser.add_argument(
+    "--grpc_server",
+    default="grpcio",
+    choices=["grpcio", "pygrpc-native"],
+    help="gRPC server implementation. pygrpc-native does the HTTP/2 and gRPC work "
+    "in Rust outside the GIL and needs `pip install kserve[pygrpc-native]`.",
+)
+parser.add_argument(
     "--enable_docs_url",
     default=False,
     type=lambda x: utils.strtobool(x),
