@@ -54,6 +54,8 @@ type mockFileSystem struct {
 	FileSystemInterface
 	// represents the dirs under models root
 	subDirs []os.DirEntry
+	used    resource.Quantity
+	free    resource.Quantity
 }
 
 func (f *mockFileSystem) removeModel(model string) error {
@@ -93,14 +95,20 @@ func (f *mockFileSystem) ensureModelRootFolderExists() error {
 	return nil
 }
 
+func (f *mockFileSystem) getStorageUsage() (resource.Quantity, resource.Quantity, error) {
+	return f.used.DeepCopy(), f.free.DeepCopy(), nil
+}
+
 func (f *mockFileSystem) clear() {
 	f.subDirs = []os.DirEntry{}
+	f.used = resource.MustParse("0")
+	f.free = resource.MustParse("100Gi")
 }
 
 func newMockFileSystem() *mockFileSystem {
-	return &mockFileSystem{
-		subDirs: []os.DirEntry{},
-	}
+	fs := &mockFileSystem{}
+	fs.clear()
+	return fs
 }
 
 var _ = Describe("LocalModelNode controller", func() {
@@ -135,6 +143,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			},
 		}
 		localModelNodeGroupSpec = v1alpha1.LocalModelNodeGroupSpec{
+			StorageLimit: resource.MustParse("10Gi"),
 			PersistentVolumeSpec: corev1.PersistentVolumeSpec{
 				AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 				VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
@@ -257,6 +266,13 @@ var _ = Describe("LocalModelNode controller", func() {
 				return err == nil && len(jobs.Items) == 1
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeGroup.Name}, nodeGroup); err != nil {
+					return false
+				}
+				return nodeGroup.Status.Used.Cmp(fsMock.used) == 0 && nodeGroup.Status.Available.Cmp(resource.MustParse("10Gi")) == 0
+			}, timeout, interval).Should(BeTrue(), "Node group should report observed storage usage")
+
 			// Now let's update the job status to be successful
 			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 			job := &jobs.Items[0]
@@ -294,6 +310,311 @@ var _ = Describe("LocalModelNode controller", func() {
 				return !ok
 			}, timeout, interval).Should(BeTrue(), "Model should be removed from the status field")
 		})
+
+		It("Should not create a download job when the model does not fit", func() {
+			ctx := context.Background()
+			fsMock.clear()
+			fsMock.used = resource.MustParse("9Gi")
+			fsMock.free = resource.MustParse("1Gi")
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
+			defer k8sClient.Delete(ctx, configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{Name: "capacity-test"},
+				Spec:       clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "capacity-nodegroup"},
+				Spec:       localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			modelCache := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "capacity-model"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: sourceModelUri,
+					ModelSize:      resource.MustParse("2Gi"),
+					NodeGroups:     []string{nodeGroup.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, modelCache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, modelCache)
+
+			nodeName = "capacity-worker"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+				Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{{
+					SourceModelUri: sourceModelUri,
+					ModelName:      modelCache.Name,
+					NodeGroup:      nodeGroup.Name,
+				}}},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeGroup.Name}, nodeGroup); err != nil {
+					return false
+				}
+				return nodeGroup.Status.Used.Cmp(fsMock.used) == 0 && nodeGroup.Status.Available.Cmp(fsMock.free) == 0
+			}, timeout, interval).Should(BeTrue(), "Node group should report storage before rejecting the download")
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{"model": modelCache.Name, "node": nodeName}
+			Consistently(func() int {
+				Expect(k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))).To(Succeed())
+				return len(jobs.Items)
+			}, duration, interval).Should(Equal(0), "Download job should not be created when model size exceeds available storage")
+		})
+
+		It("Should record ModelDownloadError for an oversized model and keep downloading the rest of the spec", func() {
+			ctx := context.Background()
+			fsMock.clear()
+			fsMock.used = resource.MustParse("1Gi")
+			fsMock.free = resource.MustParse("100Gi")
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
+			defer k8sClient.Delete(ctx, configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{Name: "oversized-spec-test"},
+				Spec:       clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "oversized-spec-nodegroup"},
+				Spec:       localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			oversizedCache := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "oversized-model"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: "s3://oversized/model",
+					ModelSize:      resource.MustParse("20Gi"),
+					NodeGroups:     []string{nodeGroup.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, oversizedCache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, oversizedCache)
+
+			fitsCache := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "fits-model"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: "s3://fits/model",
+					ModelSize:      resource.MustParse("2Gi"),
+					NodeGroups:     []string{nodeGroup.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, fitsCache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, fitsCache)
+
+			nodeName = "oversized-spec-worker"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			// Oversized model first: an early-return rejection would block the
+			// model after it.
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+				Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{
+					{
+						SourceModelUri: oversizedCache.Spec.SourceModelUri,
+						ModelName:      oversizedCache.Name,
+						NodeGroup:      nodeGroup.Name,
+					},
+					{
+						SourceModelUri: fitsCache.Spec.SourceModelUri,
+						ModelName:      fitsCache.Name,
+						NodeGroup:      nodeGroup.Name,
+					},
+				}},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			Eventually(func() map[string]v1alpha1.ModelStatus {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode); err != nil {
+					return nil
+				}
+				return localModelNode.Status.ModelStatus
+			}, timeout, interval).Should(HaveKeyWithValue(fitsCache.Name, v1alpha1.ModelDownloadPending), "The model after the oversized one should still get a download job")
+
+			Expect(localModelNode.Status.ModelStatus).To(HaveKeyWithValue(oversizedCache.Name, v1alpha1.ModelDownloadError), "The oversized model should record a failed status, not abort the whole status update")
+
+			oversizedJobs := &batchv1.JobList{}
+			Expect(k8sClient.List(ctx, oversizedJobs, client.InNamespace(jobNamespace), client.MatchingLabels(map[string]string{"model": oversizedCache.Name, "node": nodeName}))).To(Succeed())
+			Expect(oversizedJobs.Items).To(BeEmpty(), "No download job for the oversized model")
+
+			fitsJobs := &batchv1.JobList{}
+			Expect(k8sClient.List(ctx, fitsJobs, client.InNamespace(jobNamespace), client.MatchingLabels(map[string]string{"model": fitsCache.Name, "node": nodeName}))).To(Succeed())
+			Expect(fitsJobs.Items).NotTo(BeEmpty(), "The model after the oversized one keeps its download job")
+		})
+
+		It("Should count an in-flight download job's declared size against new admissions", func() {
+			ctx := context.Background()
+			fsMock.clear()
+			fsMock.used = resource.MustParse("1Gi")
+			fsMock.free = resource.MustParse("100Gi")
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
+			defer k8sClient.Delete(ctx, configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{Name: "inflight-reservation-test"},
+				Spec:       clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "inflight-reservation-nodegroup"},
+				Spec:       localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			inFlightCache := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "inflight-model"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: "s3://inflight/model",
+					ModelSize:      resource.MustParse("6Gi"),
+					NodeGroups:     []string{nodeGroup.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, inFlightCache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, inFlightCache)
+
+			// 5Gi fits the 9Gi the disk reports free, but not the 3Gi left
+			// once the in-flight job's declared 6Gi is reserved.
+			largeCache := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "large-model"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: "s3://large/model",
+					ModelSize:      resource.MustParse("5Gi"),
+					NodeGroups:     []string{nodeGroup.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, largeCache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, largeCache)
+
+			nodeName = "inflight-reservation-worker"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+				Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{{
+					SourceModelUri: inFlightCache.Spec.SourceModelUri,
+					ModelName:      inFlightCache.Name,
+					NodeGroup:      nodeGroup.Name,
+				}}},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			// First pass: the in-flight model's download job is created.
+			Eventually(func() int {
+				jobs := &batchv1.JobList{}
+				if err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(map[string]string{"model": inFlightCache.Name, "node": nodeName})); err != nil {
+					return 0
+				}
+				return len(jobs.Items)
+			}, timeout, interval).Should(Equal(1), "The first model should get its download job")
+
+			// Disk usage has not caught up, so the running job's declared 6Gi
+			// must count against the new model's admission. The spec update
+			// retries on status-write conflicts.
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode); err != nil {
+					return err
+				}
+				for _, model := range localModelNode.Spec.LocalModels {
+					if model.ModelName == largeCache.Name {
+						return nil
+					}
+				}
+				localModelNode.Spec.LocalModels = append(localModelNode.Spec.LocalModels, v1alpha1.LocalModelInfo{
+					SourceModelUri: largeCache.Spec.SourceModelUri,
+					ModelName:      largeCache.Name,
+					NodeGroup:      nodeGroup.Name,
+				})
+				return k8sClient.Update(ctx, localModelNode)
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func() map[string]v1alpha1.ModelStatus {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode); err != nil {
+					return nil
+				}
+				return localModelNode.Status.ModelStatus
+			}, timeout, interval).Should(HaveKeyWithValue(largeCache.Name, v1alpha1.ModelDownloadError), "Admission should refuse the model once the in-flight job's declared size is reserved")
+
+			largeJobs := &batchv1.JobList{}
+			Consistently(func() int {
+				Expect(k8sClient.List(ctx, largeJobs, client.InNamespace(jobNamespace), client.MatchingLabels(map[string]string{"model": largeCache.Name, "node": nodeName}))).To(Succeed())
+				return len(largeJobs.Items)
+			}, duration, interval).Should(Equal(0), "No download job may be created against capacity an in-flight job will consume")
+		})
+
 		It("Should use storageKey hash as the download job SubPath for storage deduplication", func() {
 			ctx := context.Background()
 			fsMock.clear()
