@@ -69,6 +69,19 @@ func (v *LocalModelNamespaceCacheValidator) ValidateCreate(ctx context.Context, 
 	if err := v.validateNodeGroups(ctx, localModelNamespaceCache); err != nil {
 		return nil, err
 	}
+	if err := localmodelcache.ValidateStorageCapacity(
+		ctx,
+		v.Client,
+		localmodelcache.StorageReservation{
+			SourceModelUri: localModelNamespaceCache.Spec.SourceModelUri,
+			Name:           localModelNamespaceCache.Name,
+			Namespace:      localModelNamespaceCache.Namespace,
+			ModelSize:      localModelNamespaceCache.Spec.ModelSize,
+			NodeGroups:     localModelNamespaceCache.Spec.NodeGroups,
+		},
+	); err != nil {
+		return nil, err
+	}
 
 	return nil, nil
 }
@@ -96,6 +109,19 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 	}
 
 	if err := v.validateNodeGroups(ctx, localModelNamespaceCache); err != nil {
+		return nil, err
+	}
+	if err := localmodelcache.ValidateStorageCapacity(
+		ctx,
+		v.Client,
+		localmodelcache.StorageReservation{
+			SourceModelUri: localModelNamespaceCache.Spec.SourceModelUri,
+			Name:           localModelNamespaceCache.Name,
+			Namespace:      localModelNamespaceCache.Namespace,
+			ModelSize:      localModelNamespaceCache.Spec.ModelSize,
+			NodeGroups:     localModelNamespaceCache.Spec.NodeGroups,
+		},
+	); err != nil {
 		return nil, err
 	}
 
