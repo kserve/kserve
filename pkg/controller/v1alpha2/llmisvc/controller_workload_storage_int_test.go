@@ -39,6 +39,7 @@ import (
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/hf"
+	"github.com/kserve/kserve/pkg/credentials/ms"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -181,12 +182,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateOciStorageIsConfigured(expectedPrefillDeployment)
 		})
 
-		It("should use storage-initializer to download model when uri starts with hf://", func(ctx SpecContext) {
+		DescribeTable("should use storage-initializer to download model from a model hub URI", func(ctx SpecContext, modelURI string) {
 			// given
 			svcName := "test-llm-storage-hf"
 			testNs := NewTestNamespace(ctx, envTest)
 
-			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
+			modelURL, err := apis.ParseURL(modelURI)
 			Expect(err).ToNot(HaveOccurred())
 
 			llmSvc := &v1alpha2.LLMInferenceService{
@@ -232,9 +233,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			validateStorageInitializerIsConfigured(expectedMainDeployment, "hf://user-id/repo-id:tag")
-			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "hf://user-id/repo-id:tag")
-		})
+			validateStorageInitializerIsConfigured(expectedMainDeployment, modelURI)
+			validateStorageInitializerIsConfigured(expectedPrefillDeployment, modelURI)
+		},
+			Entry("Hugging Face", "hf://user-id/repo-id:tag"),
+			Entry("ModelScope", "modelscope://user-id/repo-id:tag"),
+		)
 
 		It("should merge user-provided env vars into storage-initializer for hf:// URI", func(ctx SpecContext) {
 			svcName := "test-llm-storage-hf-user-envs"
@@ -321,7 +325,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerCredentials(expectedPrefillDeployment, userEnvVars)
 		})
 
-		It("should use storage-initializer and set proper env variables when uri starts with hf:// and credentials are configured", func(ctx SpecContext) {
+		DescribeTable("should use storage-initializer and set proper env variables from a model hub URI and credentials are configured", func(ctx SpecContext, modelURI string, tokenKey string) {
 			// setup test dependencies
 			svcName := "test-llm-storage-hf-with-credentials"
 			testNs := NewTestNamespace(ctx, envTest)
@@ -334,7 +338,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Namespace: testNs.Name,
 				},
 				StringData: map[string]string{
-					hf.HFTokenKey: hfTokenValue,
+					tokenKey: hfTokenValue,
 				},
 			}
 			Expect(envTest.Client.Create(ctx, credentialSecret)).To(Succeed())
@@ -354,7 +358,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			Expect(envTest.Client.Create(ctx, serviceAccount)).To(Succeed())
 
-			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
+			modelURL, err := apis.ParseURL(modelURI)
 			Expect(err).ToNot(HaveOccurred())
 
 			llmSvc := &v1alpha2.LLMInferenceService{
@@ -408,26 +412,29 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}).WithContext(ctx).Should(Succeed())
 
 			// validate the storage initializer configuration in the deployments
-			validateStorageInitializerIsConfigured(expectedMainDeployment, "hf://user-id/repo-id:tag")
-			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "hf://user-id/repo-id:tag")
+			validateStorageInitializerIsConfigured(expectedMainDeployment, modelURI)
+			validateStorageInitializerIsConfigured(expectedPrefillDeployment, modelURI)
 
 			// validate the storage initializer credentials are properly set
 			expectedEnvVars := []corev1.EnvVar{
 				{
-					Name: hf.HFTokenKey,
+					Name: tokenKey,
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: secretName,
 							},
-							Key: "HF_TOKEN",
+							Key: tokenKey,
 						},
 					},
 				},
 			}
 			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
 			validateStorageInitializerCredentials(expectedPrefillDeployment, expectedEnvVars)
-		})
+		},
+			Entry("Hugging Face", "hf://user-id/repo-id:tag", hf.HFTokenKey),
+			Entry("ModelScope", "modelscope://user-id/repo-id:tag", ms.MSTokenKey),
+		)
 
 		It("should use storage-initializer to download model when uri starts with s3://", func(ctx SpecContext) {
 			// create the global s3 ca bundle configmap
@@ -1533,12 +1540,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateOciStorageIsConfiguredForLWS(expectedPrefillLWS)
 		})
 
-		It("should use storage-initializer to download model when uri starts with hf://", func(ctx SpecContext) {
+		DescribeTable("should use storage-initializer to download model from a model hub URI", func(ctx SpecContext, modelURI string) {
 			// given
 			svcName := "test-llm-storage-hf-mn"
 			testNs := NewTestNamespace(ctx, envTest)
 
-			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
+			modelURL, err := apis.ParseURL(modelURI)
 			Expect(err).ToNot(HaveOccurred())
 
 			llmSvc := &v1alpha2.LLMInferenceService{
@@ -1598,11 +1605,14 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
-			validateStorageInitializerIsConfiguredForLWS(expectedMainLWS, "hf://user-id/repo-id:tag")
-			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, "hf://user-id/repo-id:tag")
-		})
+			validateStorageInitializerIsConfiguredForLWS(expectedMainLWS, modelURI)
+			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, modelURI)
+		},
+			Entry("Hugging Face", "hf://user-id/repo-id:tag"),
+			Entry("ModelScope", "modelscope://user-id/repo-id:tag"),
+		)
 
-		It("multi node should use storage-initializer and set proper env variables when uri starts with hf:// and credentials are configured", func(ctx SpecContext) {
+		DescribeTable("multi node should use storage-initializer and set proper env variables from a model hub URI and credentials are configured", func(ctx SpecContext, modelURI string, tokenKey string) {
 			// setup test dependencies
 			svcName := "test-llm-storage-hf-mn-with-credentials"
 			testNs := NewTestNamespace(ctx, envTest)
@@ -1615,7 +1625,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Namespace: testNs.Name,
 				},
 				StringData: map[string]string{
-					hf.HFTokenKey: hfTokenValue,
+					tokenKey: hfTokenValue,
 				},
 			}
 			Expect(envTest.Client.Create(ctx, credentialSecret)).To(Succeed())
@@ -1635,7 +1645,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			Expect(envTest.Client.Create(ctx, serviceAccount)).To(Succeed())
 
-			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
+			modelURL, err := apis.ParseURL(modelURI)
 			Expect(err).ToNot(HaveOccurred())
 
 			llmSvc := &v1alpha2.LLMInferenceService{
@@ -1707,26 +1717,29 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}).WithContext(ctx).Should(Succeed())
 
 			// validate the storage initializer configuration in the leader worker sets
-			validateStorageInitializerIsConfiguredForLWS(expectedMainLWS, "hf://user-id/repo-id:tag")
-			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, "hf://user-id/repo-id:tag")
+			validateStorageInitializerIsConfiguredForLWS(expectedMainLWS, modelURI)
+			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, modelURI)
 
 			// validate the storage initializer credentials in the leader worker sets
 			expectedEnvVars := []corev1.EnvVar{
 				{
-					Name: hf.HFTokenKey,
+					Name: tokenKey,
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: secretName,
 							},
-							Key: "HF_TOKEN",
+							Key: tokenKey,
 						},
 					},
 				},
 			}
 			validateStorageInitializerCredentialsForLWS(expectedMainLWS, expectedEnvVars)
 			validateStorageInitializerCredentialsForLWS(expectedPrefillLWS, expectedEnvVars)
-		})
+		},
+			Entry("Hugging Face", "hf://user-id/repo-id:tag", hf.HFTokenKey),
+			Entry("ModelScope", "modelscope://user-id/repo-id:tag", ms.MSTokenKey),
+		)
 
 		It("should use storage-initializer to download model when uri starts with s3://", func(ctx SpecContext) {
 			// create the global s3 ca bundle configmap

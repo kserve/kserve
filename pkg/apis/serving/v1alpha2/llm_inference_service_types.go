@@ -378,7 +378,7 @@ type LoRASpec struct {
 
 // StorageInitializerSpec defines the configuration for the storage initializer.
 // The storage initializer is an initContainer responsible for downloading model artifacts
-// from remote storage (s3://, hf://) before the main container starts.
+// from remote storage (s3://, hf://, modelscope://) before the main container starts.
 //
 // Example - Disable storage initializer:
 //
@@ -391,7 +391,7 @@ type LoRASpec struct {
 //	  enabled: true
 type StorageInitializerSpec struct {
 	// Enabled controls whether the storage-initializer initContainer is created.
-	// When nil or true, storage-initializer is created for applicable URIs (s3://, hf://).
+	// When nil or true, storage-initializer is created for applicable URIs (s3://, hf://, modelscope://).
 	// When explicitly set to false, storage-initializer creation is skipped.
 	// This is useful when models are pre-loaded via alternative mechanisms (e.g., custom init containers, modelcars).
 	// Default: true (nil is treated as true for backward compatibility)

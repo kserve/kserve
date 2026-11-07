@@ -456,7 +456,7 @@ func TestAttachHfModelArtifactDefaultEnv(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
-			require.NoError(t, r.attachHfModelArtifact(t.Context(), sa, llmSvc, modelUri, tt.curr, podSpec, storageConfig, credentialConfig, "main", constants.DefaultModelLocalMountPath))
+			require.NoError(t, r.attachHubModelArtifact(t.Context(), sa, llmSvc, modelUri, tt.curr, podSpec, storageConfig, credentialConfig, "main", constants.DefaultModelLocalMountPath))
 
 			initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
 			require.NotNil(t, initContainer)
