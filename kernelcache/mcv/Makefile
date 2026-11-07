@@ -49,7 +49,24 @@ LDFLAGS := \
 		-X $(PKG_BUILD).OS=$(GOOS) \
 		-X $(PKG_BUILD).Arch=$(GOARCH)
 
-GO_BUILD_TAGS := '$(GOOS)'
+GPGME := gpgme
+
+ifeq ($(shell pkg-config --exists $(GPGME) && echo 1),1)
+    GPGME_FOUND := yes
+else
+    GPGME_FOUND := no
+endif
+
+LOCALBIN ?= $(shell pwd)/../../bin
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
+
+BTRFS_HEADER := /usr/include/btrfs/version.h
+
+ifneq (,$(wildcard $(BTRFS_HEADER)))
+    GO_BUILD_TAGS := "$(GOOS)"
+else
+    GO_BUILD_TAGS := "$(GOOS),exclude_graphdriver_btrfs"
+endif
 
 ifndef GOPATH
 	GOPATH := $(HOME)/go
@@ -65,14 +82,19 @@ PROJECT_DIR := $(shell dirname $(abspath $(firstword $(MAKEFILE_LIST))))
 base_dir := $(patsubst %/,%,$(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 
 ##@ Default
-mcv: build ## Build triton cache vault.
 .PHONY: mcv
+mcv: build ## Build triton cache vault.
 
 ##@ General build
-make mcv: clean_build_local _build_local  ##  Build binary and copy to $(OUTPUT_DIR)/bin
 .PHONY: build
+build: clean_build_local _build_local  ##  Build binary and copy to $(OUTPUT_DIR)/bin
 
-_build_local: format vet ##  Build mcv binary locally.
+build_prereq: ## Check build prerequisites
+	@test "$(GPGME_FOUND)" = "yes" || { echo "gpgme.pc not found. Install libgpgme-dev (Debian/Ubuntu) or gpgme-devel (Fedora/RHEL)."; exit 1; }
+	@test "$(GOLANGCI_LINT)" != "" || { echo "golangci-lint not installed locally. run make golangci-lint from root directory."; exit 1; }
+	@test "$(BTRFS_HEADER)" != "" || { echo "btrfs headers not found; excluding btrfs driver from podman storage build."; }
+
+_build_local: build_prereq format vet ##  Build mcv binary locally.
 	@echo "******     build     ******"
 	@echo
 	@mkdir -p "$(BUILD_BINDIR)/$(GOOS)_$(GOARCH)"
@@ -94,26 +116,26 @@ format:
 	@echo
 
 .PHONY: vet
-vet: ## Run go vet against code.
+vet: build_prereq ## Run go vet against code.
 	@echo "******     go Vet     ******"
 	@echo
-	go vet github.com/kserve/kserve/kernelcache/mcv/...
+	CGO_ENABLED=1 go vet -tags $(GO_BUILD_TAGS) github.com/kserve/kserve/kernelcache/mcv/...
 
-lint:
+lint: build_prereq ## Run golangci-lint against code.
 	@echo "******     golangci-lint     ******"
 	@echo
-	golangci-lint run ./...
+	CGO_ENABLED=1 $(GOLANGCI_LINT) run -c ../../.golangci.yml --build-tags $(GO_BUILD_TAGS) ./...
 	@echo
 	@echo
 
-test:
+test: build_prereq ## Run unit tests.
 	@echo "******     testing     ******"
 	@echo
-	go test github.com/kserve/kserve/kernelcache/mcv/...
+	go test -tags $(GO_BUILD_TAGS) github.com/kserve/kserve/kernelcache/mcv/...
 
 ##@ Installation
 .PHONY: install
-install: ## Install mcv binary to $(GOBIN)
+install: build ## Install mcv binary to $(GOBIN)
 	@echo "Installing mcv to $(GOBIN)"
 	@install -d "$(GOBIN)"
 	@install "$(BUILD_BINDIR)/$(GOOS)_$(GOARCH)/mcv" "$(GOBIN)/mcv"
