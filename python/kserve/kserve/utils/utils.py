@@ -144,16 +144,13 @@ def create_response_cloudevent(
     ce_attributes = {}
 
     if os.getenv("CE_MERGE", "false").lower() == "true":
+        ce_attributes = dict(req_attributes)
         if binary_event:
-            ce_attributes = req_attributes
-            if "datacontenttype" in ce_attributes:  # Optional field so must check
-                del ce_attributes["datacontenttype"]
-        else:
-            ce_attributes = req_attributes
+            ce_attributes.pop("datacontenttype", None)
 
         # Remove these fields so we generate new ones
-        del ce_attributes["id"]
-        del ce_attributes["time"]
+        ce_attributes.pop("id", None)
+        ce_attributes.pop("time", None)
 
     ce_attributes["type"] = os.getenv("CE_TYPE", "io.kserve.inference.response")
     ce_attributes["source"] = os.getenv(
