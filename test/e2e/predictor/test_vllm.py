@@ -14,6 +14,9 @@
 
 import base64
 import os
+import secrets
+
+import yaml
 
 import pytest
 from kubernetes import client
@@ -37,7 +40,10 @@ from ..common.utils import (
     completion_stream,
     classify,
     rerank,
+    get_isvc_endpoint,
+    project_root,
 )
+from ..common.http_retry import get_with_retry, post_with_retry
 from .test_output import (
     vllm_text_embedding_expected_output,
 )
@@ -70,6 +76,128 @@ def _assert_embedding_matches_reference(actual, reference, *, threshold: float =
     assert cosine >= threshold, (
         f"embedding cosine similarity {cosine:.6f} below threshold {threshold}"
     )
+
+
+@pytest.mark.vllm_runtime
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        "config/runtimes/kserve-vllmserver.yaml",
+        "charts/kserve-runtime-configs/files/runtimes/resources.yaml",
+        "hack/setup/quick-install/kserve-knative-mode-full-install-with-manifests.sh",
+        "hack/setup/quick-install/kserve-standard-mode-full-install-with-manifests.sh",
+        "hack/setup/quick-install/llmisvc-full-install-with-manifests.sh",
+        "hack/setup/quick-install/localmodel-full-install-with-manifests.sh",
+    ],
+)
+def test_vllm_probes_do_not_require_api_key(manifest):
+    source = (project_root() / manifest).read_text()
+    if manifest.endswith(".sh"):
+        # Parse the embedded runtime YAML without executing the install script.
+        marker = "KSERVE_RUNTIME_MANIFEST_EOF"
+        source = source.split(f"cat <<'{marker}'\n", 1)[1].split(f"\n{marker}", 1)[0]
+    runtimes = [
+        doc
+        for doc in yaml.safe_load_all(source)
+        if doc and doc.get("metadata", {}).get("name") == "kserve-vllmserver"
+    ]
+    assert len(runtimes) == 1
+    container = next(
+        c for c in runtimes[0]["spec"]["containers"] if c["name"] == "kserve-container"
+    )
+    for probe in ("startupProbe", "readinessProbe"):
+        assert container[probe]["httpGet"]["path"] == "/health"
+        assert not container[probe]["httpGet"].get("httpHeaders")
+
+
+@pytest.mark.vllm_runtime
+def test_vllm_api_key_readiness_and_inference(test_namespace, network_layer):
+    """Readiness must succeed while the OpenAI endpoint requires authentication."""
+    service_name = "vllm-api-key"
+    api_key = secrets.token_hex(16)
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(name="vLLM"),
+            runtime="kserve-vllmserver",
+            env=[
+                client.V1EnvVar(name="VLLM_CPU_KVCACHE_SPACE", value="1"),
+                # Avoid the CPU EngineCore broadcast startup timeout; this test
+                # exercises HTTP authentication and probes, not multiprocessing.
+                client.V1EnvVar(name="VLLM_ENABLE_V1_MULTIPROCESSING", value="0"),
+            ],
+            args=[
+                "--model",
+                "Qwen/Qwen2-0.5B-Instruct",
+                "--served-model-name",
+                service_name,
+                "--max-model-len",
+                "512",
+                "--dtype",
+                "bfloat16",
+                "--enforce-eager",
+                "--api-key",
+                api_key,
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
+            ),
+        ),
+    )
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=test_namespace,
+            annotations={"serving.kserve.io/deploymentMode": "Standard"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
+        pods = (
+            client.CoreV1Api()
+            .list_namespaced_pod(
+                test_namespace,
+                label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+            )
+            .items
+        )
+        assert pods
+        for pod in pods:
+            container = next(
+                c for c in pod.spec.containers if c.name == "kserve-container"
+            )
+            for probe in (container.startup_probe, container.readiness_probe):
+                assert probe.http_get.path == "/health"
+                assert not probe.http_get.http_headers
+        ready = kserve_client.get(service_name, namespace=test_namespace)
+        scheme, address, host, path = get_isvc_endpoint(ready, network_layer)
+        url = f"{scheme}://{address}{path}"
+        headers = {"Host": host}
+        unauthorized = get_with_retry(f"{url}/v1/models", headers=headers)
+        assert unauthorized.status_code == 401
+        headers["Authorization"] = f"Bearer {api_key}"
+        response = post_with_retry(
+            f"{url}/v1/chat/completions",
+            headers=headers,
+            json_data={
+                "model": service_name,
+                "messages": [{"role": "user", "content": "What is 2 + 2?"}],
+                "max_tokens": 16,
+                "temperature": 0,
+            },
+        )
+        response.raise_for_status()
+        assert response.json()["choices"][0]["message"]["content"]
+    finally:
+        kserve_client.delete(service_name, namespace=test_namespace)
 
 
 @pytest.mark.vllm_runtime
