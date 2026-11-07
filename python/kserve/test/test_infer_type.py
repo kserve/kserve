@@ -1120,3 +1120,78 @@ def test_contains_fp16_datatype_with_no_outputs():
     )
 
     assert _contains_fp16_datatype(infer_response) is False
+
+
+BYTES_COMPATIBLE_TENSORS = [
+    pytest.param(np.array(["cat", "dog"]), ["cat", "dog"], id="unicode"),
+    pytest.param(
+        np.array([["cat", "dog"], ["fox", "owl"]]),
+        ["cat", "dog", "fox", "owl"],
+        id="unicode-2d",
+    ),
+    pytest.param(np.array(["poêle", "æther"]), ["poêle", "æther"], id="unicode-utf8"),
+    pytest.param(
+        np.array(["2020-01-01T00:00:00", "2021-06-15T12:30:00"], dtype="datetime64[s]"),
+        ["2020-01-01T00:00:00", "2021-06-15T12:30:00"],
+        id="datetime64",
+    ),
+]
+
+
+@pytest.mark.parametrize("tensor_cls", [InferInput, InferOutput])
+@pytest.mark.parametrize("tensor, expected", BYTES_COMPATIBLE_TENSORS)
+def test_set_data_from_numpy_bytes_json(tensor_cls, tensor, expected):
+    infer_tensor = tensor_cls(name="tensor", shape=list(tensor.shape), datatype="BYTES")
+    infer_tensor.set_data_from_numpy(tensor, binary_data=False)
+    assert infer_tensor.data == expected
+
+
+@pytest.mark.parametrize("tensor_cls", [InferInput, InferOutput])
+@pytest.mark.parametrize("tensor, expected", BYTES_COMPATIBLE_TENSORS)
+def test_set_data_from_numpy_bytes_binary(tensor_cls, tensor, expected):
+    infer_tensor = tensor_cls(name="tensor", shape=list(tensor.shape), datatype="BYTES")
+    infer_tensor.set_data_from_numpy(tensor, binary_data=True)
+    assert infer_tensor.as_numpy().flatten().tolist() == [
+        value.encode("utf-8") for value in expected
+    ]
+
+
+@pytest.mark.parametrize("tensor, expected", BYTES_COMPATIBLE_TENSORS)
+def test_serialize_byte_tensor_bytes_compatible_dtypes(tensor, expected):
+    object_tensor = np.array(
+        [value.encode("utf-8") for value in expected], dtype=np.object_
+    ).reshape(tensor.shape)
+    assert serialize_byte_tensor(tensor) == serialize_byte_tensor(object_tensor)
+
+
+@pytest.mark.parametrize("binary_data", [True, False])
+def test_infer_response_unicode_output_to_rest(binary_data):
+    infer_output = InferOutput(name="output-0", shape=[2], datatype="BYTES")
+    infer_output.set_data_from_numpy(
+        np.array(["setosa", "versicolor"]), binary_data=binary_data
+    )
+    infer_response = InferResponse(
+        response_id="1",
+        model_name="test_model",
+        infer_outputs=[infer_output],
+        use_binary_outputs=binary_data,
+    )
+    res, _ = infer_response.to_rest()
+    if binary_data:
+        assert res.endswith(b"\x06\x00\x00\x00setosa\n\x00\x00\x00versicolor")
+    else:
+        assert res["outputs"][0]["data"] == ["setosa", "versicolor"]
+
+
+def test_infer_response_unicode_output_to_grpc():
+    infer_output = InferOutput(name="output-0", shape=[2], datatype="BYTES")
+    infer_output.set_data_from_numpy(
+        np.array(["setosa", "versicolor"]), binary_data=False
+    )
+    infer_response = InferResponse(
+        response_id="1", model_name="test_model", infer_outputs=[infer_output]
+    )
+    assert list(infer_response.to_grpc().outputs[0].contents.bytes_contents) == [
+        b"setosa",
+        b"versicolor",
+    ]
