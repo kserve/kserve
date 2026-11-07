@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"encoding/json"
 	"maps"
 	"reflect"
 	"slices"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -410,11 +412,79 @@ func CreatePV(
 	return nil
 }
 
+// releaseStaleClaimRef clears the claimRef of a PersistentVolume that still points at the
+// claim the controller is about to recreate, so the new claim can bind to it. A serving PV
+// uses persistentVolumeReclaimPolicy Retain, so the PV controller keeps the claimRef of the
+// deleted claim and marks the volume Released. A new claim with the same name but a new UID
+// is then rejected with "already bound to a different claim" and stays Pending forever.
+// A claimRef with an empty UID is a reference reserved for the named claim, so it
+// already lets that claim bind. A reference to a claim that is bound, or to the
+// claim that exists with the same UID, is live and left alone. The patch re-tests
+// the claimRef it read, so a claim that binds before the release is cleared is
+// left alone instead of being unbound.
+func releaseStaleClaimRef(
+	ctx context.Context,
+	persistentVolumes corev1client.PersistentVolumeInterface,
+	persistentVolumeClaims corev1client.PersistentVolumeClaimInterface,
+	log logr.Logger,
+	name, namespace, claimName string,
+) error {
+	pv, err := persistentVolumes.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if apierr.IsNotFound(err) {
+			return nil
+		}
+		log.Error(err, "Failed to get PV", "name", name)
+		return err
+	}
+	claimRef := pv.Spec.ClaimRef
+	if claimRef == nil || claimRef.Namespace != namespace || claimRef.Name != claimName {
+		return nil
+	}
+	// An empty UID marks a volume that is reserved for this claim by name, not a
+	// reference to a deleted claim, so the claim can already bind to it.
+	if claimRef.UID == "" {
+		return nil
+	}
+	// A claim that exists may be the recreated one that is stuck Pending on this
+	// stale reference, which is what the release repairs. The claim the reference
+	// belongs to keeps it.
+	claim, err := persistentVolumeClaims.Get(ctx, claimName, metav1.GetOptions{})
+	if err == nil {
+		if claim.UID == claimRef.UID {
+			return nil
+		}
+	} else if !apierr.IsNotFound(err) {
+		log.Error(err, "Failed to get claim before releasing its PV reference", "claim", claimName, "namespace", namespace)
+		return err
+	}
+	log.Info("Releasing stale claim reference", "pv", name, "claim", claimName, "namespace", namespace)
+	// Apply the release as a JSON patch whose test operations compare the
+	// claimRef the decision was based on. A claim recreated by another
+	// controller could bind between the Get above and this request; the tests
+	// then fail and the patch is rejected instead of clearing a live claimRef.
+	patch, err := json.Marshal([]map[string]any{
+		{"op": "test", "path": "/spec/claimRef/name", "value": claimRef.Name},
+		{"op": "test", "path": "/spec/claimRef/namespace", "value": claimRef.Namespace},
+		{"op": "test", "path": "/spec/claimRef/uid", "value": claimRef.UID},
+		{"op": "remove", "path": "/spec/claimRef"},
+	})
+	if err != nil {
+		log.Error(err, "Failed to build stale claim reference patch", "pv", name)
+		return err
+	}
+	if _, err := persistentVolumes.Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
+		log.Error(err, "Failed to release stale claim reference", "pv", name)
+		return err
+	}
+	return nil
+}
+
 // CreatePVC creates a PersistentVolumeClaim and sets the owner reference
 // Only one of localModelCache or localModelNamespaceCache should be non-nil
 func CreatePVC(
 	ctx context.Context,
-	clientset *kubernetes.Clientset,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	spec corev1.PersistentVolumeClaim,
@@ -423,12 +493,22 @@ func CreatePVC(
 	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
 ) error {
 	persistentVolumeClaims := clientset.CoreV1().PersistentVolumeClaims(namespace)
-	if _, err := persistentVolumeClaims.Get(ctx, spec.Name, metav1.GetOptions{}); err != nil {
+	existing, err := persistentVolumeClaims.Get(ctx, spec.Name, metav1.GetOptions{})
+	if err != nil {
 		if !apierr.IsNotFound(err) {
 			log.Error(err, "Failed to get PVC")
 			return err
 		}
 		log.Info("Create PVC", "name", spec.Name, "namespace", namespace)
+
+		// The claim does not exist, so a claimRef on the volume can only name the
+		// claim that was deleted earlier. Clear it before creating the new claim.
+		if spec.Spec.VolumeName != "" {
+			if err := releaseStaleClaimRef(ctx, clientset.CoreV1().PersistentVolumes(), persistentVolumeClaims, log, spec.Spec.VolumeName, namespace, spec.Name); err != nil {
+				log.Error(err, "Release stale claim reference", "pv", spec.Spec.VolumeName)
+				return err
+			}
+		}
 
 		spec.Namespace = namespace
 
@@ -449,6 +529,14 @@ func CreatePVC(
 
 		if _, err := persistentVolumeClaims.Create(ctx, &spec, metav1.CreateOptions{}); err != nil {
 			log.Error(err, "Failed to create PVC", "name", spec.Name)
+			return err
+		}
+	} else if existing.Status.Phase == corev1.ClaimPending && spec.Spec.VolumeName != "" {
+		// A claim recreated by an older controller can also be left Pending on the
+		// retained volume, so repair that reference too instead of only handling
+		// the claim this reconcile creates.
+		if err := releaseStaleClaimRef(ctx, clientset.CoreV1().PersistentVolumes(), persistentVolumeClaims, log, spec.Spec.VolumeName, namespace, spec.Name); err != nil {
+			log.Error(err, "Release stale claim reference", "pv", spec.Spec.VolumeName)
 			return err
 		}
 	}
