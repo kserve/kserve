@@ -58,6 +58,8 @@ def local_failures(report, root):
         if url.scheme != "file":
             continue
         target = os.path.relpath(unquote(url.path), root)
+        # The report rejects control characters, so %0A stays encoded.
+        target = CONTROL.sub(lambda match: quote(match[0]), target)
         if url.fragment:
             target += "#" + url.fragment
         # Line numbers can shift without introducing a new broken link.

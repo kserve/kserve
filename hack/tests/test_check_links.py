@@ -393,6 +393,21 @@ class ScannerTests(unittest.TestCase):
             },
         )
 
+    def test_encoded_control_characters_stay_encoded_in_local_targets(self):
+        # The report rejects targets with control characters; decoding
+        # %0A into the repo:/ target would reject the whole report.
+        files = {
+            "README.md": "[x](foo%0Abar.md)\n"
+            "[y](https://github.com/kserve/kserve/blob/master/tab%09name.md)\n"
+        }
+        with checkout(files) as root:
+            code, report, _ = run_check(root, api=API(), offline=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(
+            {item["url"] for item in report["observations"]},
+            {"repo:/foo%0Abar.md", "repo:/tab%09name.md"},
+        )
+
     def test_stdin_markdown_preserves_punctuation_in_urls(self):
         with checkout() as root:
             urls = {f"https://www.python.org/end{suffix}" for suffix in (".", "!", "~")}

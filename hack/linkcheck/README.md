@@ -134,7 +134,8 @@ entries are rejected, for example:
 }
 ```
 
-For local targets, use `repo:/path/from/repository/root.md#heading`. Exceptions
+For local targets, use `repo:/path/from/repository/root.md#heading`, with
+control characters percent-encoded as the report lists them. Exceptions
 remain active through the expiry date. Expired exceptions resume checking and
 appear in the report. The history registry records observations; it is not an
 allowlist of permanently ignored failures. Unused exceptions appear in the
