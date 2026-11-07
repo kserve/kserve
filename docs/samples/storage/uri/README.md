@@ -115,7 +115,7 @@ Expected Output
 $ inferenceservice.serving.kserve.io/sklearn-from-uri created
 ```
 ### Run a prediction
-The first is to [determine the ingress IP and ports](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
+The first is to [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
 
 Now, if everything went according to plan you should be able to hit the endpoint exposing the model we just uploaded.
 
@@ -237,7 +237,7 @@ $ inferenceservice.serving.kserve.io/tensorflow-from-uri created
 ```
 
 ## Run a prediction
-Again, make sure to first [determine the ingress IP and ports](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
+Again, make sure to first [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`.
 
 Now that our endpoint is up and running, we can get some predictions.
 

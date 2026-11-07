@@ -6,7 +6,7 @@
 # 1. download service account key
 #   - gcloud iam service-accounts keys create key.json --iam-account <service-account>@<project>.iam.gserviceaccount.com
 #     Service account name can be custom-user@<project>.iam.gserviceaccount.com
-#     https://www.kubeflow.org/docs/external-add-ons/serving/tfserving_new/#sending-prediction-request-through-ingress-and-iap
+#     https://cloud.google.com/iap/docs/authentication-howto
 # 2. download iap_request.py (this uses key.json to obtain a JWT and invokes inference service with 'Authorization: Bearer <JWT> header')
 # 3. set following parameters:
 #   - ${PROJECT} - the gcp project that owns the Identity Aware Proxy https://console.cloud.google.com/security/iap

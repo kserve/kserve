@@ -4,10 +4,10 @@ KernelCacheNodeGroupStorage selects one of two mutually exclusive storage modes 
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**persistent_volume_claim_spec** | [**V1PersistentVolumeClaimSpec**](V1PersistentVolumeClaimSpec.md) |  | [optional] 
-**persistent_volume_spec** | [**V1PersistentVolumeSpec**](V1PersistentVolumeSpec.md) |  | [optional] 
+**persistent_volume_claim_spec** | [**V1PersistentVolumeClaimSpec**](https://pkg.go.dev/k8s.io/api/core/v1#PersistentVolumeClaimSpec) |  | [optional]
+**persistent_volume_spec** | [**V1PersistentVolumeSpec**](https://pkg.go.dev/k8s.io/api/core/v1#PersistentVolumeSpec) |  | [optional]
 **storage_class** | [**V1alpha1KernelCacheNodeGroupStorageClass**](V1alpha1KernelCacheNodeGroupStorageClass.md) |  | [optional] 
-**storage_limit** | [**ResourceQuantity**](ResourceQuantity.md) |  | [optional] 
+**storage_limit** | [**ResourceQuantity**](https://pkg.go.dev/k8s.io/apimachinery/pkg/api/resource#Quantity) |  | [optional]
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

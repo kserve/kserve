@@ -103,7 +103,7 @@ For project governance and roles, see the
 Releases are announced through:
 
 - [GitHub Releases](https://github.com/kserve/kserve/releases) (primary)
-- [KServe Blog](https://kserve.github.io/website/latest/blog/) (for major releases)
+- [KServe Blog](https://kserve.github.io/website/blog) (for major releases)
 - [KServe Slack](https://cloud-native.slack.com/archives/C06AH2C3K8B)
 
 ## Security

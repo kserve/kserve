@@ -1,5 +1,7 @@
 # Generated Python code
 python/kserve/kserve/models/** linguist-generated=true
+# Preserve the upstream generator's Markdown whitespace.
+python/kserve/docs/** linguist-generated=true whitespace=-blank-at-eol
 python/kserve/kserve/protocol/rest/openai/types/openapi.py linguist-generated=true
 
 # Generated install scripts

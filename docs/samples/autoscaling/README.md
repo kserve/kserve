@@ -22,7 +22,7 @@
 
 # Autoscale InferenceService with your inference workload
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing installed](https://kserve.github.io/website/docs/getting-started/quickstart-guide).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. [Metrics installation](https://knative.dev/docs/eventing/observability/metrics/collecting-metrics/) for viewing scaling graphs (optional).
 4. The [hey](https://github.com/rakyll/hey) load generator installed (go get -u github.com/rakyll/hey).
@@ -56,7 +56,7 @@ $ inferenceservice.serving.kserve.io/flowers-sample configured
 ```
 
 ### Load InferenceService with concurrent requests
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 Send traffic in 30 seconds spurts maintaining 5 in-flight requests.
 ```
@@ -149,7 +149,7 @@ $ inferenceservice.serving.kserve.io/flowers-sample configured
 ```
 
 ### Load InferenceService with target QPS
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 Send 30 seconds of traffic maintaining 50 qps.
 ```bash
@@ -247,7 +247,7 @@ kubectl apply -f autoscale_gpu.yaml
 ```
 
 ### Load InferenceService with concurrent requests
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 Send 30 seconds of traffic maintaining 5 in-flight requests.
 ```

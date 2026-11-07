@@ -5,7 +5,7 @@ ModelSpec describes a TrainedModel
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **framework** | **str** | Machine Learning &amp;lt;framework name&amp;gt; The values could be: \&quot;tensorflow\&quot;,\&quot;pytorch\&quot;,\&quot;sklearn\&quot;,\&quot;onnx\&quot;,\&quot;xgboost\&quot;, \&quot;myawesomeinternalframework\&quot; etc. | [default to '']
-**memory** | [**ResourceQuantity**](ResourceQuantity.md) |  | 
+**memory** | [**ResourceQuantity**](https://pkg.go.dev/k8s.io/apimachinery@v0.37.1/pkg/api/resource#Quantity) |  | 
 **storage_uri** | **str** | Storage URI for the model repository | [default to '']
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

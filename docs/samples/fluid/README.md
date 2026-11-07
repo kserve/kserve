@@ -14,8 +14,8 @@ To improve performance, it becomes crucial to cache the model artifacts rather t
 
 ## Prerequisite
 
-* [KServe](https://kserve.github.io/website/master/admin/serverless/serverless/)
-  * Please follow this [guideline](https://kserve.github.io/website/master/developer/developer/#deploy-kserve-from-master-branch) to deploy KServe from `master` branch
+* [KServe](https://kserve.github.io/website/docs/admin-guide/serverless)
+  * Please follow this [guideline](https://kserve.github.io/website/docs/developer-guide#deploy-kserve-for-development) to deploy KServe from `master` branch
   * Enable node selector in KServe InferenceService via Knative
 
     ```sh
@@ -196,7 +196,7 @@ $ kubectl create -f kserve-isvc.yaml -n kserve-fluid-demo
 
 ### Test The Demo Application
 
-Follow this [guide](https://kserve.github.io/website/0.13/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) to get the ingress host and port:
+Follow this [guide](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) to get the ingress host and port:
 
 ```sh
 export MODEL_NAME="llama-31-8b-instruct"
@@ -283,5 +283,5 @@ kubectl delete ns fluid-system
 ## Reference
 * [Knative with Fluid](https://github.com/fluid-cloudnative/fluid/blob/master/docs/en/samples/knative.md)
 * [JindoFS](https://www.alibabacloud.com/blog/introducing-jindofs-a-high-performance-data-lake-storage-solution_595600)
-* [KServe with S3](https://kserve.github.io/website/0.13/modelserving/storage/s3/s3/)
+* [KServe with S3](https://kserve.github.io/website/docs/model-serving/storage/providers/s3)
 * [Meta Llama](https://huggingface.co/meta-llama)

@@ -1,0 +1,24 @@
+# Shared policy for PR checks and the nightly repository audit.
+max_concurrency = 12
+host_concurrency = 2
+host_request_interval = "250ms"
+timeout = 20
+max_retries = 2
+retry_wait_time = 3
+exclude_all_private = true
+include_mail = false
+# Commands, model URLs and illustrative placeholders in code blocks are not links.
+include_verbatim = false
+# General website fragments often depend on JavaScript. Local fragments and
+# fetched GitHub documents are checked separately against their actual contents.
+include_fragments = "none"
+# GitHub renders directory links using README.md, including heading anchors.
+index_files = ["README.md", "README.mdx", "index.md", "index.html", "."]
+# Do not accept 403/429/5xx as success: the report labels them inconclusive.
+exclude = [
+  # Reserved example domains.
+  '^https?://(?:[^/]+\.)?example\.(?:com|org|net)(?:[/:]|$)',
+  # In-cluster endpoints and templates that require user substitution.
+  '^https?://[^/]*(?:\.svc(?:\.cluster\.local)?|\.default)(?:[/:]|$)',
+  '^https?://[^\s]*(?:\$|%7[Bb]|%3[Cc]|[{}<>])',
+]

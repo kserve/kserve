@@ -1,0 +1,5 @@
+# Lychee v0.24.2 release archives. Update together with LYCHEE_VERSION.
+73657a111819a30c47c08352896796f23d64e4eb2b3ed39b6d32149241566fc5  lychee-x86_64-unknown-linux-musl.tar.gz
+5d0b0e3aeab240f41920c633a6eaf97599be6eedda034b36e858ede7dba5e535  lychee-aarch64-unknown-linux-musl.tar.gz
+887503a9cff667d322b8d0892b40bf49976eb9507af8483220a3706cdad55978  lychee-x86_64-apple-darwin.tar.gz
+c9d3740ea2d891854d37116c9fba840f37b6e7c89d330e7db84ac333631c4977  lychee-aarch64-apple-darwin.tar.gz
