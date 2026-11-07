@@ -621,6 +621,11 @@ class TestInferRequest:
         assert infer_request.inputs[0].data == [1, 2, 3]
         assert infer_request.request_outputs is None
 
+    def test_infer_input_as_numpy_invalid_datatype(self):
+        infer_input = InferInput(name="input1", shape=[1], datatype="FP8", data=[1])
+        with pytest.raises(InvalidInput, match="invalid datatype FP8 in the input"):
+            infer_input.as_numpy()
+
 
 class TestInferResponse:
     def test_to_grpc(self):
@@ -1120,3 +1125,9 @@ def test_contains_fp16_datatype_with_no_outputs():
     )
 
     assert _contains_fp16_datatype(infer_response) is False
+
+
+def test_infer_output_as_numpy_invalid_datatype():
+    infer_output = InferOutput(name="output1", shape=[1], datatype="FP8", data=[1])
+    with pytest.raises(InvalidInput, match="invalid datatype FP8 in the output"):
+        infer_output.as_numpy()
