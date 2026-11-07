@@ -27,7 +27,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"runtime"
 	"strconv"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -252,6 +254,111 @@ func TestSimpleModelEnsemble(t *testing.T) {
 	}
 	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
+}
+
+// ensembleStepGoroutines counts the live goroutines started by routeStep for ensemble steps.
+func ensembleStepGoroutines() int {
+	stacks := make([]byte, 1<<20)
+	stacks = stacks[:runtime.Stack(stacks, true)]
+	return bytes.Count(stacks, []byte("router.routeStep.func"))
+}
+
+func TestEnsembleEarlyReturnDoesNotLeakStepGoroutines(t *testing.T) {
+	failedStep := func(rw http.ResponseWriter, _ *http.Request) {
+		rw.WriteHeader(http.StatusInternalServerError)
+		_, _ = rw.Write([]byte(`{"error": "failed"}`))
+	}
+	invalidStep := func(rw http.ResponseWriter, _ *http.Request) {
+		_, _ = rw.Write([]byte("not json"))
+	}
+
+	testCases := map[string]struct {
+		firstStep      http.HandlerFunc
+		firstStepDep   v1alpha1.InferenceStepDependencyType
+		slowStepBody   string
+		expectedStatus int
+		expectedErr    bool
+	}{
+		"failed hard dependency returns before a slower step responds": {
+			firstStep:      failedStep,
+			firstStepDep:   v1alpha1.Hard,
+			slowStepBody:   `{"predictions": "slow"}`,
+			expectedStatus: http.StatusInternalServerError,
+		},
+		"step error returns before a slower step responds": {
+			firstStep:      invalidStep,
+			slowStepBody:   `{"predictions": "slow"}`,
+			expectedStatus: http.StatusInternalServerError,
+			expectedErr:    true,
+		},
+		"step error returns before a slower step also errors": {
+			firstStep:      invalidStep,
+			slowStepBody:   "not json",
+			expectedStatus: http.StatusInternalServerError,
+			expectedErr:    true,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			first := httptest.NewServer(tc.firstStep)
+			defer first.Close()
+
+			release := make(chan struct{})
+			releaseSlowStep := sync.OnceFunc(func() { close(release) })
+			slow := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+				<-release
+				_, _ = rw.Write([]byte(tc.slowStepBody))
+			}))
+			defer slow.Close()
+			defer releaseSlowStep()
+
+			graphSpec := v1alpha1.InferenceGraphSpec{
+				Nodes: map[string]v1alpha1.InferenceRouter{
+					v1alpha1.GraphRootNodeName: {
+						RouterType: v1alpha1.Ensemble,
+						Steps: []v1alpha1.InferenceStep{
+							{
+								StepName:        "first",
+								InferenceTarget: v1alpha1.InferenceTarget{ServiceURL: first.URL},
+								Dependency:      tc.firstStepDep,
+							},
+							{
+								StepName:        "slow",
+								InferenceTarget: v1alpha1.InferenceTarget{ServiceURL: slow.URL},
+							},
+						},
+					},
+				},
+			}
+
+			var statusCode int
+			var err error
+			returned := make(chan struct{})
+			go func() {
+				defer close(returned)
+				_, statusCode, err = routeStep(v1alpha1.GraphRootNodeName, graphSpec, []byte("{}"), http.Header{})
+			}()
+			select {
+			case <-returned:
+			case <-time.After(5 * time.Second):
+				t.Fatal("the ensemble node should return without waiting for the slow step")
+			}
+
+			require.Positive(t, ensembleStepGoroutines(), "the slow step should still be running")
+			releaseSlowStep()
+
+			assert.Equal(t, tc.expectedStatus, statusCode)
+			if tc.expectedErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Eventually(t, func() bool {
+				return ensembleStepGoroutines() == 0
+			}, 5*time.Second, 10*time.Millisecond, "ensemble step goroutines are still running after the node returned")
+		})
+	}
 }
 
 func TestInferenceGraphWithCondition(t *testing.T) {
