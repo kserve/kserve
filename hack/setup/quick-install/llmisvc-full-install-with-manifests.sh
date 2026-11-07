@@ -114601,6 +114601,7 @@ data:
            "cpuLimit": "1",
            "caBundleConfigMapName": "",
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+           "httpStorageUriAllowlist": [],
            "enableModelcar": false,
            "enableOciModelSupport": false,
            "ociModelMode": "modelcar",
@@ -114629,6 +114630,9 @@ data:
 
            # caBundleVolumeMountPath is the mount point for the configmap set by caBundleConfigMapName for the storage initializer init container.
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+
+           # httpStorageUriAllowlist is a cluster-admin allowlist of exact hosts or CIDRs for private HTTP(S) model storage URIs.
+           "httpStorageUriAllowlist": [],
 
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.

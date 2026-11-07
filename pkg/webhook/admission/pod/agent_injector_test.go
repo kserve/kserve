@@ -2170,6 +2170,55 @@ func TestGetLoggerConfigs(t *testing.T) {
 	}
 }
 
+func TestAgentHTTPAllowlistOverridesInheritedPolicy(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		allowlist []string
+		want      string
+	}{
+		{name: "empty cluster policy", want: `[]`},
+		{name: "configured cluster policy", allowlist: []string{"10.20.0.0/16"}, want: `["10.20.0.0/16"]`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			config := *agentConfig
+			config.HTTPStorageURIAllowlist = test.allowlist
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AgentShouldInjectAnnotationKey:          "true",
+						constants.AgentModelDirAnnotationKey:              "/mnt/models",
+						constants.AgentModelConfigVolumeNameAnnotationKey: "modelconfig",
+					},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName},
+					{Name: "queue-proxy", Env: []corev1.EnvVar{
+						{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: `["10.30.0.0/16"]`},
+					}},
+				}},
+			}
+			injector := &AgentInjector{
+				agentConfig:       &config,
+				credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+			}
+			g.Expect(injector.InjectAgent(pod)).To(gomega.Succeed())
+			var policyEnvs []corev1.EnvVar
+			for _, container := range pod.Spec.Containers {
+				if container.Name == constants.AgentContainerName {
+					for _, env := range container.Env {
+						if env.Name == constants.HTTPStorageURIAllowlistEnvVar {
+							policyEnvs = append(policyEnvs, env)
+						}
+					}
+				}
+			}
+			g.Expect(policyEnvs).To(gomega.Equal([]corev1.EnvVar{{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: test.want}}))
+		})
+	}
+}
+
 func TestGetAgentConfigs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cases := []struct {

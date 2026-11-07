@@ -827,8 +827,11 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
+			return nil, fmt.Errorf("unable to unmarshal %q JSON: %w", StorageInitializerConfigMapKeyName, err)
 		}
+	}
+	if err := utils.ValidateHTTPStorageURIAllowlist(storageInitializerConfig.HTTPStorageURIAllowlist); err != nil {
+		return nil, fmt.Errorf("invalid %q.httpStorageUriAllowlist: %w", StorageInitializerConfigMapKeyName, err)
 	}
 	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := map[string]string{
@@ -865,4 +868,22 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 	}
 
 	return storageInitializerConfig, nil
+}
+
+// GetHTTPStorageURIAllowlist extracts and validates the administrator-managed
+// HTTP storage URI allowlist from the InferenceService ConfigMap.
+func GetHTTPStorageURIAllowlist(configMap *corev1.ConfigMap) ([]string, error) {
+	storageInitializerConfig := &types.StorageInitializerConfig{}
+	if configMap == nil {
+		return nil, nil
+	}
+	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
+		if err := json.Unmarshal([]byte(initializerConfig), storageInitializerConfig); err != nil {
+			return nil, fmt.Errorf("unable to unmarshal %q JSON: %w", StorageInitializerConfigMapKeyName, err)
+		}
+	}
+	if err := utils.ValidateHTTPStorageURIAllowlist(storageInitializerConfig.HTTPStorageURIAllowlist); err != nil {
+		return nil, fmt.Errorf("invalid %q.httpStorageUriAllowlist: %w", StorageInitializerConfigMapKeyName, err)
+	}
+	return storageInitializerConfig.HTTPStorageURIAllowlist, nil
 }

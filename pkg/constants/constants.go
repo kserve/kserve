@@ -359,6 +359,7 @@ const (
 	KServeContainerPrometheusMetricsPortEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PORT"
 	KServeContainerPrometheusMetricsPathEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PATH"
 	ModelInitModeEnvVarKey                            = "MODEL_INIT_MODE"
+	HTTPStorageURIAllowlistEnvVar                     = "KSERVE_HTTP_STORAGE_URI_ALLOWLIST"
 	QueueProxyAggregatePrometheusMetricsPortEnvVarKey = "AGGREGATE_PROMETHEUS_METRICS_PORT"
 	InferenceServiceNameEnvVarKey                     = "INFERENCE_SERVICE_NAME"
 )
