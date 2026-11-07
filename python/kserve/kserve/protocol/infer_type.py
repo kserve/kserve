@@ -628,6 +628,16 @@ class InferRequest:
                     f"Each input for model '{model_name}' must be an object with 'name', 'shape' and 'datatype'"
                 )
             parameters = input_.get("parameters", None)
+            if (
+                not isinstance(input_["shape"], list)
+                or not all(type(dim) is int for dim in input_["shape"])
+                or not isinstance(input_["datatype"], str)
+                or not (parameters is None or isinstance(parameters, dict))
+            ):
+                raise InvalidInput(
+                    f"Input '{input_['name']}' for model '{model_name}' must have a 'shape' that is a list of "
+                    "integers, a 'datatype' that is a string, and 'parameters' that is an object if given"
+                )
             infer_input = InferInput(
                 name=input_["name"],
                 shape=input_["shape"],
@@ -668,7 +678,7 @@ class InferRequest:
                     infer_input.set_data_from_numpy(
                         infer_input.as_numpy(), binary_data=False
                     )
-                except ValueError as e:
+                except (ValueError, struct.error) as e:
                     raise InvalidInput(
                         f"Failed to read the binary data of input '{infer_input.name}' for model '{model_name}': {e}"
                     )

@@ -563,6 +563,39 @@ class TestInferRequest:
                 b'{"inputs": [{"name": "input1", "shape": [3], "datatype": "INT32", "parameters": {"binary_data_size": 8}}]}',
                 b"\x01\x00\x00\x00\x02\x00\x00\x00",
             ),
+            # A string length in a BYTES input that is more than the bytes after it.
+            (
+                b'{"inputs": [{"name": "input1", "shape": [1], "datatype": "BYTES", "parameters": {"binary_data_size": 4}}]}',
+                b"\x05\x00\x00\x00",
+            ),
+            # A BYTES input too short to hold a string length.
+            (
+                b'{"inputs": [{"name": "input1", "shape": [1], "datatype": "BYTES", "parameters": {"binary_data_size": 2}}]}',
+                b"\x01\x00",
+            ),
+            # A shape that isn't a list of integers.
+            (
+                b'{"inputs": [{"name": "input1", "shape": "2", "datatype": "INT32", "parameters": {"binary_data_size": 8}}]}',
+                b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            ),
+            (
+                b'{"inputs": [{"name": "input1", "shape": ["a"], "datatype": "INT32", "parameters": {"binary_data_size": 8}}]}',
+                b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            ),
+            # A datatype that isn't a string.
+            (
+                b'{"inputs": [{"name": "input1", "shape": [2], "datatype": 5, "parameters": {"binary_data_size": 8}}]}',
+                b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            ),
+            # Parameters that aren't an object.
+            (
+                b'{"inputs": [{"name": "input1", "shape": [2], "datatype": "INT32", "parameters": 5}]}',
+                b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            ),
+            (
+                b'{"inputs": [{"name": "input1", "shape": [2], "datatype": "INT32", "parameters": "binary_data_size"}]}',
+                b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            ),
         ],
     )
     def test_infer_request_from_bytes_malformed_request(self, json_part, binary_part):
