@@ -2555,7 +2555,7 @@ spec:
     - --served-model-name={{.Name}}
     - --model=/mnt/models
     command:
-    - python
+    - python3
     - -m
     - vllm.entrypoints.openai.api_server
     env:
