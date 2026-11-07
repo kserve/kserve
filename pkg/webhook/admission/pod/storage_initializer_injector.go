@@ -1090,6 +1090,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	// Mount pvc directly if local model label exists
 	// Not supported with multiple storage URIs
 	if _, ok := pod.Labels[constants.LocalModelLabel]; ok {
+		// Fail closed while the shared-PVC cache this pod is bound to is not
+		// Ready: the pod is not admitted (and never rewritten to download from
+		// its original source URI) until the cache import completes.
+		if err := mi.awaitLocalModelCacheReadiness(ctx, pod); err != nil {
+			return err
+		}
 		sourceUri := pod.Annotations[constants.LocalModelSourceUriAnnotationKey]
 		subPath, _ := strings.CutPrefix(srcURI, sourceUri)
 		if !strings.HasPrefix(subPath, "/") {
@@ -1148,6 +1154,39 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	}
 
 	return CommonStorageInitialization(ctx, storageInitializerParams)
+}
+
+// awaitLocalModelCacheReadiness fails closed while the shared-PVC
+// LocalModelNamespaceCache a pod is bound to is not Ready. Returning an error
+// rejects the pod; workload controllers retry creation, so the pod starts once
+// the cache import completes instead of downloading the model from its original
+// source URI. Node-local caches (and cluster-scoped LocalModelCache) have no
+// import gate and are admitted as before.
+func (mi *StorageInitializerInjector) awaitLocalModelCacheReadiness(ctx context.Context, pod *corev1.Pod) error {
+	cacheName := pod.Labels[constants.LocalModelLabel]
+	cacheNamespace := pod.Labels[constants.LocalModelNamespaceLabel]
+	if cacheNamespace == "" {
+		// Cluster-scoped LocalModelCache: node-local only, no Ready gate.
+		return nil
+	}
+	// Local model cache bindings are always same-namespace: the defaulters only
+	// match caches in the workload's own namespace. Refuse to look up caches in
+	// other namespaces so crafted pod labels cannot turn this webhook into a
+	// cross-namespace cache status oracle.
+	if cacheNamespace != pod.Namespace {
+		return fmt.Errorf("pod %s/%s references LocalModelNamespaceCache %s/%s, but local model caches are only served from the pod's own namespace",
+			pod.Namespace, pod.Name, cacheNamespace, cacheName)
+	}
+	nsCache := &v1alpha1.LocalModelNamespaceCache{}
+	if err := mi.client.Get(ctx, k8stypes.NamespacedName{Name: cacheName, Namespace: cacheNamespace}, nsCache); err != nil {
+		return fmt.Errorf("get LocalModelNamespaceCache %s/%s referenced by pod %s/%s: %w",
+			cacheNamespace, cacheName, pod.Namespace, pod.Name, err)
+	}
+	if !nsCache.Spec.SharedPVCMode() || nsCache.IsReady() {
+		return nil
+	}
+	return fmt.Errorf("LocalModelNamespaceCache %s/%s is not ready (%s); pod %s/%s is admitted once the model import completes",
+		cacheNamespace, cacheName, nsCache.NotReadySummary(), pod.Namespace, pod.Name)
 }
 
 // SetIstioCniSecurityContext determines if Istio is installed in using the CNI plugin. If so,
