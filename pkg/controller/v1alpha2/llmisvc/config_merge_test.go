@@ -1457,6 +1457,13 @@ func TestMergeSpecsProbeHandlerOverride(t *testing.T) {
 	containers := func(probe *corev1.Probe) []corev1.Container {
 		return []corev1.Container{{Name: "main", StartupProbe: probe}}
 	}
+	sidecars := func(probe *corev1.Probe) []corev1.Container {
+		return []corev1.Container{{
+			Name:          "llm-d-routing-sidecar",
+			RestartPolicy: ptr.To(corev1.ContainerRestartPolicyAlways),
+			StartupProbe:  probe,
+		}}
+	}
 
 	tests := []struct {
 		name     string
@@ -1514,6 +1521,38 @@ func TestMergeSpecsProbeHandlerOverride(t *testing.T) {
 					Template: &corev1.PodSpec{Containers: containers(execProbe())}}}},
 			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
 				return s.Router.Scheduler.Template.Containers[0].StartupProbe
+			},
+		},
+		{
+			name: "spec.router.scheduler.tokenizer.template",
+			base: v1alpha2.LLMInferenceServiceSpec{Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{Tokenizer: &v1alpha2.TokenizerSpec{
+					Template: &corev1.PodSpec{Containers: containers(httpProbe())}}}}},
+			override: v1alpha2.LLMInferenceServiceSpec{Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{Tokenizer: &v1alpha2.TokenizerSpec{
+					Template: &corev1.PodSpec{Containers: containers(execProbe())}}}}},
+			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
+				return s.Router.Scheduler.Tokenizer.Template.Containers[0].StartupProbe
+			},
+		},
+		{
+			name: "spec.template.initContainers",
+			base: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{InitContainers: sidecars(httpProbe())}}},
+			override: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{InitContainers: sidecars(execProbe())}}},
+			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
+				return s.Template.InitContainers[0].StartupProbe
+			},
+		},
+		{
+			name: "spec.prefill.template.initContainers",
+			base: v1alpha2.LLMInferenceServiceSpec{Prefill: &v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{InitContainers: sidecars(httpProbe())}}},
+			override: v1alpha2.LLMInferenceServiceSpec{Prefill: &v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{InitContainers: sidecars(execProbe())}}},
+			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
+				return s.Prefill.Template.InitContainers[0].StartupProbe
 			},
 		},
 	}

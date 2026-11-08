@@ -1278,26 +1278,37 @@ func clearOverriddenProbeHandlers(base *v1alpha2.LLMInferenceServiceSpec, overri
 	if base.Router != nil && base.Router.Scheduler != nil &&
 		override.Router != nil && override.Router.Scheduler != nil {
 		pairs = append(pairs, [2]*corev1.PodSpec{base.Router.Scheduler.Template, override.Router.Scheduler.Template})
+		if base.Router.Scheduler.Tokenizer != nil && override.Router.Scheduler.Tokenizer != nil {
+			pairs = append(pairs, [2]*corev1.PodSpec{base.Router.Scheduler.Tokenizer.Template, override.Router.Scheduler.Tokenizer.Template})
+		}
 	}
 	for _, pair := range pairs {
 		clearPodProbeHandlers(pair[0], pair[1])
 	}
 }
 
-// clearPodProbeHandlers matches override containers to base containers by name
-// and clears the base handler on each probe the override redefines with a
-// different handler type.
+// clearPodProbeHandlers clears overridden probe handlers on the init containers
+// and on the containers of a pod spec. Restartable init containers (sidecars)
+// carry probes too, and the strategic merge pairs each list by name on its own.
 func clearPodProbeHandlers(base, override *corev1.PodSpec) {
 	if base == nil || override == nil {
 		return
 	}
-	baseContainers := make(map[string]*corev1.Container, len(base.Containers))
-	for i := range base.Containers {
-		c := &base.Containers[i]
+	clearContainerProbeHandlers(base.InitContainers, override.InitContainers)
+	clearContainerProbeHandlers(base.Containers, override.Containers)
+}
+
+// clearContainerProbeHandlers matches override containers to base containers by
+// name and clears the base handler on each probe the override redefines with a
+// different handler type.
+func clearContainerProbeHandlers(base, override []corev1.Container) {
+	baseContainers := make(map[string]*corev1.Container, len(base))
+	for i := range base {
+		c := &base[i]
 		baseContainers[c.Name] = c
 	}
-	for i := range override.Containers {
-		oc := &override.Containers[i]
+	for i := range override {
+		oc := &override[i]
 		bc, ok := baseContainers[oc.Name]
 		if !ok {
 			continue
