@@ -33,6 +33,7 @@ from multiprocessing.pool import ThreadPool
 import os
 import re
 import tempfile
+from kubernetes.client import models as kubernetes_models
 
 # python 2 and python 3 compatibility library
 import six
@@ -310,8 +311,9 @@ class ApiClient(object):
                 return [self.__deserialize(sub_data, sub_kls)
                         for sub_data in data]
 
-            if klass.startswith('dict('):
-                sub_kls = re.match(r'dict\(([^,]*), (.*)\)', klass).group(2)
+            if klass.startswith(('dict(', 'dict[')):
+                # Kubernetes clients may use square brackets for dictionary types.
+                sub_kls = klass[5:-1].split(',', 1)[1].strip()
                 return {k: self.__deserialize(v, sub_kls)
                         for k, v in six.iteritems(data)}
 
@@ -319,7 +321,11 @@ class ApiClient(object):
             if klass in self.NATIVE_TYPES_MAPPING:
                 klass = self.NATIVE_TYPES_MAPPING[klass]
             else:
-                klass = getattr(kserve.models, klass)
+                try:
+                    klass = getattr(kserve.models, klass)
+                except AttributeError:
+                    # Also resolve nested Kubernetes types, not just direct refs.
+                    klass = getattr(kubernetes_models, klass)
 
         if klass in self.PRIMITIVE_TYPES:
             return self.__deserialize_primitive(data, klass)
