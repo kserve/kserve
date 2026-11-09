@@ -2992,6 +2992,11 @@ func (in *TracingSpec) DeepCopyInto(out *TracingSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ExporterCertificate != nil {
+		in, out := &in.ExporterCertificate, &out.ExporterCertificate
+		*out = new(string)
+		**out = **in
+	}
 	if in.Sampler != nil {
 		in, out := &in.Sampler, &out.Sampler
 		*out = new(string)

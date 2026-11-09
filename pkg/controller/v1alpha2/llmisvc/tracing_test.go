@@ -25,6 +25,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/tracing"
 )
 
 func TestInjectSchedulerTracing_NilSpec(t *testing.T) {
@@ -50,6 +51,7 @@ func TestInjectSchedulerTracing_EmptySpec(t *testing.T) {
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_EXPORTER", ""))
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", ""))
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER_ARG", ""))
+	g.Expect(envMap).NotTo(HaveKey(tracing.EnvOtelTracesCertificate))
 	g.Expect(envMap).To(HaveKey("OTEL_RESOURCE_ATTRIBUTES"))
 	g.Expect(envMap["OTEL_RESOURCE_ATTRIBUTES"]).To(ContainSubstring("k8s.namespace.name=test-ns"))
 	g.Expect(envMap["OTEL_RESOURCE_ATTRIBUTES"]).To(ContainSubstring("llmisvc.name=my-svc"))
@@ -59,10 +61,11 @@ func TestInjectSchedulerTracing_CustomFields(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
 	spec := &v1alpha2.TracingSpec{
-		ExporterEndpoint: ptr.To("http://collector:4317"),
-		Sampler:          ptr.To("parentbased_traceidratio"),
-		SamplerArg:       ptr.To("0.1"),
-		Exporter:         ptr.To("otlp"),
+		ExporterEndpoint:    ptr.To("http://collector:4317"),
+		ExporterCertificate: ptr.To("/etc/otel/ca/ca.crt"),
+		Sampler:             ptr.To("parentbased_traceidratio"),
+		SamplerArg:          ptr.To("0.1"),
+		Exporter:            ptr.To("otlp"),
 	}
 	injectSchedulerTracing(spec, "prod-ns", "llm-prod", container)
 
@@ -72,6 +75,7 @@ func TestInjectSchedulerTracing_CustomFields(t *testing.T) {
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", "parentbased_traceidratio"))
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER_ARG", "0.1"))
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_EXPORTER", "otlp"))
+	g.Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesCertificate, "/etc/otel/ca/ca.crt"))
 }
 
 func TestInjectSchedulerTracing_DoesNotDuplicateTracingArg(t *testing.T) {
@@ -176,10 +180,11 @@ func TestInjectServerTracing_CustomEndpoint(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
 	spec := &v1alpha2.TracingSpec{
-		ExporterEndpoint: ptr.To("http://my-collector:4317"),
-		Sampler:          ptr.To("always_on"),
-		SamplerArg:       ptr.To("1.0"),
-		Exporter:         ptr.To("otlp"),
+		ExporterEndpoint:    ptr.To("http://my-collector:4317"),
+		ExporterCertificate: ptr.To("/etc/otel/ca/ca.crt"),
+		Sampler:             ptr.To("always_on"),
+		SamplerArg:          ptr.To("1.0"),
+		Exporter:            ptr.To("otlp"),
 	}
 	injectServerTracing(spec, "prod", "llm-prod", "-decode", container)
 
@@ -190,6 +195,7 @@ func TestInjectServerTracing_CustomEndpoint(t *testing.T) {
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", "always_on"))
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER_ARG", "1.0"))
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_EXPORTER", "otlp"))
+	g.Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesCertificate, "/etc/otel/ca/ca.crt"))
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", defaultServerServiceName+"-decode"))
 }
 
@@ -219,14 +225,18 @@ func TestInjectServerTracing_PreservesExistingEnv(t *testing.T) {
 		Name: "main",
 		Env: []corev1.EnvVar{
 			{Name: "OTEL_TRACES_SAMPLER", Value: "user-sampler"},
+			{Name: tracing.EnvOtelTracesCertificate, Value: "/custom/ca.crt"},
 		},
 	}
 	injectServerTracing(&v1alpha2.TracingSpec{
-		Sampler: ptr.To("injected-sampler"),
+		ExporterEndpoint:    ptr.To("http://collector:4317"),
+		Sampler:             ptr.To("injected-sampler"),
+		ExporterCertificate: ptr.To("/etc/otel/ca/ca.crt"),
 	}, "ns", "svc", "-decode", container)
 
 	envMap := envToMap(container.Env)
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", "user-sampler"))
+	g.Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesCertificate, "/custom/ca.crt"))
 }
 
 func TestInjectServerTracing_CommandOverrideCompatibility(t *testing.T) {

@@ -170,10 +170,11 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 	// Tracing
 	if src.Tracing != nil {
 		dst.Tracing = &v1alpha2.TracingSpec{
-			ExporterEndpoint: src.Tracing.ExporterEndpoint,
-			Sampler:          src.Tracing.Sampler,
-			SamplerArg:       src.Tracing.SamplerArg,
-			Exporter:         src.Tracing.Exporter,
+			ExporterEndpoint:    src.Tracing.ExporterEndpoint,
+			ExporterCertificate: src.Tracing.ExporterCertificate,
+			Sampler:             src.Tracing.Sampler,
+			SamplerArg:          src.Tracing.SamplerArg,
+			Exporter:            src.Tracing.Exporter,
 		}
 	}
 
@@ -211,10 +212,11 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	// Tracing
 	if src.Tracing != nil {
 		dst.Tracing = &TracingSpec{
-			ExporterEndpoint: src.Tracing.ExporterEndpoint,
-			Sampler:          src.Tracing.Sampler,
-			SamplerArg:       src.Tracing.SamplerArg,
-			Exporter:         src.Tracing.Exporter,
+			ExporterEndpoint:    src.Tracing.ExporterEndpoint,
+			ExporterCertificate: src.Tracing.ExporterCertificate,
+			Sampler:             src.Tracing.Sampler,
+			SamplerArg:          src.Tracing.SamplerArg,
+			Exporter:            src.Tracing.Exporter,
 		}
 	}
 
