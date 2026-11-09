@@ -18,6 +18,7 @@ package inferencegraph
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
@@ -677,5 +678,76 @@ func TestPropagateRawStatusKeepsStoppedCondition(t *testing.T) {
 	ready := graphStatus.GetCondition(apis.ConditionReady)
 	if ready == nil || ready.Status != corev1.ConditionFalse {
 		t.Errorf("Ready = %#v, want False", ready)
+	}
+}
+
+// TestSetStoppedStatusOverridesStaleReady covers a stopped graph whose
+// Deployment still reports Available=True, for example while a finalizer
+// delays its deletion. PropagateRawStatus copies that into Ready, so the stop
+// status must replace it instead of leaving the graph ready with a URL.
+func TestSetStoppedStatusOverridesStaleReady(t *testing.T) {
+	now := metav1.Now()
+	stoppedSince := metav1.NewTime(now.Add(-time.Minute))
+	graphStatus := &InferenceGraphStatus{
+		Status: duckv1.Status{Conditions: duckv1.Conditions{
+			{
+				Type:               v1beta1.Stopped,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: apis.VolatileTime{Inner: stoppedSince},
+			},
+			{
+				Type:   "IngressReady",
+				Status: corev1.ConditionTrue,
+			},
+		}},
+	}
+	availableDeployment := &appsv1.Deployment{
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{{
+				Type:   appsv1.DeploymentAvailable,
+				Status: corev1.ConditionTrue,
+				Reason: "MinimumReplicasAvailable",
+			}},
+		},
+	}
+
+	// This is what the raw path does before the stop override runs.
+	PropagateRawStatus(graphStatus, availableDeployment, &apis.URL{Scheme: "http", Host: "test.com"})
+
+	setStoppedStatus(graphStatus, apis.VolatileTime{Inner: now})
+
+	stopped := graphStatus.GetCondition(v1beta1.Stopped)
+	if stopped == nil || stopped.Status != corev1.ConditionTrue {
+		t.Fatalf("Stopped = %#v, want True", stopped)
+	}
+	if !stopped.LastTransitionTime.Inner.Equal(&stoppedSince) {
+		t.Errorf("Stopped transition time = %v, want %v", stopped.LastTransitionTime.Inner, stoppedSince)
+	}
+	ready := graphStatus.GetCondition(apis.ConditionReady)
+	if ready == nil || ready.Status != corev1.ConditionFalse || ready.Reason != v1beta1.StoppedISVCReason {
+		t.Errorf("Ready = %#v, want False with reason %q", ready, v1beta1.StoppedISVCReason)
+	}
+	if graphStatus.URL != nil {
+		t.Errorf("URL = %v, want nil", graphStatus.URL)
+	}
+	if graphStatus.GetCondition("IngressReady") == nil {
+		t.Error("unrelated IngressReady condition was dropped")
+	}
+}
+
+// TestSetStoppedStatusKeepsTransitionTimes checks that repeatedly marking a
+// graph stopped does not rewrite the conditions, which would update the status
+// and requeue the graph on every reconcile.
+func TestSetStoppedStatusKeepsTransitionTimes(t *testing.T) {
+	now := metav1.Now()
+	graphStatus := &InferenceGraphStatus{URL: &apis.URL{Host: "test.com"}}
+
+	setStoppedStatus(graphStatus, apis.VolatileTime{Inner: now})
+	first := append(duckv1.Conditions(nil), graphStatus.Conditions...)
+
+	setStoppedStatus(graphStatus, apis.VolatileTime{Inner: metav1.NewTime(now.Add(time.Minute))})
+
+	if diff := cmp.Diff(first, graphStatus.Conditions); diff != "" {
+		t.Errorf("conditions changed on a second stop (-before +after): %v", diff)
 	}
 }
