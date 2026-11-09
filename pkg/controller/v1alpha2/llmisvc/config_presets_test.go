@@ -17,6 +17,10 @@ limitations under the License.
 package llmisvc_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
@@ -1548,5 +1553,94 @@ func TestVLLMPresetsDeclareModelArgsSlot(t *testing.T) {
 	}
 	if engines != 13 {
 		t.Errorf("Found %d vLLM engine containers across presets, want 13; update this count when adding a preset", engines)
+	}
+}
+
+// TestBundledLLMInferenceServiceConfigsRenderValidates verifies that every bundled
+// LLMInferenceServiceConfig under config/llmisvcconfig and charts/ renders cleanly
+// against v1alpha2.LLMInferenceServiceSpec via ReplaceVariables, preventing template
+// field mismatches (such as referencing deleted Spec fields).
+func TestBundledLLMInferenceServiceConfigsRenderValidates(t *testing.T) {
+	root := kservetesting.ProjectRoot()
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	kserveSystemConfig := llmisvc.Config{
+		SystemNamespace:         "kserve",
+		IngressGatewayName:      "kserve-ingress-gateway",
+		IngressGatewayNamespace: "kserve",
+	}
+
+	// 1. Validate all standalone preset manifests in config/llmisvcconfig
+	presetsDir := filepath.Join(root, "config", "llmisvcconfig")
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("Failed to read presets directory %s: %v", presetsDir, err)
+	}
+
+	var checkedPresets int
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") || !strings.HasPrefix(entry.Name(), "config-") {
+			continue
+		}
+		filename := entry.Name()
+		filePath := filepath.Join(presetsDir, filename)
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("Failed to read %s: %v", filePath, err)
+		}
+
+		t.Run("config/"+filename, func(t *testing.T) {
+			cfg := loadConfig(t, data, filePath)
+			if _, err := llmisvc.ReplaceVariables(llmSvc, cfg, &kserveSystemConfig); err != nil {
+				t.Errorf("ReplaceVariables failed for config/%s: %v", filename, err)
+			}
+		})
+		checkedPresets++
+	}
+	if checkedPresets == 0 {
+		t.Fatal("No presets checked in config/llmisvcconfig")
+	}
+
+	// Include the release bundles modified by this fix, not only their sources.
+	manifests := []string{
+		"charts/kserve-runtime-configs/files/llmisvcconfigs/resources.yaml",
+		"install/v0.21.0/kserve-cluster-resources.yaml",
+		"install/v0.21.0-rc1/kserve-cluster-resources.yaml",
+	}
+	for _, manifest := range manifests {
+		t.Run(manifest, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Clean(filepath.Join(root, manifest)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoder := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), 4096)
+			checked := 0
+			for {
+				var document json.RawMessage
+				err := decoder.Decode(&document)
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				var header metav1.TypeMeta
+				if err := json.Unmarshal(document, &header); err != nil {
+					t.Fatal(err)
+				}
+				if header.Kind != v1alpha2.LLMInferenceServiceConfigGVK.Kind {
+					continue
+				}
+				cfg := loadConfig(t, document, manifest)
+				t.Run(cfg.Name, func(t *testing.T) {
+					if _, err := llmisvc.ReplaceVariables(llmSvc, cfg, &kserveSystemConfig); err != nil {
+						t.Errorf("ReplaceVariables failed: %v", err)
+					}
+				})
+				checked++
+			}
+			if checked == 0 {
+				t.Fatal("No LLMInferenceServiceConfigs checked")
+			}
+		})
 	}
 }
