@@ -1,6 +1,6 @@
 # Model Cache Vault (MCV)
 
-<img src="logo/mcv.png" alt="mcv" width="20%" height="auto">
+<img src="logo/mcv.jpg" alt="mcv" width="20%" height="auto">
 
 A Model/GPU kernel cache container packaging utility inspired by
 [WASM](https://github.com/solo-io/wasm/blob/master/spec/README.md).
