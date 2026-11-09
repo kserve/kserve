@@ -229,6 +229,7 @@ func TestInjectServerTracing_PreservesExistingEnv(t *testing.T) {
 		},
 	}
 	injectServerTracing(&v1alpha2.TracingSpec{
+		ExporterEndpoint:    ptr.To("http://collector:4317"),
 		Sampler:             ptr.To("injected-sampler"),
 		ExporterCertificate: ptr.To("/etc/otel/ca/ca.crt"),
 	}, "ns", "svc", "-decode", container)
