@@ -237,14 +237,12 @@ class OpenAIEndpoints:
         Returns:
             ModelList: Model response object.
         """
-        models = await self.dataplane.models()
+        names = await self.dataplane.model_names()
         return ModelList(
             object="list",
             data=[
-                Model(
-                    object="model", id=model.name, created=self.start_time, owned_by=""
-                )
-                for model in models
+                Model(object="model", id=name, created=self.start_time, owned_by="")
+                for name in names
             ],
         )
 

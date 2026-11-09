@@ -334,6 +334,9 @@ if __name__ == "__main__":
             if args.lora_modules:
                 for lora_module in args.lora_modules:
                     model_server.register_model(model, lora_module.name)
+            # The first --served-model-name is the model name; serve the others as aliases, as vLLM does
+            for served_model_name in (args.served_model_name or [])[1:]:
+                model_server.register_model(model, served_model_name)
         model_server.start([model])
     except Exception as e:
         import sys
