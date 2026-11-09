@@ -278,47 +278,30 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		existingStoppedCondition = &defaultStoppedCondition
 	}
 	if forceStopRuntime {
-		// If the graph's stopped condition is not set or
-		// If the graph is currently running, update its status to signal that it should be stopped
-		if existingStoppedCondition.Status == corev1.ConditionFalse {
-			// Add the stopped condition
-			stoppedCondition := apis.Condition{
-				LastTransitionTime: transition_time,
-				Type:               v1beta1.Stopped,
-				Status:             corev1.ConditionTrue,
-			}
-			readyCondition := apis.Condition{
-				LastTransitionTime: transition_time,
-				Type:               apis.ConditionReady,
-				Status:             corev1.ConditionFalse,
-				Reason:             v1beta1.StoppedISVCReason,
-			}
-			graph.Status.Conditions = []apis.Condition{stoppedCondition, readyCondition}
-
-			graph.Status.URL = nil
+		// Run this on every reconcile while the graph is stopped, not only on the
+		// transition. A finalizer can delay the Deployment deletion, so the
+		// Deployment may still report Available=True and PropagateRawStatus has
+		// just copied that into Ready.
+		setStoppedStatus(&graph.Status, transition_time)
+	} else if existingStoppedCondition.Status == corev1.ConditionTrue {
+		// If the graph is currently stopped, update its status to signal that it should resume.
+		resumeCondition := apis.Condition{
+			LastTransitionTime: transition_time,
+			Type:               v1beta1.Stopped,
+			Status:             corev1.ConditionFalse,
 		}
-	} else {
-		// If the graph's stopped condition is not set or
-		// If the graph is currently stopped, update its status to signal that it should resume
-		if existingStoppedCondition.Status == corev1.ConditionTrue {
-			resumeCondition := apis.Condition{
-				LastTransitionTime: transition_time,
-				Type:               v1beta1.Stopped,
-				Status:             corev1.ConditionFalse,
+		// Replace the Stopped condition rather than adding a second one.
+		// PropagateRawStatus keeps the existing conditions, including
+		// Stopped, so appending here would leave Stopped=True first in the
+		// list and GetCondition would keep reporting the graph as stopped.
+		conditions := make([]apis.Condition, 0, len(graph.Status.Conditions)+1)
+		for _, existing := range graph.Status.Conditions {
+			if existing.Type != v1beta1.Stopped {
+				conditions = append(conditions, existing)
 			}
-			// Replace the Stopped condition rather than adding a second one.
-			// PropagateRawStatus keeps the existing conditions, including
-			// Stopped, so appending here would leave Stopped=True first in the
-			// list and GetCondition would keep reporting the graph as stopped.
-			conditions := make([]apis.Condition, 0, len(graph.Status.Conditions)+1)
-			for _, existing := range graph.Status.Conditions {
-				if existing.Type != v1beta1.Stopped {
-					conditions = append(conditions, existing)
-				}
-			}
-			conditions = append(conditions, resumeCondition)
-			graph.Status.Conditions = conditions
 		}
+		conditions = append(conditions, resumeCondition)
+		graph.Status.Conditions = conditions
 	}
 
 	if err := r.updateStatus(ctx, graph); err != nil {
@@ -333,6 +316,41 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// setStoppedStatus marks the graph stopped and unready. It runs on every
+// reconcile while the stop annotation is set, including a reconcile where the
+// Deployment still reports Available=True because a finalizer has not removed
+// it yet. Existing Stopped and Ready conditions are reused when they already
+// carry the stopped state, so their transition times stay stable.
+func setStoppedStatus(graphStatus *v1alpha1.InferenceGraphStatus, now apis.VolatileTime) {
+	stopped := graphStatus.GetCondition(v1beta1.Stopped)
+	if stopped == nil || stopped.Status != corev1.ConditionTrue {
+		stopped = &apis.Condition{
+			LastTransitionTime: now,
+			Type:               v1beta1.Stopped,
+			Status:             corev1.ConditionTrue,
+		}
+	}
+	ready := graphStatus.GetCondition(apis.ConditionReady)
+	if ready == nil || ready.Status != corev1.ConditionFalse || ready.Reason != v1beta1.StoppedISVCReason {
+		ready = &apis.Condition{
+			LastTransitionTime: now,
+			Type:               apis.ConditionReady,
+			Status:             corev1.ConditionFalse,
+			Reason:             v1beta1.StoppedISVCReason,
+		}
+	}
+
+	conditions := make([]apis.Condition, 0, len(graphStatus.Conditions)+2)
+	conditions = append(conditions, *stopped, *ready)
+	for _, existing := range graphStatus.Conditions {
+		if existing.Type != v1beta1.Stopped && existing.Type != apis.ConditionReady {
+			conditions = append(conditions, existing)
+		}
+	}
+	graphStatus.Conditions = conditions
+	graphStatus.URL = nil
 }
 
 func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGraph *v1alpha1.InferenceGraph) error {
