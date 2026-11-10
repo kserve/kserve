@@ -12,17 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import orjson
 import pandas as pd
 import pytest
 
-from kserve.protocol.infer_type import InferInput, InferRequest
+from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
 from kserve.utils.utils import get_predict_response
 
 
-def _v2_request() -> InferRequest:
+def _v2_request(parameters=None) -> InferRequest:
     return InferRequest(
         model_name="model",
         infer_inputs=[InferInput("input-0", [2], "FP32", [1.0, 2.0])],
+        parameters=parameters,
     )
 
 
@@ -59,3 +61,20 @@ def test_dataframe_string_column_round_trips_over_grpc():
     assert grpc_output.datatype == "BYTES"
     assert list(grpc_output.shape) == [2]
     assert list(grpc_output.contents.bytes_contents) == [b"cat", b"dog"]
+
+
+def test_dataframe_string_column_as_binary_output():
+    result = pd.DataFrame({"label": pd.array(["cat", "dog"], dtype="string")})
+    request = _v2_request(parameters={"binary_data_output": True})
+
+    response = get_predict_response(request, result, "model")
+
+    body, json_length = response.to_rest()
+    header = orjson.loads(body[:json_length])["outputs"][0]
+    assert header["datatype"] == "BYTES"
+    assert "data" not in header
+    # Each element is a 4-byte length prefix followed by the string.
+    assert header["parameters"]["binary_data_size"] == 2 * (4 + 3)
+    decoded = InferResponse.from_bytes(body, json_length).outputs[0]
+    assert decoded.datatype == "BYTES"
+    assert decoded.data == ["cat", "dog"]
