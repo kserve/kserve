@@ -100,6 +100,95 @@ var (
 	}
 )
 
+func TestAgentInjectorModelVolumeReadOnly(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		annotation *string
+		readOnly   bool
+	}{
+		{name: "annotation absent"},
+		{name: "annotation true", annotation: ptr.To("true"), readOnly: true},
+		{name: "annotation false", annotation: ptr.To("false")},
+		{name: "annotation empty", annotation: ptr.To("")},
+		{name: "annotation invalid", annotation: ptr.To("invalid")},
+		{name: "annotation uppercase", annotation: ptr.To("TRUE")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			annotations := map[string]string{
+				constants.AgentShouldInjectAnnotationKey:          "true",
+				constants.AgentModelConfigVolumeNameAnnotationKey: "modelconfig-test",
+				constants.AgentModelDirAnnotationKey:              constants.ModelDir,
+				constants.AgentModelConfigMountPathAnnotationKey:  constants.ModelConfigDir,
+			}
+			if tc.annotation != nil {
+				annotations[constants.StorageReadonlyAnnotationKey] = *tc.annotation
+			}
+			serverScratch := corev1.VolumeMount{Name: "scratch", MountPath: "/scratch"}
+			sidecarScratch := corev1.VolumeMount{Name: "scratch", MountPath: "/scratch", ReadOnly: true}
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-model-volume",
+					Namespace:   "default",
+					Annotations: annotations,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: constants.InferenceServiceContainerName, VolumeMounts: []corev1.VolumeMount{serverScratch}},
+						{Name: "sidecar", VolumeMounts: []corev1.VolumeMount{sidecarScratch}},
+					},
+					Volumes: []corev1.Volume{{
+						Name:         "scratch",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					}},
+				},
+			}
+			clientset := fakeclientset.NewSimpleClientset(&corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: pod.Namespace},
+			})
+			injector := &AgentInjector{
+				credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
+				agentConfig:       agentConfig,
+				loggerConfig:      loggerConfig,
+				batcherConfig:     batcherTestConfig,
+			}
+
+			g.Expect(injector.InjectAgent(pod)).To(gomega.Succeed())
+			expectedMounts := map[string][]corev1.VolumeMount{
+				constants.InferenceServiceContainerName: {
+					serverScratch,
+					{Name: constants.ModelDirVolumeName, MountPath: constants.ModelDir, ReadOnly: tc.readOnly},
+				},
+				constants.AgentContainerName: {
+					{Name: constants.ModelDirVolumeName, MountPath: constants.ModelDir},
+					{Name: constants.ModelConfigVolumeName, MountPath: constants.ModelConfigDir},
+				},
+				"sidecar": {sidecarScratch},
+			}
+			g.Expect(pod.Spec.Containers).To(gomega.HaveLen(len(expectedMounts)))
+			for _, container := range pod.Spec.Containers {
+				g.Expect(expectedMounts).To(gomega.HaveKey(container.Name))
+				g.Expect(container.VolumeMounts).To(gomega.Equal(expectedMounts[container.Name]), container.Name)
+			}
+			g.Expect(pod.Spec.Volumes).To(gomega.Equal([]corev1.Volume{
+				{Name: "scratch", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+				{Name: constants.ModelDirVolumeName, VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+				{
+					Name: constants.ModelConfigVolumeName,
+					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "modelconfig-test"},
+					}},
+				},
+			}))
+
+			// Admission reinvocation must preserve mounts without duplicating them.
+			expected := pod.DeepCopy()
+			g.Expect(injector.InjectAgent(pod)).To(gomega.Succeed())
+			g.Expect(pod).To(gomega.Equal(expected))
+		})
+	}
+}
+
 func TestAgentInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *corev1.Pod
