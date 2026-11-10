@@ -9,6 +9,7 @@
 *.egg-info/
 bin/*
 !bin/.gitkeep
+kernelcache/mcv/_output/*
 .venv/
 venv/
 # Test binary, build with `go test -c`
