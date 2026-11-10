@@ -17,6 +17,7 @@ limitations under the License.
 package ms
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,4 +71,33 @@ func TestBuildSecretEnvs_NilSecret(t *testing.T) {
 	envs := BuildSecretEnvs(secret)
 
 	assert.Empty(t, envs)
+}
+
+func TestBuildSecretEnvs_WithEndpoint(t *testing.T) {
+	for _, withToken := range []bool{false, true} {
+		t.Run(fmt.Sprintf("withToken=%t", withToken), func(t *testing.T) {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "ms-secret"},
+				Data:       map[string][]byte{"MODELSCOPE_ENDPOINT": []byte("https://models.internal")},
+			}
+			want := []corev1.EnvVar{{
+				Name: "MODELSCOPE_ENDPOINT",
+				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+					Key:                  "MODELSCOPE_ENDPOINT",
+				}},
+			}}
+			if withToken {
+				secret.Data[MSTokenKey] = []byte("token")
+				want = append(want, corev1.EnvVar{
+					Name: MSTokenKey,
+					ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+						Key:                  MSTokenKey,
+					}},
+				})
+			}
+			assert.ElementsMatch(t, want, BuildSecretEnvs(secret))
+		})
+	}
 }
