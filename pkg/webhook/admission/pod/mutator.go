@@ -118,6 +118,7 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 	if err != nil {
 		return err
 	}
+	agentConfig.HTTPStorageURIAllowlist = storageInitializerConfig.HTTPStorageURIAllowlist
 
 	agentInjector := &AgentInjector{
 		credentialBuilder: credentialBuilder,
