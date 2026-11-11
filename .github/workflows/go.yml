@@ -52,16 +52,46 @@ jobs:
               uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
               with:
                go-version-file: go.mod
-              id: go
+               # The setup-go key is shared by every workflow using it, and
+               # whichever job saves first wins, usually one that compiles
+               # next to nothing. The precommit cache below is the warm one.
+               cache: false
+              id: setup-go
 
+            - name: Go cache key
+              id: key
+              run: echo "image=${ImageOS:-unknown}-$(nproc)cpu" >> "$GITHUB_OUTPUT"
+
+            # Restores, read-only, the module and build cache that
+            # precommit-check.yml saves from master runs. `path` must stay
+            # identical to the list there: it is part of the cache version, and
+            # a different list silently misses. The key is precommit's without
+            # its dependency and tool hashes, and GitHub prefix-matches a key
+            # to the newest entry, which is master's current dependency set.
+            # Never save from here, see the rules in precommit-check.yml.
+            - name: Restore Go cache
+              uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+              with:
+                path: |
+                  ~/go/pkg/mod
+                  ~/.cache/go-build
+                  ~/.cache/golangci-lint
+                key: precommit-go-${{ runner.os }}-${{ steps.key.outputs.image }}-${{ steps.setup-go.outputs.go-version }}-
+
+            # Go deletes build cache entries unused for 5 days, going by file
+            # mtimes, which the restore keeps from the day master saved the
+            # entry. Recording a trim now stops the first go command from
+            # thinning out an older entry.
+            - name: Keep the restored Go cache whole
+              run: mkdir -p ~/.cache/go-build && date +%s > ~/.cache/go-build/trim.txt
+
+            # test-only skips fmt, vet and manifests: precommit-check runs on
+            # every event this workflow runs on and fails on them. Keep the
+            # two trigger lists in step.
             - name: Test
               id: test
               run: |
-                export GOPATH=/home/runner/go
-                export PATH=$PATH:/usr/local/kubebuilder/bin:/home/runner/go/bin
-                wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/v4.28.1/yq_linux_amd64
-                chmod +x $GOPATH/bin/yq
-                make test
+                make test-only
                 ./coverage.sh
                 echo ::set-output name=coverage::$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)
             

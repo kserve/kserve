@@ -307,7 +307,9 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// before asserting anything held still. Requiring two consecutive reads
 				// at the same ResourceVersion is what separates "settled" from "the
 				// update landed but the status write has not happened yet" - the latter
-				// moves the version in the middle of the window below.
+				// moves the version in the middle of the window below. The polling interval
+				// is that quiet period, so it is pinned rather than taken from the suite
+				// default: it has to outlast the controller's status write under load.
 				var afterTriggerRV string
 				Eventually(func(g Gomega, ctx context.Context) {
 					current := &v1alpha2.LLMInferenceService{}
@@ -317,7 +319,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					previous := afterTriggerRV
 					afterTriggerRV = current.ResourceVersion
 					g.Expect(afterTriggerRV).To(Equal(previous), "resource version is still moving")
-				}).WithContext(ctx).Should(Succeed())
+				}).WithContext(ctx).WithPolling(250 * time.Millisecond).Should(Succeed())
 
 				// A settled ResourceVersion is what makes the rest meaningful: a
 				// controller still writing would keep moving it.
@@ -1248,6 +1250,48 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					current := &v1alpha2.LLMInferenceService{}
 					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
 					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.InferencePoolReady), "True"))
+				}).WithContext(ctx).Should(Succeed())
+			})
+
+			It("should create routes with normalized publisher paths when the model name has empty segments", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-publisher-path-slashes"
+				modelName := "/app/root//model"
+				testNs := NewTestNamespace(ctx, envTest)
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithModelName(modelName),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithManagedScheduler(),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				// then
+				Eventually(func(g Gomega, ctx context.Context) {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+
+					var publisherPaths []string
+					for _, rule := range routes[0].Spec.Rules {
+						for _, match := range rule.Matches {
+							if path := ptr.Deref(match.Path, gwapiv1.HTTPPathMatch{}).Value; path != nil && strings.HasPrefix(*path, "/publishers/") {
+								publisherPaths = append(publisherPaths, *path)
+							}
+						}
+					}
+					g.Expect(publisherPaths).ToNot(BeEmpty())
+					for _, path := range publisherPaths {
+						g.Expect(path).To(HavePrefix("/" + publisherModel(testNs.Name, "app/root/model")))
+					}
 				}).WithContext(ctx).Should(Succeed())
 			})
 

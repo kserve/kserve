@@ -32,3 +32,17 @@ adapters it deploys against a real gateway are these names; there is no second
 copy to drift. It deploys a prefix rather than the whole list - one vLLM pod per
 adapter-set is the expensive part of an e2e run, and the capacity claim itself
 is what this golden pins. `E2E_LORA_ADAPTER_COUNT` sets how long that prefix is.
+
+# Released presets
+
+`config-llm-template-v0.21.0.yaml` is `config/llmisvcconfig/config-llm-template.yaml`
+as the v0.21.0 release shipped it, byte for byte:
+
+```
+git show v0.21.0:config/llmisvcconfig/config-llm-template.yaml
+```
+
+It stands in for a preset that services created before the `pvc-evictor`
+container keep resolving to after a controller upgrade: it declares neither that
+container nor the `KSERVE_KV_TRANSFER_ARGS` slot. Never edit it to match the
+current preset; a different release is a new file.

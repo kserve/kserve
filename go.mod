@@ -32,6 +32,8 @@ require (
 	github.com/open-telemetry/opentelemetry-operator v0.152.0
 	github.com/parquet-go/parquet-go v0.27.0
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.24.0
+	github.com/prometheus/client_model v0.6.2
 	github.com/sigstore/cosign/v3 v3.0.6
 	github.com/sigstore/sigstore v1.10.5
 	github.com/spf13/cobra v1.10.2
@@ -41,6 +43,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.45.0
 	go.opentelemetry.io/proto/otlp v1.11.0
 	go.uber.org/zap v1.28.0
+	golang.org/x/sync v0.23.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/api v0.281.0
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
@@ -60,7 +63,7 @@ require (
 	knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a
 	knative.dev/serving v0.48.1
 	sigs.k8s.io/controller-runtime v0.25.2
-	sigs.k8s.io/gateway-api v1.5.1
+	sigs.k8s.io/gateway-api v1.6.2
 	sigs.k8s.io/gateway-api-inference-extension v1.6.2
 	sigs.k8s.io/lws v1.0.0
 	sigs.k8s.io/yaml v1.6.0
@@ -192,8 +195,6 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_golang v1.24.0
-	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.70.0 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
@@ -237,7 +238,6 @@ require (
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
