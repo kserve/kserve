@@ -711,6 +711,11 @@ func httpRouteShardHandoff(stored, desired []*gwapiv1.HTTPRoute) ([]*gwapiv1.HTT
 		if len(kept) == 0 || len(route.Spec.Rules)+len(kept) > httpRouteMaxRules {
 			continue
 		}
+		// A chunk of a split named rule can be kept beside the new chunk of the
+		// same rule, and the Gateway API requires rule names to be unique.
+		if ruleNamesCollide(route.Spec.Rules, kept) {
+			continue
+		}
 		// The retained rules must also fit the total matches limit, or the
 		// gateway API rejects the merged route and the update cannot progress.
 		matches := 0
@@ -738,6 +743,27 @@ func httpRouteShardHandoff(stored, desired []*gwapiv1.HTTPRoute) ([]*gwapiv1.HTT
 		}
 	}
 	return out, pending
+}
+
+// ruleNamesCollide reports whether a rule in kept shares its name with a rule
+// of rules or with another kept rule.
+func ruleNamesCollide(rules, kept []gwapiv1.HTTPRouteRule) bool {
+	names := make(map[gwapiv1.SectionName]struct{}, len(rules)+len(kept))
+	for _, rule := range rules {
+		if rule.Name != nil {
+			names[*rule.Name] = struct{}{}
+		}
+	}
+	for _, rule := range kept {
+		if rule.Name == nil {
+			continue
+		}
+		if _, dup := names[*rule.Name]; dup {
+			return true
+		}
+		names[*rule.Name] = struct{}{}
+	}
+	return false
 }
 
 // httpRouteServed reports whether a gateway has accepted some generation of

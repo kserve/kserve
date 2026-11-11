@@ -736,6 +736,25 @@ func TestHTTPRouteShardHandoff(t *testing.T) {
 		require.Len(t, out[0].Spec.Rules, 2, "keeping b would push s0 past the total matches limit")
 	})
 
+	t.Run("moved chunk is not kept beside a new chunk of the same named rule", func(t *testing.T) {
+		named := func(name string, paths ...string) gwapiv1.HTTPRouteRule {
+			r := gwapiv1.HTTPRouteRule{Name: ptr.To(gwapiv1.SectionName(name))}
+			for _, p := range paths {
+				r.Matches = append(r.Matches, rule(p).Matches...)
+			}
+			return r
+		}
+		// A match inserted at the front of a split named rule shifts its chunks.
+		stored := []*gwapiv1.HTTPRoute{route("s0", 1, 1), route("s1", 1, 1)}
+		stored[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/a", "/b")}
+		stored[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/c")}
+		desired := []*gwapiv1.HTTPRoute{route("s0", 0, 0), route("s1", 0, 0)}
+		desired[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/new", "/a")}
+		desired[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/b", "/c")}
+		out, _ := httpRouteShardHandoff(stored, desired)
+		require.Len(t, out[0].Spec.Rules, 1, "keeping the old chunk would duplicate rule name r")
+	})
+
 	t.Run("stale shard stays while its rules are unsettled", func(t *testing.T) {
 		stored := []*gwapiv1.HTTPRoute{route("a", 1, 1, "/x"), route("b", 1, 1, "/y")}
 		desired := []*gwapiv1.HTTPRoute{route("a", 0, 0, "/x", "/y")}
@@ -746,4 +765,3 @@ func TestHTTPRouteShardHandoff(t *testing.T) {
 		require.False(t, pending)
 	})
 }
-
