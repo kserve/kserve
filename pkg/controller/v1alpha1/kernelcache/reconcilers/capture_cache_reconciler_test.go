@@ -305,6 +305,59 @@ func TestKernelCacheReconcilerAutomaticallySelectsUniqueNodeGroup(t *testing.T) 
 	require.NotNil(t, capture.Status.Artifact)
 }
 
+func TestKernelCacheReconcilerCreatesPVCCacheWithoutNodeGroup(t *testing.T) {
+	reconciler, k8sClient, _, request := newCaptureNodeGroupHarness(t,
+		"gpu-node",
+		"",
+		"",
+		nil,
+		map[string]string{"role": "gpu"},
+	)
+	configMap := &corev1.ConfigMap{}
+	require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKey{
+		Name:      constants.InferenceServiceConfigMapName,
+		Namespace: constants.KServeNamespace,
+	}, configMap))
+	configMap.Data["kernelcache"] = `{"enabled":true,"defaultMountType":"pvc"}`
+	require.NoError(t, k8sClient.Update(t.Context(), configMap))
+
+	_, err := reconciler.Reconcile(t.Context(), request)
+	require.NoError(t, err)
+	cache := &v1alpha1.KernelCache{}
+	require.NoError(t, k8sClient.Get(t.Context(), request.NamespacedName, cache))
+	require.Equal(t, v1alpha1.KernelCacheMountTypePVC, cache.Spec.MountType)
+	require.Nil(t, cache.Spec.NodeGroupRef)
+	require.Empty(t, cache.Annotations[constants.KernelCacheNodeGroupSelectionSourceAnnotationKey])
+}
+
+func TestKernelCacheReconcilerOmitsNodeGroupOnPVCCacheEvenWhenOneMatches(t *testing.T) {
+	reconciler, k8sClient, _, request := newCaptureNodeGroupHarness(t,
+		"gpu-node",
+		"",
+		"fallback",
+		[]v1alpha1.KernelCacheNodeGroup{
+			{ObjectMeta: metav1.ObjectMeta{Name: "gpu"}, Spec: v1alpha1.KernelCacheNodeGroupSpec{NodeSelector: map[string]string{"role": "gpu"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "fallback"}, Spec: v1alpha1.KernelCacheNodeGroupSpec{NodeSelector: map[string]string{"role": "other"}}},
+		},
+		map[string]string{"role": "gpu"},
+	)
+	configMap := &corev1.ConfigMap{}
+	require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKey{
+		Name:      constants.InferenceServiceConfigMapName,
+		Namespace: constants.KServeNamespace,
+	}, configMap))
+	configMap.Data["kernelcache"] = `{"enabled":true,"defaultMountType":"pvc","defaultNodeGroup":"fallback"}`
+	require.NoError(t, k8sClient.Update(t.Context(), configMap))
+
+	_, err := reconciler.Reconcile(t.Context(), request)
+	require.NoError(t, err)
+	cache := &v1alpha1.KernelCache{}
+	require.NoError(t, k8sClient.Get(t.Context(), request.NamespacedName, cache))
+	require.Equal(t, v1alpha1.KernelCacheMountTypePVC, cache.Spec.MountType)
+	require.Nil(t, cache.Spec.NodeGroupRef)
+	require.Empty(t, cache.Annotations[constants.KernelCacheNodeGroupSelectionSourceAnnotationKey])
+}
+
 func TestCaptureMountTypeDefaultsToOCI(t *testing.T) {
 	mountType, err := captureMountType(&v1beta1.KernelCacheConfig{})
 	require.NoError(t, err)
