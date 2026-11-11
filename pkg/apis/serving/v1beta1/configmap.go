@@ -62,6 +62,7 @@ const (
 	DefaultModelBasedRoutingHeaderName = "X-Gateway-Model-Name"
 	DefaultModelBasedRoutingMode       = "enabled"
 	DefaultLoRAModelRoutingStrategy    = constants.LoRAModelRoutingStrategyExact
+	DefaultRouteRuleNaming             = constants.RouteRuleNamingPreset
 )
 
 // Error messages
@@ -147,6 +148,11 @@ type IngressConfig struct {
 	// (the default) or "regex", compared case-insensitively. Any other value
 	// fails config loading like the other ingress keys.
 	LoRAModelRoutingStrategy string `json:"loraModelRoutingStrategy,omitempty"`
+
+	// RouteRuleNaming is "preset" (the default) or "unique", which suffixes the
+	// LLMInferenceService HTTPRoute rule names per service. An unsupported value
+	// sets HTTPRoutesReady=False on the services that use it.
+	RouteRuleNaming string `json:"routeRuleNaming,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -606,6 +612,14 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 	default:
 		return nil, fmt.Errorf("invalid ingress config - loraModelRoutingStrategy must be %q or %q, got %q",
 			constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex, ingressConfig.LoRAModelRoutingStrategy)
+	}
+
+	// Not validated, unlike the other keys: a typo in this llmisvc-only key would
+	// fail every reader of the ingress config. The llmisvc router rejects it per
+	// service instead.
+	ingressConfig.RouteRuleNaming = strings.ToLower(strings.TrimSpace(ingressConfig.RouteRuleNaming))
+	if ingressConfig.RouteRuleNaming == "" {
+		ingressConfig.RouteRuleNaming = DefaultRouteRuleNaming
 	}
 
 	return ingressConfig, nil

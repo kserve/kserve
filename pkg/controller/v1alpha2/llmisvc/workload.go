@@ -51,7 +51,7 @@ import (
 // where changing them would roll the pods. A key can only join before it ships:
 // dropping one that pod templates already carry changes their hash and rolls
 // every workload that has it on upgrade.
-var nonPropagatedSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy, constants.LLMDisaggregatedSetAnnotationKey}
+var nonPropagatedSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy, AnnotationRouteRuleNaming, constants.LLMDisaggregatedSetAnnotationKey}
 
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
 // These permissions are needed to discover and monitor inference pools and pods.
@@ -350,17 +350,6 @@ func (r *LLMISVCReconciler) injectSecretsFromDefaultServiceAccount(ctx context.C
 	}
 	target.ImagePullSecrets = defaultSa.ImagePullSecrets
 	target.Secrets = defaultSa.Secrets
-}
-
-// injectImagePullSecretsFromDefaultServiceAccount copies only ImagePullSecrets
-// from the namespace's default ServiceAccount onto the target ServiceAccount.
-func (r *LLMISVCReconciler) injectImagePullSecretsFromDefaultServiceAccount(ctx context.Context, target *corev1.ServiceAccount) {
-	defaultSa := &corev1.ServiceAccount{}
-	if err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
-		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
-		return
-	}
-	target.ImagePullSecrets = append([]corev1.LocalObjectReference(nil), defaultSa.ImagePullSecrets...)
 }
 
 func hasRoutingSidecar(pod corev1.PodSpec) bool {

@@ -1023,7 +1023,7 @@ func addExpectedPVCEvictorContainer(podSpec *corev1.PodSpec) {
 	evictor := corev1.Container{
 		Name:            "pvc-evictor",
 		Image:           "ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499",
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: corev1.PullIfNotPresent,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("1"),

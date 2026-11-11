@@ -45,6 +45,7 @@ _LLMISVC_CORE_EXCLUDED = {
     "test_llm_lora_regex_routing.py",
     "test_llm_inference_service_config_deletion.py",
     "test_llm_canary_lifecycle.py",
+    "test_llm_shared_gateway_epp.py",
     "test_llm_modelexpress.py",
     "test_llm_disaggregated_set.py",
 }
@@ -125,7 +126,7 @@ def pytest_configure(config):
         )
     config.addinivalue_line(
         "markers",
-        "traffic: continuous traffic test (uses TrafficDriver)",
+        "traffic: traffic routing test, selected by the Istio e2e job",
     )
     config.addinivalue_line(
         "markers",

@@ -4641,6 +4641,10 @@
         "pathTemplate": {
           "type": "string"
         },
+        "routeRuleNaming": {
+          "description": "RouteRuleNaming is \"preset\" (the default) or \"unique\", which suffixes the LLMInferenceService HTTPRoute rule names per service. An unsupported value sets HTTPRoutesReady=False on the services that use it.",
+          "type": "string"
+        },
         "urlScheme": {
           "type": "string"
         }

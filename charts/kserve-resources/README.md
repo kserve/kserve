@@ -45,6 +45,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
 | kserve.controller.gateway.loraModelRoutingStrategy | string | `"exact"` |  |
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
+| kserve.controller.gateway.routeRuleNaming | string | `"preset"` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
 | kserve.controller.imagePullPolicy | string | `"Always"` |  |

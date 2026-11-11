@@ -8483,6 +8483,13 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"routeRuleNaming": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RouteRuleNaming is \"preset\" (the default) or \"unique\", which suffixes the LLMInferenceService HTTPRoute rule names per service. An unsupported value sets HTTPRoutesReady=False on the services that use it.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
