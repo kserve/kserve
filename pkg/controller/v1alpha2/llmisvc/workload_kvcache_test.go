@@ -142,6 +142,60 @@ func TestApplyKVCacheCarriers(t *testing.T) {
 		}
 	})
 
+	// Presets that declare the slot but ship no pvc-evictor container predate the
+	// evictor, so services pinned to one already run with vLLM writing to the
+	// mount root. Moving it under the evictor's cache directory would restart them
+	// on upgrade.
+	t.Run("a PVC tier without the pvc-evictor container keeps the mount root", func(t *testing.T) {
+		const want = `--kv-transfer-config '{"kv_connector":"OffloadingConnector",` +
+			`"kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,` +
+			`"secondary_tiers":[{"root_dir":"/mnt/kv-cache-0","type":"fs"}],"spec_name":"TieringOffloadingSpec"},` +
+			`"kv_role":"kv_both"}'`
+		for _, tc := range []struct {
+			name string
+			pvc  v1alpha2.PVCTierSpec
+		}{
+			{name: "pvc.ref", pvc: v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}}},
+			{name: "pvc.spec", pvc: v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				kv := func() *v1alpha2.KVCacheOffloadingSpec {
+					return &v1alpha2.KVCacheOffloadingSpec{
+						CPU: resource.MustParse("10Gi"),
+						Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+							PVC: tc.pvc.DeepCopy(),
+						}}},
+					}
+				}
+				podSpecs := map[string]*corev1.PodSpec{
+					"template": podWithSlot(), "worker": podWithSlot(),
+					"prefill template": podWithSlot(), "prefill worker": podWithSlot(),
+				}
+				cfg := &v1alpha2.LLMInferenceServiceConfig{Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: kv(),
+						Template:          podSpecs["template"],
+						Worker:            podSpecs["worker"],
+					},
+					Prefill: &v1alpha2.WorkloadSpec{
+						KVCacheOffloading: kv(),
+						Template:          podSpecs["prefill template"],
+						Worker:            podSpecs["prefill worker"],
+					},
+				}}
+				if err := applyKVCacheCarriers(cfg); err != nil {
+					t.Fatalf("applyKVCacheCarriers() error = %v", err)
+				}
+				for name, podSpec := range podSpecs {
+					got, _ := utils.GetEnvVarValue(podSpec.Containers[0].Env, kvTransferArgsEnvVar)
+					if got != want {
+						t.Errorf("%s slot value:\n got  %s\n want %s", name, got, want)
+					}
+				}
+			})
+		}
+	})
+
 	// The upgrade contract: a preset that renders the argument itself must come
 	// out untouched, so pinning it pins the pod spec it produces.
 	t.Run("preset without the slot is bit-for-bit unchanged", func(t *testing.T) {

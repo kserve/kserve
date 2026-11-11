@@ -31,6 +31,7 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"knative.dev/pkg/apis"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -147,6 +148,20 @@ func expectAbsent(ctx context.Context, objs ...absentObject) {
 			g.Expect(apierr.IsNotFound(err)).To(BeTrue(), "%T %s: want NotFound, got %v", o.obj, o.key, err)
 		}
 	}, fastTimeout, interval).Should(Succeed())
+}
+
+// expectIsvcCondition waits for a condition to reach the status and, on timeout, reports
+// what it last saw, so the failure shows what the controller did.
+func expectIsvcCondition(ctx context.Context, key types.NamespacedName, conditionType apis.ConditionType, want corev1.ConditionStatus) {
+	GinkgoHelper()
+	Eventually(func(g Gomega) {
+		isvc := &v1beta1.InferenceService{}
+		g.Expect(k8sClient.Get(ctx, key, isvc)).To(Succeed())
+		cond := isvc.Status.GetCondition(conditionType)
+		g.Expect(cond).NotTo(BeNil(), "InferenceService %s has no %s condition", key, conditionType)
+		g.Expect(cond.Status).To(Equal(want), "InferenceService %s condition %s, reason %q, message %q",
+			key, conditionType, cond.Reason, cond.Message)
+	}, timeout, interval).Should(Succeed())
 }
 
 // getBaseTestConfigs returns the common test configuration shared by all deployment modes
