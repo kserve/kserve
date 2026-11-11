@@ -649,6 +649,31 @@ func userRef(ref corev1.LocalObjectReference) configRef {
 	return configRef{LocalObjectReference: ref, source: v1alpha2.AppliedConfigSourceUserRef}
 }
 
+// referencedSchedulerConfigMap is the ConfigMap selected by spec.Ref.
+// found is false when spec has no ref, or the ConfigMap or its key was not
+// read. A missing ConfigMap is not an error: the caller leaves
+// ResolvedSchedulerConfigMap empty, and the watch records the dependency
+// once the ConfigMap can be read. The lookup matches the merged-spec path:
+// the service namespace first, then the KServe namespace for the well-known
+// config-scheduler-* names.
+func (r *LLMISVCReconciler) referencedSchedulerConfigMap(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, spec *v1alpha2.SchedulerConfigSpec) (*types.NamespacedName, bool, error) {
+	if spec == nil || spec.Ref == nil {
+		return nil, false, nil
+	}
+	cm, found, err := r.getSchedulerConfigMap(ctx, llmSvc, spec.Ref.Name)
+	if err != nil || !found {
+		return nil, false, err
+	}
+	key := spec.Ref.Key
+	if key == "" {
+		key = "epp"
+	}
+	if _, ok := cm.Data[key]; !ok {
+		return nil, false, nil
+	}
+	return &types.NamespacedName{Namespace: cm.GetNamespace(), Name: cm.GetName()}, true, nil
+}
+
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
@@ -844,6 +869,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	}
 
 	shmSizing := kvCacheShmSizing{}
+	// Set while walking watch-only refs. Those specs are not merged, so the
+	// Config.Ref resolution below never sees them. The ConfigMap watch matches
+	// this field and would otherwise miss a later edit.
+	var resolvedSchedulerConfigMap *types.NamespacedName
 	for _, ref := range refs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
 		if err != nil {
@@ -864,6 +893,15 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 					Namespace: gwapiv1.Namespace(cfg.Namespace),
 					Source:    source,
 				})
+				if cfg.Spec.Router != nil && cfg.Spec.Router.Scheduler != nil {
+					resolved, found, err := r.referencedSchedulerConfigMap(ctx, llmSvc, cfg.Spec.Router.Scheduler.Config)
+					if err != nil {
+						return nil, err
+					}
+					if found {
+						resolvedSchedulerConfigMap = resolved
+					}
+				}
 				continue
 			}
 			specs = append(specs, cfg.Spec)
@@ -915,7 +953,6 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return nil, &dataParallelRoutingError{err}
 	}
 	dpConfigs.configureActivePorts(llmSvcCfg)
-	var resolvedSchedulerConfigMap *types.NamespacedName
 
 	if llmSvcCfg.Spec.Router != nil &&
 		llmSvcCfg.Spec.Router.Scheduler != nil &&
