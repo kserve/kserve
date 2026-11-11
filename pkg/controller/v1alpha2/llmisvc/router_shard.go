@@ -654,9 +654,21 @@ func httpRouteShardHandoff(stored, desired []*gwapiv1.HTTPRoute) ([]*gwapiv1.HTT
 	}
 	desiredByName := make(map[string]*gwapiv1.HTTPRoute, len(desired))
 	wanted := map[string]struct{}{}
+	// wantedIn holds, for every desired match, the names of the rules that
+	// serve it after this update ("" for an unnamed rule).
+	wantedIn := map[string]map[gwapiv1.SectionName]struct{}{}
 	for _, route := range desired {
 		desiredByName[route.GetName()] = route
 		maps.Copy(wanted, routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": route.Spec.Rules}))
+		for _, rule := range route.Spec.Rules {
+			for _, m := range rule.Matches {
+				k := matchKey(m)
+				if wantedIn[k] == nil {
+					wantedIn[k] = map[gwapiv1.SectionName]struct{}{}
+				}
+				wantedIn[k][ptr.Deref(rule.Name, "")] = struct{}{}
+			}
+		}
 	}
 
 	// settled holds the matches a gateway already serves from a route that
@@ -708,27 +720,27 @@ func httpRouteShardHandoff(stored, desired []*gwapiv1.HTTPRoute) ([]*gwapiv1.HTT
 				kept = append(kept, rule)
 			}
 		}
-		if len(kept) == 0 || len(route.Spec.Rules)+len(kept) > httpRouteMaxRules {
+		if len(kept) == 0 {
 			continue
 		}
 		// A chunk of a split named rule can be kept beside the new chunk of the
-		// same rule, and the Gateway API requires rule names to be unique.
-		if ruleNamesCollide(route.Spec.Rules, kept) {
+		// same rule, and the Gateway API requires rule names to be unique, so
+		// its matches go into that chunk when they fit.
+		rules, ok := mergeKeptRules(route.Spec.Rules, kept, wantedIn)
+		if !ok || len(rules) > httpRouteMaxRules {
 			continue
 		}
 		// The retained rules must also fit the total matches limit, or the
 		// gateway API rejects the merged route and the update cannot progress.
 		matches := 0
-		for _, rules := range [][]gwapiv1.HTTPRouteRule{route.Spec.Rules, kept} {
-			for j := range rules {
-				matches += ruleMatchCount(&rules[j])
-			}
+		for j := range rules {
+			matches += ruleMatchCount(&rules[j])
 		}
 		if matches > httpRouteMaxTotalMatches {
 			continue
 		}
 		merged := route.DeepCopy()
-		merged.Spec.Rules = append(merged.Spec.Rules, kept...)
+		merged.Spec.Rules = rules
 		out[i] = merged
 		pending = true
 	}
@@ -745,25 +757,61 @@ func httpRouteShardHandoff(stored, desired []*gwapiv1.HTTPRoute) ([]*gwapiv1.HTT
 	return out, pending
 }
 
-// ruleNamesCollide reports whether a rule in kept shares its name with a rule
-// of rules or with another kept rule.
-func ruleNamesCollide(rules, kept []gwapiv1.HTTPRouteRule) bool {
-	names := make(map[gwapiv1.SectionName]struct{}, len(rules)+len(kept))
-	for _, rule := range rules {
-		if rule.Name != nil {
-			names[*rule.Name] = struct{}{}
+// mergeKeptRules appends the kept rules to rules. A kept rule that shares
+// its name with a rule already there is an old chunk of the same split rule,
+// so its matches are added to that rule instead, skipping matches it already
+// has or that the update drops. A match the update serves from a rule of
+// another name cannot be merged, since the shared rule would give it the
+// wrong action. It reports false when a kept rule cannot be merged that way
+// or the merged rule would pass the matches limit; the caller then writes the
+// desired rules as they are.
+func mergeKeptRules(rules, kept []gwapiv1.HTTPRouteRule, wantedIn map[string]map[gwapiv1.SectionName]struct{}) ([]gwapiv1.HTTPRouteRule, bool) {
+	out := make([]gwapiv1.HTTPRouteRule, 0, len(rules)+len(kept))
+	for i := range rules {
+		out = append(out, *rules[i].DeepCopy())
+	}
+	byName := make(map[gwapiv1.SectionName]int, len(out))
+	for i := range out {
+		if out[i].Name != nil {
+			byName[*out[i].Name] = i
 		}
 	}
-	for _, rule := range kept {
+	for i := range kept {
+		rule := kept[i].DeepCopy()
 		if rule.Name == nil {
+			out = append(out, *rule)
 			continue
 		}
-		if _, dup := names[*rule.Name]; dup {
-			return true
+		j, dup := byName[*rule.Name]
+		if !dup {
+			byName[*rule.Name] = len(out)
+			out = append(out, *rule)
+			continue
 		}
-		names[*rule.Name] = struct{}{}
+		target := &out[j]
+		if len(target.Matches) == 0 || len(rule.Matches) == 0 {
+			return nil, false
+		}
+		have := routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": {*target}})
+		for _, m := range rule.Matches {
+			k := matchKey(m)
+			if _, ok := have[k]; ok {
+				continue
+			}
+			if len(wantedIn[k]) == 0 {
+				continue
+			}
+			if _, ok := wantedIn[k][*rule.Name]; !ok {
+				return nil, false
+			}
+			have[k] = struct{}{}
+			target.Matches = append(target.Matches, m)
+		}
+		if len(target.Matches) > httpRouteMaxRuleMatches {
+			return nil, false
+		}
 	}
-	return false
+	return out, true
 }
 
 // httpRouteServed reports whether a gateway has accepted some generation of

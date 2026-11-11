@@ -736,23 +736,74 @@ func TestHTTPRouteShardHandoff(t *testing.T) {
 		require.Len(t, out[0].Spec.Rules, 2, "keeping b would push s0 past the total matches limit")
 	})
 
-	t.Run("moved chunk is not kept beside a new chunk of the same named rule", func(t *testing.T) {
-		named := func(name string, paths ...string) gwapiv1.HTTPRouteRule {
-			r := gwapiv1.HTTPRouteRule{Name: ptr.To(gwapiv1.SectionName(name))}
-			for _, p := range paths {
-				r.Matches = append(r.Matches, rule(p).Matches...)
-			}
-			return r
+	named := func(name string, paths ...string) gwapiv1.HTTPRouteRule {
+		r := gwapiv1.HTTPRouteRule{Name: ptr.To(gwapiv1.SectionName(name))}
+		for _, p := range paths {
+			r.Matches = append(r.Matches, rule(p).Matches...)
 		}
-		// A match inserted at the front of a split named rule shifts its chunks.
+		return r
+	}
+	matchPaths := func(r gwapiv1.HTTPRouteRule) []string {
+		out := make([]string, 0, len(r.Matches))
+		for _, m := range r.Matches {
+			out = append(out, *m.Path.Value)
+		}
+		return out
+	}
+	seq := func(prefix string, from, to int) []string {
+		out := make([]string, 0, to-from)
+		for i := from; i < to; i++ {
+			out = append(out, fmt.Sprintf("%s%d", prefix, i))
+		}
+		return out
+	}
+
+	t.Run("moved match of a split named rule merges into its new chunk", func(t *testing.T) {
+		// Dropping the first match of a split named rule moves /c back to s0.
+		// s1 keeps serving /c inside its own chunk of r, so no name repeats.
 		stored := []*gwapiv1.HTTPRoute{route("s0", 1, 1), route("s1", 1, 1)}
 		stored[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/a", "/b")}
-		stored[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/c")}
+		stored[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/c", "/d")}
 		desired := []*gwapiv1.HTTPRoute{route("s0", 0, 0), route("s1", 0, 0)}
-		desired[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/new", "/a")}
-		desired[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/b", "/c")}
+		desired[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/b", "/c")}
+		desired[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/d")}
+		out, pending := httpRouteShardHandoff(stored, desired)
+		require.True(t, pending)
+		require.Len(t, out[1].Spec.Rules, 1, "rule name r stays unique")
+		require.Equal(t, []string{"/d", "/c"}, matchPaths(out[1].Spec.Rules[0]))
+		require.Len(t, out[0].Spec.Rules, 1, "/a is dropped, so s0 keeps nothing")
+		require.Equal(t, []string{"/d"}, matchPaths(desired[1].Spec.Rules[0]), "desired shards are not mutated")
+	})
+
+	t.Run("full chunk of a split named rule is not kept beside its new chunk", func(t *testing.T) {
+		// A match inserted at the front of a split named rule pushes the last
+		// match of the full first chunk into s1. Merging it back would give r 65
+		// matches and keeping the old chunk would repeat the name, so s0 is
+		// written as desired.
+		old := seq("/m", 0, 70)
+		stored := []*gwapiv1.HTTPRoute{route("s0", 1, 1), route("s1", 1, 1)}
+		stored[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", old[:64]...)}
+		stored[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", old[64:]...)}
+		next := append([]string{"/new"}, old...)
+		desired := []*gwapiv1.HTTPRoute{route("s0", 0, 0), route("s1", 0, 0)}
+		desired[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", next[:64]...)}
+		desired[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", next[64:]...)}
 		out, _ := httpRouteShardHandoff(stored, desired)
-		require.Len(t, out[0].Spec.Rules, 1, "keeping the old chunk would duplicate rule name r")
+		require.Len(t, out[0].Spec.Rules, 1)
+		require.Equal(t, next[:64], matchPaths(out[0].Spec.Rules[0]))
+	})
+
+	t.Run("moved match served by another rule name is not merged", func(t *testing.T) {
+		// /b moves from r to q, so r's chunk in s0 must not serve it.
+		stored := []*gwapiv1.HTTPRoute{route("s0", 1, 1), route("s1", 1, 1)}
+		stored[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/a", "/b")}
+		stored[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("q", "/c")}
+		desired := []*gwapiv1.HTTPRoute{route("s0", 0, 0), route("s1", 0, 0)}
+		desired[0].Spec.Rules = []gwapiv1.HTTPRouteRule{named("r", "/a")}
+		desired[1].Spec.Rules = []gwapiv1.HTTPRouteRule{named("q", "/b", "/c")}
+		out, _ := httpRouteShardHandoff(stored, desired)
+		require.Len(t, out[0].Spec.Rules, 1)
+		require.Equal(t, []string{"/a"}, matchPaths(out[0].Spec.Rules[0]))
 	})
 
 	t.Run("stale shard stays while its rules are unsettled", func(t *testing.T) {
