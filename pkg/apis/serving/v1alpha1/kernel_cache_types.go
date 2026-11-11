@@ -47,10 +47,12 @@ type KernelCacheSpec struct {
 	// +kubebuilder:validation:Required
 	Artifact KernelCacheArtifact `json:"artifact"`
 
-	// MountType selects the cache delivery mode. OCI is the only supported mode.
+	// MountType selects the cache delivery mode. oci mounts the artifact with
+	// ImageVolume. pvc extracts it into an emptyDir inside the pod, for clusters
+	// without ImageVolume. The default is oci.
 	// +optional
 	// +kubebuilder:default=oci
-	// +kubebuilder:validation:Enum=oci
+	// +kubebuilder:validation:Enum=oci;pvc
 	MountType KernelCacheMountType `json:"mountType,omitempty"`
 
 	// NodeGroupRef references the cluster-scoped KernelCacheNodeGroup where this cache is prepared.

@@ -362,3 +362,106 @@ func TestKernelCacheNodeGroupNameUsesDefault(t *testing.T) {
 		t.Fatalf("expected explicit group, got %q", got)
 	}
 }
+
+func TestKernelCacheReconcilerMarksPVCReadyWithoutNodePreparation(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := rbacv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{
+			MountType: v1alpha1.KernelCacheMountTypePVC,
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.example/cache@sha256:" + strings.Repeat("a", 64),
+				Identity: v1alpha1.KernelCacheIdentity{Factors: map[string]string{
+					"runtimeImage": "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
+				}},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
+		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","artifactSecurity":{"mode":"none"}}`,
+	}}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cache).WithObjects(cache, configMap).Build()
+	reconciler := &KernelCacheReconciler{Client: k8sClient}
+
+	if _, err := reconciler.Reconcile(t.Context(), reconcile.Request{NamespacedName: client.ObjectKeyFromObject(cache)}); err != nil {
+		t.Fatal(err)
+	}
+
+	updated := &v1alpha1.KernelCache{}
+	if err := k8sClient.Get(t.Context(), client.ObjectKeyFromObject(cache), updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status.State != v1alpha1.KernelCacheStateReady || updated.Status.MountType != v1alpha1.KernelCacheMountTypePVC {
+		t.Fatalf("unexpected KernelCache status: %#v", updated.Status)
+	}
+	if updated.Status.Counts == nil || updated.Status.Counts.NodeCount != 0 || updated.Status.Counts.NodesReady != 0 {
+		t.Fatalf("unexpected KernelCache counts: %#v", updated.Status.Counts)
+	}
+	ready := false
+	for _, condition := range updated.Status.Conditions {
+		if condition.Type == kernelCacheReadyConditionType && condition.Status == metav1.ConditionTrue && condition.Reason == reasonCacheReady {
+			ready = true
+		}
+	}
+	if !ready {
+		t.Fatalf("expected Ready condition, got %#v", updated.Status.Conditions)
+	}
+
+	jobs := &batchv1.JobList{}
+	if err := k8sClient.List(t.Context(), jobs); err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs.Items) != 0 {
+		t.Fatalf("expected no prefetch Jobs, got %d", len(jobs.Items))
+	}
+}
+
+func TestKernelCacheReconcilerRejectsUnknownMountType(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{
+			MountType: "hostPath",
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.example/cache@sha256:" + strings.Repeat("a", 64),
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
+		"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`,
+	}}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cache).WithObjects(cache, configMap).Build()
+	reconciler := &KernelCacheReconciler{Client: k8sClient}
+
+	if _, err := reconciler.Reconcile(t.Context(), reconcile.Request{NamespacedName: client.ObjectKeyFromObject(cache)}); err != nil {
+		t.Fatal(err)
+	}
+
+	updated := &v1alpha1.KernelCache{}
+	if err := k8sClient.Get(t.Context(), client.ObjectKeyFromObject(cache), updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status.State != v1alpha1.KernelCacheStateError || updated.Status.MountType != "hostPath" {
+		t.Fatalf("unexpected KernelCache status: %#v", updated.Status)
+	}
+}

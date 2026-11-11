@@ -310,8 +310,12 @@ func TestCaptureMountTypeDefaultsToOCI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, v1alpha1.KernelCacheMountTypeOCI, mountType)
 
-	_, err = captureMountType(&v1beta1.KernelCacheConfig{DefaultMountType: "pvc"})
-	require.EqualError(t, err, `invalid kernelcache.defaultMountType "pvc"`)
+	mountType, err = captureMountType(&v1beta1.KernelCacheConfig{DefaultMountType: "pvc"})
+	require.NoError(t, err)
+	require.Equal(t, v1alpha1.KernelCacheMountTypePVC, mountType)
+
+	_, err = captureMountType(&v1beta1.KernelCacheConfig{DefaultMountType: "hostPath"})
+	require.EqualError(t, err, `invalid kernelcache.defaultMountType "hostPath"`)
 }
 
 func TestKernelCacheReconcilerUsesDefaultWhenNoNodeGroupMatches(t *testing.T) {

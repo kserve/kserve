@@ -264,6 +264,8 @@ func captureMountType(config *v1beta1.KernelCacheConfig) (v1alpha1.KernelCacheMo
 		return v1alpha1.KernelCacheMountType(v1beta1.DefaultKernelCacheMountType), nil
 	case string(v1alpha1.KernelCacheMountTypeOCI):
 		return v1alpha1.KernelCacheMountTypeOCI, nil
+	case string(v1alpha1.KernelCacheMountTypePVC):
+		return v1alpha1.KernelCacheMountTypePVC, nil
 	default:
 		return "", fmt.Errorf("invalid kernelcache.defaultMountType %q", config.DefaultMountType)
 	}

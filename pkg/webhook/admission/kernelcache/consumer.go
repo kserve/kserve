@@ -18,6 +18,7 @@ package kernelcache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"reflect"
@@ -38,6 +39,7 @@ const (
 	kernelCacheSourceVolumeName = "kernel-cache-source"
 	kernelCacheSourceMountPath  = "/var/run/gkm/kernel-cache"
 	kernelCacheLinkerName       = "kernel-cache-linker"
+	kernelCacheExtractorName    = "kernel-cache-extractor"
 
 	kernelCacheLinkerScript = `set -eu
 echo "kernel-cache-linker: starting cache materialization"
@@ -109,7 +111,14 @@ func (m *PodMutator) findKernelCacheSelectionWithConfig(
 	if err := reader.List(ctx, nodes); err != nil {
 		return nil, false, err
 	}
-	candidates := readyKernelCacheCandidates(nodes, pod.Namespace)
+	caches := &v1alpha1.KernelCacheList{}
+	if err := reader.List(ctx, caches, client.InNamespace(pod.Namespace)); err != nil {
+		return nil, false, err
+	}
+	candidates := mergeKernelCacheCandidates(
+		readyKernelCacheCandidates(nodes, pod.Namespace),
+		pvcKernelCacheCandidates(caches, cfg),
+	)
 	if len(candidates) == 0 {
 		return nil, false, nil
 	}
@@ -219,14 +228,12 @@ func injectKernelCacheMount(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, 
 		containerIndexes[cachePath.ContainerName] = containerIndex
 	}
 
-	mountType := kernelCache.Spec.MountType
-	if mountType == "" {
-		mountType = v1alpha1.KernelCacheMountType(cfg.DefaultMountType)
+	defaultMountType := ""
+	if cfg != nil {
+		defaultMountType = cfg.DefaultMountType
 	}
-	if mountType == "" {
-		mountType = v1alpha1.KernelCacheMountTypeOCI
-	}
-	if mountType != v1alpha1.KernelCacheMountTypeOCI {
+	mountType := v1alpha1.ResolveKernelCacheMountType(kernelCache.Spec.MountType, defaultMountType)
+	if !v1alpha1.IsSupportedKernelCacheMountType(mountType) {
 		return fmt.Errorf("unsupported KernelCache mount type %q", mountType)
 	}
 
@@ -277,6 +284,11 @@ func injectKernelCacheMount(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, 
 	if findContainerIndex(pod.Spec.InitContainers, kernelCacheLinkerName) < 0 {
 		pod.Spec.InitContainers = append([]corev1.Container{linker}, pod.Spec.InitContainers...)
 	}
+	if mountType == v1alpha1.KernelCacheMountTypePVC {
+		if err := addKernelCacheExtractor(pod, kernelCache, cfg, resolvedCachePaths); err != nil {
+			return err
+		}
+	}
 	if err := recordKernelCacheUsage(pod, kernelCache); err != nil {
 		return err
 	}
@@ -297,14 +309,72 @@ func recordKernelCacheUsage(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache) 
 
 func kernelCacheSourceVolume(kernelCache *v1alpha1.KernelCache, mountType v1alpha1.KernelCacheMountType) (corev1.Volume, error) {
 	volume := corev1.Volume{Name: kernelCacheSourceVolumeName}
-	if mountType == v1alpha1.KernelCacheMountTypeOCI {
+	switch mountType {
+	case v1alpha1.KernelCacheMountTypeOCI:
 		volume.Image = &corev1.ImageVolumeSource{
 			Reference:  kernelCache.Spec.Artifact.ImageReference,
 			PullPolicy: corev1.PullIfNotPresent,
 		}
 		return volume, nil
+	case v1alpha1.KernelCacheMountTypePVC:
+		volume.EmptyDir = &corev1.EmptyDirVolumeSource{}
+		return volume, nil
+	default:
+		return corev1.Volume{}, fmt.Errorf("unsupported KernelCache mount type %q", mountType)
 	}
-	return corev1.Volume{}, fmt.Errorf("unsupported KernelCache mount type %q", mountType)
+}
+
+func addKernelCacheExtractor(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, cfg *v1beta1.KernelCacheConfig, cachePaths []v1alpha1.KernelCachePath) error {
+	if findContainerIndex(pod.Spec.InitContainers, kernelCacheExtractorName) >= 0 {
+		return nil
+	}
+	extractDir, err := kernelCacheExtractorDir(cachePaths)
+	if err != nil {
+		return err
+	}
+	extractor := corev1.Container{
+		Name:            kernelCacheExtractorName,
+		Image:           kernelCacheMCVImage(cfg),
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command:         []string{"/mcv"},
+		Args: []string{
+			"--extract",
+			"--image", kernelCache.Spec.Artifact.ImageReference,
+			"--dir", extractDir,
+			"--no-gpu",
+		},
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      kernelCacheSourceVolumeName,
+			MountPath: kernelCacheSourceMountPath,
+		}},
+	}
+	pod.Spec.InitContainers = append([]corev1.Container{extractor}, pod.Spec.InitContainers...)
+	return nil
+}
+
+func kernelCacheExtractorDir(cachePaths []v1alpha1.KernelCachePath) (string, error) {
+	var extractDir string
+	for _, cachePath := range cachePaths {
+		dir := path.Join(kernelCacheSourceMountPath, path.Clean(cachePath.OCIPath))
+		if extractDir == "" {
+			extractDir = dir
+			continue
+		}
+		if extractDir != dir {
+			return "", fmt.Errorf("pvc mount type supports a single ociPath, got %q and %q", extractDir, dir)
+		}
+	}
+	if extractDir == "" {
+		return "", errors.New("KernelCache has no cache paths")
+	}
+	return extractDir, nil
+}
+
+func kernelCacheMCVImage(cfg *v1beta1.KernelCacheConfig) string {
+	if cfg != nil && cfg.MCVImage != "" {
+		return cfg.MCVImage
+	}
+	return v1beta1.DefaultKernelCacheMCVImage
 }
 
 func kernelCacheLinkerImage(cfg *v1beta1.KernelCacheConfig) string {

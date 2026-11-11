@@ -387,14 +387,15 @@ func TestNewKernelCacheConfigRejectsInvalidMCVCaptureReadinessTimeout(t *testing
 	g.Expect(err).To(gomega.MatchError("kernelcache.mcvCaptureReadinessTimeoutSeconds must be greater than zero"))
 }
 
-func TestNewKernelCacheConfigRejectsPVCDefaultMountType(t *testing.T) {
+func TestNewKernelCacheConfigAcceptsPVCDefaultMountType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	configMap := &corev1.ConfigMap{Data: map[string]string{
 		KernelCacheConfigName: `{"defaultMountType":"pvc"}`,
 	}}
 
-	_, err := NewKernelCacheConfig(configMap)
-	g.Expect(err).To(gomega.MatchError(`kernelcache.defaultMountType must be oci, got "pvc"`))
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.DefaultMountType).To(gomega.Equal("pvc"))
 }
 
 func TestNewKernelCacheConfigUsesConfiguredMCVCaptureReadinessTimeout(t *testing.T) {
@@ -477,8 +478,8 @@ func TestNewKernelCacheConfigRejectsInvalidValues(t *testing.T) {
 	}{
 		{
 			name:        "invalid mount type",
-			config:      `{"defaultMountType":"pvc"}`,
-			expectedErr: `kernelcache.defaultMountType must be oci, got "pvc"`,
+			config:      `{"defaultMountType":"hostPath"}`,
+			expectedErr: `kernelcache.defaultMountType must be oci or pvc, got "hostPath"`,
 		},
 		{
 			name:        "invalid readiness timeout",
