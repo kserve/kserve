@@ -614,6 +614,113 @@ plugins:
 	g.Expect(clearedTypes).To(Equal(types))
 }
 
+// TestOverlayLegacyEPPFeatureGatesReadsConfigMapRef covers a shared EPP config
+// whose scheduler document lives in a ConfigMap. The overlay has to read that
+// key. A missing ConfigMap must not be treated as an empty document, or the
+// next reconcile clears featureGates that are already on the Deployment.
+func TestOverlayLegacyEPPFeatureGatesReadsConfigMapRef(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	const legacy = `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: queue-scorer
+featureGates:
+- flowControl
+flowControl:
+  queueDepthThreshold: 4
+`
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "demo"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Annotations: map[string]string{"app.kubernetes.io/version": "0.10.0"},
+					Template: &corev1.PodSpec{Containers: []corev1.Container{{
+						Name: "main",
+						Args: []string{"--pool-name", "pool"},
+					}}},
+				},
+			},
+		},
+	}
+	curr := &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name: "main",
+			Args: []string{"--config-text", legacy},
+		}}},
+	}}}
+	epp := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configRouterSchedulerDefaultEPPConfigName,
+			Namespace: constants.KServeNamespace,
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Ref: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "epp-gates"},
+							Key:                  "epp",
+						},
+					},
+				},
+			},
+		},
+	}
+	scheme := runtime.NewScheme()
+	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
+	unread := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(epp).Build()}
+	kept, err := unread.overlayLegacyEPPFeatureGates(context.Background(), svc, preserveSchedulerConfig(svc, curr))
+	g.Expect(err).NotTo(HaveOccurred())
+	keptDoc := map[string]any{}
+	g.Expect(yaml.Unmarshal([]byte(kept[1]), &keptDoc)).To(Succeed())
+	g.Expect(keptDoc["featureGates"]).To(Equal([]any{"flowControl"}))
+	g.Expect(keptDoc["flowControl"]).To(Equal(map[string]any{"queueDepthThreshold": float64(4)}))
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "epp-gates", Namespace: "demo"},
+		Data: map[string]string{
+			"epp": "featureGates:\n- flowControl\nflowControl:\n  queueDepthThreshold: 8\nplugins:\n- type: approx-prefix-cache-producer\n",
+		},
+	}
+	read := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(epp, cm).Build()}
+	got, err := read.overlayLegacyEPPFeatureGates(context.Background(), svc, preserveSchedulerConfig(svc, curr))
+	g.Expect(err).NotTo(HaveOccurred())
+	doc := map[string]any{}
+	g.Expect(yaml.Unmarshal([]byte(got[1]), &doc)).To(Succeed())
+	g.Expect(doc["featureGates"]).To(Equal([]any{"flowControl"}))
+	g.Expect(doc["flowControl"]).To(Equal(map[string]any{"queueDepthThreshold": float64(8)}))
+	plugins, _ := doc["plugins"].([]any)
+	var types []string
+	for _, plugin := range plugins {
+		item, _ := plugin.(map[string]any)
+		name, _ := item["type"].(string)
+		types = append(types, name)
+	}
+	g.Expect(types).To(Equal([]string{"queue-scorer"}))
+
+	empty := cm.DeepCopy()
+	empty.Data["epp"] = "plugins:\n- type: approx-prefix-cache-producer\n"
+	cleared := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(epp, empty).Build()}
+	out, err := cleared.overlayLegacyEPPFeatureGates(context.Background(), svc, preserveSchedulerConfig(svc, curr))
+	g.Expect(err).NotTo(HaveOccurred())
+	clearedDoc := map[string]any{}
+	g.Expect(yaml.Unmarshal([]byte(out[1]), &clearedDoc)).To(Succeed())
+	g.Expect(clearedDoc).NotTo(HaveKey("featureGates"))
+	g.Expect(clearedDoc).NotTo(HaveKey("flowControl"))
+	clearedPlugins, _ := clearedDoc["plugins"].([]any)
+	var clearedTypes []string
+	for _, plugin := range clearedPlugins {
+		item, _ := plugin.(map[string]any)
+		name, _ := item["type"].(string)
+		clearedTypes = append(clearedTypes, name)
+	}
+	g.Expect(clearedTypes).To(Equal([]string{"queue-scorer"}))
+}
+
 // TestSchedulerDefaultPreset asserts the single-profile preset shipped in
 // config/llmisvcconfig contains the expected plugins:
 // approx-prefix-cache-producer, inflight-load-producer, prefix-cache-affinity-filter,

@@ -788,12 +788,25 @@ func (r *LLMISVCReconciler) overlayLegacyEPPFeatureGates(ctx context.Context, ll
 		}
 		return nil, err
 	}
+	var spec *v1alpha2.SchedulerConfigSpec
+	if cfg.Spec.Router != nil && cfg.Spec.Router.Scheduler != nil {
+		spec = cfg.Spec.Router.Scheduler.Config
+	}
+	raw, read, err := r.schedulerConfigDocument(ctx, llmSvc, spec)
+	if err != nil {
+		return nil, err
+	}
+	// Config.Ref was not read. Leave the saved document alone so a missing
+	// ConfigMap is not treated as "no gates" and used to clear flowControl.
+	if !read {
+		log.FromContext(ctx).Info("Skipping feature gate overlay; referenced scheduler ConfigMap was not read", "config", configName)
+		return args, nil
+	}
 	var gates []any
 	var flowControl map[string]any
-	if cfg.Spec.Router != nil && cfg.Spec.Router.Scheduler != nil &&
-		cfg.Spec.Router.Scheduler.Config != nil && cfg.Spec.Router.Scheduler.Config.Inline != nil {
+	if len(raw) > 0 {
 		var parsed bool
-		gates, flowControl, parsed = endpointPickerFeatureGateFields(cfg.Spec.Router.Scheduler.Config.Inline.Raw)
+		gates, flowControl, parsed = endpointPickerFeatureGateFields(raw)
 		if !parsed {
 			log.FromContext(ctx).Info("Skipping feature gate overlay; referenced EndpointPicker config is not a YAML object", "config", configName)
 			return args, nil
@@ -809,6 +822,68 @@ func (r *LLMISVCReconciler) overlayLegacyEPPFeatureGates(ctx context.Context, ll
 	}
 	log.FromContext(ctx).Info("Applied feature gates from the referenced EndpointPicker config onto the scheduler deployment", "config", configName)
 	return []string{args[0], updated}, nil
+}
+
+// schedulerConfigDocument returns the EndpointPickerConfig YAML carried by spec.
+// read is false when spec.Ref names a ConfigMap that was not read; the caller
+// must then keep the scheduler document it already saved. A nil spec, or a spec
+// with neither inline text nor a ref, is an empty document and clears gates.
+func (r *LLMISVCReconciler) schedulerConfigDocument(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, spec *v1alpha2.SchedulerConfigSpec) ([]byte, bool, error) {
+	if spec == nil {
+		return nil, true, nil
+	}
+	if spec.Ref != nil {
+		return r.readSchedulerConfigRef(ctx, llmSvc, spec.Ref)
+	}
+	if spec.Inline != nil {
+		return spec.Inline.Raw, true, nil
+	}
+	return nil, true, nil
+}
+
+// readSchedulerConfigRef loads the ConfigMap key selected by ref. The lookup
+// matches combineBaseRefsConfig: the service namespace first, then the KServe
+// namespace for the well-known config-scheduler-* names. A missing ConfigMap or
+// key is "not read", not an empty document.
+func (r *LLMISVCReconciler) readSchedulerConfigRef(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, ref *corev1.ConfigMapKeySelector) ([]byte, bool, error) {
+	cm, found, err := r.getSchedulerConfigMap(ctx, llmSvc, ref.Name)
+	if err != nil || !found {
+		return nil, false, err
+	}
+	key := ref.Key
+	if key == "" {
+		key = "epp"
+	}
+	raw, ok := cm.Data[key]
+	if !ok {
+		return nil, false, nil
+	}
+	return []byte(raw), true, nil
+}
+
+func (r *LLMISVCReconciler) getSchedulerConfigMap(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, name string) (*corev1.ConfigMap, bool, error) {
+	opts := []GetOption[*corev1.ConfigMap]{}
+	if r.Clientset != nil {
+		opts = append(opts, WithGetFallbackAPIServerConfigMap(r.Clientset))
+	}
+	cm, err := Get(ctx, r.Client, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: name}, &corev1.ConfigMap{}, opts...)
+	if err == nil {
+		return cm, true, nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return nil, false, err
+	}
+	if !strings.HasPrefix(name, "config-scheduler-") {
+		return nil, false, nil
+	}
+	cm, err = Get(ctx, r.Client, client.ObjectKey{Namespace: constants.KServeNamespace, Name: name}, &corev1.ConfigMap{}, opts...)
+	if apierrors.IsNotFound(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return cm, true, nil
 }
 
 // endpointPickerFeatureGateFields reads featureGates and flowControl from an
