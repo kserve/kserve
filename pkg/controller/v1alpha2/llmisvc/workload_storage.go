@@ -379,7 +379,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		}
 
 		currentInitContainer := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-		if addsDefaultHFEnv(currentInitContainer, initContainer.Args) {
+		if addsDefaultHFEnv(currentInitContainer, initContainer) {
 			utils.AddDefaultHuggingFaceEnvVars(initContainer)
 		}
 
@@ -391,18 +391,19 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 	return nil
 }
 
-// addsDefaultHFEnv reports whether the storage-initializer gets the default Hugging
-// Face download environment variables. It returns true when there is no live init
-// container, when the live container downloads a different set of arguments, or when
-// the live container already carries one of those variables. A live container that
-// runs the same downloads without any of them keeps that environment, so a controller
-// upgrade does not restart its pod. Other HF_ variables, such as an HF_TOKEN injected
-// from a service account secret, do not count.
-func addsDefaultHFEnv(current *corev1.Container, args []string) bool {
-	if current == nil || !slices.Equal(current.Args, args) {
+// addsDefaultHFEnv reports whether the desired storage-initializer gets the default
+// Hugging Face download environment variables. It returns true when there is no live
+// init container, when the live container downloads a different set of arguments, or
+// when the live container carries one of those variables that the desired container
+// does not set itself. A live container that runs the same downloads without any of
+// them keeps that environment, so a controller upgrade does not restart its pod. Other
+// HF_ variables, such as an HF_TOKEN injected from a service account secret, do not
+// count, and neither do default variables the user sets on the storage-initializer.
+func addsDefaultHFEnv(current, desired *corev1.Container) bool {
+	if current == nil || !slices.Equal(current.Args, desired.Args) {
 		return true
 	}
-	return utils.HasDefaultHuggingFaceEnvVar(current)
+	return utils.HasDefaultHuggingFaceEnvVar(current, desired.Env)
 }
 
 // attachStorageInitializer configures a PodSpec to use KServe storage-initializer for
@@ -587,7 +588,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 		return strings.HasPrefix(p.uri, constants.HfURIPrefix)
 	})
 	currentInit := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-	if needHF && addsDefaultHFEnv(currentInit, initPtr.Args) {
+	if needHF && addsDefaultHFEnv(currentInit, initPtr) {
 		utils.AddDefaultHuggingFaceEnvVars(initPtr)
 	}
 

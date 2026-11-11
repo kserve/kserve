@@ -19,6 +19,7 @@ package utils
 import (
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -291,18 +292,24 @@ func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
 
 // HasDefaultHuggingFaceEnvVar reports whether the container carries any of the
 // environment variables that AddDefaultHuggingFaceEnvVars sets, under any value.
-func HasDefaultHuggingFaceEnvVar(container *corev1.Container) bool {
+// Names listed in ignore do not count.
+func HasDefaultHuggingFaceEnvVar(container *corev1.Container, ignore []corev1.EnvVar) bool {
 	if container == nil {
 		return false
 	}
 	for _, envVar := range container.Env {
-		for _, defaultVar := range defaultHuggingFaceEnvVars {
-			if envVar.Name == defaultVar.Name {
-				return true
-			}
+		if !isDefaultHuggingFaceEnvVar(envVar.Name) {
+			continue
+		}
+		if !slices.ContainsFunc(ignore, func(e corev1.EnvVar) bool { return e.Name == envVar.Name }) {
+			return true
 		}
 	}
 	return false
+}
+
+func isDefaultHuggingFaceEnvVar(name string) bool {
+	return slices.ContainsFunc(defaultHuggingFaceEnvVars, func(e corev1.EnvVar) bool { return e.Name == name })
 }
 
 func AddEnvVars(container *corev1.Container, vars []corev1.EnvVar) {
