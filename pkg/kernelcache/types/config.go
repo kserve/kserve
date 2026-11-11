@@ -63,6 +63,9 @@ type SecurityConfig struct {
 
 	// Cert holds settings for ModeCert.
 	Cert CertConfig `json:"cert"`
+
+	// Keyless holds settings for ModeKeyless.
+	Keyless KeylessConfig `json:"keyless,omitempty"`
 }
 
 // ErrUnknownMode is returned when the configured mode is not recognised.
@@ -87,6 +90,10 @@ func (c *SecurityConfig) Validate() error {
 	case ModeDisabled:
 	case ModeCert:
 		if err := c.Cert.validate(); err != nil {
+			return err
+		}
+	case ModeKeyless:
+		if err := c.Keyless.Validate(); err != nil {
 			return err
 		}
 	default:
