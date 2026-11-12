@@ -201,6 +201,23 @@ func TestServingRuntimeSpec_ValidateField(t *testing.T) {
 			},
 			res: false,
 		},
+		// The CRD schema has no minItems on containers, so existing objects may
+		// carry an empty list. Rejecting it here would block their updates.
+		"if servingRuntimePodSpec has an empty containers list, it will succeed": {
+			spec: ServingRuntimeSpec{
+				GrpcDataEndpoint: &endpoint,
+				ServingRuntimePodSpec: ServingRuntimePodSpec{
+					Containers: []corev1.Container{},
+				},
+				SupportedModelFormats: []SupportedModelFormat{
+					{
+						Name:    "name",
+						Version: &version,
+					},
+				},
+			},
+			res: true,
+		},
 		"if servingRuntimePodSpec have containers field, it will succeed": {
 			spec: ServingRuntimeSpec{
 				GrpcDataEndpoint: &endpoint,
