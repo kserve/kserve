@@ -39,6 +39,7 @@ from . import (
     Backend,
 )
 
+from .utils import register_served_model_aliases
 from .vllm.utils import (
     infer_vllm_supported_from_model_architecture,
     maybe_add_vllm_cli_parser,
@@ -334,9 +335,7 @@ if __name__ == "__main__":
             if args.lora_modules:
                 for lora_module in args.lora_modules:
                     model_server.register_model(model, lora_module.name)
-            # The first --served-model-name is the model name; serve the others as aliases, as vLLM does
-            for served_model_name in (args.served_model_name or [])[1:]:
-                model_server.register_model(model, served_model_name)
+            register_served_model_aliases(model_server, model, args.served_model_name)
         model_server.start([model])
     except Exception as e:
         import sys
