@@ -525,6 +525,7 @@ func TestResolveModelBasedRoutingOnly(t *testing.T) {
 		serviceSetting string
 		gateways       []*gwapiv1.Gateway
 		parents        []gwapiv1.ParentReference
+		listenerSets   []*gwapiv1.ListenerSet
 		want           perModelPathsDecision
 		wantMessage    string
 		wantErr        bool
@@ -580,6 +581,34 @@ func TestResolveModelBasedRoutingOnly(t *testing.T) {
 			parents:     []gwapiv1.ParentReference{parent("gw-ns", "gw-c"), parent("gw-ns", "gw-a"), parent("gw-ns", "gw-b"), parent("gw-ns", "gw-c")},
 			want:        perModelPathsDecision{configured: true, reason: reasonNotSetOnAllGateways},
 			wantMessage: "parent Gateways gw-ns/gw-b, gw-ns/gw-c;",
+		},
+		{
+			name:     "ListenerSet parent reads the setting from its Gateway",
+			gateways: []*gwapiv1.Gateway{gateway("gw-ns", "gw-a", "true")},
+			listenerSets: []*gwapiv1.ListenerSet{{
+				ObjectMeta: metav1.ObjectMeta{Name: "tenant-https", Namespace: "ns"},
+				Spec: gwapiv1.ListenerSetSpec{ParentRef: gwapiv1.ParentGatewayReference{
+					Name: "gw-a", Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+				}},
+			}},
+			parents: []gwapiv1.ParentReference{{Kind: ptr.To(gwapiv1.Kind("ListenerSet")), Name: "tenant-https"}},
+			want:    perModelPathsDecision{configured: true, drop: true, reason: reasonSetOnAllGateways},
+		},
+		{
+			name:     "ListenerSet parent is named by its Gateway",
+			gateways: []*gwapiv1.Gateway{gateway("gw-ns", "gw-a", "true"), gateway("gw-ns", "gw-b", "")},
+			listenerSets: []*gwapiv1.ListenerSet{{
+				ObjectMeta: metav1.ObjectMeta{Name: "tenant-https", Namespace: "ns"},
+				Spec: gwapiv1.ListenerSetSpec{ParentRef: gwapiv1.ParentGatewayReference{
+					Name: "gw-b", Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+				}},
+			}},
+			parents: []gwapiv1.ParentReference{
+				parent("gw-ns", "gw-a"),
+				{Kind: ptr.To(gwapiv1.Kind("ListenerSet")), Name: "tenant-https"},
+			},
+			want:        perModelPathsDecision{configured: true, reason: reasonNotSetOnAllGateways},
+			wantMessage: "parent Gateways gw-ns/gw-b;",
 		},
 		{
 			name:     "non-Gateway parent counts as unset",
@@ -645,6 +674,9 @@ func TestResolveModelBasedRoutingOnly(t *testing.T) {
 			objs := make([]client.Object, 0, len(tt.gateways))
 			for _, gw := range tt.gateways {
 				objs = append(objs, gw)
+			}
+			for _, ls := range tt.listenerSets {
+				objs = append(objs, ls)
 			}
 			r := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()}
 

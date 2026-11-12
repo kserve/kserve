@@ -54,6 +54,19 @@ func TestResolvedGatewayKeys(t *testing.T) {
 			expected: []types.NamespacedName{{Name: "my-gw", Namespace: "explicit-ns"}},
 		},
 		{
+			name: "ListenerSet parent is keyed by the Gateway it attaches to",
+			input: []ResolvedGateway{{
+				Gateway:     &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "shared-gw", Namespace: "ingress"}},
+				ListenerSet: &gwapiv1.ListenerSet{ObjectMeta: metav1.ObjectMeta{Name: "tenant-https", Namespace: "ingress"}},
+				ParentRef: gwapiv1.ParentReference{
+					Kind:      ptr.To(gwapiv1.Kind("ListenerSet")),
+					Name:      "tenant-https",
+					Namespace: ptr.To(gwapiv1.Namespace("ingress")),
+				},
+			}},
+			expected: []types.NamespacedName{{Name: "shared-gw", Namespace: "ingress"}},
+		},
+		{
 			name: "mixed nil and explicit namespaces",
 			input: []ResolvedGateway{
 				{
