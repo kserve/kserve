@@ -95,7 +95,7 @@ $ VirtualService/kfserving-iap created
 
 ### Test the external predict endpoint (using iap_request.py)
 
-Perhaps the easiest way to test the inference service's external predict endpoint is by using the [iap_request.py](https://github.com/kubeflow/kubeflow/blob/54201e3d28e4673d465e47e464e86aa698ca0dfa/docs/gke/iap_request.py) script described in the [IAP programmatic authentication](https://cloud.google.com/iap/docs/authentication-howto) documentation.
+Perhaps the easiest way to test the inference service's external predict endpoint is by using the [iap_request.py](https://github.com/kubeflow/kubeflow/blob/v1.9.1/docs/gke/iap_request.py) script described in the [IAP programmatic authentication](https://cloud.google.com/iap/docs/authentication-howto) documentation.
 
 Create a new service account or use existing service account like `<kubeflow-cluster-name>-admin@<project>.iam.gserviceaccount.com`.
 If you need to create a new service account, run command:
@@ -112,7 +112,7 @@ gcloud projects add-iam-policy-binding $PROJECT \
  --member serviceAccount:$SERVICE_ACCOUNT
 ```
 
-Follow the instruction in [make-prediction.sh](./make-prediction.sh) to download service account key [key.json] and [iap_request.py](https://github.com/kubeflow/kubeflow/blob/54201e3d28e4673d465e47e464e86aa698ca0dfa/docs/gke/iap_request.py) script to current folder. Continue with the instruction to set parameters in [make-prediction.sh](./make-prediction.sh). This file explains the parameters required by iap_request.py. Finally, run command:
+Follow the instruction in [make-prediction.sh](./make-prediction.sh) to download service account key [key.json] and [iap_request.py](https://github.com/kubeflow/kubeflow/blob/v1.9.1/docs/gke/iap_request.py) script to current folder. Continue with the instruction to set parameters in [make-prediction.sh](./make-prediction.sh). This file explains the parameters required by iap_request.py. Finally, run command:
 
 ```
 bash make-prediction.sh
