@@ -19,6 +19,7 @@ from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping, Dict
 import grpc
 import httpx
 from orjson import orjson
+from opentelemetry import propagate, trace
 
 from .constants.constants import PredictorProtocol, INFERENCE_CONTENT_LENGTH_HEADER
 from .errors import UnsupportedProtocol, InvalidInput
@@ -489,17 +490,26 @@ class InferenceRESTClient:
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
+        headers = dict(headers) if headers else {}
         if isinstance(data, InferRequest):
             data, json_length = data.to_rest()
             if json_length:
-                headers = headers or {}
                 headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_length)
                 headers["content-type"] = "application/octet-stream"
         if isinstance(data, dict):
             data = orjson.dumps(data)
-            headers = dict(headers) if headers else {}
             if not any(k.lower() == "content-type" for k in headers):
                 headers["content-type"] = "application/json"
+        if trace.get_current_span().get_span_context().is_valid:
+            # HTTP header names are case-insensitive. Remove stale incoming
+            # context before injecting the active span so httpx cannot send
+            # both TraceParent and traceparent to the predictor.
+            headers = {
+                key: value
+                for key, value in headers.items()
+                if key.lower() not in {"traceparent", "tracestate"}
+            }
+            propagate.inject(headers)
         response = await self._client.post(
             url, content=data, headers=headers, timeout=timeout
         )

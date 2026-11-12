@@ -15,9 +15,15 @@
 import re
 from unittest.mock import Mock
 
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.trace import TracerProvider
 import pytest
 
 from kserve.protocol import tracing
+from kserve.protocol.rest import server as rest_server
+from kserve.protocol.rest.middleware import TraceResponseHeaderMiddleware
 from kserve.protocol.rest.server import REST_TRACE_EXCLUDED_URLS
 
 
@@ -68,6 +74,69 @@ def test_invalid_tracing_configuration_is_logged_once(monkeypatch, caplog):
         == 1
     )
     set_tracer_provider.assert_not_called()
+
+
+def test_missing_tracing_configuration_disables_instrumentation(monkeypatch):
+    set_tracer_provider = Mock()
+    monkeypatch.setattr(tracing.trace, "set_tracer_provider", set_tracer_provider)
+
+    assert tracing.get_tracer_provider() is None
+
+    set_tracer_provider.assert_not_called()
+
+
+def test_explicit_none_keeps_instrumentation_without_exporters(monkeypatch):
+    tracer_provider = Mock()
+    tracer_provider_class = Mock(return_value=tracer_provider)
+    set_tracer_provider = Mock()
+    monkeypatch.setattr(tracing, "TracerProvider", tracer_provider_class)
+    monkeypatch.setattr(tracing.trace, "set_tracer_provider", set_tracer_provider)
+    monkeypatch.setenv(tracing.OTEL_TRACES_EXPORTER, "none")
+
+    assert tracing.get_tracer_provider() is tracer_provider
+
+    tracer_provider_class.assert_called_once()
+    tracer_provider.add_span_processor.assert_not_called()
+    set_tracer_provider.assert_called_once_with(tracer_provider)
+
+
+@pytest.mark.parametrize("provider_configured", [False, True])
+def test_response_header_middleware_requires_tracing_provider(
+    monkeypatch, provider_configured
+):
+    provider = Mock() if provider_configured else None
+    monkeypatch.setattr(rest_server, "get_tracer_provider", lambda: provider)
+    app = FastAPI()
+    server = rest_server.RESTServer(
+        app="dummy:app",
+        data_plane=Mock(),
+        model_repository_extension=Mock(),
+        http_port=8080,
+    )
+
+    server._add_middlewares(app)
+
+    middleware_classes = {middleware.cls for middleware in app.user_middleware}
+    assert (TraceResponseHeaderMiddleware in middleware_classes) is provider_configured
+
+
+def test_enabled_tracing_adds_response_trace_header():
+    app = FastAPI()
+
+    @app.get("/inference")
+    async def inference():
+        return {"ok": True}
+
+    FastAPIInstrumentor.instrument_app(app, tracer_provider=TracerProvider())
+    app.add_middleware(TraceResponseHeaderMiddleware)
+
+    response = TestClient(app).get("/inference")
+
+    assert response.status_code == 200
+    assert re.fullmatch(
+        r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}",
+        response.headers["traceparent"],
+    )
 
 
 @pytest.mark.parametrize(

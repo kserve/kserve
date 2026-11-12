@@ -129,11 +129,11 @@ else
     ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
   fi
 
-  if [[ $OBSERVABILITY == "jaeger" ]]; then
-    echo "Installing Jaeger All-in-One for tracing e2e tests..."
-    ${REPO_ROOT}/hack/setup/infra/manage.jaeger-helm.sh
-  fi
-  
+fi
+
+if [[ $OBSERVABILITY == "jaeger" ]]; then
+  echo "Installing Jaeger All-in-One for tracing e2e tests..."
+  ${REPO_ROOT}/hack/setup/infra/manage.jaeger-helm.sh
 fi
 
 shopt -u nocasematch
