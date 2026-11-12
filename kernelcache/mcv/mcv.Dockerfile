@@ -36,6 +36,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go install github.com/google/go-licenses@v1.6.0
 
+ARG GOTAGS=""
+# Scan what the builder stage compiles: build tags can pull in modules an untagged scan misses.
+ENV GOFLAGS="-tags=${GOTAGS}"
 COPY kernelcache/mcv/cmd/   cmd/
 COPY kernelcache/mcv/pkg/   pkg/
 COPY LICENSE LICENSE
