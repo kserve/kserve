@@ -283,10 +283,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.InferenceGraph{}).
-		WithValidator(&v1alpha1.InferenceGraphValidator{}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
+	if err = v1alpha1.SetupInferenceGraphWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1.InferenceGraph")
 		os.Exit(1)
 	}
 
