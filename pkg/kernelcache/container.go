@@ -92,6 +92,30 @@ func ResolveOCIPath(requested string) (string, error) {
 	return requested, nil
 }
 
+// ResolvePVCOCIPath resolves the single OCI path that the pvc mount type
+// extracts. The pvc extractor writes the artifact into one directory, so
+// cache paths that resolve to different OCI paths cannot use that mount type.
+func ResolvePVCOCIPath(requested []string) (string, error) {
+	var resolved string
+	for _, ociPath := range requested {
+		current, err := ResolveOCIPath(ociPath)
+		if err != nil {
+			return "", err
+		}
+		if resolved == "" {
+			resolved = current
+			continue
+		}
+		if resolved != current {
+			return "", fmt.Errorf("pvc mount type supports a single ociPath, got %q and %q", resolved, current)
+		}
+	}
+	if resolved == "" {
+		return "", errors.New("KernelCache has no cache paths")
+	}
+	return resolved, nil
+}
+
 func hasContainer(containers []corev1.Container, name string) bool {
 	for _, container := range containers {
 		if container.Name == name {

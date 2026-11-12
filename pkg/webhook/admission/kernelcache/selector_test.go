@@ -478,3 +478,32 @@ func TestCacheCanMountToPodAllowsPVC(t *testing.T) {
 	cache.Spec.MountType = v1alpha1.KernelCacheMountTypePVC
 	require.True(t, cacheCanMountToPod(&cache, pod))
 }
+
+func TestSelectKernelCachePVCSkipsMultipleOCIPaths(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
+	pod.Annotations = map[string]string{
+		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+	}
+	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	require.NoError(t, err)
+	cache := readyCache("pvc-cache", requested)
+	cache.Spec.MountType = ""
+	cache.Spec.Artifact.CachePaths = []v1alpha1.KernelCachePath{
+		{ContainerName: constants.InferenceServiceContainerName, ContainerPath: "/cache/vllm", OCIPath: "io.vllm.cache"},
+		{ContainerName: constants.InferenceServiceContainerName, ContainerPath: "/cache/triton", OCIPath: "io.triton.cache"},
+	}
+	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&cache).Build()}
+	pvcConfig := &v1beta1.KernelCacheConfig{
+		DefaultMountType: string(v1alpha1.KernelCacheMountTypePVC),
+		ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"},
+	}
+
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, pvcConfig)
+	require.NoError(t, err)
+	require.False(t, found)
+	require.Nil(t, selection)
+
+	require.True(t, cacheMountTypeAllowsUse(&cache, &v1beta1.KernelCacheConfig{DefaultMountType: string(v1alpha1.KernelCacheMountTypeOCI)}))
+}

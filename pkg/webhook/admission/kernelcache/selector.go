@@ -152,6 +152,25 @@ func cacheCanMountToPod(cache *v1alpha1.KernelCache, pod *corev1.Pod) bool {
 	return true
 }
 
+// cacheMountTypeAllowsUse reports whether the cache can be mounted with its
+// resolved mount type. A pvc cache whose paths resolve to more than one OCI
+// path is skipped so the pod starts without a cache instead of being denied.
+func cacheMountTypeAllowsUse(cache *v1alpha1.KernelCache, cfg *v1beta1.KernelCacheConfig) bool {
+	defaultMountType := ""
+	if cfg != nil {
+		defaultMountType = cfg.DefaultMountType
+	}
+	if v1alpha1.ResolveKernelCacheMountType(cache.Spec.MountType, defaultMountType) != v1alpha1.KernelCacheMountTypePVC {
+		return true
+	}
+	ociPaths := make([]string, 0, len(cache.Spec.Artifact.CachePaths))
+	for _, cachePath := range cache.Spec.Artifact.CachePaths {
+		ociPaths = append(ociPaths, cachePath.OCIPath)
+	}
+	_, err := kernelcacheutil.ResolvePVCOCIPath(ociPaths)
+	return err == nil
+}
+
 func pvcKernelCacheCandidates(caches *v1alpha1.KernelCacheList, cfg *v1beta1.KernelCacheConfig) []kernelCacheNodeCandidate {
 	candidates := make([]kernelCacheNodeCandidate, 0)
 	if caches == nil {

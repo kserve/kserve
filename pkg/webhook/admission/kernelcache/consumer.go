@@ -18,7 +18,6 @@ package kernelcache
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"reflect"
@@ -33,6 +32,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
+	"github.com/kserve/kserve/pkg/kernelcache/podconfig"
 )
 
 const (
@@ -185,7 +185,7 @@ func loadKernelCacheCandidate(
 		}
 		return nil, false, err
 	}
-	if !candidateMatchesKernelCache(candidate, cache) || !cacheCanMountToPod(cache, pod) || !kernelCacheVerificationAllowsUse(cache, cfg) {
+	if !candidateMatchesKernelCache(candidate, cache) || !cacheCanMountToPod(cache, pod) || !cacheMountTypeAllowsUse(cache, cfg) || !kernelCacheVerificationAllowsUse(cache, cfg) {
 		return nil, false, nil
 	}
 	return cache, true, nil
@@ -348,26 +348,25 @@ func addKernelCacheExtractor(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache,
 			MountPath: kernelCacheSourceMountPath,
 		}},
 	}
+	if cfg != nil {
+		if err := podconfig.ApplyPullRegistry(&pod.Spec, &extractor, cfg.Registry); err != nil {
+			return err
+		}
+	}
 	pod.Spec.InitContainers = append([]corev1.Container{extractor}, pod.Spec.InitContainers...)
 	return nil
 }
 
 func kernelCacheExtractorDir(cachePaths []v1alpha1.KernelCachePath) (string, error) {
-	var extractDir string
+	ociPaths := make([]string, 0, len(cachePaths))
 	for _, cachePath := range cachePaths {
-		dir := path.Join(kernelCacheSourceMountPath, path.Clean(cachePath.OCIPath))
-		if extractDir == "" {
-			extractDir = dir
-			continue
-		}
-		if extractDir != dir {
-			return "", fmt.Errorf("pvc mount type supports a single ociPath, got %q and %q", extractDir, dir)
-		}
+		ociPaths = append(ociPaths, cachePath.OCIPath)
 	}
-	if extractDir == "" {
-		return "", errors.New("KernelCache has no cache paths")
+	ociPath, err := kernelcacheutil.ResolvePVCOCIPath(ociPaths)
+	if err != nil {
+		return "", err
 	}
-	return extractDir, nil
+	return path.Join(kernelCacheSourceMountPath, path.Clean(ociPath)), nil
 }
 
 func kernelCacheMCVImage(cfg *v1beta1.KernelCacheConfig) string {

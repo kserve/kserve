@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
 )
@@ -114,6 +115,15 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	if mountType == v1alpha1.KernelCacheMountTypePVC {
+		if len(kernelCache.Spec.Artifact.CachePaths) > 0 {
+			ociPaths := make([]string, 0, len(kernelCache.Spec.Artifact.CachePaths))
+			for _, cachePath := range kernelCache.Spec.Artifact.CachePaths {
+				ociPaths = append(ociPaths, cachePath.OCIPath)
+			}
+			if _, err := kernelcacheutil.ResolvePVCOCIPath(ociPaths); err != nil {
+				return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonConfigError, err.Error(), mountType)
+			}
+		}
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateReady, 0, reasonCacheReady, "cache is ready for in-pod extraction", mountType)
 	}
 
