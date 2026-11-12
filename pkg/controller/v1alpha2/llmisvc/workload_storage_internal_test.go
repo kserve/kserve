@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -350,9 +351,12 @@ func TestAddsDefaultHFEnv(t *testing.T) {
 		return &corev1.Container{Name: constants.StorageInitializerContainerName, Args: args, Env: env}
 	}
 
+	userPerf := corev1.EnvVar{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"}
+
 	tests := []struct {
 		name    string
 		current *corev1.Container
+		desired []corev1.EnvVar
 		want    bool
 	}{
 		{
@@ -376,42 +380,81 @@ func TestAddsDefaultHFEnv(t *testing.T) {
 			want:    true,
 		},
 		{
-			name:    "live container downloads the same model with HF_ env",
+			name:    "live container downloads the same model with a default HF env var",
 			current: live(args, corev1.EnvVar{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"}),
 			want:    true,
 		},
 		{
-			name:    "live container downloads the same model without HF_ env",
+			name:    "live container downloads the same model without HF env",
 			current: live(args, corev1.EnvVar{Name: "TOKIO_WORKER_THREADS", Value: "1"}),
 			want:    false,
+		},
+		{
+			name:    "live container downloads the same model with only HF_TOKEN",
+			current: live(args, corev1.EnvVar{Name: "HF_TOKEN", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{Key: "HF_TOKEN"}}}),
+			want:    false,
+		},
+		{
+			name:    "live container downloads the same model with a user HF_ var",
+			current: live(args, corev1.EnvVar{Name: "HF_HUB_OFFLINE", Value: "1"}),
+			want:    false,
+		},
+		{
+			name:    "live container carries only the default HF env var the user sets",
+			current: live(args, userPerf),
+			desired: []corev1.EnvVar{userPerf},
+			want:    false,
+		},
+		{
+			name:    "live container carries the defaults and the user sets one of them",
+			current: live(args, defaultHFEnv[0], userPerf, defaultHFEnv[2]),
+			desired: []corev1.EnvVar{userPerf},
+			want:    true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			require.Equal(t, tt.want, addsDefaultHFEnv(tt.current, args))
+			desired := live(args, tt.desired...)
+			require.Equal(t, tt.want, addsDefaultHFEnv(tt.current, desired))
 		})
 	}
 }
 
-// hfEnvNames returns the names of the HF_ environment variables on the container.
-func hfEnvNames(c *corev1.Container) []string {
-	var names []string
+// hfEnv returns the HF_ environment variables on the container.
+func hfEnv(c *corev1.Container) []corev1.EnvVar {
+	var vars []corev1.EnvVar
 	for _, e := range c.Env {
-		if len(e.Name) > 3 && e.Name[:3] == "HF_" {
-			names = append(names, e.Name)
+		if strings.HasPrefix(e.Name, "HF_") {
+			vars = append(vars, e)
 		}
 	}
-	return names
+	return vars
 }
 
-var defaultHFEnvNames = []string{"HF_HUB_ENABLE_HF_TRANSFER", "HF_XET_HIGH_PERFORMANCE", "HF_XET_NUM_CONCURRENT_RANGE_GETS"}
+var defaultHFEnv = []corev1.EnvVar{
+	{Name: "HF_HUB_ENABLE_HF_TRANSFER", Value: "1"},
+	{Name: "HF_XET_HIGH_PERFORMANCE", Value: "1"},
+	{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
+}
 
 func TestAttachHfModelArtifactDefaultEnv(t *testing.T) {
 	t.Parallel()
 
+	tokenSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "hf-token", Namespace: "default"},
+		Data:       map[string][]byte{"HF_TOKEN": []byte("token")},
+	}
+	tokenEnv := corev1.EnvVar{Name: "HF_TOKEN", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{Name: tokenSecret.Name},
+		Key:                  "HF_TOKEN",
+	}}}
 	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"}}
-	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
+	saWithToken := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: "gated", Namespace: "default"},
+		Secrets:    []corev1.ObjectReference{{Name: tokenSecret.Name}},
+	}
+	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset(tokenSecret)}
 	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "opt-125m", Namespace: "default"}}
 	storageConfig := &kserveTypes.StorageInitializerConfig{Image: "kserve/storage-initializer:test", CpuRequest: "100m", CpuLimit: "1", MemoryRequest: "200Mi", MemoryLimit: "1Gi"}
 	credentialConfig := &credentials.CredentialConfig{}
@@ -426,41 +469,79 @@ func TestAttachHfModelArtifactDefaultEnv(t *testing.T) {
 		}}}
 	}
 
+	userPerf := corev1.EnvVar{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"}
+
 	tests := []struct {
-		name string
-		curr corev1.PodSpec
-		want []string
+		name     string
+		sa       *corev1.ServiceAccount
+		curr     corev1.PodSpec
+		override []corev1.EnvVar
+		want     []corev1.EnvVar
 	}{
 		{
 			name: "new service",
+			sa:   sa,
 			curr: corev1.PodSpec{},
-			want: defaultHFEnvNames,
+			want: defaultHFEnv,
 		},
 		{
 			name: "model uri changed from s3 to hf",
+			sa:   sa,
 			curr: liveInit([]string{"s3://models/facebook/opt-125m", constants.DefaultModelLocalMountPath}, corev1.EnvVar{Name: "AWS_ACCESS_KEY_ID", Value: "key"}),
-			want: defaultHFEnvNames,
+			want: defaultHFEnv,
 		},
 		{
 			name: "hf repo changed",
+			sa:   sa,
 			curr: liveInit([]string{"hf://facebook/opt-350m", constants.DefaultModelLocalMountPath}),
-			want: defaultHFEnvNames,
+			want: defaultHFEnv,
 		},
 		{
 			name: "same hf uri on a pod without HF_ env",
+			sa:   sa,
 			curr: liveInit([]string{modelUri, constants.DefaultModelLocalMountPath}),
 			want: nil,
+		},
+		{
+			name: "same hf uri on a pod with only HF_TOKEN",
+			sa:   saWithToken,
+			curr: liveInit([]string{modelUri, constants.DefaultModelLocalMountPath}, tokenEnv),
+			want: []corev1.EnvVar{tokenEnv},
+		},
+		{
+			name:     "same hf uri on a pod without HF_ env, user sets a default HF env var",
+			sa:       sa,
+			curr:     liveInit([]string{modelUri, constants.DefaultModelLocalMountPath}),
+			override: []corev1.EnvVar{userPerf},
+			want:     []corev1.EnvVar{userPerf},
+		},
+		{
+			name:     "same hf uri on a pod carrying only the user's default HF env var",
+			sa:       sa,
+			curr:     liveInit([]string{modelUri, constants.DefaultModelLocalMountPath}, userPerf),
+			override: []corev1.EnvVar{userPerf},
+			want:     []corev1.EnvVar{userPerf},
+		},
+		{
+			name:     "same hf uri on a pod with the defaults, user sets one of them",
+			sa:       sa,
+			curr:     liveInit([]string{modelUri, constants.DefaultModelLocalMountPath}, defaultHFEnv...),
+			override: []corev1.EnvVar{userPerf},
+			want:     []corev1.EnvVar{userPerf, defaultHFEnv[0], defaultHFEnv[2]},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
-			require.NoError(t, r.attachHfModelArtifact(t.Context(), sa, llmSvc, modelUri, tt.curr, podSpec, storageConfig, credentialConfig, "main", constants.DefaultModelLocalMountPath))
+			if tt.override != nil {
+				podSpec.InitContainers = []corev1.Container{{Name: constants.StorageInitializerContainerName, Env: tt.override}}
+			}
+			require.NoError(t, r.attachHfModelArtifact(t.Context(), tt.sa, llmSvc, modelUri, tt.curr, podSpec, storageConfig, credentialConfig, "main", constants.DefaultModelLocalMountPath))
 
 			initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
 			require.NotNil(t, initContainer)
-			require.Equal(t, tt.want, hfEnvNames(initContainer))
+			require.Equal(t, tt.want, hfEnv(initContainer))
 		})
 	}
 }
@@ -468,8 +549,21 @@ func TestAttachHfModelArtifactDefaultEnv(t *testing.T) {
 func TestAttachMultiStorageDownloadsDefaultEnv(t *testing.T) {
 	t.Parallel()
 
+	tokenSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "hf-token", Namespace: "default"},
+		Data:       map[string][]byte{"HF_TOKEN": []byte("token")},
+	}
+	tokenEnv := corev1.EnvVar{Name: "HF_TOKEN", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{Name: tokenSecret.Name},
+		Key:                  "HF_TOKEN",
+	}}}
 	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"}}
-	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
+	saWithToken := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: "gated", Namespace: "default"},
+		Secrets:    []corev1.ObjectReference{{Name: tokenSecret.Name}},
+	}
+	userPerf := corev1.EnvVar{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"}
+	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset(tokenSecret)}
 	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "opt-125m", Namespace: "default"}}
 	storageConfig := &kserveTypes.StorageInitializerConfig{Image: "kserve/storage-initializer:test", CpuRequest: "100m", CpuLimit: "1", MemoryRequest: "200Mi", MemoryLimit: "1Gi"}
 	credentialConfig := &credentials.CredentialConfig{}
@@ -478,44 +572,67 @@ func TestAttachMultiStorageDownloadsDefaultEnv(t *testing.T) {
 		{uri: "s3://bucket/lora", path: "/mnt/models/lora/a"},
 	}
 
-	liveInit := func(args ...string) corev1.PodSpec {
+	sameArgs := []string{"hf://facebook/opt-125m", constants.DefaultModelLocalMountPath, "s3://bucket/lora", "/mnt/models/lora/a"}
+	liveInit := func(args []string, env ...corev1.EnvVar) corev1.PodSpec {
 		return corev1.PodSpec{InitContainers: []corev1.Container{{
 			Name:  constants.StorageInitializerContainerName,
 			Image: storageConfig.Image,
 			Args:  args,
+			Env:   env,
 		}}}
 	}
 
 	tests := []struct {
-		name string
-		curr corev1.PodSpec
-		want []string
+		name     string
+		sa       *corev1.ServiceAccount
+		curr     corev1.PodSpec
+		override []corev1.EnvVar
+		want     []corev1.EnvVar
 	}{
 		{
 			name: "adapter added to a pod without HF_ env",
-			curr: liveInit("hf://facebook/opt-125m", constants.DefaultModelLocalMountPath),
-			want: defaultHFEnvNames,
+			sa:   sa,
+			curr: liveInit([]string{"hf://facebook/opt-125m", constants.DefaultModelLocalMountPath}),
+			want: defaultHFEnv,
 		},
 		{
 			name: "model uri changed from s3 to hf",
-			curr: liveInit("s3://models/facebook/opt-125m", constants.DefaultModelLocalMountPath, "s3://bucket/lora", "/mnt/models/lora/a"),
-			want: defaultHFEnvNames,
+			sa:   sa,
+			curr: liveInit([]string{"s3://models/facebook/opt-125m", constants.DefaultModelLocalMountPath, "s3://bucket/lora", "/mnt/models/lora/a"}),
+			want: defaultHFEnv,
 		},
 		{
 			name: "same downloads on a pod without HF_ env",
-			curr: liveInit("hf://facebook/opt-125m", constants.DefaultModelLocalMountPath, "s3://bucket/lora", "/mnt/models/lora/a"),
+			sa:   sa,
+			curr: liveInit(sameArgs),
 			want: nil,
+		},
+		{
+			name: "same downloads on a pod with only HF_TOKEN",
+			sa:   saWithToken,
+			curr: liveInit(sameArgs, tokenEnv),
+			want: []corev1.EnvVar{tokenEnv},
+		},
+		{
+			name:     "same downloads on a pod carrying only the user's default HF env var",
+			sa:       sa,
+			curr:     liveInit(sameArgs, userPerf),
+			override: []corev1.EnvVar{userPerf},
+			want:     []corev1.EnvVar{userPerf},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
-			require.NoError(t, r.attachMultiStorageDownloads(t.Context(), sa, llmSvc, tt.curr, podSpec, storageConfig, credentialConfig, "main", pairs))
+			if tt.override != nil {
+				podSpec.InitContainers = []corev1.Container{{Name: constants.StorageInitializerContainerName, Env: tt.override}}
+			}
+			require.NoError(t, r.attachMultiStorageDownloads(t.Context(), tt.sa, llmSvc, tt.curr, podSpec, storageConfig, credentialConfig, "main", pairs))
 
 			initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
 			require.NotNil(t, initContainer)
-			require.Equal(t, tt.want, hfEnvNames(initContainer))
+			require.Equal(t, tt.want, hfEnv(initContainer))
 		})
 	}
 }
