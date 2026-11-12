@@ -11,10 +11,17 @@ set -eu -o pipefail
 
 cd "$(dirname "$0")/.."
 
-repo=$(pwd)
 sha=$(git rev-parse HEAD)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+
+# Go serves the module from a throwaway repo with a single branch at HEAD,
+# sharing the checkout's objects. Fetching from the checkout directly fails
+# when it has no local branches, as on a CI detached-HEAD checkout: Go's
+# history fetch only asks for refs/heads/* and exits 1 without a message.
+git init -q --bare "$tmp/src"
+echo "$(git rev-parse --path-format=absolute --git-common-dir)/objects" >"$tmp/src/objects/info/alternates"
+git -C "$tmp/src" update-ref refs/heads/verify "$sha"
 
 # Runs outside the module so that go.mod and go.sum are left alone.
 # GOPRIVATE skips the checksum database, which has never seen this commit.
@@ -24,7 +31,7 @@ if ! (cd "$tmp" && env \
   GOMODCACHE="$tmp/mod" \
   GOFLAGS=-modcacherw \
   GIT_CONFIG_COUNT=1 \
-  GIT_CONFIG_KEY_0="url.file://$repo.insteadOf" \
+  GIT_CONFIG_KEY_0="url.file://$tmp/src.insteadOf" \
   GIT_CONFIG_VALUE_0=https://github.com/kserve/kserve \
   go mod download github.com/kserve/kserve@"$sha"); then
   echo "FAIL: github.com/kserve/kserve@$sha cannot be downloaded as a Go module."
