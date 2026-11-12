@@ -590,6 +590,23 @@ def test_http_uri_gzipped_single_file(uri, expected_file):
                 assert f.read() == payload
 
 
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "https://foo.bar/model.tar.gz",
+        "https://foo.bar/model.tgz",
+        "https://foo.bar/download?file=model.tar.gz",
+    ],
+)
+def test_http_uri_gzipped_tarball(uri):
+    response = MockHttpResponse(200, FILE_TAR_GZ_RAW, "application/x-tar")
+    with mock.patch("requests.Session.get", return_value=response):
+        with tempfile.TemporaryDirectory() as out_dir:
+            assert Storage.download(uri, out_dir=out_dir) == out_dir
+            # The archive is unpacked and the intermediate .tar is removed.
+            assert os.listdir(out_dir) == ["model.pth"]
+
+
 def test_storage_blob_exception():
     blob_path = "https://localhost:1/container/some/blob/"
     with pytest.raises(Exception):
