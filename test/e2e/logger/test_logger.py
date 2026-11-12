@@ -122,7 +122,10 @@ async def test_kserve_logger(
             kserve_client.core_api,
             pod.metadata.name,
             pod.metadata.namespace,
-            expected_substring="org.kubeflow.serving.inference.response",
+            expected_substrings=[
+                "org.kubeflow.serving.inference.request",
+                "org.kubeflow.serving.inference.response",
+            ],
             timeout_s=60,
         )
         print(log)
