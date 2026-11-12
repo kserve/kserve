@@ -18,6 +18,8 @@ package llmisvc
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"slices"
@@ -60,9 +62,14 @@ func TestReconcileSelfSignedCertsSecretIgnoresUnassignedIPs(t *testing.T) {
 		constants.KubernetesAppNameLabelKey: llmSvc.Name,
 		constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 	}
+	// Dual-stack pod. The IPv6 address is deliberately non-canonical: the
+	// certificate must carry it as fd00::7, the form read back from the SAN.
 	runningPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm-running", Namespace: llmSvc.Namespace, Labels: labels},
-		Status:     corev1.PodStatus{PodIP: "10.244.0.5", PodIPs: []corev1.PodIP{{IP: "10.244.0.5"}}},
+		Status: corev1.PodStatus{
+			PodIP:  "10.244.0.5",
+			PodIPs: []corev1.PodIP{{IP: "10.244.0.5"}, {IP: "fd00:0000:0000:0000:0000:0000:0000:0007"}},
+		},
 	}
 	pendingPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm-pending", Namespace: llmSvc.Namespace, Labels: labels},
@@ -82,10 +89,20 @@ func TestReconcileSelfSignedCertsSecretIgnoresUnassignedIPs(t *testing.T) {
 		WithRESTMapper(mapper).
 		WithObjects(llmSvc, runningPod, pendingPod, workloadSvc, headlessSvc).
 		Build()
-	r := &LLMISVCReconciler{Client: c, EventRecorder: record.NewFakeRecorder(10)}
+	// One key for the whole test, like the envtest fixture does. Reissues stay
+	// detectable: each certificate gets a fresh random serial number.
+	key, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		t.Fatalf("failed to generate test key: %v", err)
+	}
+	r := &LLMISVCReconciler{
+		Client:                 c,
+		EventRecorder:          record.NewFakeRecorder(10),
+		GenerateCertificateKey: func() (*rsa.PrivateKey, error) { return key, nil },
+	}
 	schedulerConfig := &SchedulerConfig{ExpirationAnnotations: DefaultExpirationAnnotations}
 
-	reconcileCert := func() []byte {
+	reconcileCert := func() (certPEM []byte, resourceVersion string) {
 		t.Helper()
 		if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, schedulerConfig); err != nil {
 			t.Fatalf("reconcileSelfSignedCertsSecret() error = %v", err)
@@ -95,12 +112,17 @@ func TestReconcileSelfSignedCertsSecretIgnoresUnassignedIPs(t *testing.T) {
 		if err := c.Get(ctx, key, secret); err != nil {
 			t.Fatalf("failed to get certificate secret: %v", err)
 		}
-		return secret.Data["tls.crt"]
+		return secret.Data["tls.crt"], secret.ResourceVersion
 	}
 
-	issued := reconcileCert()
-	if !bytes.Equal(issued, reconcileCert()) {
+	issued, issuedRV := reconcileCert()
+	if got := certificateIPs(t, issued); !slices.Contains(got, "fd00::7") {
+		t.Fatalf("certificate IPs = %v, want them to include the canonical form fd00::7", got)
+	}
+	if reissued, rv := reconcileCert(); !bytes.Equal(issued, reissued) {
 		t.Fatal("certificate was reissued although no pod or service IP changed")
+	} else if rv != issuedRV {
+		t.Fatalf("certificate secret was rewritten although no pod or service IP changed: resourceVersion %s -> %s", issuedRV, rv)
 	}
 
 	pod := &corev1.Pod{}
@@ -113,15 +135,17 @@ func TestReconcileSelfSignedCertsSecretIgnoresUnassignedIPs(t *testing.T) {
 		t.Fatalf("failed to assign pod IP: %v", err)
 	}
 
-	reissued := reconcileCert()
+	reissued, reissuedRV := reconcileCert()
 	if bytes.Equal(issued, reissued) {
 		t.Fatal("certificate was not reissued after a pod received an IP")
 	}
 	if got := certificateIPs(t, reissued); !slices.Contains(got, "10.244.0.6") {
 		t.Fatalf("reissued certificate IPs = %v, want them to include 10.244.0.6", got)
 	}
-	if !bytes.Equal(reissued, reconcileCert()) {
+	if again, rv := reconcileCert(); !bytes.Equal(reissued, again) {
 		t.Fatal("certificate was reissued although no pod or service IP changed")
+	} else if rv != reissuedRV {
+		t.Fatalf("certificate secret was rewritten although no pod or service IP changed: resourceVersion %s -> %s", reissuedRV, rv)
 	}
 }
 
