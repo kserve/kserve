@@ -107,6 +107,40 @@ func TestCreateRawURL(t *testing.T) {
 			expectedURL:     "",
 			isErrorExpected: true,
 		},
+		// DisableIngressCreation=true should skip DNS label validation
+		"disableIngressCreation should not block on DNS label too long": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "t-44e43bb2",
+					Namespace: "this-is-a-long-project-name-with-40-characters",
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:          "example.com",
+				UrlScheme:              "http",
+				DomainTemplate:         "{{.Name}}-predictor-{{.Namespace}}.{{.IngressDomain}}",
+				DisableIngressCreation: true,
+			},
+			expectedURL:     "http://t-44e43bb2-predictor-this-is-a-long-project-name-with-40-characters.example.com",
+			isErrorExpected: false,
+		},
+		// DisableIngressCreation=false should still validate DNS label length
+		"enableIngressCreation should still validate DNS label length": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "t-44e43bb2",
+					Namespace: "this-is-a-long-project-name-with-40-characters",
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:          "example.com",
+				UrlScheme:              "http",
+				DomainTemplate:         "{{.Name}}-predictor-{{.Namespace}}.{{.IngressDomain}}",
+				DisableIngressCreation: false,
+			},
+			expectedURL:     "",
+			isErrorExpected: true,
+		},
 	}
 
 	for name, tc := range testCases {
