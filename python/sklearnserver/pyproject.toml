@@ -9,7 +9,7 @@ dependencies = [
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "scikit-learn~=1.5.1",
     "joblib<2.0.0,>=1.4.0",
-    "pandas<3.0.0,>=2.2.0",
+    "pandas<4.0.0,>=2.2.0",
 ]
 name = "sklearnserver"
 version = "0.21.0"

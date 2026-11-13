@@ -248,13 +248,17 @@ def get_predict_response(
         infer_outputs = []
         if isinstance(result, pd.DataFrame):
             for col in result.columns:
+                # Take the datatype from the numpy array that is sent, not from the
+                # pandas column. Extension dtypes such as the default string dtype in
+                # pandas 3 are not numpy dtypes; to_numpy() turns them into object.
+                col_data = result[col].to_numpy()
                 infer_output = InferOutput(
                     name=col,
-                    shape=list(result[col].shape),
-                    datatype=from_np_dtype(result[col].dtype),
+                    shape=list(col_data.shape),
+                    datatype=from_np_dtype(col_data.dtype),
                 )
                 infer_output.set_data_from_numpy(
-                    result[col].to_numpy(), binary_data=payload.use_binary_outputs
+                    col_data, binary_data=payload.use_binary_outputs
                 )
                 infer_outputs.append(infer_output)
         elif (
