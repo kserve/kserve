@@ -87,6 +87,7 @@ def test_forecast_error_without_code_returns_correct_status(
     )
 
     assert result.json()["error"]["type"] == error_type
+    assert result.json()["error"]["code"] == str(expected_status)
 
 
 def test_forecast_preserves_explicit_error_status():
@@ -129,3 +130,55 @@ def test_forecast_preserves_explicit_error_status():
     assert result.status_code == 422
     assert result.json()["error"]["code"] == "422"
     assert result.json()["error"]["type"] == "validation_error"
+
+
+@pytest.mark.parametrize(
+    "explicit_code, error_type, expected_status",
+    [
+        ("INVALID_REQUEST", "invalid_horizon", 400),
+        ("INFERENCE_FAILED", "model_error", 500),
+        ("999", "model_error", 500),
+        ("200", "model_error", 500),
+        ("0", "invalid_quantile", 400),
+        ("-1", "model_error", 500),
+        ("abc", "unexpected_error", 500),
+    ],
+)
+def test_forecast_invalid_explicit_error_status(
+    explicit_code, error_type, expected_status
+):
+    class FakeDataPlane:
+        async def forecast(self, request_body, raw_request, headers, response):
+            return ErrorResponse(
+                error=Error(
+                    code=explicit_code,
+                    type=error_type,
+                    message="Forecast failed",
+                )
+            )
+
+        async def models(self):
+            return []
+
+    app = FastAPI()
+    register_time_series_endpoints(app, FakeDataPlane())
+    payload = {
+        "model": "timesfm",
+        "inputs": [
+            {
+                "type": "univariate_time_series",
+                "name": "temperature_sensor",
+                "series": [23.0, 24.0, 25.0],
+                "frequency": "H",
+                "start_timestamp": "2026-10-29T10:00:00Z",
+            }
+        ],
+        "options": {"horizon": 10},
+    }
+    with TestClient(app, raise_server_exceptions=False) as client:
+        result = client.post("/v1/timeseries/forecast", json=payload)
+
+    assert result.status_code == expected_status
+    assert result.json()["error"]["code"] == str(expected_status)
+    assert result.json()["error"]["type"] == error_type
+    assert result.json()["error"]["message"] == "Forecast failed"

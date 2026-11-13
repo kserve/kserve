@@ -42,18 +42,26 @@ class TimeSeriesEndpoints:
         if isinstance(forecast_response, ErrorResponse):
             error = forecast_response.error
 
-            if error.code is not None:
+            fallback_status = (
+                400
+                if error.type
+                in {
+                    "invalid_horizon",
+                    "invalid_quantile",
+                    "invalid_frequency",
+                    "unsupported_time_series_type",
+                    "model_not_supported",
+                }
+                else 500
+            )
+            try:
                 status_code = int(error.code)
-            elif error.type in {
-                "invalid_horizon",
-                "invalid_quantile",
-                "invalid_frequency",
-                "unsupported_time_series_type",
-                "model_not_supported",
-            }:
-                status_code = 400
-            else:
-                status_code = 500
+            except (TypeError, ValueError):
+                status_code = fallback_status
+
+            # An error response must have a valid 4xx or 5xx status code.
+            if not 400 <= status_code <= 599:
+                status_code = fallback_status
 
             error.code = str(status_code)
 
