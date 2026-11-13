@@ -117,7 +117,28 @@ type KernelCacheMountType string
 const (
 	// KernelCacheMountTypeOCI mounts the OCI image as the cache source.
 	KernelCacheMountTypeOCI KernelCacheMountType = "oci"
+	// KernelCacheMountTypePVC extracts the OCI artifact into an emptyDir inside
+	// the pod. This is the fallback for clusters without ImageVolume support.
+	// The name is historical; this mode does not create a PersistentVolumeClaim.
+	KernelCacheMountTypePVC KernelCacheMountType = "pvc"
 )
+
+// ResolveKernelCacheMountType returns mountType, or defaultMountType when unset,
+// or OCI when both are empty.
+func ResolveKernelCacheMountType(mountType KernelCacheMountType, defaultMountType string) KernelCacheMountType {
+	if mountType != "" {
+		return mountType
+	}
+	if defaultMountType != "" {
+		return KernelCacheMountType(defaultMountType)
+	}
+	return KernelCacheMountTypeOCI
+}
+
+// IsSupportedKernelCacheMountType reports whether mountType is a known delivery mode.
+func IsSupportedKernelCacheMountType(mountType KernelCacheMountType) bool {
+	return mountType == KernelCacheMountTypeOCI || mountType == KernelCacheMountTypePVC
+}
 
 // KernelCacheSigningSpec selects the operator signing profile for a capture.
 // Private keys and credentials are not stored in the API object.

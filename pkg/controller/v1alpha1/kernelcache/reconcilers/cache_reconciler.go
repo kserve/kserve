@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
 )
@@ -91,11 +92,8 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonConfigError, err.Error(), kernelCache.Spec.MountType)
 	}
-	mountType := kernelCache.Spec.MountType
-	if mountType == "" {
-		mountType = v1alpha1.KernelCacheMountType(config.DefaultMountType)
-	}
-	if mountType != v1alpha1.KernelCacheMountTypeOCI {
+	mountType := v1alpha1.ResolveKernelCacheMountType(kernelCache.Spec.MountType, config.DefaultMountType)
+	if !v1alpha1.IsSupportedKernelCacheMountType(mountType) {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonConfigError, fmt.Sprintf("unsupported KernelCache mount type %q", mountType), mountType)
 	}
 	if !config.Enabled {
@@ -114,6 +112,19 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if err := r.reconcileKernelCacheUsage(ctx, kernelCache); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if mountType == v1alpha1.KernelCacheMountTypePVC {
+		if len(kernelCache.Spec.Artifact.CachePaths) > 0 {
+			ociPaths := make([]string, 0, len(kernelCache.Spec.Artifact.CachePaths))
+			for _, cachePath := range kernelCache.Spec.Artifact.CachePaths {
+				ociPaths = append(ociPaths, cachePath.OCIPath)
+			}
+			if _, err := kernelcacheutil.ResolvePVCOCIPath(ociPaths); err != nil {
+				return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonConfigError, err.Error(), mountType)
+			}
+		}
+		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateReady, 0, reasonCacheReady, "cache is ready for in-pod extraction", mountType)
 	}
 
 	nodeGroupName := kernelCacheNodeGroupName(kernelCache, config.DefaultNodeGroup)
