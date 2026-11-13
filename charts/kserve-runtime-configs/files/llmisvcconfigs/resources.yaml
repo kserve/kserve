@@ -4558,6 +4558,8 @@ spec:
           fi
         fi
 
+        # Preserve positional arguments through eval's second parsing pass.
+        # https://stackoverflow.com/questions/10835933/how-can-i-preserve-quotes-in-printing-a-bash-scripts-arguments
         eval "exec vllm serve ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
@@ -4571,7 +4573,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
       - name: KSERVE_KV_TRANSFER_ARGS
