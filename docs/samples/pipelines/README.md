@@ -1,4 +1,4 @@
-# Deploy to KServe from [Kubeflow Pipelines](https://www.kubeflow.org/docs/components/pipelines/introduction/)
+# Deploy to KServe from [Kubeflow Pipelines](https://www.kubeflow.org/docs/components/pipelines/overview/)
 
 ## Kubeflow Pipelines KServe component
 
@@ -8,8 +8,8 @@ These assume your cluster has a KServe version >= v0.7.0.
 * Deploy a [custom model](./sample-custom-model.py).
 * Deploy a [TensorFlow model](./sample-tf-pipeline.py). There is also [a notebook](./kfs-pipeline.ipynb) which illustrates this.
 
-Additional usage instructions can be found in the component [README](https://github.com/kubeflow/pipelines/blob/master/components/kserve/README.md).
-To dive into the source behind the KServe Kubeflow Pipelines Component, please look into the YAML for the [KServe Component](https://github.com/kubeflow/pipelines/blob/master/components/kserve/component.yaml) and the [source code](https://github.com/kubeflow/pipelines/blob/master/components/kserve/src/kservedeployer.py).
+Additional usage instructions can be found in the component [README](https://github.com/kubeflow/pipelines/blob/2.5.0/components/kserve/README.md).
+To dive into the source behind the KServe Kubeflow Pipelines Component, please look into the YAML for the [KServe Component](https://github.com/kubeflow/pipelines/blob/2.5.0/components/kserve/component.yaml) and the [source code](https://github.com/kubeflow/pipelines/blob/2.5.0/components/kserve/src/kservedeployer.py).
 
 
 **Note**: For those still using an older version of KFServing less than v0.5.0, an older version of the KFServing Pipelines component must be used

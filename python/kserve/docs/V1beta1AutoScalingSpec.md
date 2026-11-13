@@ -3,7 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**behavior** | [**K8sIoApiAutoscalingV2HorizontalPodAutoscalerBehavior**](K8sIoApiAutoscalingV2HorizontalPodAutoscalerBehavior.md) |  | [optional] 
+**behavior** | [**K8sIoApiAutoscalingV2HorizontalPodAutoscalerBehavior**](https://pkg.go.dev/k8s.io/api@v0.37.1/autoscaling/v2#HorizontalPodAutoscalerBehavior) |  | [optional] 
 **metrics** | [**list[V1beta1MetricsSpec]**](V1beta1MetricsSpec.md) | metrics is a list of metrics spec to be used for autoscaling | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

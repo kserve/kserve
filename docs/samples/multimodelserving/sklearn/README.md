@@ -14,7 +14,7 @@ The general overview of multi-model serving:
 > :warning: You must set SKLearn's multiModelServer flag in `inferenceservice.yaml` to true to enable multi-model serving for SKLearn.
 
 ## Example
-Firstly, you should have kfserving installed. Check [this](https://github.com/kubeflow/kfserving#install-kfserving) out if you have not installed kfserving.
+Firstly, you should have kfserving installed. Check [this](https://kserve.github.io/website/docs/getting-started/quickstart-guide) out if you have not installed kfserving.
 
 The content below is in the file `inferenceservice.yaml`.
 

@@ -9,7 +9,7 @@ Name | Type | Description | Notes
 **batcher** | [**V1beta1Batcher**](V1beta1Batcher.md) |  | [optional] 
 **canary_traffic_percent** | **int** | CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision | [optional] 
 **container_concurrency** | **int** | ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency). | [optional] 
-**deployment_strategy** | [**K8sIoApiAppsV1DeploymentStrategy**](K8sIoApiAppsV1DeploymentStrategy.md) |  | [optional] 
+**deployment_strategy** | [**K8sIoApiAppsV1DeploymentStrategy**](https://pkg.go.dev/k8s.io/api@v0.37.1/apps/v1#DeploymentStrategy) |  | [optional] 
 **labels** | **dict(str, str)** | Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/ | [optional] 
 **logger** | [**V1beta1LoggerSpec**](V1beta1LoggerSpec.md) |  | [optional] 
 **max_replicas** | **int** | Maximum number of replicas for autoscaling. | [optional] 

@@ -1,7 +1,7 @@
 # Rollout InferenceService with Canary Strategy
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KServe installed](https://github.com/kserve/kserve#installation).
+1. Your ~/.kube/config should point to a cluster with [KServe installed](https://kserve.github.io/website/docs/getting-started/quickstart-guide).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 
 ## Create the InferenceService
@@ -70,7 +70,7 @@ my-model-predictor-default-00002-deployment-5c867f557c-nlsrf   2/2     Running  
 ```
 
 #### Run a prediction
-The first step is to [determine the ingress IP and ports](../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=my-model
