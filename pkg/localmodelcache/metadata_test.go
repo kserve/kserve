@@ -48,6 +48,44 @@ func TestMatchCacheForURI_ClusterScoped(t *testing.T) {
 	assert.Equal(t, "my-cache-gpu1", match.PVCName)
 }
 
+func TestMatchCacheForURI_ClusterScopedOldestWins(t *testing.T) {
+	newer := metav1.NewTime(time.Now())
+	older := metav1.NewTime(time.Now().Add(-time.Hour))
+	items := func(order ...v1alpha1.LocalModelCache) []v1alpha1.LocalModelCache {
+		return order
+	}
+	model := func(name string, created metav1.Time) v1alpha1.LocalModelCache {
+		return v1alpha1.LocalModelCache{
+			ObjectMeta: metav1.ObjectMeta{Name: name, CreationTimestamp: created},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: "hf://org/model",
+				ModelSize:      resource.MustParse("1Gi"),
+				NodeGroups:     []string{"gpu1"},
+			},
+		}
+	}
+	newestFirst := model("z-newest", newer)
+	olderFirst := model("a-oldest", older)
+
+	// The oldest cache wins regardless of list order.
+	for _, list := range []v1alpha1.LocalModelCacheList{
+		{Items: items(newestFirst, olderFirst)},
+		{Items: items(olderFirst, newestFirst)},
+	} {
+		match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, &list, nil)
+		assert.NotNil(t, match)
+		assert.Equal(t, "a-oldest", match.Cache)
+		assert.Equal(t, "a-oldest-gpu1", match.PVCName)
+	}
+
+	// Equal creation timestamps fall back to name order.
+	tied := metav1.NewTime(time.Now())
+	list := v1alpha1.LocalModelCacheList{Items: items(model("z-cache", tied), model("a-cache", tied))}
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, &list, nil)
+	assert.NotNil(t, match)
+	assert.Equal(t, "a-cache", match.Cache)
+}
+
 func TestMatchCacheForURI_NamespaceScopedPrecedence(t *testing.T) {
 	models := &v1alpha1.LocalModelCacheList{
 		Items: []v1alpha1.LocalModelCache{{

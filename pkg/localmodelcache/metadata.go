@@ -59,19 +59,22 @@ func MatchCacheForURI(
 	}
 
 	if models != nil {
+		var oldest *v1alpha1.LocalModelCache
 		for i := range models.Items {
 			model := &models.Items[i]
 			if !model.Spec.MatchStorageURI(sel.StorageURI) {
 				continue
 			}
-			pvcName, ok := PVCNameForNodeGroup(model.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists, model.Name)
-			if !ok {
+			if !v1alpha1.NodeLocalCacheServesNodeGroup(model.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists) {
 				continue
 			}
+			oldest = v1alpha1.OlderLocalModelCache(oldest, model)
+		}
+		if oldest != nil {
 			return &CacheEntry{
-				Cache:     model.Name,
-				SourceURI: model.Spec.SourceModelUri,
-				PVCName:   pvcName,
+				Cache:     oldest.Name,
+				SourceURI: oldest.Spec.SourceModelUri,
+				PVCName:   nodeLocalPVCName(oldest.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists, oldest.Name),
 			}
 		}
 	}

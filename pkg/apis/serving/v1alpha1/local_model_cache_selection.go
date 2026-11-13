@@ -16,7 +16,11 @@ limitations under the License.
 
 package v1alpha1
 
-import "slices"
+import (
+	"slices"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // LocalModelCacheSelection carries the inputs for selecting the local model
 // cache that should serve a workload.
@@ -85,14 +89,14 @@ func SelectLocalModelNamespaceCache(sel LocalModelCacheSelection, nsModels *Loca
 		}
 		if candidate.Spec.SharedPVCMode() {
 			if candidate.IsReady() {
-				sharedReady = olderLocalModelCache(sharedReady, candidate)
+				sharedReady = OlderLocalModelCache(sharedReady, candidate)
 			}
 			continue
 		}
 		if !NodeLocalCacheServesNodeGroup(candidate.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists) {
 			continue
 		}
-		nodeLocal = olderLocalModelCache(nodeLocal, candidate)
+		nodeLocal = OlderLocalModelCache(nodeLocal, candidate)
 	}
 	if sharedReady != nil {
 		return sharedReady
@@ -116,22 +120,27 @@ func isBoundLocalModelCache(sel LocalModelCacheSelection, candidate *LocalModelN
 	return sel.BoundCache != "" && sel.BoundCache == candidate.Name && sel.BoundNamespace == candidate.Namespace
 }
 
-// olderLocalModelCache returns whichever of a and b is older by creation
-// timestamp, then by name, so selection does not depend on list order.
-func olderLocalModelCache(a, b *LocalModelNamespaceCache) *LocalModelNamespaceCache {
+// OlderLocalModelCache returns whichever of a and b is older by creation
+// timestamp, then by name, so selection does not depend on list order. It
+// applies to both LocalModelCache and LocalModelNamespaceCache pointers (and
+// tolerates nil arguments of either kind).
+func OlderLocalModelCache[T any, PT interface {
+	metav1.Object
+	*T
+}](a, b PT) PT {
 	if a == nil {
 		return b
 	}
 	if b == nil {
 		return a
 	}
-	if !a.CreationTimestamp.Equal(&b.CreationTimestamp) {
-		if a.CreationTimestamp.Time.Before(b.CreationTimestamp.Time) {
+	if a.GetCreationTimestamp().Time.Compare(b.GetCreationTimestamp().Time) != 0 {
+		if a.GetCreationTimestamp().Time.Before(b.GetCreationTimestamp().Time) {
 			return a
 		}
 		return b
 	}
-	if a.Name < b.Name {
+	if a.GetName() < b.GetName() {
 		return a
 	}
 	return b
