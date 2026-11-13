@@ -29,6 +29,12 @@ uv install --extra storage
 ```
 
 ## KServe Python Server
+
+Synchronous prediction handlers that perform blocking I/O can opt into worker threads
+with `Model(..., offload_sync_predict=True)`. See the
+[execution-mode guide and runnable comparison](../../docs/samples/sync-predict-offload/README.md)
+for when to enable it, concurrency limits, and a readiness example.
+
 KServe's python server libraries implement a standardized library that is extended by model serving frameworks such as Scikit Learn, XGBoost and PyTorch. It encapsulates data plane API definitions and storage retrieval for models.
 
 It provides many functionalities, including among others:
