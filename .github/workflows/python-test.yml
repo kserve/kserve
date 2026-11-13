@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -100,11 +100,11 @@ jobs:
           pytest --cov=storage --junitxml=/tmp/junit_unit_storage.xml ./storage
 
       # ----------------------------------------Kserve Numpy 1.x Unit Tests--------------------------------------------
-      # numpy 1.x publishes no cp313 wheels and cannot build against the Python 3.13 C
-      # API, so this compatibility job is skipped on 3.13. numpy 1.x remains covered by
-      # the 3.10-3.12 matrix rows.
+      # numpy 1.x (last release 1.26.4) publishes wheels only up to cp312 and cannot
+      # build against the Python 3.13+ C API, so this compatibility job runs only on
+      # the 3.11-3.12 matrix rows.
       - name: Setup kserve numpy 1-x directory
-        if: matrix.python-version != '3.13'
+        if: matrix.python-version == '3.11' || matrix.python-version == '3.12'
         run: |
           mkdir -p python/kserve-numpy-1-x
           cp -r python/kserve/* python/kserve-numpy-1-x
@@ -112,22 +112,22 @@ jobs:
           # update the lock file without installing dependencies
           uv pip install "numpy<2.0"
       - name: Install kserve numpy 1-x dependencies
-        if: matrix.python-version != '3.13'
+        if: matrix.python-version == '3.11' || matrix.python-version == '3.12'
         run: |
           cd python/kserve-numpy-1-x
           make install_dependencies
       - name: Install kserve numpy 1-x
-        if: matrix.python-version != '3.13'
+        if: matrix.python-version == '3.11' || matrix.python-version == '3.12'
         run: |
           cd python/kserve-numpy-1-x
           make dev_install
       - name: View numpy version
-        if: matrix.python-version != '3.13'
+        if: matrix.python-version == '3.11' || matrix.python-version == '3.12'
         run: |
           cd python/kserve-numpy-1-x
           uv pip show numpy
       - name: Test kserve numpy 1-x
-        if: matrix.python-version != '3.13'
+        if: matrix.python-version == '3.11' || matrix.python-version == '3.12'
         run: |
           cd python
           source kserve-numpy-1-x/.venv/bin/activate
