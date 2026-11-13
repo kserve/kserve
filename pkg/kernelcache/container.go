@@ -26,10 +26,12 @@ import (
 )
 
 const (
-	vllmCacheRootEnv     = "VLLM_CACHE_ROOT"
-	defaultVLLMCachePath = "/root/.cache/vllm"
-	defaultOCIPath       = "io.vllm.cache"
-	tritonOCIPath        = "io.triton.cache"
+	vllmCacheRootEnv       = "VLLM_CACHE_ROOT"
+	tritonCacheDirEnv      = "TRITON_CACHE_DIR"
+	defaultVLLMCachePath   = "/root/.cache/vllm"
+	defaultTritonCachePath = "/root/.triton/cache"
+	defaultOCIPath         = "io.vllm.cache"
+	tritonOCIPath          = "io.triton.cache"
 )
 
 // ResolveRuntimeContainerName resolves the container that owns a cache path.
@@ -55,17 +57,25 @@ func ResolveRuntimeContainerName(containers []corev1.Container, requested string
 }
 
 // ResolveContainerPath resolves the cache path for a runtime container.
-// An explicit path takes precedence over VLLM_CACHE_ROOT and the default path.
-func ResolveContainerPath(container *corev1.Container, requested string) (string, error) {
+// An explicit path takes precedence over the runtime-specific environment variable
+// (VLLM_CACHE_ROOT for vLLM, TRITON_CACHE_DIR for Triton) and the default path.
+func ResolveContainerPath(container *corev1.Container, requested string, ociPath string) (string, error) {
 	if requested != "" {
 		return requested, nil
 	}
 	if container == nil {
 		return "", errors.New("container is required when containerPath is not specified")
 	}
+	envName := vllmCacheRootEnv
+	defaultPath := defaultVLLMCachePath
+
+	if ociPath == tritonOCIPath {
+		envName = tritonCacheDirEnv
+		defaultPath = defaultTritonCachePath
+	}
 
 	for _, env := range container.Env {
-		if env.Name != vllmCacheRootEnv {
+		if env.Name != envName {
 			continue
 		}
 		if env.ValueFrom != nil {
@@ -77,7 +87,7 @@ func ResolveContainerPath(container *corev1.Container, requested string) (string
 		return env.Value, nil
 	}
 
-	return defaultVLLMCachePath, nil
+	return defaultPath, nil
 }
 
 // ResolveOCIPath resolves and validates an OCI cache path supported by the MCV
