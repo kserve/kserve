@@ -35,7 +35,7 @@ from kserve.protocol.rest.openai.types.openapi import (
 )
 from typing import AsyncIterator, Union
 from kserve.errors import InvalidInput, ModelNotFound
-from kserve.model import PredictorProtocol
+from kserve.model import Model, PredictorProtocol
 from kserve.predictor_config import PredictorConfig
 from kserve.protocol.dataplane import DataPlane
 from kserve import context as kserve_context
@@ -161,6 +161,41 @@ class TestDataPlane:
             self.MODEL_NAME, resp, headers, req_attributes
         )
         assert (resp, headers) == ({"predictions": [[1, 2]]}, {})
+
+    async def test_explain_does_not_return_request_headers(
+        self, dataplane_with_model: DataPlane
+    ):
+        body = b'{"instances":[[1,2]]}'
+        request_headers = {"authorization": "Bearer secret-token"}
+        infer_request, _ = dataplane_with_model.decode(body, None)
+        resp, response_headers = await dataplane_with_model.explain(
+            self.MODEL_NAME, infer_request, headers=request_headers
+        )
+        assert resp == {"predictions": [[1, 2]]}
+        assert response_headers == {}
+        assert request_headers == {"authorization": "Bearer secret-token"}
+
+    async def test_explain_keeps_postprocess_headers_only(self):
+        class HeaderModel(Model):
+            def __init__(self, name):
+                super().__init__(name, return_response_headers=True)
+                self.ready = True
+
+            async def explain(self, payload, headers=None):
+                return {"explanations": payload["instances"]}
+
+            def postprocess(self, result, headers=None, response_headers=None):
+                response_headers["x-explainer"] = "postprocess"
+                return result
+
+        dataplane = DataPlane(model_registry=ModelRepository())
+        dataplane._model_registry.update(HeaderModel("m"))
+        request, _ = dataplane.decode(b'{"instances":[[1,2]]}', None)
+        resp, response_headers = await dataplane.explain(
+            "m", request, headers={"authorization": "Bearer secret"}
+        )
+        assert resp == {"explanations": [[1, 2]]}
+        assert response_headers == {"x-explainer": "postprocess"}
 
 
 @pytest.mark.asyncio
