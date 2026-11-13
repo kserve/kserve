@@ -15,6 +15,12 @@
 # limitations under the License.
 
 # Install cert-manager using Helm
+# Environment variables:
+#   CERT_MANAGER_EXTRA_ARGS - Additional helm install arguments for cert-manager
+#
+# Example:
+#   CERT_MANAGER_EXTRA_ARGS="--set webhook.timeoutSeconds=10" ./manage.cert-manager-helm.sh
+#
 # Usage: install-helm.sh [--reinstall|--uninstall]
 #   or:  REINSTALL=true install-helm.sh
 #   or:  UNINSTALL=true install-helm.sh
@@ -65,7 +71,16 @@ install() {
         --create-namespace \
         --version "${CERT_MANAGER_VERSION}" \
         --set crds.enabled=true \
+        --set webhook.timeoutSeconds=15 \
+        --set-json 'webhook.validatingWebhookConfiguration.namespaceSelector={"matchExpressions":[{"key":"cert-manager.io/disable-validation","operator":"NotIn","values":["true"]},{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kube-system","kube-node-lease"]}]}' \
+        --set-json 'webhook.mutatingWebhookConfiguration.namespaceSelector={"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kube-system","kube-node-lease"]}]}' \
+        ${CERT_MANAGER_EXTRA_ARGS:-} \
         --wait
+
+    log_info "Configuring the cert-manager mutating webhook to fail open..."
+    kubectl patch mutatingwebhookconfiguration cert-manager-webhook \
+        --type=json \
+        --patch='[{"op":"replace","path":"/webhooks/0/failurePolicy","value":"Ignore"}]'
 
     log_success "Successfully installed cert-manager ${CERT_MANAGER_VERSION} via Helm"
 
