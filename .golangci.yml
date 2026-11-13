@@ -47,6 +47,9 @@ linters:
     # Check declaration order of types, consts, vars and funcs.
     - decorder
 
+    # Checks package imports against allow/deny lists.
+    - depguard
+
     # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
     - dogsled
 
@@ -173,6 +176,19 @@ linters:
     - whitespace
 
   settings:
+    depguard:
+      rules:
+        # Downstreams import the API types without the rest of kserve. These
+        # packages bring in the cloud storage SDKs and credentials handling.
+        apis:
+          list-mode: lax
+          files:
+            - "**/pkg/apis/**"
+          deny:
+            - pkg: "github.com/kserve/kserve/pkg/agent"
+              desc: "pulls cloud storage SDKs into the API types; use pkg/types for shared definitions"
+            - pkg: "github.com/kserve/kserve/pkg/credentials"
+              desc: "pulls cloud storage SDKs into the API types"
     forbidigo:
       forbid:
         - pattern: '\.SetLogger\('
