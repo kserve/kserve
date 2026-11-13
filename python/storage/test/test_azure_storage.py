@@ -43,8 +43,10 @@ def create_mock_blob(mock_storage, paths):
 
     # Mock async list_blobs (changed from walk_blobs)
     async def mock_list_blobs(name_starts_with=None, include=None):
+        # Filter like the real listing
         for obj in mock_objs:
-            yield obj
+            if obj.name.startswith(name_starts_with or ""):
+                yield obj
 
     mock_container.list_blobs = mock_list_blobs
 
@@ -220,7 +222,7 @@ def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
 def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
     # given
     blob_path = "https://accountname.blob.core.windows.net/container/somefile.text"
-    paths = ["somefile"]
+    paths = ["somefile.text"]
     fq_item_paths = paths
     expected_calls = [(f,) for f in fq_item_paths]
 
@@ -240,7 +242,7 @@ def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-ar
     blob_path = (
         "https://accountname.blob.core.windows.net/container/folder/somefile.text"
     )
-    paths = ["somefile"]
+    paths = ["somefile.text"]
     fq_item_paths = ["folder/" + p for p in paths]
     expected_calls = [(f,) for f in fq_item_paths]
 
@@ -269,6 +271,69 @@ def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-
     # then
     actual_calls = get_call_args(mock_container.get_blob_client.call_args_list)
     assert set(actual_calls) == set(expected_calls)
+
+
+@mock.patch(STORAGE_MODULE + ".os.makedirs")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
+def test_blob_prefix_does_not_match_sibling_directory(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
+    # given
+    blob_path = "https://accountname.blob.core.windows.net/container/models/bert"
+    paths = ["models/bert/config.json", "models/bert-v2/weights"]
+    mock_blob, mock_container = create_mock_blob(mock_storage, paths)
+
+    # when
+    Storage._download_azure_blob(blob_path, "some/dest/path")
+
+    # then
+    actual_calls = get_call_args(mock_container.get_blob_client.call_args_list)
+    assert actual_calls == [("models/bert/config.json",)]
+
+
+@mock.patch(STORAGE_MODULE + ".os.makedirs")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
+def test_blob_prefix_with_trailing_slash_does_not_match_sibling_directory(
+    mock_storage, mock_makedirs
+):  # pylint: disable=unused-argument
+    # given
+    # _parse_azure_uri strips the trailing slash
+    blob_path = "https://accountname.blob.core.windows.net/container/models/bert/"
+    paths = ["models/bert/config.json", "models/bert-v2/weights"]
+    mock_blob, mock_container = create_mock_blob(mock_storage, paths)
+
+    # when
+    Storage._download_azure_blob(blob_path, "some/dest/path")
+
+    # then
+    actual_calls = get_call_args(mock_container.get_blob_client.call_args_list)
+    assert actual_calls == [("models/bert/config.json",)]
+
+
+@mock.patch(STORAGE_MODULE + ".os.makedirs")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
+def test_blob_exact_file_does_not_match_sibling_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
+    # given
+    blob_path = "https://accountname.blob.core.windows.net/container/models/model.pt"
+    paths = ["models/model.pt", "models/model.pt.bak"]
+    mock_blob, mock_container = create_mock_blob(mock_storage, paths)
+
+    # when
+    Storage._download_azure_blob(blob_path, "some/dest/path")
+
+    # then
+    actual_calls = get_call_args(mock_container.get_blob_client.call_args_list)
+    assert actual_calls == [("models/model.pt",)]
+
+
+@mock.patch(STORAGE_MODULE + ".os.makedirs")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
+def test_blob_prefix_only_sibling_matches(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
+    # given
+    blob_path = "https://accountname.blob.core.windows.net/container/models/bert"
+    create_mock_blob(mock_storage, ["models/bert-v2/weights"])
+
+    # when / then
+    with pytest.raises(RuntimeError, match="No model found"):
+        Storage._download_azure_blob(blob_path, "some/dest/path")
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
