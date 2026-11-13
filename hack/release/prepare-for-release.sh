@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 # Helper script to bump the KServe version
 # Usage:
-#   ./hack/release/prepare-for-release.sh <prior_version> <new_version>
+#   ./hack/release/prepare-for-release.sh <prior_version> <new_version>\
+#   ./hack/release/prepare-for-release.sh 0.21.0 0.21.1
 
 set -eo pipefail
 
-# Detect OS and set sed in-place flag
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  SED_INPLACE=(-i '')
+# Detect the sed binary and its flavor instead of the OS: GNU sed installed via
+# brew may shadow BSD sed under the same name "sed", so OSTYPE cannot tell them
+# apart. Fall back to gsed (brew gnu-sed default name) when sed was not replaced.
+SED_BIN=sed
+command -v gsed >/dev/null 2>&1 && SED_BIN=gsed
+if "${SED_BIN}" --version >/dev/null 2>&1; then
+  SED_INPLACE=("${SED_BIN}" -i)      # GNU sed
 else
-  SED_INPLACE=(-i)
+  SED_INPLACE=("${SED_BIN}" -i '')   # BSD sed (macOS default)
 fi
 
 # make sure the directory is the root of the repository
 if [ $0 != "hack/release/prepare-for-release.sh" ]; then
-  echo -e "\033[31mError: run the script from the repository's root directory\033[0m"
+  echo -e "\033[31mError: run the script from the repository's root directory.\033[0m"
   exit 1
 fi
 
@@ -60,7 +65,7 @@ VERSION_PATTERN="^[0-9]+\.[0-9]{2}\.[0-9]+(-[a-zA-Z0-9]{1,3})?$"
 
 # check if the new version matches the pattern
 if [[ ! ${NEW_VERSION} =~ $VERSION_PATTERN ]]; then
-  echo -e "\033[31mError: New version does not match the required pattern.\033[0m"
+  echo -e "\033[31mError: New version does not match the required pattern, e.g. 0.22.0, 0.22.1.\033[0m"
   exit 1
 fi
 
@@ -85,14 +90,15 @@ if [[ ${PRIOR_VERSION} == *"-"* ]]; then
 else
   pversion=${PRIOR_VERSION}
 fi
-echo "Normalized versions for the charts badge: prior: $pversion - new: $nversion"
+echo "Normalized versions for the charts badge: prior: $pversion - new: $nversion. Press Enter to continue..."
+read
 
 # Charts
 echo -e "\033[32mUpdating charts...\033[0m"
 for readmeFile in `find charts -name README.md`; do
   echo -e "\033[32mUpdating ${readmeFile}...\033[0m"
   # Update badge version first (before general version replacement)
-  sed "${SED_INPLACE[@]}" \
+  "${SED_INPLACE[@]}" \
     -e "s/Version-v${pversion}/Version-v${nversion}/g" \
     -e "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" \
     ${readmeFile}
@@ -102,7 +108,7 @@ for yaml in `find charts \( -name "Chart.yaml" -o -name "values.yaml" \)`; do
   # skip empty files
   if [ -s "${yaml}" ]; then
      echo -e "\033[32mUpdating ${yaml}...\033[0m"
-     sed "${SED_INPLACE[@]}" "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${yaml}
+     "${SED_INPLACE[@]}" "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${yaml}
   fi
 done
 
@@ -111,14 +117,14 @@ echo -e "\033[32mUpdating hack/release/generate-install.sh...\033[0m"
 if grep -q "\"v${NEW_VERSION}\"" hack/release/generate-install.sh; then
   echo -e "\033[33mVersion v${NEW_VERSION} already exists in hack/release/generate-install.sh, skipping...\033[0m"
 else
-  sed "${SED_INPLACE[@]}" "/\"v${PRIOR_VERSION}\"/a \\
+  "${SED_INPLACE[@]}" "/\"v${PRIOR_VERSION}\"/a \\
     \"v${NEW_VERSION}\"" hack/release/generate-install.sh
 fi
 
 # Update kserve-deps.env
 echo -e "\033[32mUpdating kserve-deps.env...\033[0m"
-sed "${SED_INPLACE[@]}" "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" kserve-deps.env
-sed "${SED_INPLACE[@]}" "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" charts/_common/common-sections.yaml
+"${SED_INPLACE[@]}" "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" kserve-deps.env
+"${SED_INPLACE[@]}" "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" charts/_common/common-sections.yaml
 
 # update python/kserve and docs versions
 echo -e "\033[32mUpdating python/kserve and docs versions...\033[0m"
@@ -137,10 +143,10 @@ for file in $(find python docs \( -name 'pyproject.toml' -o -name 'uv.lock' \));
   if [[ ${file} == *"uv.lock" ]]; then
     # make sure the previous line is name = "kserve"
     # there is a chance that the version being update be the same than other dependencies
-    sed "${SED_INPLACE[@]}" "/name = \"kserve\"/{N;s|${prior_no_dash_version}|${new_no_dash_version}|;}" "${file}"
+    "${SED_INPLACE[@]}" "/name = \"kserve\"/{N;s|${prior_no_dash_version}|${new_no_dash_version}|;}" "${file}"
   else
     # Only update kserve/kserve-storage versions, not external package versions
-    sed "${SED_INPLACE[@]}" \
+    "${SED_INPLACE[@]}" \
       -e "s|version = \"${prior_no_dash_version}\"|version = \"${new_no_dash_version}\"|" \
       -e "s|kserve-storage==${prior_no_dash_version}|kserve-storage==${new_no_dash_version}|g" \
       "${file}"
