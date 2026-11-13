@@ -386,6 +386,18 @@ func TestMutator_CachedOCIModelUsesPVC(t *testing.T) {
 		constants.AgentConfigMapKeyName:            `{"image":"kserve/agent:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1"}`,
 	}}
 	mutator := Mutator{Client: c, Clientset: clientset}
+	// The fail-closed readiness gate requires the referenced shared-PVC
+	// LocalModelNamespaceCache to exist and be Ready before the pod is admitted.
+	pvcRef := "shared-model-cache"
+	cachedModelNsCache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cached-model", Namespace: "default"},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: uri,
+			PVCRef:         &pvcRef,
+		},
+	}
+	cachedModelNsCache.Status.MarkReady(1)
+	createLocalModelGateCache(t, cachedModelNsCache)
 	uncachedPod := pod.DeepCopy()
 	delete(uncachedPod.Labels, constants.LocalModelLabel)
 	delete(uncachedPod.Labels, constants.LocalModelNamespaceLabel)

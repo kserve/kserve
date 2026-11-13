@@ -683,11 +683,12 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCReady(t *testing.T) {
 	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
 }
 
-// Readiness gates binding in the webhook, not resolution here: an adapter already bound to a
-// shared-PVC cache keeps resolving to the claim while the cache reports NotReady (re-import
-// blocked, spec-generation bump), since the data is still on the claim. Failing here would
-// make every LoRA-bound LLMInferenceService unreconcilable for the whole NotReady window.
-func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyKeepsBoundAdapter(t *testing.T) {
+// Mirrors the base model path (resolveBaseModelCachePVC): while the shared-PVC cache
+// bound to an adapter is not Ready, resolution fails closed. Defaulting binds unbound
+// adapters to not-Ready caches as a wait intent, and the import may still be writing
+// the adapter onto the claim, so the workload must wait for Ready instead of mounting
+// an incomplete adapter directory.
+func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyFailsClosed(t *testing.T) {
 	t.Parallel()
 
 	adapters := []resolvedLoRAAdapter{
@@ -702,6 +703,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyKeepsBoundAdapt
 			PVCRef:         &ref,
 		},
 	}
+	nsCache.Status.MarkNotReady(v1alpha1.ReasonImportRunning, "Import Job is running", 1)
 	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(nsCache).Build()
 
 	llmSvc := &v1alpha2.LLMInferenceService{
@@ -713,10 +715,12 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyKeepsBoundAdapt
 		},
 	}
 
-	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
-	require.NoError(t, err)
-	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
-	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
+	_, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, errLocalModelCacheNotReady)
+	assert.Contains(t, err.Error(), "LoRA adapter \"my-adapter\"")
+	assert.Contains(t, err.Error(), "LocalModelNamespaceCache default/ns-adapter-cache")
+	assert.Contains(t, err.Error(), v1alpha1.ReasonImportRunning)
 }
 
 func TestRewriteLoRAAdaptersFromLocalModelCache_MissingCache(t *testing.T) {

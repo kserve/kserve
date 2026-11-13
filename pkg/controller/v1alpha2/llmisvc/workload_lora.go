@@ -198,6 +198,11 @@ func rewriteLoRAAdaptersFromLocalModelCache(
 
 // resolveLoRACachePVC Gets the referenced LocalModelCache / LocalModelNamespaceCache and
 // derives source URI + serving PVC name for the LLMInferenceService node group.
+// Like resolveBaseModelCachePVC, it fails closed while the referenced shared-PVC
+// cache is not Ready: the returned error wraps errLocalModelCacheNotReady and the
+// workload waits for the import to complete. Defaulting binds adapters to not-Ready
+// caches as a fail-closed wait intent, and an import still in progress may not have
+// written a complete copy of the adapter onto the claim yet.
 func resolveLoRACachePVC(
 	ctx context.Context,
 	c client.Client,
@@ -210,10 +215,12 @@ func resolveLoRACachePVC(
 		if err := c.Get(ctx, types.NamespacedName{Name: entry.Cache, Namespace: entry.Namespace}, nsCache); err != nil {
 			return "", "", fmt.Errorf("get LocalModelNamespaceCache %s/%s: %w", entry.Namespace, entry.Cache, err)
 		}
-		// Shared-PVC mode: the serving PVC is the referenced claim. Readiness is gated at
-		// bind time by the webhook, not here: an adapter already bound to the cache keeps
-		// resolving while the cache reports NotReady, since the data stays on the claim.
+		// Shared-PVC mode: the serving PVC is the referenced claim, gated on Ready=True.
 		if nsCache.Spec.SharedPVCMode() {
+			if !nsCache.IsReady() {
+				return "", "", fmt.Errorf("%w: LocalModelNamespaceCache %s/%s (%s); waiting for the cache instead of mounting an incomplete LoRA adapter",
+					errLocalModelCacheNotReady, entry.Namespace, entry.Cache, nsCache.NotReadySummary())
+			}
 			return nsCache.Spec.SourceModelUri, *nsCache.Spec.PVCRef, nil
 		}
 		pvc, ok := localmodelcache.PVCNameForNodeGroup(nsCache.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsCache.Name)
