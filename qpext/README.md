@@ -36,7 +36,7 @@ The qpext uses the environment variables to configure which port/path to expose 
 | Annotation                                           | Default | Description |
 |------------------------------------------------------|---------|-------------|
 | serving.kserve.io/enable-metric-aggregation          | false | If true, enables metric aggregation in queue-proxy by setting env vars in the queue proxy container to configure scraping ports. |
-| serving.kserve.io/enable-prometheus-scraping | false | If true, sets the prometheus annotations in the pod. If true and "serving.kserve.io/enable-metric-aggregation" is false, the prometheus port will be set as the default queue-proxy port. If both are true, the prometheus port annotation will be set as the aggregate metric port.  | 
+| serving.kserve.io/enable-prometheus-scraping | false | If true, sets `prometheus.io/port` and `prometheus.io/path` on the pod. Knative pods use queue-proxy port 9091, or aggregate port 9088 when metric aggregation is also true. Standard/RawDeployment pods have no queue-proxy, so the webhook uses the model-container port (`prometheus.kserve.io/port`, default 8080). An already-set `prometheus.io/port` or `prometheus.io/path` is not overwritten. |
 
 
 | Queue Proxy Env Vars                     | Default  | Description                                                                                                                                                                     |
@@ -83,6 +83,8 @@ spec:
 ```
 The default port for sklearn runtime is `8080`, and the default path is `/metrics`. 
 By setting the annotations in the InferenceService YAML, the default runtime configurations are overridden.
+
+On Standard/RawDeployment pods, Prometheus scrapes that model-container port (default `8080`, or `prometheus.kserve.io/port` when set). Knative pods still scrape queue-proxy `9091` / aggregate `9088`. If the InferenceService or serving runtime already sets `prometheus.io/port` (for example the TorchServe sample's `8082`), that value is kept on upgrade, so a Knative pod will not switch to `9091`/`9088` and the aggregate port will not be scraped.
 
 **KServe Developer's Note:** If the qpext is implemented in the cluster and you wish to set the default annotation values to `true`, 
 the defaults in the configMap can be overridden via patching the configMap or setting up a webhook to override the values.
