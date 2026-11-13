@@ -17,6 +17,7 @@ limitations under the License.
 package logger
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -73,18 +74,59 @@ func QueueLogRequest(req LogRequest) error {
 	}
 }
 
-// NewWorker creates, and returns a new Worker object. Its only argument
-// is a channel that the worker can add itself to whenever it is done its
-// work.
-func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogger) Worker {
-	// Create, and return the worker.
-	return Worker{
-		Log:         logger,
-		ID:          id,
-		Work:        make(chan LogRequest),
-		WorkerQueue: workerQueue,
-		QuitChan:    make(chan bool),
+// DefaultHTTPClientTimeout is used when NewWorker is given a non-positive
+// timeout.
+const DefaultHTTPClientTimeout = 10 * time.Second
+
+// WorkerOption configures optional NewWorker behavior.
+type WorkerOption func(*Worker)
+
+// WithHTTPClientTimeout sets the timeout of the HTTP client the worker uses
+// to deliver CloudEvents. A non-positive timeout keeps the default.
+func WithHTTPClientTimeout(timeout time.Duration) WorkerOption {
+	return func(w *Worker) {
+		if timeout > 0 {
+			w.httpClientTimeout = timeout
+		}
 	}
+}
+
+// NewWorker creates, and returns a new Worker object. Its only required
+// arguments are a channel that the worker can add itself to whenever it is
+// done its work, and a logger.
+func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogger, opts ...WorkerOption) Worker {
+	// Create, and return the worker.
+	w := Worker{
+		Log:               logger,
+		ID:                id,
+		Work:              make(chan LogRequest),
+		WorkerQueue:       workerQueue,
+		QuitChan:          make(chan bool),
+		httpClientTimeout: DefaultHTTPClientTimeout,
+		caCertDir:         constants.LoggerCaCertMountPath,
+	}
+	for _, opt := range opts {
+		opt(&w)
+	}
+	return w
+}
+
+// clientCacheKey identifies the destination and TLS config a cached
+// cloudevents.Client was built for.
+type clientCacheKey struct {
+	url           string
+	certName      string
+	tlsSkipVerify bool
+}
+
+// cachedClient is a cloudevents.Client together with what it was built from,
+// so getClient can tell when it has gone stale.
+type cachedClient struct {
+	client    cloudevents.Client
+	transport *http.Transport
+	// caCert is the CA file content the transport trusts, nil when the file
+	// was absent and the default roots are used.
+	caCert []byte
 }
 
 type Worker struct {
@@ -93,43 +135,110 @@ type Worker struct {
 	Work        chan LogRequest
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
+
+	httpClientTimeout time.Duration
+	// caCertDir is where the CA certificates for https log endpoints are
+	// mounted. It is a field only so tests can point it elsewhere.
+	caCertDir string
+
+	// clients caches a cloudevents.Client per destination. A plain map is
+	// safe here because Start's loop is the only goroutine that ever
+	// touches a given Worker.
+	clients map[clientCacheKey]*cachedClient
 }
 
-func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
-	t, err := cloudevents.NewHTTP(
-		cloudevents.WithTarget(logReq.Url.String()),
-	)
+// readCACert returns the content of the CA file for logReq, or nil when the
+// destination is not https or the file cannot be read.
+func (w *Worker) readCACert(logReq LogRequest) []byte {
+	if logReq.Url.Scheme != "https" {
+		return nil
+	}
+	caCertFile, err := os.ReadFile(filepath.Clean(filepath.Join(w.caCertDir, logReq.CertName)))
 	if err != nil {
-		return fmt.Errorf("while creating http transport: %w", err)
+		return nil
+	}
+	return caCertFile
+}
+
+// getClient returns the cached client for logReq's destination. The CA file
+// is re-read for every event, as it was before clients were cached, so that a
+// rotated or late-arriving CA is picked up: when its content differs from the
+// one the cached client was built with, the client is rebuilt and the idle
+// connections of the replaced one are closed.
+func (w *Worker) getClient(logReq LogRequest) (cloudevents.Client, error) {
+	key := clientCacheKey{
+		url:           logReq.Url.String(),
+		certName:      logReq.CertName,
+		tlsSkipVerify: logReq.TlsSkipVerify,
+	}
+	caCert := w.readCACert(logReq)
+	cached, found := w.clients[key]
+	if found && bytes.Equal(cached.caCert, caCert) {
+		return cached.client, nil
 	}
 
+	built, err := w.buildClient(logReq, caCert)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		cached.transport.CloseIdleConnections()
+	}
+	if w.clients == nil {
+		w.clients = make(map[clientCacheKey]*cachedClient)
+	}
+	w.clients[key] = built
+	return built.client, nil
+}
+
+func (w *Worker) buildClient(logReq LogRequest, caCert []byte) (*cachedClient, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+	transport.ForceAttemptHTTP2 = true
+
 	if logReq.Url.Scheme == "https" {
-		caCertFilePath := filepath.Join(constants.LoggerCaCertMountPath, logReq.CertName)
-		caCertFile, err := os.ReadFile(filepath.Clean(caCertFilePath))
 		// Do not fail if certificates not found, for backwards compatibility
-		if err == nil {
+		if caCert != nil {
 			clientCertPool := x509.NewCertPool()
-			if !clientCertPool.AppendCertsFromPEM(caCertFile) {
-				return errors.New("while parsing CA certificate")
+			if !clientCertPool.AppendCertsFromPEM(caCert) {
+				return nil, errors.New("while parsing CA certificate")
 			}
 
-			tlsTransport := &http.Transport{
-				TLSClientConfig: &tls.Config{
-					RootCAs:            clientCertPool,
-					MinVersion:         tls.VersionTLS12,
-					InsecureSkipVerify: logReq.TlsSkipVerify, // #nosec G402
-				},
+			transport.TLSClientConfig = &tls.Config{
+				RootCAs:            clientCertPool,
+				MinVersion:         tls.VersionTLS12,
+				InsecureSkipVerify: logReq.TlsSkipVerify, // #nosec G402
+				NextProtos:         []string{"h2", "http/1.1"},
 			}
-			t.Client.Transport = tlsTransport
 		} else {
-			w.Log.Warnf("using https endpoint but could not find CA cert file %s", caCertFilePath)
+			w.Log.Warnf("using https endpoint but could not find CA cert file %s", filepath.Join(w.caCertDir, logReq.CertName))
 		}
+	}
+
+	httpClient := http.Client{
+		Transport: transport,
+		Timeout:   w.httpClientTimeout,
+	}
+	t, err := cloudevents.NewHTTP(
+		cloudevents.WithTarget(logReq.Url.String()),
+		cehttp.WithClient(httpClient),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("while creating http transport: %w", err)
 	}
 
 	c, err := cloudevents.NewClient(t)
 	if err != nil {
-		return fmt.Errorf("while creating new cloudevents client: %w", err)
+		return nil, fmt.Errorf("while creating new cloudevents client: %w", err)
 	}
+	return &cachedClient{client: c, transport: transport, caCert: caCert}, nil
+}
+
+func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
+	c, err := w.getClient(logReq)
+	if err != nil {
+		return err
+	}
+
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
 	event.SetType(logReq.ReqType)
