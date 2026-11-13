@@ -936,15 +936,24 @@ async def wait_for_pod_logs(
     container: str = "kserve-container",
     *,
     expected_substring: str = None,
+    expected_substrings: list = None,
     timeout_s: int = 30,
     poll_interval_s: int = 2,
 ) -> str:
-    """Poll pod logs until non-empty (and optionally containing a substring).
+    """Poll pod logs until non-empty (and optionally containing substrings).
 
     Replaces bare ``asyncio.sleep()`` calls that hope logs are available after
-    a fixed delay. Returns the full log content once the condition is met.
+    a fixed delay. Returns the full log content once every expected substring
+    is present. ``expected_substring`` (single) and ``expected_substrings``
+    (list) can be combined; all given substrings must appear.
     """
     import time
+
+    expected = []
+    if expected_substring is not None:
+        expected.append(expected_substring)
+    if expected_substrings is not None:
+        expected.extend(expected_substrings)
 
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
@@ -954,7 +963,7 @@ async def wait_for_pod_logs(
                 namespace=namespace,
                 container=container,
             )
-            if logs and (expected_substring is None or expected_substring in logs):
+            if logs and all(s in logs for s in expected):
                 return logs
         except k8s_client.rest.ApiException:
             pass

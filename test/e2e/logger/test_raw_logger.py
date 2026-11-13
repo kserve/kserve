@@ -25,7 +25,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import uuid
 from kubernetes import client
 
@@ -40,7 +39,7 @@ from kserve import (
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 import pytest
-from ..common.utils import predict_isvc
+from ..common.utils import predict_isvc, wait_for_pod_logs
 
 
 annotations = {"serving.kserve.io/deploymentMode": "Standard"}
@@ -205,13 +204,17 @@ async def base_test(
         namespace,
         label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
     )
-    await asyncio.sleep(5)
     log = ""
     for pod in pods.items:
-        log += kserve_client.core_api.read_namespaced_pod_log(
-            name=pod.metadata.name,
-            namespace=pod.metadata.namespace,
-            container="kserve-container",
+        log += await wait_for_pod_logs(
+            kserve_client.core_api,
+            pod.metadata.name,
+            pod.metadata.namespace,
+            expected_substrings=[
+                "org.kubeflow.serving.inference.request",
+                "org.kubeflow.serving.inference.response",
+            ],
+            timeout_s=60,
         )
         print(log)
 
