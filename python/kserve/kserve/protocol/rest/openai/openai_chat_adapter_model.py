@@ -67,12 +67,18 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
     def chat_completion_params_to_completion_params(
         cls, request: ChatCompletionRequest, prompt: str
     ) -> CompletionRequest:
-        return CompletionRequest(
+        # `max_tokens` is deprecated for chat in favor of `max_completion_tokens`.
+        max_tokens = (
+            request.max_completion_tokens
+            if request.max_completion_tokens is not None
+            else request.max_tokens
+        )
+        completion_request = CompletionRequest(
             prompt=prompt,
             model=request.model,
             frequency_penalty=request.frequency_penalty,
             logit_bias=request.logit_bias,
-            max_tokens=request.max_tokens,
+            max_tokens=max_tokens,
             n=request.n,
             presence_penalty=request.presence_penalty,
             seed=request.seed,
@@ -84,6 +90,11 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
             logprobs=request.top_logprobs,
             request_id=request.request_id,
         )
+        # CompletionRequest turns a null max_tokens into the legacy completions
+        # default of 16. Chat has no such default, so keep None and let the model
+        # use the remaining context length.
+        completion_request.max_tokens = max_tokens
+        return completion_request
 
     @classmethod
     def to_choice_logprobs(cls, logprobs: CompletionLogProbs) -> ChatCompletionLogProbs:
