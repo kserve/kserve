@@ -40,9 +40,34 @@ class TimeSeriesEndpoints:
             response,
         )
         if isinstance(forecast_response, ErrorResponse):
+            error = forecast_response.error
+
+            fallback_status = (
+                400
+                if error.type
+                in {
+                    "invalid_horizon",
+                    "invalid_quantile",
+                    "invalid_frequency",
+                    "unsupported_time_series_type",
+                    "model_not_supported",
+                }
+                else 500
+            )
+            try:
+                status_code = int(error.code)
+            except (TypeError, ValueError):
+                status_code = fallback_status
+
+            # An error response must have a valid 4xx or 5xx status code.
+            if not 400 <= status_code <= 599:
+                status_code = fallback_status
+
+            error.code = str(status_code)
+
             return ORJSONResponse(
                 content=forecast_response.model_dump(),
-                status_code=int(forecast_response.error.code),
+                status_code=status_code,
             )
         else:
             return forecast_response
