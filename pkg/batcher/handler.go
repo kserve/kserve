@@ -257,10 +257,11 @@ func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rspbytes, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-	_, err = w.Write(rspbytes)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write(rspbytes); err != nil {
+		handler.log.Errorf("failed to write batch response: %v", err)
 	}
 }
