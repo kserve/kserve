@@ -1073,7 +1073,7 @@ class Storage(object):
         allow_patterns: Optional[List[str]] = None,
         ignore_patterns: Optional[List[str]] = None,
     ) -> str:
-        from huggingface_hub import snapshot_download
+        from huggingface_hub import hf_hub_download, snapshot_download
 
         from huggingface_hub.utils import (
             RepositoryNotFoundError,
@@ -1082,12 +1082,11 @@ class Storage(object):
             HfHubHTTPError,
         )
 
-        components = uri[len(_HF_PREFIX) :].split("/")
+        components = uri[len(_HF_PREFIX) :].split("/", 2)
 
-        # Validate that the URI has two parts: repo and model (optional hash)
-        if len(components) != 2:
+        if len(components) < 2:
             raise RuntimeError(
-                "Invalid Hugging Face URI format. Expected 'hf://owner/model[:revision]', got '%s'"
+                "Invalid Hugging Face URI format. Expected 'hf://owner/model[:revision][/filename]', got '%s'"
                 % uri
             )
 
@@ -1112,14 +1111,26 @@ class Storage(object):
 
         revision = hash_value if hash_value else None
         repo_id = f"{repo}/{model}"
+        filename = components[2] if len(components) == 3 else None
+        if filename is not None and (
+            "\\" in filename
+            or any(part in ("", ".", "..") for part in filename.split("/"))
+        ):
+            raise RuntimeError(
+                "Hugging Face filename must be a relative path without empty, '.' or '..' components in URI: %s"
+                % uri
+            )
 
         try:
             kwargs = dict(repo_id=repo_id, revision=revision, local_dir=temp_dir)
-            if allow_patterns:
-                kwargs["allow_patterns"] = allow_patterns
-            if ignore_patterns:
-                kwargs["ignore_patterns"] = ignore_patterns
-            snapshot_download(**kwargs)
+            if filename is not None:
+                hf_hub_download(filename=filename, **kwargs)
+            else:
+                if allow_patterns:
+                    kwargs["allow_patterns"] = allow_patterns
+                if ignore_patterns:
+                    kwargs["ignore_patterns"] = ignore_patterns
+                snapshot_download(**kwargs)
         except (
             RepositoryNotFoundError,
             RevisionNotFoundError,
