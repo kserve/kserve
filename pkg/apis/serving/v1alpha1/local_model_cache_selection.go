@@ -134,7 +134,7 @@ func OlderLocalModelCache[T any, PT interface {
 	if b == nil {
 		return a
 	}
-	if a.GetCreationTimestamp().Time.Compare(b.GetCreationTimestamp().Time) != 0 {
+	if a.GetCreationTimestamp().Compare(b.GetCreationTimestamp().Time) != 0 {
 		if a.GetCreationTimestamp().Time.Before(b.GetCreationTimestamp().Time) {
 			return a
 		}
