@@ -33,9 +33,9 @@ import (
 type LocalModelNamespaceCacheSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
 	// Original StorageUri
-	SourceModelUri string `json:"sourceModelUri" validate:"required"`
+	SourceModelUri string `json:"sourceModelUri"`
 	// Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.
-	ModelSize resource.Quantity `json:"modelSize" validate:"required"`
+	ModelSize resource.Quantity `json:"modelSize"`
 	// group of nodes to cache the model on. Selects the legacy node-local caching mode.
 	// Mutually exclusive with pvcRef.
 	// +kubebuilder:validation:MinItems=1
@@ -107,7 +107,7 @@ type LocalModelNamespaceCache struct {
 type LocalModelNamespaceCacheList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []LocalModelNamespaceCache `json:"items" validate:"required"`
+	Items           []LocalModelNamespaceCache `json:"items"`
 }
 
 // MatchStorageURI checks if storageUri matches the sourceModelUri or is a subdirectory of it
