@@ -27,9 +27,13 @@ import (
 	"net/url"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kfslogger "github.com/kserve/kserve/pkg/logger"
 )
 
 func serveRequest(batchHandler *BatchHandler, wg *sync.WaitGroup, index int) {
@@ -171,4 +175,106 @@ func TestBatcherDefaults(t *testing.T) {
 	wg.Wait()
 	g.Expect(batchHandler.MaxBatchSize).To(gomega.Equal(MaxBatchSize))
 	g.Expect(batchHandler.MaxLatency).To(gomega.Equal(MaxLatency))
+}
+
+// Tests that every client of a batch gets the status of the batch's outcome
+func TestBatcherResponseStatus(t *testing.T) {
+	testCases := map[string]struct {
+		predictorStatus     int
+		predictorBody       string
+		expectedStatus      int
+		expectedMessage     gomega.OmegaMatcher
+		expectedPredictions gomega.OmegaMatcher
+	}{
+		"predictor success": {
+			predictorStatus:     http.StatusOK,
+			predictorBody:       `{"predictions": [1, 2]}`,
+			expectedStatus:      http.StatusOK,
+			expectedMessage:     gomega.BeEmpty(),
+			expectedPredictions: gomega.HaveLen(1),
+		},
+		"predictor server error": {
+			predictorStatus:     http.StatusServiceUnavailable,
+			predictorBody:       "no healthy upstream",
+			expectedStatus:      http.StatusServiceUnavailable,
+			expectedMessage:     gomega.Equal("no healthy upstream"),
+			expectedPredictions: gomega.BeEmpty(),
+		},
+		"predictor rejects the batch": {
+			predictorStatus:     http.StatusBadRequest,
+			predictorBody:       "invalid instances",
+			expectedStatus:      http.StatusBadRequest,
+			expectedMessage:     gomega.Equal("invalid instances"),
+			expectedPredictions: gomega.BeEmpty(),
+		},
+		"predictor response is not valid JSON": {
+			predictorStatus:     http.StatusOK,
+			predictorBody:       "not json",
+			expectedStatus:      http.StatusInternalServerError,
+			expectedMessage:     gomega.ContainSubstring("invalid character"),
+			expectedPredictions: gomega.BeEmpty(),
+		},
+		"predictor returns fewer predictions than instances": {
+			predictorStatus:     http.StatusOK,
+			predictorBody:       `{"predictions": [1]}`,
+			expectedStatus:      http.StatusInternalServerError,
+			expectedMessage:     gomega.Equal("size of prediction is not equal to the size of instances"),
+			expectedPredictions: gomega.BeEmpty(),
+		},
+	}
+
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+
+			predictor := http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+				rw.WriteHeader(tc.predictorStatus)
+				_, _ = rw.Write([]byte(tc.predictorBody))
+			})
+			batchHandler := New(2, 5000, predictor, logger)
+
+			// A batch of two requests, so that it is flushed by size.
+			recorders := []*httptest.ResponseRecorder{httptest.NewRecorder(), httptest.NewRecorder()}
+			var wg sync.WaitGroup
+			for _, w := range recorders {
+				wg.Go(func() {
+					r := httptest.NewRequest(http.MethodPost, "/v1/models/test:predict", bytes.NewReader([]byte(`{"instances": [[1]]}`)))
+					batchHandler.ServeHTTP(w, r)
+				})
+			}
+			wg.Wait()
+
+			for _, w := range recorders {
+				g.Expect(w.Code).To(gomega.Equal(tc.expectedStatus))
+				var res Response
+				g.Expect(json.Unmarshal(w.Body.Bytes(), &res)).To(gomega.Succeed())
+				g.Expect(res.Message).To(tc.expectedMessage)
+				g.Expect(res.Predictions).To(tc.expectedPredictions)
+			}
+		})
+	}
+}
+
+// Tests that the inference logger, which wraps the batcher in the agent, logs batched responses
+func TestBatcherResponseIsLogged(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	predictor := http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+		_, _ = rw.Write([]byte(`{"predictions": [1]}`))
+	})
+	logUrl, err := url.Parse("http://logger.example.com")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	handler := kfslogger.New(logUrl, logUrl, v1beta1.LogResponse, "isvc", "default", "default", "predictor",
+		New(1, 5000, predictor, logger), nil, "", nil, false)
+
+	r := httptest.NewRequest(http.MethodPost, "/v1/models/test:predict", bytes.NewReader([]byte(`{"instances": [[1]]}`)))
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	g.Expect(w.Code).To(gomega.Equal(http.StatusOK))
+	var logged kfslogger.LogRequest
+	g.Eventually(kfslogger.WorkQueue, time.Second).Should(gomega.Receive(&logged))
+	g.Expect(logged.ReqType).To(gomega.Equal(kfslogger.CEInferenceResponse))
 }
