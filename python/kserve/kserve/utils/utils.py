@@ -129,8 +129,7 @@ def cpu_count():
 def is_structured_cloudevent(body: Dict) -> bool:
     """Returns True if the JSON request body resembles a structured CloudEvent"""
     return (
-        "time" in body
-        and "type" in body
+        "type" in body
         and "source" in body
         and "id" in body
         and "specversion" in body
