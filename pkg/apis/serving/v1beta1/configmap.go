@@ -813,6 +813,7 @@ func NewServiceConfig(isvcConfigMap *corev1.ConfigMap) (*ServiceConfig, error) {
 // GetStorageInitializerConfigs parses the StorageInitializer configuration from the provided ConfigMap.
 // It unmarshalls JSON configuration under the "storageInitializer" key into a StorageInitializerConfig struct.
 // The fields related to CPU and memory resource values are validated to contain valid Kubernetes resource quantities.
+// cpuLimit is optional: when empty, the storage-initializer container runs without a CPU limit.
 //
 // Parameters:
 //
@@ -830,12 +831,17 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
 		}
 	}
-	// Ensure that we set proper values for CPU/Memory Limit/Request
+	// Ensure that we set proper values for CPU/Memory Limit/Request.
+	// The CPU limit is optional: an empty value means the storage-initializer
+	// container runs without a CPU limit, matching the semantics of ordinary
+	// Kubernetes ResourceRequirements.
 	resourceDefaults := map[string]string{
 		"memoryRequest": storageInitializerConfig.MemoryRequest,
 		"memoryLimit":   storageInitializerConfig.MemoryLimit,
 		"cpuRequest":    storageInitializerConfig.CpuRequest,
-		"cpuLimit":      storageInitializerConfig.CpuLimit,
+	}
+	if storageInitializerConfig.CpuLimit != "" {
+		resourceDefaults["cpuLimit"] = storageInitializerConfig.CpuLimit
 	}
 
 	// Only validate optional modelcar fields if they're set
