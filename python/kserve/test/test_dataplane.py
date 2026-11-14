@@ -142,6 +142,20 @@ class TestDataPlane:
             "outputs": [],
         }
 
+    @pytest.mark.parametrize("header_value", ["abc", "-1", "1.5"])
+    async def test_decode_binary_request_with_invalid_content_length_header(
+        self, header_value
+    ):
+        dataplane = DataPlane(model_registry=ModelRepository())
+        body = b'{"inputs": [{"name": "input1", "shape": [1], "datatype": "INT32", "data": [1]}]}'
+        with pytest.raises(InvalidInput, match="must be a non-negative integer"):
+            dataplane.decode(
+                body,
+                {"inference-header-content-length": header_value},
+                protocol_version="v2",
+                model_name=self.MODEL_NAME,
+            )
+
     async def test_infer(self, dataplane_with_model):
         body = b'{"instances":[[1,2]]}'
         infer_request, req_attributes = dataplane_with_model.decode(body, None)
