@@ -647,6 +647,15 @@ func (r *LLMISVCReconciler) resolveStorageContainer(ctx context.Context, llmSvc 
 		}
 		storageContainer = spec
 	}
+	// More than one download goes to the initializer as several URI/path pairs, which a
+	// single-model downloader cannot take. The pod webhook rejects such containers for
+	// InferenceService too.
+	if len(uris) > 1 && !ptr.Deref(storageContainer.SupportsMultiModelDownload, false) {
+		err := fmt.Errorf("ClusterStorageContainer %q does not support multi-model download, needed for %d downloads", name, len(uris))
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "StorageContainerNotResolved",
+			"Cannot use ClusterStorageContainer %q for the storage-initializer: %v", name, err)
+		return nil, err
+	}
 	return storageContainer, nil
 }
 
