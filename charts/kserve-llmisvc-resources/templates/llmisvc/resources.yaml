@@ -3,10 +3,16 @@
   "patchGlob" "files/llmisvc/*-patch.yaml"
   "certName" "llmisvc-serving-cert"
   "context" .) }}
-{{- if .Values.kserve.llmisvc.createGIECRDs -}}
+{{- $skipCRDNames := list -}}
+{{- if not .Values.kserve.llmisvc.createGIECRDs -}}
+{{- $skipCRDNames = concat $skipCRDNames (include "llm-isvc-resources.gieCRDNames" . | fromYamlArray) -}}
+{{- end -}}
+{{- if not .Values.kserve.llmisvc.createLLMDCRDs -}}
+{{- $skipCRDNames = concat $skipCRDNames (include "llm-isvc-resources.llmdCRDNames" . | fromYamlArray) -}}
+{{- end -}}
+{{- if not $skipCRDNames -}}
 {{ $rendered }}
 {{- else -}}
-{{- $gieCRDNames := include "llm-isvc-resources.gieCRDNames" . | fromYamlArray -}}
 {{- range $doc := splitList "\n---\n" $rendered -}}
 {{- $trimmed := trim $doc -}}
 {{- if $trimmed -}}
@@ -17,7 +23,7 @@
 {{- if $parsed.metadata -}}
 {{- $name = default "" $parsed.metadata.name -}}
 {{- end -}}
-{{- if has $name $gieCRDNames -}}
+{{- if has $name $skipCRDNames -}}
 {{- $skip = true -}}
 {{- end -}}
 {{- end -}}

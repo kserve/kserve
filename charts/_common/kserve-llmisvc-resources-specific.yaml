@@ -3,6 +3,7 @@ commonAnnotations: {}
 kserve:
   llmisvc:
     createGIECRDs: true
+    createLLMDCRDs: true
     controller:
       image: kserve/llmisvc-controller
       tag: ''

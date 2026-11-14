@@ -156,6 +156,7 @@ kserve:
     scaleDownStabilizationWindowSeconds: '300'
   llmisvc:
     createGIECRDs: true
+    createLLMDCRDs: true
     controller:
       image: kserve/llmisvc-controller
       tag: ''
