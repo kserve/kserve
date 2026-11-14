@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -142,5 +143,118 @@ func TestUpdateLocalModelNodeReplacesImagePullSecrets(t *testing.T) {
 	if len(got.Spec.LocalModels) != 1 || len(got.Spec.LocalModels[0].ImagePullSecrets) != 1 ||
 		got.Spec.LocalModels[0].ImagePullSecrets[0].Name != "reg-cred-b" {
 		t.Fatalf("LocalModels = %#v, want imagePullSecrets [reg-cred-b]", got.Spec.LocalModels)
+	}
+}
+
+// A node deleted while its models were downloading leaves a LocalModelNode whose download Jobs stay
+// pinned to the hostname of the node that is gone, so the Jobs and their pods have to go with it.
+func TestDeleteLocalModelNodesOfDeletedNodes(t *testing.T) {
+	alive := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-a"}}
+	onLiveNode := &v1alpha1.LocalModelNode{ObjectMeta: metav1.ObjectMeta{Name: "worker-a"}}
+	onDeletedNode := &v1alpha1.LocalModelNode{ObjectMeta: metav1.ObjectMeta{Name: "worker-b"}}
+	cl := newLocalModelCacheClient(t, alive, onLiveNode, onDeletedNode)
+
+	if err := DeleteLocalModelNodesOfDeletedNodes(context.Background(), cl, logr.Discard()); err != nil {
+		t.Fatalf("DeleteLocalModelNodesOfDeletedNodes() error = %v", err)
+	}
+
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "worker-a"}, &v1alpha1.LocalModelNode{}); err != nil {
+		t.Fatalf("LocalModelNode of the existing node was removed: %v", err)
+	}
+	err := cl.Get(context.Background(), types.NamespacedName{Name: "worker-b"}, &v1alpha1.LocalModelNode{})
+	if !apierr.IsNotFound(err) {
+		t.Fatalf("LocalModelNode of the deleted node: error = %v, want NotFound", err)
+	}
+}
+
+// The pruning has to run from the cache reconcile, which is what a node deletion event triggers.
+func TestReconcileLocalModelNodeDropsLocalModelNodeOfDeletedNode(t *testing.T) {
+	orphan := &v1alpha1.LocalModelNode{ObjectMeta: metav1.ObjectMeta{Name: "worker-gone"}}
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
+		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: "oci://registry.example/model:v1"},
+	}
+	cl := newLocalModelCacheClient(t, cache, orphan)
+
+	if err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil,
+		map[string]*v1alpha1.LocalModelNodeGroup{}, cacheConsumers{}); err != nil {
+		t.Fatalf("ReconcileLocalModelNode() error = %v", err)
+	}
+
+	err := cl.Get(context.Background(), types.NamespacedName{Name: "worker-gone"}, &v1alpha1.LocalModelNode{})
+	if !apierr.IsNotFound(err) {
+		t.Fatalf("orphaned LocalModelNode: error = %v, want NotFound", err)
+	}
+}
+
+// nodeAppearsDuringNodeList adds a node and its LocalModelNode right after the Node list is read,
+// which is what another reconcile does when a new node joins. The LocalModelNode of that node must
+// survive, even though the node snapshot does not contain its node.
+type nodeAppearsDuringNodeList struct {
+	client.Client
+	injected bool
+}
+
+func (c *nodeAppearsDuringNodeList) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if _, ok := list.(*corev1.NodeList); !ok || c.injected {
+		return c.Client.List(ctx, list, opts...)
+	}
+	c.injected = true
+	if err := c.Client.List(ctx, list, opts...); err != nil {
+		return err
+	}
+	for _, obj := range []client.Object{
+		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-new"}},
+		&v1alpha1.LocalModelNode{ObjectMeta: metav1.ObjectMeta{Name: "worker-new"}},
+	} {
+		if err := c.Create(ctx, obj); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestDeleteLocalModelNodesKeepsNodeThatAppearsDuringList(t *testing.T) {
+	orphan := &v1alpha1.LocalModelNode{ObjectMeta: metav1.ObjectMeta{Name: "worker-gone"}}
+	cl := &nodeAppearsDuringNodeList{Client: newLocalModelCacheClient(t, orphan)}
+
+	if err := DeleteLocalModelNodesOfDeletedNodes(context.Background(), cl, logr.Discard()); err != nil {
+		t.Fatalf("DeleteLocalModelNodesOfDeletedNodes() error = %v", err)
+	}
+
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "worker-new"}, &v1alpha1.LocalModelNode{}); err != nil {
+		t.Fatalf("LocalModelNode of the node that appeared during the cleanup was removed: %v", err)
+	}
+	err := cl.Get(context.Background(), types.NamespacedName{Name: "worker-gone"}, &v1alpha1.LocalModelNode{})
+	if !apierr.IsNotFound(err) {
+		t.Fatalf("orphaned LocalModelNode: error = %v, want NotFound", err)
+	}
+}
+
+// localModelNodeListErrorClient fails every LocalModelNode list, which is how a failed cleanup of a
+// deleted node's records looks to the caller.
+type localModelNodeListErrorClient struct {
+	client.Client
+	err error
+}
+
+func (c *localModelNodeListErrorClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if _, ok := list.(*v1alpha1.LocalModelNodeList); ok {
+		return c.err
+	}
+	return c.Client.List(ctx, list, opts...)
+}
+
+// The reconcilers return this error, so a failed cleanup is retried instead of waiting for the next
+// cache event.
+func TestReconcileLocalModelNodeReturnsCleanupError(t *testing.T) {
+	cache := &v1alpha1.LocalModelCache{ObjectMeta: metav1.ObjectMeta{Name: "cache"}}
+	listErr := errors.New("localmodelnode list failed")
+	cl := &localModelNodeListErrorClient{Client: newLocalModelCacheClient(t, cache), err: listErr}
+
+	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil,
+		map[string]*v1alpha1.LocalModelNodeGroup{}, isvcConsumer("isvc", "ns"))
+	if !errors.Is(err, listErr) {
+		t.Fatalf("ReconcileLocalModelNode() error = %v, want %v", err, listErr)
 	}
 }

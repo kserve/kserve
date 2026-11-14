@@ -34,7 +34,9 @@ func NodeReadyPredicate() predicate.Funcs {
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
+			// Deleting a node must reconcile the caches that matched it, so the LocalModelNode left
+			// behind is removed. The event still carries the node's labels for the affinity match.
+			return true
 		},
 	}
 }
