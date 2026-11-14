@@ -1337,6 +1337,45 @@ func TestLLMInferenceServiceConversion_PreservesRuntime(t *testing.T) {
 	assert.Equal(t, "kserve-llm-sglang", *restored.Spec.Runtime)
 }
 
+func TestLLMInferenceServiceConversion_PreservesStorageContainerName(t *testing.T) {
+	modelName := "test-model"
+	storageInitializer := StorageInitializerSpec{
+		Enabled:              ptr.To(true),
+		StorageContainerName: ptr.To("internal-registry"),
+	}
+
+	t.Run("v1alpha1 to v1alpha2 and back", func(t *testing.T) {
+		src := &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"}, Spec: LLMInferenceServiceSpec{
+			Model:              LLMModelSpec{URI: apis.URL{Scheme: "s3", Host: "models", Path: "/llama"}, Name: &modelName},
+			StorageInitializer: storageInitializer.DeepCopy(),
+		}}
+		dst := &v1alpha2.LLMInferenceService{}
+		require.NoError(t, src.ConvertTo(dst))
+		require.NotNil(t, dst.Spec.StorageInitializer)
+		assert.Equal(t, ptr.To("internal-registry"), dst.Spec.StorageInitializer.StorageContainerName)
+		restored := &LLMInferenceService{}
+		require.NoError(t, restored.ConvertFrom(dst))
+		assert.Equal(t, src.Spec.StorageInitializer, restored.Spec.StorageInitializer)
+	})
+
+	// A v1alpha1 client reading a stored v1alpha2 service and writing it back must keep the name.
+	t.Run("v1alpha2 to v1alpha1 and back", func(t *testing.T) {
+		src := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"}, Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{URI: apis.URL{Scheme: "s3", Host: "models", Path: "/llama"}, Name: &modelName},
+			StorageInitializer: &v1alpha2.StorageInitializerSpec{
+				StorageContainerName: ptr.To("internal-registry"),
+			},
+		}}
+		hub := &LLMInferenceService{}
+		require.NoError(t, hub.ConvertFrom(src))
+		require.NotNil(t, hub.Spec.StorageInitializer)
+		assert.Equal(t, ptr.To("internal-registry"), hub.Spec.StorageInitializer.StorageContainerName)
+		restored := &v1alpha2.LLMInferenceService{}
+		require.NoError(t, hub.ConvertTo(restored))
+		assert.Equal(t, src.Spec.StorageInitializer, restored.Spec.StorageInitializer)
+	})
+}
+
 func TestLLMInferenceServiceConversion_EmptyRuntimeRoundTrips(t *testing.T) {
 	modelName := "test-model"
 	src := &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"}, Spec: LLMInferenceServiceSpec{

@@ -26,9 +26,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
@@ -36,6 +38,7 @@ import (
 	"github.com/kserve/kserve/pkg/localmodelcache"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 const CaBundleVolumeName = "cabundle-cert"
@@ -302,7 +305,7 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(ctx, llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -353,7 +356,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(ctx, llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -407,9 +410,11 @@ func addsDefaultHFEnv(current, desired *corev1.Container) bool {
 }
 
 // attachStorageInitializer configures a PodSpec to use KServe storage-initializer for
-// downloading a model from compatible storage.
+// downloading a model from compatible storage. When the LLMInferenceService names a
+// ClusterStorageContainer, its container is merged into the storage-initializer.
 //
 // Parameters:
+//   - ctx: The context for API calls and logging.
 //   - modelUri: The URI of the model in compatible object store.
 //   - podSpec: The PodSpec to which the storage-initializer container should be attached.
 //   - storageConfig: The storage initializer configuration.
@@ -417,7 +422,12 @@ func addsDefaultHFEnv(current, desired *corev1.Container) bool {
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
+func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
+	storageContainer, err := r.resolveStorageContainer(ctx, llmSvc, modelUri)
+	if err != nil {
+		return err
+	}
+
 	confidential := llmSvc.Spec.Model.Confidential
 	userOverride := extractAndStripStorageInitializer(podSpec)
 
@@ -443,7 +453,10 @@ func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferen
 		}
 	}
 
-	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
+	initContainer, err := applyStorageContainer(utils.CreateInitContainerWithConfig(&copied, containerArgs), storageContainer)
+	if err != nil {
+		return err
+	}
 
 	// Inject confidential env vars before appending to the pod spec
 	if confidential != nil && confidential.Enabled {
@@ -501,6 +514,14 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	if len(pairs) == 0 {
 		return nil
 	}
+	uris := make([]string, len(pairs))
+	for i, p := range pairs {
+		uris[i] = p.uri
+	}
+	storageContainer, err := r.resolveStorageContainer(ctx, llmSvc, uris...)
+	if err != nil {
+		return err
+	}
 	userOverride := extractAndStripStorageInitializer(podSpec)
 
 	paths := make([]string, len(pairs))
@@ -525,7 +546,10 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 		}
 	}
 
-	initC := utils.CreateInitContainerWithConfig(&copied, args)
+	initC, err := applyStorageContainer(utils.CreateInitContainerWithConfig(&copied, args), storageContainer)
+	if err != nil {
+		return err
+	}
 
 	if userOverride != nil {
 		merged, err := utils.MergeContainerWithPatch(*initC, *userOverride)
@@ -598,6 +622,59 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 
 	injectCaBundle(llmSvc.Namespace, podSpec, initPtr, storageConfig)
 	return nil
+}
+
+// resolveStorageContainer returns the ClusterStorageContainer named in
+// spec.storageInitializer.storageContainerName, after checking that it is enabled, runs
+// as an init container and supports every given URI. It returns nil when no name is
+// set. A ClusterStorageContainer that cannot be used is an error, recorded as a Warning
+// event, rather than a silent fallback to the default storage-initializer.
+func (r *LLMISVCReconciler) resolveStorageContainer(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, uris ...string) (*v1alpha1.StorageContainerSpec, error) {
+	if llmSvc.Spec.StorageInitializer == nil {
+		return nil, nil
+	}
+	name := ptr.Deref(llmSvc.Spec.StorageInitializer.StorageContainerName, "")
+	if name == "" {
+		return nil, nil
+	}
+	var storageContainer *v1alpha1.StorageContainerSpec
+	for _, uri := range uris {
+		spec, err := pod.GetStorageContainerSpecByName(ctx, name, uri, r.Client)
+		if err != nil {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "StorageContainerNotResolved",
+				"Cannot use ClusterStorageContainer %q for the storage-initializer: %v", name, err)
+			return nil, err
+		}
+		storageContainer = spec
+	}
+	// More than one download goes to the initializer as several URI/path pairs, which a
+	// single-model downloader cannot take. The pod webhook rejects such containers for
+	// InferenceService too.
+	if len(uris) > 1 && !ptr.Deref(storageContainer.SupportsMultiModelDownload, false) {
+		err := fmt.Errorf("ClusterStorageContainer %q does not support multi-model download, needed for %d downloads", name, len(uris))
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "StorageContainerNotResolved",
+			"Cannot use ClusterStorageContainer %q for the storage-initializer: %v", name, err)
+		return nil, err
+	}
+	return storageContainer, nil
+}
+
+// applyStorageContainer merges the container of a ClusterStorageContainer into the
+// storage-initializer built from the default configuration, as the InferenceService pod
+// webhook does. The controller keeps the name, arguments and command, because they
+// carry the URIs to download. A nil storageContainer returns initContainer unchanged.
+func applyStorageContainer(initContainer *corev1.Container, storageContainer *v1alpha1.StorageContainerSpec) (*corev1.Container, error) {
+	if storageContainer == nil {
+		return initContainer, nil
+	}
+	merged, err := utils.MergeContainerWithPatch(*initContainer, storageContainer.Container)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge ClusterStorageContainer into storage-initializer: %w", err)
+	}
+	merged.Name = initContainer.Name
+	merged.Args = initContainer.Args
+	merged.Command = initContainer.Command
+	return &merged, nil
 }
 
 // caBundleConfig holds the configuration for CA bundle injection

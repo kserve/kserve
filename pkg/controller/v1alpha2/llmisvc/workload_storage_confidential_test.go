@@ -117,6 +117,7 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 				},
 			}
 			err := r.attachStorageInitializer(
+				t.Context(),
 				llmSvc,
 				"s3://bucket/model",
 				curr,
