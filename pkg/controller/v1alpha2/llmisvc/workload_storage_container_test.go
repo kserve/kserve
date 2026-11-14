@@ -251,21 +251,41 @@ func TestAttachMultiStorageDownloadsWithStorageContainer(t *testing.T) {
 		{uri: "s3://adapters/b", path: "/mnt/models/lora/b"},
 	}
 
+	multiModel := func(v *bool) func(*v1alpha1.ClusterStorageContainer) {
+		return func(c *v1alpha1.ClusterStorageContainer) { c.Spec.SupportsMultiModelDownload = v }
+	}
+
 	tests := []struct {
 		name    string
 		csc     *v1alpha1.ClusterStorageContainer
+		pairs   []storageDownloadPair
 		wantErr string
 	}{
 		{
-			name: "csc supporting every uri is applied",
-			csc:  testClusterStorageContainer(),
+			name: "csc supporting every uri and multi-model download is applied",
+			csc:  testClusterStorageContainer(multiModel(ptr.To(true))),
 		},
 		{
 			name: "csc missing an adapter scheme is rejected",
-			csc: testClusterStorageContainer(func(c *v1alpha1.ClusterStorageContainer) {
+			csc: testClusterStorageContainer(multiModel(ptr.To(true)), func(c *v1alpha1.ClusterStorageContainer) {
 				c.Spec.SupportedUriFormats = []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}}
 			}),
 			wantErr: `does not support storageUri "hf://org/adapter-a"`,
+		},
+		{
+			name:    "csc not declaring multi-model download is rejected for several downloads",
+			csc:     testClusterStorageContainer(),
+			wantErr: "does not support multi-model download",
+		},
+		{
+			name:    "csc declaring single-model download is rejected for several downloads",
+			csc:     testClusterStorageContainer(multiModel(ptr.To(false))),
+			wantErr: "does not support multi-model download",
+		},
+		{
+			name:  "single-model csc is applied when there is only one download",
+			csc:   testClusterStorageContainer(multiModel(ptr.To(false))),
+			pairs: pairs[1:2],
 		},
 	}
 
@@ -276,7 +296,11 @@ func TestAttachMultiStorageDownloadsWithStorageContainer(t *testing.T) {
 			sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"}}
 			podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
 
-			err := r.attachMultiStorageDownloads(t.Context(), sa, storageContainerTestLLMSvc(ptr.To(testCSCName)), corev1.PodSpec{}, podSpec, storageContainerTestConfig(), &credentials.CredentialConfig{}, "main", pairs)
+			downloads := pairs
+			if tt.pairs != nil {
+				downloads = tt.pairs
+			}
+			err := r.attachMultiStorageDownloads(t.Context(), sa, storageContainerTestLLMSvc(ptr.To(testCSCName)), corev1.PodSpec{}, podSpec, storageContainerTestConfig(), &credentials.CredentialConfig{}, "main", downloads)
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -288,11 +312,11 @@ func TestAttachMultiStorageDownloadsWithStorageContainer(t *testing.T) {
 			initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
 			require.NotNil(t, initContainer)
 			require.Equal(t, testCSCImage, initContainer.Image)
-			require.Equal(t, []string{
-				"s3://models/llama", constants.DefaultModelLocalMountPath,
-				"hf://org/adapter-a", "/mnt/models/lora/a",
-				"s3://adapters/b", "/mnt/models/lora/b",
-			}, initContainer.Args)
+			wantArgs := make([]string, 0, len(downloads)*2)
+			for _, d := range downloads {
+				wantArgs = append(wantArgs, d.uri, d.path)
+			}
+			require.Equal(t, wantArgs, initContainer.Args)
 			require.Contains(t, initContainer.Env, corev1.EnvVar{Name: "CUSTOM_CA_BUNDLE", Value: "/etc/ssl/internal/ca.pem"})
 		})
 	}
