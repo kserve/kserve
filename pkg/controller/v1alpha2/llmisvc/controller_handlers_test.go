@@ -405,6 +405,80 @@ func TestRequestsForSchedulerConfigMapChangeDoesNotCreateValidationProbe(t *test
 	g.Expect(createCalls).To(BeZero(), "watch-matching must not issue dry-run validation creates")
 }
 
+func TestRequestsForLegacySchedulerConfigMapChange(t *testing.T) {
+	g := NewGomegaWithT(t)
+	scheme := newControllerHandlersScheme(t)
+
+	const (
+		namespace     = "routing"
+		configMapName = "epp-gates"
+	)
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model:  v1alpha2.LLMModelSpec{Name: ptr.To("test-model")},
+			Router: &v1alpha2.RouterSpec{Scheduler: &v1alpha2.SchedulerSpec{}},
+		},
+	}
+	schedulerCfg := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configRouterSchedulerName, Namespace: constants.KServeNamespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Annotations: map[string]string{"app.kubernetes.io/version": "0.10.0"},
+					Template:    &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}},
+				},
+			},
+		},
+	}
+	epp := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configRouterSchedulerDefaultEPPConfigName, Namespace: constants.KServeNamespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Ref: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+							Key:                  "epp",
+						},
+					},
+				},
+			},
+		},
+	}
+	template := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configTemplateName, Namespace: constants.KServeNamespace},
+	}
+	schedulerConfig := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName, Namespace: namespace},
+		Data:       map[string]string{"epp": "featureGates:\n- flowControl\n"},
+	}
+	fakeClient := clientfake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(llmSvc, schedulerCfg, epp, template, schedulerConfig).
+		Build()
+	reconciler := &LLMISVCReconciler{
+		Client:    fakeClient,
+		Clientset: kubefake.NewSimpleClientset(testInferenceServiceConfigMap()),
+	}
+
+	reqs := enqueueRequestsForObject(
+		reconciler.enqueueOnConfigMapChange(logr.Discard()),
+		schedulerConfig,
+	)
+
+	g.Expect(reqs).To(ConsistOf(reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: namespace, Name: llmSvc.Name},
+	}))
+
+	other := schedulerConfig.DeepCopy()
+	other.Name = "unrelated"
+	g.Expect(enqueueRequestsForObject(
+		reconciler.enqueueOnConfigMapChange(logr.Discard()),
+		other,
+	)).To(BeEmpty())
+}
+
 func TestInferenceServiceConfigMapPredicateOnlyAcceptsConfigChanges(t *testing.T) {
 	g := NewGomegaWithT(t)
 

@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -524,9 +525,11 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				)
 			}
 
-			mainContainer.Args = append(mainContainer.Args,
-				preserveSchedulerConfig(llmSvc, curr)...,
-			)
+			schedulerConfigArgs, err := r.overlayLegacyEPPFeatureGates(ctx, llmSvc, preserveSchedulerConfig(llmSvc, curr))
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply scheduler feature gates from the referenced EndpointPicker config: %w", err)
+			}
+			mainContainer.Args = append(mainContainer.Args, schedulerConfigArgs...)
 
 			// Inject tracing instrumentation when spec.tracing is set
 			injectSchedulerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), mainContainer)
@@ -745,6 +748,224 @@ func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.
 	}
 
 	return []string{"--config-text", schedulerConfigText(llmSvc)}
+}
+
+// overlayLegacyEPPFeatureGates copies featureGates and flowControl from the
+// referenced EndpointPicker LLMInferenceServiceConfig onto controller-owned
+// --config-text.
+//
+// Routers older than routerPresetMinVersion keep the legacy plugin document
+// from schedulerConfigText. preserveSchedulerConfig then reuses that text from
+// the running Deployment, so a later edit to the referenced config never
+// arrives. The 0.10 scheduler already understands featureGates and leaves
+// flow control off until flowControl is listed, so those fields are copied
+// onto the legacy document. The plugin list is left alone. Router versions
+// that run the preset already receive the whole inline document.
+func (r *LLMISVCReconciler) overlayLegacyEPPFeatureGates(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, args []string) ([]string, error) {
+	if len(args) != 2 {
+		return args, nil
+	}
+	if _, ok := inlineConfigTextFlags[args[0]]; !ok {
+		return args, nil
+	}
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+		return args, nil
+	}
+	// A preset or an explicit inline config already owns the document.
+	if llmSvc.Spec.Router.Scheduler.Config != nil || hasMainContainerConfigFlag(llmSvc.Spec) {
+		return args, nil
+	}
+	if routerVersionSupportsPreset(ctx, &v1alpha2.LLMInferenceServiceConfig{Spec: llmSvc.Spec}) {
+		return args, nil
+	}
+
+	configName := defaultEPPConfigName(llmSvc, llmSvc.Spec)
+	cfg, err := r.getConfig(ctx, llmSvc, configName)
+	if err != nil {
+		var missing *configNotFoundError
+		if errors.As(err, &missing) {
+			return args, nil
+		}
+		return nil, err
+	}
+	var spec *v1alpha2.SchedulerConfigSpec
+	if cfg.Spec.Router != nil && cfg.Spec.Router.Scheduler != nil {
+		spec = cfg.Spec.Router.Scheduler.Config
+	}
+	raw, read, err := r.schedulerConfigDocument(ctx, llmSvc, spec)
+	if err != nil {
+		return nil, err
+	}
+	// Config.Ref was not read. Leave the saved document alone so a missing
+	// ConfigMap is not treated as "no gates" and used to clear flowControl.
+	if !read {
+		log.FromContext(ctx).Info("Skipping feature gate overlay; referenced scheduler ConfigMap was not read", "config", configName)
+		return args, nil
+	}
+	var gates []any
+	var flowControl map[string]any
+	if len(raw) > 0 {
+		var parsed bool
+		gates, flowControl, parsed = endpointPickerFeatureGateFields(raw)
+		if !parsed {
+			log.FromContext(ctx).Info("Skipping feature gate overlay; referenced EndpointPicker config is not a YAML object", "config", configName)
+			return args, nil
+		}
+	}
+	updated, changed, err := mergeFeatureGateFields(args[1], gates, flowControl)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Skipping feature gate overlay; scheduler config text is not a YAML object", "config", configName)
+		return args, nil
+	}
+	if !changed {
+		return args, nil
+	}
+	log.FromContext(ctx).Info("Applied feature gates from the referenced EndpointPicker config onto the scheduler deployment", "config", configName)
+	return []string{args[0], updated}, nil
+}
+
+// schedulerConfigDocument returns the EndpointPickerConfig YAML carried by spec.
+// read is false when spec.Ref names a ConfigMap that was not read; the caller
+// must then keep the scheduler document it already saved. A nil spec, or a spec
+// with neither inline text nor a ref, is an empty document and clears gates.
+func (r *LLMISVCReconciler) schedulerConfigDocument(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, spec *v1alpha2.SchedulerConfigSpec) ([]byte, bool, error) {
+	if spec == nil {
+		return nil, true, nil
+	}
+	if spec.Ref != nil {
+		return r.readSchedulerConfigRef(ctx, llmSvc, spec.Ref)
+	}
+	if spec.Inline != nil {
+		return spec.Inline.Raw, true, nil
+	}
+	return nil, true, nil
+}
+
+// readSchedulerConfigRef loads the ConfigMap key selected by ref. The lookup
+// matches combineBaseRefsConfig: the service namespace first, then the KServe
+// namespace for the well-known config-scheduler-* names. A missing ConfigMap or
+// key is "not read", not an empty document.
+func (r *LLMISVCReconciler) readSchedulerConfigRef(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, ref *corev1.ConfigMapKeySelector) ([]byte, bool, error) {
+	cm, found, err := r.getSchedulerConfigMap(ctx, llmSvc, ref.Name)
+	if err != nil || !found {
+		return nil, false, err
+	}
+	key := ref.Key
+	if key == "" {
+		key = "epp"
+	}
+	raw, ok := cm.Data[key]
+	if !ok {
+		return nil, false, nil
+	}
+	return []byte(raw), true, nil
+}
+
+func (r *LLMISVCReconciler) getSchedulerConfigMap(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, name string) (*corev1.ConfigMap, bool, error) {
+	opts := []GetOption[*corev1.ConfigMap]{}
+	if r.Clientset != nil {
+		opts = append(opts, WithGetFallbackAPIServerConfigMap(r.Clientset))
+	}
+	cm, err := Get(ctx, r.Client, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: name}, &corev1.ConfigMap{}, opts...)
+	if err == nil {
+		return cm, true, nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return nil, false, err
+	}
+	if !strings.HasPrefix(name, "config-scheduler-") {
+		return nil, false, nil
+	}
+	cm, err = Get(ctx, r.Client, client.ObjectKey{Namespace: constants.KServeNamespace, Name: name}, &corev1.ConfigMap{}, opts...)
+	if apierrors.IsNotFound(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return cm, true, nil
+}
+
+// endpointPickerFeatureGateFields reads featureGates and flowControl from an
+// EndpointPickerConfig document. Plugin lists are ignored so a legacy scheduler
+// is not switched onto the preset plugin set. An empty or absent field is
+// returned as empty so a removed gate can be cleared. ok is false only when
+// the document is not a YAML object.
+func endpointPickerFeatureGateFields(raw []byte) (gates []any, flowControl map[string]any, ok bool) {
+	if len(raw) == 0 {
+		return nil, nil, true
+	}
+	doc := map[string]any{}
+	if err := yaml.Unmarshal(raw, &doc); err != nil || len(doc) == 0 {
+		return nil, nil, false
+	}
+	if g, found := doc["featureGates"]; found {
+		if list, isList := g.([]any); isList {
+			gates = list
+		}
+	}
+	if fc, found := doc["flowControl"]; found {
+		if section, isMap := fc.(map[string]any); isMap {
+			flowControl = section
+		}
+	}
+	return gates, flowControl, true
+}
+
+// mergeFeatureGateFields sets featureGates and flowControl on a
+// controller-owned EndpointPickerConfig, including clearing them when the
+// referenced config no longer sets them. It reports whether the document
+// changed so an already-matching document is not rewritten every reconcile.
+func mergeFeatureGateFields(configYAML string, gates []any, flowControl map[string]any) (string, bool, error) {
+	doc := map[string]any{}
+	if err := yaml.Unmarshal([]byte(configYAML), &doc); err != nil {
+		return "", false, err
+	}
+	changed := false
+	if !featureGateValueEqual(doc["featureGates"], gates) {
+		if featureGateValueEmpty(gates) {
+			delete(doc, "featureGates")
+		} else {
+			doc["featureGates"] = gates
+		}
+		changed = true
+	}
+	if !featureGateValueEqual(doc["flowControl"], flowControl) {
+		if featureGateValueEmpty(flowControl) {
+			delete(doc, "flowControl")
+		} else {
+			doc["flowControl"] = flowControl
+		}
+		changed = true
+	}
+	if !changed {
+		return configYAML, false, nil
+	}
+	out, err := yaml.Marshal(doc)
+	if err != nil {
+		return "", false, err
+	}
+	return string(out), true, nil
+}
+
+func featureGateValueEmpty(v any) bool {
+	switch t := v.(type) {
+	case nil:
+		return true
+	case []any:
+		return len(t) == 0
+	case map[string]any:
+		return len(t) == 0
+	default:
+		return false
+	}
+}
+
+func featureGateValueEqual(current, desired any) bool {
+	if featureGateValueEmpty(current) && featureGateValueEmpty(desired) {
+		return true
+	}
+	return equality.Semantic.DeepEqual(current, desired)
 }
 
 // configFlagFromContainers scans the "main" container for a config flag and
