@@ -704,6 +704,55 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 	}
 }
 
+func TestIsMemoryResourceAvailableForCustomPredictor(t *testing.T) {
+	totalReqMemory := resource.MustParse("1Gi")
+	memoryLimit := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")},
+	}
+
+	// A custom predictor is looked up by the name kserve-container, so GetContainer returns nil without it.
+	scenarios := map[string]struct {
+		containers []corev1.Container
+		expected   bool
+	}{
+		"KServeContainerWithEnoughMemory": {
+			containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName, Resources: memoryLimit},
+			},
+			expected: true,
+		},
+		"LeadingTransformerWithoutKServeContainer": {
+			containers: []corev1.Container{
+				{Name: constants.TransformerContainerName},
+				{Name: "predictor", Resources: memoryLimit},
+			},
+			expected: false,
+		},
+		"NoKServeContainer": {
+			containers: []corev1.Container{
+				{Name: "predictor", Resources: memoryLimit},
+				{Name: "sidecar"},
+			},
+			expected: false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			isvc := InferenceService{
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{Containers: scenario.containers},
+					},
+				},
+			}
+
+			g.Expect(IsMemoryResourceAvailable(&isvc, totalReqMemory)).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
 func TestMergeRuntimeContainers(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
