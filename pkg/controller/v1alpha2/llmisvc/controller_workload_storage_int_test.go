@@ -1396,6 +1396,141 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		})
 	})
 
+	Context("ClusterStorageContainer", func() {
+		newClusterStorageContainer := func(name string) *v1alpha1.ClusterStorageContainer {
+			return &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{Name: name},
+				Spec: v1alpha1.StorageContainerSpec{
+					Container: corev1.Container{
+						Name:  "storage-initializer",
+						Image: "ghcr.io/example/hardened-storage-initializer:v1",
+						Env:   []corev1.EnvVar{{Name: "CUSTOM_CA_BUNDLE", Value: "/etc/ssl/internal/ca.pem"}},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("100m"),
+								corev1.ResourceMemory: resource.MustParse("200Mi"),
+							},
+						},
+					},
+					SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},
+					WorkloadType:        v1alpha1.InitContainer,
+				},
+			}
+		}
+
+		newLLMSvc := func(name, namespace, storageContainerName string, withPrefill bool) *v1alpha2.LLMInferenceService {
+			modelURL, err := apis.ParseURL("s3://models/llama-3.1-8b-instruct")
+			Expect(err).ToNot(HaveOccurred())
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("foo"), URI: *modelURL},
+					StorageInitializer: &v1alpha2.StorageInitializerSpec{
+						StorageContainerName: ptr.To(storageContainerName),
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+				},
+			}
+			if withPrefill {
+				llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
+			}
+			return llmSvc
+		}
+
+		It("should build the storage-initializer from the named ClusterStorageContainer", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-storage-csc"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			csc := newClusterStorageContainer("llmisvc-csc-applied")
+			Expect(envTest.Create(ctx, csc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, csc)).To(Succeed())
+			}()
+
+			llmSvc := newLLMSvc(svcName, testNs.Name, csc.Name, true)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			for _, deploymentName := range []string{svcName + "-kserve", svcName + "-kserve-prefill"} {
+				deployment := &appsv1.Deployment{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					return envTest.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: testNs.Name}, deployment)
+				}).WithContext(ctx).Should(Succeed())
+
+				validateStorageInitializerIsConfigured(deployment, "s3://models/llama-3.1-8b-instruct")
+				initContainer := utils.GetInitContainerWithName(&deployment.Spec.Template.Spec, constants.StorageInitializerContainerName)
+				Expect(initContainer).ToNot(BeNil())
+				Expect(initContainer.Image).To(Equal("ghcr.io/example/hardened-storage-initializer:v1"))
+				Expect(initContainer.Args).To(Equal([]string{"s3://models/llama-3.1-8b-instruct", constants.DefaultModelLocalMountPath}))
+				Expect(initContainer.Env).To(ContainElement(corev1.EnvVar{Name: "CUSTOM_CA_BUNDLE", Value: "/etc/ssl/internal/ca.pem"}))
+				Expect(initContainer.Resources.Requests.Memory().String()).To(Equal("200Mi"))
+			}
+		})
+
+		It("should report a missing ClusterStorageContainer and recover once it exists", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-storage-csc-missing"
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := newLLMSvc(svcName, testNs.Name, "llmisvc-csc-missing", false)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.MainWorkloadReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.IsFalse()).To(BeTrue())
+				g.Expect(cond.Reason).To(Equal("ReconcileSingleNodeWorkloadError"))
+				g.Expect(cond.Message).To(ContainSubstring(`ClusterStorageContainer "llmisvc-csc-missing" not found`))
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				events := &corev1.EventList{}
+				g.Expect(envTest.List(ctx, events, client.InNamespace(testNs.Name))).To(Succeed())
+				g.Expect(events.Items).To(ContainElement(And(
+					HaveField("Type", corev1.EventTypeWarning),
+					HaveField("Reason", "StorageContainerNotResolved"),
+					HaveField("InvolvedObject.Name", svcName),
+				)))
+			}).WithContext(ctx).Should(Succeed())
+
+			deployment := &appsv1.Deployment{}
+			Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}, deployment)).
+				ToNot(Succeed(), "no Deployment must be created with the default storage-initializer")
+
+			// when the ClusterStorageContainer is created, the retried reconcile picks it up
+			csc := newClusterStorageContainer("llmisvc-csc-missing")
+			Expect(envTest.Create(ctx, csc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, csc)).To(Succeed())
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}, deployment)).To(Succeed())
+				initContainer := utils.GetInitContainerWithName(&deployment.Spec.Template.Spec, constants.StorageInitializerContainerName)
+				g.Expect(initContainer).ToNot(BeNil())
+				g.Expect(initContainer.Image).To(Equal("ghcr.io/example/hardened-storage-initializer:v1"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
 	Context("Multi node", func() {
 		It("should configure direct PVC mount when model uri starts with pvc://", func(ctx SpecContext) {
 			// given
