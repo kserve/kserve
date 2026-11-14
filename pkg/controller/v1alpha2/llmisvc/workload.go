@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -149,7 +148,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	// Reconcile the KEDA ScaledObject when scaling is configured.
 	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
 	if err := r.reconcileScaling(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
-		if meta.IsNoMatchError(err) {
+		if ignoreMissing(r.Client, err) {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
 				"Required scaling CRD not installed: %v", err)
 			llmSvc.MarkMainWorkloadNotReady("ScalingCRDNotFound", err.Error())
@@ -292,7 +291,7 @@ func (r *LLMISVCReconciler) currentMainWorkloadRole(ctx context.Context, llmSvc 
 		lws := &lwsapi.LeaderWorkerSet{}
 		key := types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: mainLWSName(llmSvc)}
 		if err := r.Get(ctx, key, lws); err != nil {
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			if ignoreMissing(r.Client, err) {
 				return "", nil
 			}
 			return "", fmt.Errorf("failed to get current leader worker set %s: %w", key, err)
