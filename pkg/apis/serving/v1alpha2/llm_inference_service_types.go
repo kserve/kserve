@@ -397,6 +397,18 @@ type StorageInitializerSpec struct {
 	// Default: true (nil is treated as true for backward compatibility)
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
+
+	// StorageContainerName specifies the name of the ClusterStorageContainer to use
+	// for downloading model artifacts. When set, the container of this
+	// ClusterStorageContainer is merged into the storage-initializer, and the controller
+	// keeps setting its name, arguments and command. The ClusterStorageContainer must be
+	// enabled, use the initContainer workload type and support every URI the
+	// storage-initializer downloads, otherwise reconciliation fails.
+	// When unset, the default storage-initializer is used and no ClusterStorageContainer
+	// is matched by URI.
+	// This is similar to storageClassName on PersistentVolumeClaims.
+	// +optional
+	StorageContainerName *string `json:"storageContainerName,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.
