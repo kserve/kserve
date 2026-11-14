@@ -61,6 +61,15 @@ It supports the following storage providers:
     * `https://<some_url>.com/model.joblib`
     * `http://<some_url>.com/model.joblib`
 
+### Synchronous prediction diagnostics
+
+Inline synchronous prediction that occupies the serving event-loop thread for
+more than 100 ms emits a warning, limited to once per model instance every 60
+seconds. Configure or disable it with the `Model` constructor's
+`sync_predict_warning_threshold_ms` and `sync_predict_warning_interval_seconds`
+options. See the [diagnostic and execution-mode guide](../../docs/samples/sync-predict-diagnostics)
+for thread-safety guidance and limitations.
+
 ### Metrics
 
 For latency metrics, send a request to `/metrics`. Prometheus latency histograms are emitted for each of the steps (pre/postprocessing, explain, predict).
