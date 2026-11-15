@@ -329,6 +329,75 @@ func TestLLMISVCNamespaceCacheNames(t *testing.T) {
 	})
 }
 
+// A not-ready namespace cache yields to the cluster cache: an unbound workload
+// is never routed to a not-ready shared-PVC cache, and every reconciliation
+// that lists a cluster-scoped match must be able to serve it.
+func TestMatchCacheForURI_NamespaceCacheNotReadyFallsBackToClusterCache(t *testing.T) {
+	models := &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: "hf://org/model",
+				ModelSize:      resource.MustParse("1Gi"),
+				NodeGroups:     []string{"gpu1"},
+			},
+		}},
+	}
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{
+			importedSharedNSCache(),
+			sharedNSCache(false),
+		},
+	}
+
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, models, nsModels)
+	assert.NotNil(t, match)
+	assert.Equal(t, "cluster-cache", match.Cache)
+	assert.Empty(t, match.Namespace)
+	assert.Equal(t, "cluster-cache-gpu1", match.PVCName)
+}
+
+// A namespace cache that stopped matching the storage URI releases the
+// consumer's binding, so the consumer falls back to the cluster cache instead
+// of being pinned to a cache that no longer serves its model.
+func TestMatchCacheForURI_NamespaceCacheStoppedMatchingURIDropsBinding(t *testing.T) {
+	models := &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: "hf://org/model",
+				ModelSize:      resource.MustParse("1Gi"),
+				NodeGroups:     []string{"gpu1"},
+			},
+		}},
+	}
+	retargeted := sharedNSCache(true)
+	retargeted.Spec.SourceModelUri = "hf://org/other-model"
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{retargeted},
+	}
+
+	// The consumer is still bound to ns-cache, but the cache no longer matches.
+	match := MatchCacheForURI(
+		v1alpha1.LocalModelCacheSelection{
+			StorageURI:     "hf://org/model",
+			BoundCache:     "ns-cache",
+			BoundNamespace: "default",
+		}, models, nsModels)
+	assert.NotNil(t, match)
+	assert.Equal(t, "cluster-cache", match.Cache)
+	assert.Equal(t, "cluster-cache-gpu1", match.PVCName)
+
+	// With no cluster cache either, the binding is dropped and nothing matches.
+	match = MatchCacheForURI(
+		v1alpha1.LocalModelCacheSelection{
+			StorageURI:     "hf://org/model",
+			BoundCache:     "ns-cache",
+			BoundNamespace: "default",
+		}, nil, nsModels)
+	assert.Nil(t, match)
+}
+
 // nsCachePermutations returns every permutation of caches, so selection tests
 // can prove order-independence without a random number generator.
 func nsCachePermutations(items []v1alpha1.LocalModelNamespaceCache) [][]v1alpha1.LocalModelNamespaceCache {
