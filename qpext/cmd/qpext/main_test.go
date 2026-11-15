@@ -415,6 +415,56 @@ request_preprocess_seconds_count{model_name="custom-server-test",service_name="s
 	}
 }
 
+func TestHandleStatsProtobufFirstAccept(t *testing.T) {
+	setEnvVars(t)
+	queueProxyMetricName := "queue_proxy_metric"
+	counter := io_prometheus_client.MetricType_COUNTER
+	value := float64(1)
+	queueProxyMetric := &io_prometheus_client.MetricFamily{
+		Name: &queueProxyMetricName,
+		Type: &counter,
+		Metric: []*io_prometheus_client.Metric{
+			{Counter: &io_prometheus_client.Counter{Value: &value}},
+		},
+	}
+	appMetric := `# TYPE my_metric counter
+my_metric{} 0
+`
+	protobufFirstAccept := "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.5,text/plain;version=0.0.4;q=0.1"
+
+	zapLogger := logger.InitializeLogger()
+	// the queue proxy negotiates its format from the Accept header, like a promhttp handler
+	qp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		format := expfmt.Negotiate(r.Header)
+		w.Header().Set("Content-Type", string(format))
+		assert.NoError(t, expfmt.NewEncoder(w, format).Encode(queueProxyMetric))
+	}))
+	defer qp.Close()
+
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, err := w.Write([]byte(appMetric))
+		assert.NoError(t, err)
+	}))
+	defer app.Close()
+
+	psc := &ScrapeConfigurations{
+		logger:         zapLogger,
+		QueueProxyPort: strings.Split(qp.URL, ":")[2],
+		AppPort:        strings.Split(app.URL, ":")[2],
+	}
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req.Header.Set("Accept", protobufFirstAccept)
+	rec := httptest.NewRecorder()
+	psc.handleStats(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	parser := expfmt.NewTextParser(model.LegacyValidation)
+	mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+	assert.NoErrorf(t, err, "failed to parse metrics: %v", err)
+	assert.Contains(t, mfMap, queueProxyMetricName)
+	assert.Contains(t, mfMap, "my_metric")
+}
+
 func TestHandleStatsErr(t *testing.T) {
 	zapLogger := logger.InitializeLogger()
 	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
