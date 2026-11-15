@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,6 +87,20 @@ var _ = Describe("Inference Graph controller test", func() {
 	}
 
 	expectedReadinessProbe := constants.GetRouterReadinessProbe()
+
+	// expectKnServiceSpec compares the stored knative service against expected after a dry-run update
+	// fills in the API server defaults. The controller can still write the service after the test first
+	// reads it, so each attempt re-reads it and a resourceVersion conflict retries instead of failing.
+	expectKnServiceSpec := func(ctx context.Context, key types.NamespacedName, expected *knservingv1.Service) {
+		Eventually(func(g Gomega) {
+			actual := &knservingv1.Service{}
+			g.Expect(k8sClient.Get(ctx, key, actual)).To(Succeed())
+			dryRun := expected.DeepCopy()
+			dryRun.ResourceVersion = actual.ResourceVersion
+			g.Expect(k8sClient.Update(ctx, dryRun, client.DryRunAll)).To(Succeed())
+			g.Expect(actual.Spec).To(BeComparableTo(dryRun.Spec))
+		}, timeout, interval).Should(Succeed())
+	}
 
 	Context("with knative configured to not allow zero initial scale", func() {
 		When("a Knative InferenceGraph is created with an initial scale annotation and value of zero", func() {
@@ -574,14 +587,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -713,14 +719,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -889,14 +888,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -1812,14 +1804,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(actualKnServiceCreated.Spec).To(BeComparableTo(expectedKnService.Spec))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 })
