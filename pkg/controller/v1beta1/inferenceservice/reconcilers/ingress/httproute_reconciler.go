@@ -49,8 +49,23 @@ const (
 
 var DefaultTimeout = toGatewayAPIDuration(60)
 
-func pathHTTPRouteName(isvcName string) string {
-	return isvcName + "-path"
+func pathHTTPRouteName(namespace, isvcName string) string {
+	identity := namespace + "/" + isvcName
+	return utils.SafeObjectName(fmt.Sprintf("%s-path-%s", isvcName, utils.ShortHash(identity)))
+}
+
+func ensureHTTPRouteControlledBy(httpRoute *gwapiv1.HTTPRoute, isvc *v1beta1.InferenceService) error {
+	controller := metav1.GetControllerOf(httpRoute)
+	if controller == nil || controller.UID != isvc.UID {
+		return fmt.Errorf(
+			"HTTPRoute %s/%s is not controlled by InferenceService %s/%s",
+			httpRoute.Namespace,
+			httpRoute.Name,
+			isvc.Namespace,
+			isvc.Name,
+		)
+	}
+	return nil
 }
 
 type RawHTTPRouteReconciler struct {
@@ -600,7 +615,7 @@ func createRawPathHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1bet
 	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	httpRoute := gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        pathHTTPRouteName(isvc.Name),
+			Name:        pathHTTPRouteName(isvc.Namespace, isvc.Name),
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
@@ -1067,7 +1082,7 @@ func (r *RawHTTPRouteReconciler) reconcilePathHTTPRoute(ctx context.Context, isv
 		return err
 	}
 
-	httpRouteName := pathHTTPRouteName(isvc.Name)
+	httpRouteName := pathHTTPRouteName(isvc.Namespace, isvc.Name)
 	existingHTTPRoute := &gwapiv1.HTTPRoute{}
 	getExistingErr := r.client.Get(ctx, types.NamespacedName{
 		Namespace: isvc.Namespace,
@@ -1079,16 +1094,23 @@ func (r *RawHTTPRouteReconciler) reconcilePathHTTPRoute(ctx context.Context, isv
 	}
 
 	forceStopRuntime := utils.GetForceStopRuntime(isvc)
-	if desired == nil || forceStopRuntime {
+	deletePathRoute := r.ingressConfig.PathTemplate == "" || forceStopRuntime
+	if deletePathRoute {
 		if httpRouteIsNotFound {
 			return nil
 		}
-		if ctrl := metav1.GetControllerOf(existingHTTPRoute); ctrl != nil && ctrl.UID == isvc.UID {
-			log.Info("Deleting path HTTPRoute resource", "name", httpRouteName)
-			if err := r.client.Delete(ctx, existingHTTPRoute); err != nil {
-				return fmt.Errorf("failed to delete path HTTPRoute %s/%s: %w", isvc.Namespace, httpRouteName, err)
-			}
+		if err := ensureHTTPRouteControlledBy(existingHTTPRoute, isvc); err != nil {
+			return err
 		}
+		log.Info("Deleting path HTTPRoute resource", "name", httpRouteName)
+		if err := r.client.Delete(ctx, existingHTTPRoute); err != nil {
+			return fmt.Errorf("failed to delete path HTTPRoute %s/%s: %w", isvc.Namespace, httpRouteName, err)
+		}
+		return nil
+	}
+	// Keep the last valid route while a component is temporarily unready. The
+	// desired route is nil in that case, but path routing is still configured.
+	if desired == nil {
 		return nil
 	}
 
@@ -1101,6 +1123,9 @@ func (r *RawHTTPRouteReconciler) reconcilePathHTTPRoute(ctx context.Context, isv
 			return fmt.Errorf("failed to create path HTTPRoute: %w", err)
 		}
 		return nil
+	}
+	if err := ensureHTTPRouteControlledBy(existingHTTPRoute, isvc); err != nil {
+		return err
 	}
 
 	desired.ResourceVersion = existingHTTPRoute.ResourceVersion
@@ -1135,11 +1160,12 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 		return nil
 	}
 	if forceStopRuntime {
-		if ctrl := metav1.GetControllerOf(existingHttpRoute); ctrl != nil && ctrl.UID == isvc.UID {
-			log.Info("The InferenceService is marked as stopped — deleting its associated top level http route", "name", isvc.Name)
-			if err := r.client.Delete(ctx, existingHttpRoute); err != nil {
-				return fmt.Errorf("failed to delete HTTPRoute %s/%s: %w", desired.Namespace, desired.Name, err)
-			}
+		if err := ensureHTTPRouteControlledBy(existingHttpRoute, isvc); err != nil {
+			return err
+		}
+		log.Info("The InferenceService is marked as stopped — deleting its associated top level http route", "name", isvc.Name)
+		if err := r.client.Delete(ctx, existingHttpRoute); err != nil {
+			return fmt.Errorf("failed to delete HTTPRoute %s/%s: %w", existingHttpRoute.Namespace, existingHttpRoute.Name, err)
 		}
 		return nil
 	}
@@ -1161,6 +1187,9 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 			return fmt.Errorf("failed to create top level HttpRoute: %w", err)
 		}
 		return nil
+	}
+	if err := ensureHTTPRouteControlledBy(existingHttpRoute, isvc); err != nil {
+		return err
 	}
 
 	// Set ResourceVersion which is required for update operation.
@@ -1214,7 +1243,7 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 	})
 	if r.ingressConfig.PathTemplate != "" {
 		checks = append(checks, httpRouteCheck{
-			name:      pathHTTPRouteName(isvc.Name),
+			name:      pathHTTPRouteName(isvc.Namespace, isvc.Name),
 			component: "Path",
 		})
 	}
