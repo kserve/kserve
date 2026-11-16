@@ -19,7 +19,14 @@ import numpy as np
 import pytest
 import pytest_asyncio
 
-from kserve import InferenceRESTClient, InferRequest, InferInput
+from kserve import (
+    InferenceRESTClient,
+    InferRequest,
+    InferInput,
+    InferOutput,
+    InferResponse,
+    Model,
+)
 from kserve.model_server import app as kserve_app
 from kserve.errors import UnsupportedProtocol
 from kserve.inference_client import RESTConfig
@@ -49,6 +56,42 @@ class TestInferenceRESTClient:
         client = InferenceRESTClient(config=config)
         yield client
         await client.close()
+
+    @pytest.mark.parametrize("rest_client", ["v2"], indirect=["rest_client"])
+    async def test_infer_with_non_utf8_binary_bytes(self, rest_client, server):
+        class BytesEchoModel(Model):
+            def predict(self, request, headers=None):
+                output = InferOutput(name="bytes", shape=[2, 2], datatype="BYTES")
+                output.set_data_from_numpy(request.inputs[0].as_numpy())
+                return InferResponse(
+                    response_id=request.id,
+                    model_name=self.name,
+                    infer_outputs=[output],
+                    requested_outputs=request.request_outputs,
+                )
+
+        model = BytesEchoModel("BytesEchoModel")
+        model.ready = True
+        server.register_model(model)
+        data = np.array(
+            [[b"text", b"\xff\xd8\xff\xe0\x00JFIF"], [b"\x00", b""]], dtype=np.object_
+        )
+        input_tensor = InferInput(name="bytes", shape=[2, 2], datatype="BYTES")
+        input_tensor.set_data_from_numpy(data)
+        request = InferRequest(
+            model_name=model.name,
+            infer_inputs=[input_tensor],
+            request_outputs=[
+                RequestedOutput(name="bytes", parameters={"binary_data": True})
+            ],
+        )
+        try:
+            response = await rest_client.infer(
+                "http://test-server", model_name=model.name, data=request
+            )
+            np.testing.assert_array_equal(response.outputs[0].as_numpy(), data)
+        finally:
+            await server.model_repository_extension.unload(model.name)
 
     @pytest.mark.parametrize(
         "rest_client, protocol", [("v1", "v1"), ("v2", "v2")], indirect=["rest_client"]

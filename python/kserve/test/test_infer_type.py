@@ -19,7 +19,7 @@ import pytest
 from orjson import orjson
 
 from kserve import InferRequest, InferInput, InferResponse, InferOutput
-from kserve.errors import InvalidInput
+from kserve.errors import InferenceError, InvalidInput
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
     ModelInferRequest,
     InferParameter,
@@ -35,6 +35,75 @@ from kserve.protocol.rest.v2_datamodels import (
     RequestInput,
     RequestOutput,
 )
+
+
+@pytest.mark.parametrize("message_type", [InferRequest, InferResponse])
+@pytest.mark.parametrize(
+    "values,shape",
+    [
+        ([b"\xff\xd8\xff\xe0\x00JFIF"], [1]),
+        ([b"text", b"\xff\x00", b"", b"\x00"], [2, 2]),
+        ([bytes(range(256))], [1]),
+    ],
+)
+def test_from_bytes_preserves_non_utf8_binary_bytes(message_type, values, shape):
+    tensor_type = InferInput if message_type is InferRequest else InferOutput
+    data = np.array(values, dtype=np.object_).reshape(shape)
+    binary_tensor = tensor_type(
+        name="bytes", shape=shape, datatype="BYTES", parameters={"custom": "value"}
+    )
+    binary_tensor.set_data_from_numpy(data, binary_data=True)
+    numeric_tensor = tensor_type(name="numeric", shape=[2], datatype="INT32")
+    numeric_tensor.set_data_from_numpy(np.array([12, 34], dtype=np.int32))
+    tensors = [
+        tensor_type(name="json", shape=[1], datatype="INT32", data=[56]),
+        binary_tensor,
+        numeric_tensor,
+    ]
+
+    def decode(payload, json_length):
+        if message_type is InferRequest:
+            return InferRequest.from_bytes(payload, json_length, "test_model")
+        return InferResponse.from_bytes(payload, json_length)
+
+    if message_type is InferRequest:
+        message = InferRequest(model_name="test_model", infer_inputs=tensors)
+    else:
+        message = InferResponse(
+            response_id="test",
+            model_name="test_model",
+            infer_outputs=tensors,
+            requested_outputs=[
+                RequestedOutput(name="json", parameters={"binary_data": False}),
+                RequestedOutput(name="bytes", parameters={"binary_data": True}),
+                RequestedOutput(name="numeric", parameters={"binary_data": True}),
+            ],
+        )
+    restored = decode(*message.to_rest())
+    if message_type is InferResponse:
+        restored.outputs[1]._name = "renamed_bytes"
+        restored.outputs.append(
+            InferOutput(name="extra", shape=[1], datatype="INT32", data=[78])
+        )
+    for _ in range(2):
+        restored_tensors = (
+            restored.inputs if message_type is InferRequest else restored.outputs
+        )
+        assert restored_tensors[0].data == [56]
+        assert restored_tensors[1].data is None
+        assert restored_tensors[1]._raw_data == binary_tensor._raw_data
+        assert restored_tensors[1].parameters == binary_tensor.parameters
+        np.testing.assert_array_equal(restored_tensors[1].as_numpy(), data)
+        assert restored_tensors[2].data == [12, 34]
+        payload, json_length = restored.to_rest()
+        tensor_key = "inputs" if message_type is InferRequest else "outputs"
+        wire_tensors = orjson.loads(payload[:json_length])[tensor_key]
+        assert wire_tensors[0]["data"] == [56]
+        assert wire_tensors[2]["data"] == [12, 34]
+        if message_type is InferResponse:
+            assert wire_tensors[1]["name"] == "renamed_bytes"
+            assert wire_tensors[3]["data"] == [78]
+        restored = decode(payload, json_length)
 
 
 class TestInferRequest:
@@ -623,6 +692,20 @@ class TestInferRequest:
 
 
 class TestInferResponse:
+    def test_non_utf8_bytes_with_explicit_json_output(self):
+        output = InferOutput(name="bytes", shape=[1], datatype="BYTES")
+        output.set_data_from_numpy(np.array([b"\xff"], dtype=np.object_))
+        response = InferResponse(
+            response_id="test",
+            model_name="test_model",
+            infer_outputs=[output],
+            requested_outputs=[
+                RequestedOutput(name="bytes", parameters={"binary_data": False})
+            ],
+        )
+        with pytest.raises(InferenceError, match="Please use binary_data=True"):
+            response.to_rest()
+
     def test_to_grpc(self):
         infer_res = InferResponse(
             model_name="TestModel",

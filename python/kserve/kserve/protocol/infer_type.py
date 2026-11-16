@@ -110,6 +110,19 @@ def deserialize_bytes_tensor(encoded_tensor: bytes) -> np.ndarray:
     return np.array(strs, dtype=np.object_)
 
 
+def _set_data_from_binary(tensor: Union["InferInput", "InferOutput"]):
+    data = tensor.as_numpy()
+    if tensor.datatype == "BYTES":
+        try:
+            for value in data.flat:
+                value.decode("utf-8")
+        except UnicodeDecodeError:
+            # Arbitrary BYTES must retain their binary representation. Check
+            # before the JSON setter clears raw data and starts decoding it.
+            return
+    tensor.set_data_from_numpy(data, binary_data=False)
+
+
 class InferInput:
     _name: str
     _shape: List[int]
@@ -638,9 +651,7 @@ class InferRequest:
                     )
                 end_index = start_index + binary_data_size
                 infer_input._raw_data = req_bytes[start_index:end_index]
-                infer_input.set_data_from_numpy(
-                    infer_input.as_numpy(), binary_data=False
-                )
+                _set_data_from_binary(infer_input)
                 start_index = end_index
             else:
                 raise InvalidInput(
@@ -1307,9 +1318,7 @@ class InferResponse:
                 binary_data_size = parameters.get("binary_data_size")
                 end_index = start_index + binary_data_size
                 infer_output._raw_data = res_bytes[start_index:end_index]
-                infer_output.set_data_from_numpy(
-                    infer_output.as_numpy(), binary_data=False
-                )
+                _set_data_from_binary(infer_output)
                 start_index = end_index
             else:
                 infer_output_data = output.get("data", None)
@@ -1341,7 +1350,6 @@ class InferResponse:
         """
         infer_outputs = []
         raw_outputs = []
-        use_binary_data = self._use_binary_outputs
         outputs = self._requested_outputs if self._requested_outputs else self.outputs
 
         for output in outputs:
@@ -1350,12 +1358,20 @@ class InferResponse:
                 if self._requested_outputs
                 else output
             )
-            if self._requested_outputs:
-                use_binary_data = output.binary_data
             if infer_output is None:
                 raise InvalidInput(
                     f"Unexpected inference output '{output.name}' for model '{self.model_name}'"
                 )
+            use_binary_data = self._use_binary_outputs
+            if self._requested_outputs:
+                use_binary_data = output.binary_data
+            elif (
+                not use_binary_data
+                and infer_output.datatype == "BYTES"
+                and infer_output._raw_data is not None
+            ):
+                _set_data_from_binary(infer_output)
+                use_binary_data = infer_output._raw_data is not None
             if infer_output.data is None and infer_output._raw_data is None:
                 raise InvalidInput(
                     f"'data' field is missing for output '{infer_output.name}' for model '{self.model_name}'"
