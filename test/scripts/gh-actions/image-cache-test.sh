@@ -460,8 +460,9 @@ source_of() {
 }
 if [[ "$(source_of yes)" == cache ]]; then pass "verified tag is pulled by digest"; else fail "verified tag is pulled by digest"; fi
 
-# A registry timeout turns the cache off for the rest of the job: the next
-# image builds without another lookup. STALL is "lookup" or "pull".
+# A registry or attestations API timeout turns the cache off for the rest of
+# the job: the next image builds without another lookup. STALL is "lookup",
+# "verify" or "pull".
 stalled() {
   : >"${WORK}/lookups"
   STALL="$1" bash -c '
@@ -469,7 +470,11 @@ stalled() {
     source "$1/'"${LIB}"'"
     lookups="$2"
     _base_digest() { REPLY="sha256:stub-$1"; }
-    _attested() { return 0; }
+    if [[ "${STALL}" == verify ]]; then
+      gh() { return 124; }
+    else
+      _attested() { return 0; }
+    fi
     timeout() { while [[ "$1" == -* ]]; do shift 2; done; shift; "$@"; }
     docker() {
       local IFS=" "
@@ -489,7 +494,7 @@ stalled() {
   awk "{print \$4}" "${WORK}/stalled.out" | xargs
   rm -f "${WORK}/stalled.out"
 }
-for stall in lookup pull; do
+for stall in lookup verify pull; do
   got="$(stalled "${stall}") $(wc -l <"${WORK}/lookups")"
   if [[ "${got}" == "build build 1" ]]; then
     pass "a stalled ${stall} turns the cache off for the rest of the job"

@@ -391,9 +391,10 @@ ${bases}"
   printf 'image-cache: %s key %s\n%s' "${name}" "${IMAGE_KEY}" "${manifest}" | sed '2,$s/^/  /' >&2
 }
 
-# A registry that stalls once tends to stall again: after the first timeout
-# the rest of the job builds without the cache, so a stall costs one timeout
-# per job rather than one per image, and the job still has time to build.
+# A registry or the attestations API that stalls once tends to stall again:
+# after the first timeout the rest of the job builds without the cache, so a
+# stall costs one timeout per job rather than one per image, and the job still
+# has time to build.
 _image_cache_stalled() {
   _IMAGE_CACHE_STALLED=1
   echo "image-cache: $1 timed out, building the remaining images without the cache" >&2
@@ -431,8 +432,11 @@ _image_verified() {
   # The attestations API answers 5xx now and then; a retry is cheaper than the
   # build a miss costs.
   for _ in 1 2; do
-    if _attested "${pinned}" "${ref}" "${signer}" "${workflow}" 2>"${errors}"; then
-      rc=0
+    rc=0
+    _attested "${pinned}" "${ref}" "${signer}" "${workflow}" 2>"${errors}" || rc=$?
+    ((rc != 0)) || break
+    if ((rc == 124 || rc == 137)); then
+      _image_cache_stalled "verifying ${pinned}"
       break
     fi
     grep -q 'HTTP 5[0-9][0-9]' "${errors}" || break
@@ -449,12 +453,14 @@ _image_verified() {
 # workflow on master, on a GitHub-hosted runner, from one of its own triggers,
 # and a subject of exactly this tag and digest. Anyone with a write token can
 # attest a digest too; the limit keeps their attestations from crowding out
-# the publisher's.
+# the publisher's. Returns gh's status when gh fails, so that a timeout can be
+# told from a miss.
 _attested() {
-  local pinned=$1 ref=$2 signer=$3 workflow=$4
-  timeout -k 10 120 gh attestation verify "oci://${pinned}" --repo "${signer}" --signer-workflow "${workflow}" \
-    --source-ref refs/heads/master --deny-self-hosted-runners --limit 100 --format json |
-    jq -e --arg name "${ref}" --arg digest "${pinned##*@sha256:}" \
+  local pinned=$1 ref=$2 signer=$3 workflow=$4 out rc=0
+  out="$(timeout -k 10 120 gh attestation verify "oci://${pinned}" --repo "${signer}" --signer-workflow "${workflow}" \
+    --source-ref refs/heads/master --deny-self-hosted-runners --limit 100 --format json)" || rc=$?
+  ((rc == 0)) || return "${rc}"
+  jq -e --arg name "${ref}" --arg digest "${pinned##*@sha256:}" \
       --arg san "https://github.com/${workflow}" --arg repo "https://github.com/${signer}" '
       any(.[].verificationResult
         | select(.signature.certificate as $c
@@ -462,7 +468,7 @@ _attested() {
             and $c.sourceRepositoryURI == $repo and $c.runnerEnvironment == "github-hosted"
             and ($c.githubWorkflowTrigger | IN("push", "schedule", "workflow_dispatch")))
         | .statement.subject[];
-        .name == $name and .digest.sha256 == $digest)' >/dev/null
+        .name == $name and .digest.sha256 == $digest)' >/dev/null <<<"${out}"
 }
 
 # Writes image <ref> as a docker archive to <dest>. Pulls it from
