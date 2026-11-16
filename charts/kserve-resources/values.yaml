@@ -193,6 +193,8 @@ kserve:
       runAsNonRoot: true
     metricsBindAddress: 127.0.0.1
     metricsBindPort: '8080'
+    # -- Log output format. One of zap or otel-json.
+    logFormat: zap
     gateway:
       domain: example.com
       additionalIngressDomains: []

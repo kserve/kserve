@@ -89,6 +89,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.agent.tolerations | list | `[]` |  |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
+| kserve.localmodel.controller.logFormat | string | `"zap"` | Log output format. One of zap or otel-json. |
 | kserve.localmodel.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.localmodel.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.localmodel.controller.resources.requests.cpu | string | `"100m"` |  |
@@ -105,6 +106,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodelnode.controller.affinity | object | `{}` |  |
 | kserve.localmodelnode.controller.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
+| kserve.localmodelnode.controller.logFormat | string | `"zap"` | Log output format. One of zap or otel-json. |
 | kserve.localmodelnode.controller.nodeSelector.kserve/localmodel | string | `"worker"` |  |
 | kserve.localmodelnode.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.localmodelnode.controller.resources.limits.memory | string | `"300Mi"` |  |

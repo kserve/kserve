@@ -9,6 +9,8 @@ spec:
       containers:
       - name: manager
         image: "{{ .Values.kserve.localmodel.controller.image }}:{{ .Values.kserve.localmodel.controller.tag | default .Values.kserve.version }}"
+        args:
+        - "--log-format={{ .Values.kserve.localmodel.controller.logFormat }}"
         imagePullPolicy: {{ .Values.kserve.localmodel.controller.imagePullPolicy }}
         resources:
           {{- toYaml .Values.kserve.localmodel.controller.resources | nindent 10 }}

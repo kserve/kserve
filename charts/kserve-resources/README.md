@@ -52,6 +52,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.imagePullSecrets | list | `[]` |  |
 | kserve.controller.knativeAddressableResolver.enabled | bool | `false` |  |
 | kserve.controller.labels | object | `{}` |  |
+| kserve.controller.logFormat | string | `"zap"` | Log output format. One of zap or otel-json. |
 | kserve.controller.metricsBindAddress | string | `"127.0.0.1"` |  |
 | kserve.controller.metricsBindPort | string | `"8080"` |  |
 | kserve.controller.nodeSelector | object | `{}` |  |

@@ -17,6 +17,8 @@ spec:
       containers:
       - name: manager
         image: "{{ .Values.kserve.localmodelnode.controller.image }}:{{ .Values.kserve.localmodelnode.controller.tag | default .Values.kserve.version }}"
+        args:
+        - "--log-format={{ .Values.kserve.localmodelnode.controller.logFormat }}"
         imagePullPolicy: {{ .Values.kserve.localmodelnode.controller.imagePullPolicy }}
         resources:
           {{- toYaml .Values.kserve.localmodelnode.controller.resources | nindent 10 }}
