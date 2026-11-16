@@ -8,6 +8,17 @@ $(error GNU Make 4.0+ required, found $(MAKE_VERSION). \
   export PATH="$$(brew --prefix)/opt/make/libexec/gnubin:$$PATH")
 endif
 
+# GNU sed is assumed by recipes and hack/ scripts (e.g. `sed -i` with no backup
+# suffix). BSD sed on macOS rejects or misreads those. Warn rather than fail,
+# since most targets don't use sed. MAKELEVEL guard: warn once, not per sub-make.
+ifeq (0,$(MAKELEVEL))
+ifeq (,$(shell sed --version 2>/dev/null | grep -q GNU && echo gnu))
+$(warning GNU sed not found on PATH; targets that use sed -i may fail. \
+  On macOS: brew install gnu-sed, then prepend it to PATH: \
+  export PATH="$$(brew --prefix)/opt/gnu-sed/libexec/gnubin:$$PATH")
+endif
+endif
+
 # The Go and Python based tools are defined in Makefile.tools.mk.
 include Makefile.tools.mk
 
