@@ -18,24 +18,33 @@ package inferenceservice
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
 	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	admissionv1 "k8s.io/api/admission/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	coordinationv1client "k8s.io/client-go/kubernetes/typed/coordination/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -43,7 +52,9 @@ import (
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 	localmodelnodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnode"
 	llmisvccontroller "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	servingruntime "github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
 )
 
 var _ = Describe("controller cache policies", func() {
@@ -166,7 +177,162 @@ var _ = Describe("controller cache policies", func() {
 		Expect(errors.As(mgr.GetCache().Get(ctx, key, actual), &notCached)).To(BeTrue())
 	})
 
-	It("rejects undeclared informers and permits explicit direct reads in all four binaries", func(ctx SpecContext) {
+	It("keeps annotation-selected InferenceServices visible to KernelCache capture controllers", func(ctx SpecContext) {
+		mgr := startCachePolicyManager(ctx, localmodelcontroller.NewCacheOptions(), localmodelcontroller.NewClientOptions(), &v1beta1.InferenceService{})
+		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "isvc-cache-"}}
+		Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) { Expect(k8sClient.Delete(ctx, ns)).To(Succeed()) })
+		for _, name := range []string{"local-model-managed", "kernel-cache-managed"} {
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns.Name},
+				Spec: v1beta1.InferenceServiceSpec{Predictor: v1beta1.PredictorSpec{
+					Model: &v1beta1.ModelSpec{
+						ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+							StorageURI: ptr.To("s3://example.com/" + name),
+						},
+					},
+				}},
+			}
+			if name == "local-model-managed" {
+				isvc.Labels = map[string]string{constants.LocalModelLabel: "isvc-cache-model"}
+			} else {
+				// KernelCache capture controllers select workloads through this
+				// annotation, not labels.
+				isvc.Annotations = map[string]string{constants.KernelCacheSidecarInjectionAnnotationKey: "true"}
+			}
+			Expect(k8sClient.Create(ctx, isvc)).To(Succeed())
+		}
+		// hasCaptureWorkload lists InferenceServices without a label selector,
+		// so the shared informer must serve annotation-selected services too.
+		Eventually(func(g Gomega) {
+			services := &v1beta1.InferenceServiceList{}
+			g.Expect(mgr.GetCache().List(ctx, services, client.InNamespace(ns.Name))).To(Succeed())
+			g.Expect(services.Items).To(HaveLen(2))
+		}, 10*time.Second).Should(Succeed())
+		key := client.ObjectKey{Namespace: ns.Name, Name: "kernel-cache-managed"}
+		Expect(mgr.GetCache().Get(ctx, key, &v1beta1.InferenceService{})).To(Succeed())
+	})
+
+	It("revokes ephemeral registry access Secrets through direct reads", func(ctx SpecContext) {
+		mgr := startCachePolicyManager(ctx, localmodelcontroller.NewCacheOptions(), localmodelcontroller.NewClientOptions())
+		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "registry-cache-"}}
+		Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) { Expect(k8sClient.Delete(ctx, ns)).To(Succeed()) })
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "kernel-cache-source-",
+				Namespace:    ns.Name,
+				Annotations:  map[string]string{registryauth.AccessSecretAnnotation: "kernel-cache-access"},
+			},
+			Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "workload", Image: "example.com/workload:test"}}},
+		}
+		Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pod.Annotations[registryauth.AccessSecretAnnotation],
+				Namespace: ns.Name,
+				Labels:    map[string]string{registryauth.ManagedLabel: "true"},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "v1", Kind: "Pod", Name: pod.Name, UID: pod.UID, Controller: ptr.To(true),
+				}},
+			},
+			StringData: map[string]string{"token": "ephemeral"},
+		}
+		Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+		// Nothing watches Secrets in the localmodel binary, so Revoke's
+		// Get+Delete must go through instead of failing strict-cache reads.
+		Expect(registryauth.Revoke(ctx, mgr.GetClient(), pod)).To(Succeed())
+		Eventually(func(g Gomega) {
+			g.Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), &corev1.Secret{}))).To(BeTrue())
+		}, 10*time.Second).Should(Succeed())
+	})
+
+	It("keeps the ServingRuntime webhook readable before leadership is acquired", func(ctx SpecContext) {
+		// Another replica holds leadership: the InferenceService controller
+		// never starts on this manager, so controller watches cannot register
+		// the ServingRuntime informer. The webhook runs on every replica.
+		leaseName := "isvc-nonleader-webhook"
+		lease := &coordinationv1.Lease{
+			ObjectMeta: metav1.ObjectMeta{Name: leaseName, Namespace: "default"},
+			Spec: coordinationv1.LeaseSpec{
+				HolderIdentity:       ptr.To("leader-replica"),
+				LeaseDurationSeconds: ptr.To(int32(30)),
+				RenewTime:            &metav1.MicroTime{Time: time.Now().Add(10 * time.Minute)},
+				LeaseTransitions:     ptr.To(int32(1)),
+			},
+		}
+		// The suite scheme does not register the coordination API; leader
+		// election itself uses a typed client, so do the same for setup.
+		leaseClient, err := coordinationv1client.NewForConfig(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = leaseClient.Leases("default").Create(ctx, lease, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(leaseClient.Leases("default").Delete(ctx, leaseName, metav1.DeleteOptions{})).To(Succeed())
+		})
+
+		cacheOpts, err := NewCacheOptions()
+		Expect(err).NotTo(HaveOccurred())
+		clientOpts, err := NewClientOptions(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+			Scheme: k8sClient.Scheme(), Cache: cacheOpts, Client: clientOpts,
+			LeaderElection: true, LeaderElectionID: lease.Name, LeaderElectionNamespace: "default",
+			// The suite manager already owns the "inferenceservice" controller name.
+			Controller: config.Controller{SkipNameValidation: ptr.To(true)},
+			Metrics:    metricsserver.Options{BindAddress: "0"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		// Production wiring from suite_test.go: SetupWithManager registers the
+		// controller (leader-election gated) exactly like cmd/manager.
+		deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
+		ingressConfig := &v1beta1.IngressConfig{
+			IngressGateway:          constants.KnativeIngressGateway,
+			LocalGateway:            constants.KnativeLocalGateway,
+			LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			DisableIstioVirtualHost: false,
+		}
+		Expect((&InferenceServiceReconciler{
+			Client:    mgr.GetClient(),
+			Scheme:    mgr.GetScheme(),
+			Log:       ctrl.Log.WithName("NonLeaderWebhookTest"),
+			Recorder:  record.NewFakeRecorder(10),
+			Clientset: clientset,
+		}).SetupWithManager(mgr, deployConfig, ingressConfig)).To(Succeed())
+
+		validator := &servingruntime.ServingRuntimeValidator{
+			Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme()),
+		}
+		nonLeaderCtx, cancelNonLeader := context.WithCancel(context.WithoutCancel(ctx))
+		done := make(chan error, 1)
+		go func() { done <- mgr.Start(nonLeaderCtx) }()
+		DeferCleanup(func() {
+			cancelNonLeader()
+			Eventually(done, 10*time.Second).Should(Receive())
+		})
+		Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+		sr := &v1alpha1.ServingRuntime{
+			TypeMeta:   metav1.TypeMeta{APIVersion: v1alpha1.SchemeGroupVersion.String(), Kind: "ServingRuntime"},
+			ObjectMeta: metav1.ObjectMeta{Name: "nonleader-runtime", Namespace: "default"},
+			Spec: v1alpha1.ServingRuntimeSpec{
+				SupportedModelFormats: []v1alpha1.SupportedModelFormat{{Name: "sklearn", Priority: ptr.To(int32(1))}},
+			},
+		}
+		raw, err := json.Marshal(sr)
+		Expect(err).NotTo(HaveOccurred())
+		response := validator.Handle(ctx, admission.Request{AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       "isvc-nonleader-webhook-request",
+			Namespace: "default",
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{Raw: raw},
+		}})
+		Expect(response.Result.Code).ToNot(BeEquivalentTo(http.StatusInternalServerError), "%v", response.Result.Message)
+		Expect(response.Allowed).To(BeTrue(), "%v", response.Result.Message)
+	})
+
+	It("rejects undeclared informers and permit explicit direct reads in all four binaries", func(ctx SpecContext) {
 		mainOptions, err := NewCacheOptions()
 		Expect(err).NotTo(HaveOccurred())
 		nodeOptions, err := localmodelnodecontroller.NewCacheOptions("test-node")
