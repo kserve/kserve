@@ -30,7 +30,9 @@ import (
 
 func TestControllerLogFormatHelmRender(t *testing.T) {
 	helm, err := exec.LookPath("helm")
-	require.NoError(t, err, "helm is required to render charts")
+	if err != nil {
+		t.Skip("helm not available")
+	}
 
 	root := ProjectRoot()
 

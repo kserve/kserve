@@ -73,6 +73,7 @@ kserve:
     controller:
       image: kserve/kserve-localmodel-controller
       tag: ''
+      # -- Log output format. One of zap or otel-json.
       logFormat: zap
       imagePullPolicy: IfNotPresent
       resources:
@@ -166,6 +167,7 @@ kserve:
   localmodelnode:
     controller:
       image: kserve/kserve-localmodelnode-agent
+      # -- Log output format. One of zap or otel-json.
       logFormat: zap
       tag: ''
       imagePullPolicy: IfNotPresent
