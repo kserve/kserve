@@ -1270,6 +1270,22 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
+			if tc.expected != nil && tc.ingressConfig.PathTemplate != "" {
+				// Shared-domain path rules are reconciled in a dedicated HTTPRoute so
+				// the host-based catch-all cannot claim another service's path.
+				hostnames := make([]gwapiv1.Hostname, 0, len(tc.expected.Spec.Hostnames))
+				for _, hostname := range tc.expected.Spec.Hostnames {
+					if string(hostname) != tc.ingressConfig.IngressDomain {
+						hostnames = append(hostnames, hostname)
+					}
+				}
+				tc.expected.Spec.Hostnames = hostnames
+				pathRuleCount := 1
+				if tc.isvc.Spec.Explainer != nil {
+					pathRuleCount++
+				}
+				tc.expected.Spec.Rules = tc.expected.Spec.Rules[:len(tc.expected.Spec.Rules)-pathRuleCount]
+			}
 			s := scheme.Scheme
 			s.AddKnownTypes(v1beta1.SchemeGroupVersion, &v1beta1.InferenceService{})
 			s.AddKnownTypes(schema.GroupVersion{Group: gwapiv1.GroupVersion.Group, Version: gwapiv1.GroupVersion.Version},
@@ -3852,5 +3868,85 @@ func TestSemanticHttpRouteEquals_BackendRefCount(t *testing.T) {
 
 	t.Run("same backend count is equal", func(t *testing.T) {
 		g.Expect(semanticHttpRouteEquals(makeRoute(2), makeRoute(2))).To(BeTrue())
+	})
+}
+
+func TestCreateRawPathHTTPRoute(t *testing.T) {
+	readyCondition := apis.Condition{
+		Type:   v1beta1.PredictorReady,
+		Status: corev1.ConditionTrue,
+	}
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressDomain:        "example.com",
+		PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+		KserveIngressGateway: "kserve/kserve-gateway",
+	}
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+
+	t.Run("routes and strips the shared path prefix", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default"},
+			Spec:       v1beta1.InferenceServiceSpec{Predictor: v1beta1.PredictorSpec{}},
+			Status: v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{Conditions: []apis.Condition{readyCondition}},
+			},
+		}
+
+		route, err := createRawPathHTTPRoute(isvc, ingressConfig, isvcConfig)
+
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(route.Name).To(Equal("test-isvc-path"))
+		g.Expect(route.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"example.com"}))
+		g.Expect(route.Spec.Rules).To(HaveLen(1))
+		rule := route.Spec.Rules[0]
+		g.Expect(rule.Matches).To(HaveLen(1))
+		g.Expect(rule.Matches[0].Path.Type).NotTo(BeNil())
+		g.Expect(*rule.Matches[0].Path.Type).To(Equal(gwapiv1.PathMatchPathPrefix))
+		g.Expect(rule.Matches[0].Path.Value).NotTo(BeNil())
+		g.Expect(*rule.Matches[0].Path.Value).To(Equal("/serving/default/test-isvc/"))
+		g.Expect(rule.Filters).To(HaveLen(2))
+		g.Expect(rule.Filters[1].Type).To(Equal(gwapiv1.HTTPRouteFilterURLRewrite))
+		g.Expect(rule.Filters[1].URLRewrite.Path.Type).To(Equal(gwapiv1.PrefixMatchHTTPPathModifier))
+		g.Expect(rule.Filters[1].URLRewrite.Path.ReplacePrefixMatch).NotTo(BeNil())
+		g.Expect(*rule.Filters[1].URLRewrite.Path.ReplacePrefixMatch).To(Equal("/"))
+		g.Expect(rule.BackendRefs).To(HaveLen(1))
+		g.Expect(rule.BackendRefs[0].Name).To(Equal(gwapiv1.ObjectName("test-isvc-predictor")))
+	})
+
+	t.Run("keeps explainer routing exact while stripping both prefixes", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+				Explainer: &v1beta1.ExplainerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{Conditions: []apis.Condition{
+					readyCondition,
+					{Type: v1beta1.ExplainerReady, Status: corev1.ConditionTrue},
+				}},
+			},
+		}
+
+		route, err := createRawPathHTTPRoute(isvc, ingressConfig, isvcConfig)
+
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(route.Spec.Rules).To(HaveLen(2))
+		explainRule := route.Spec.Rules[0]
+		g.Expect(explainRule.Matches[0].Path.Type).NotTo(BeNil())
+		g.Expect(*explainRule.Matches[0].Path.Type).To(Equal(gwapiv1.PathMatchRegularExpression))
+		g.Expect(explainRule.Matches[0].Path.Value).NotTo(BeNil())
+		g.Expect(*explainRule.Matches[0].Path.Value).To(Equal("^/serving/default/test-isvc/v1/models/[\\w-]+:explain$"))
+		g.Expect(explainRule.Filters[1].URLRewrite.Path.Type).To(Equal(gwapiv1.FullPathHTTPPathModifier))
+		g.Expect(explainRule.Filters[1].URLRewrite.Path.ReplaceFullPath).NotTo(BeNil())
+		g.Expect(*explainRule.Filters[1].URLRewrite.Path.ReplaceFullPath).To(Equal("/v1/models/test-isvc:explain"))
+		g.Expect(explainRule.BackendRefs[0].Name).To(Equal(gwapiv1.ObjectName("test-isvc-explainer")))
+
+		predictRule := route.Spec.Rules[1]
+		g.Expect(predictRule.Matches[0].Path.Type).NotTo(BeNil())
+		g.Expect(*predictRule.Matches[0].Path.Type).To(Equal(gwapiv1.PathMatchPathPrefix))
+		g.Expect(predictRule.BackendRefs[0].Name).To(Equal(gwapiv1.ObjectName("test-isvc-predictor")))
 	})
 }
