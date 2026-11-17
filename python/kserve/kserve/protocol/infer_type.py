@@ -807,9 +807,20 @@ class InferRequest:
         """
         infer_inputs = []
         raw_input_contents = []
+        # The gRPC protocol requires raw contents for every input, in input order,
+        # whenever raw_input_contents is used.
+        use_raw_inputs = any(
+            infer_input._raw_data is not None
+            or isinstance(infer_input.data, np.ndarray)
+            for infer_input in self.inputs
+        )
         for infer_input in self.inputs:
             if isinstance(infer_input.data, np.ndarray):
                 infer_input.set_data_from_numpy(infer_input.data, binary_data=True)
+            if use_raw_inputs and infer_input._raw_data is None:
+                infer_input.set_data_from_numpy(
+                    infer_input.as_numpy(), binary_data=True
+                )
             infer_input_dict = {
                 "name": infer_input.name,
                 "shape": infer_input.shape,
@@ -1232,7 +1243,9 @@ class InferResponse:
                 shape=list(output.shape),
                 datatype=output.datatype,
                 data=get_content(output.datatype, output.contents),
-                parameters=output.parameters,
+                parameters=(
+                    to_http_parameters(output.parameters) if output.parameters else None
+                ),
             )
             for output in response.outputs
         ]
@@ -1363,7 +1376,7 @@ class InferResponse:
                     f"Unexpected inference output '{output.name}' for model '{self.model_name}'"
                 )
             use_binary_data = self._use_binary_outputs
-            if self._requested_outputs:
+            if self._requested_outputs and output.binary_data is not None:
                 use_binary_data = output.binary_data
             elif (
                 not use_binary_data
@@ -1380,7 +1393,7 @@ class InferResponse:
                 infer_output.set_data_from_numpy(
                     infer_output.data, binary_data=use_binary_data
                 )
-            elif infer_output.data or infer_output._raw_data:
+            elif infer_output.data is not None or infer_output._raw_data is not None:
                 infer_output.set_data_from_numpy(
                     infer_output.as_numpy(), binary_data=use_binary_data
                 )
@@ -1431,20 +1444,21 @@ class InferResponse:
         """
         infer_outputs = []
         raw_output_contents = []
-        use_raw_outputs = self._use_binary_outputs
-        if not self._use_binary_outputs:
-            # If FP16 datatype is present in the outputs use raw outputs.
-            if _contains_fp16_datatype(self):
-                use_raw_outputs = True
+        use_raw_outputs = (
+            self._use_binary_outputs
+            or _contains_fp16_datatype(self)
+            or any(
+                output._raw_data is not None or isinstance(output.data, np.ndarray)
+                for output in self.outputs
+            )
+        )
         for infer_output in self.outputs:
-            if (
-                use_raw_outputs
-                and infer_output.data
-                and isinstance(infer_output.data, list)
-            ):
-                infer_output.data = infer_output.as_numpy()
             if isinstance(infer_output.data, np.ndarray):
                 infer_output.set_data_from_numpy(infer_output.data, binary_data=True)
+            if use_raw_outputs and infer_output._raw_data is None:
+                infer_output.set_data_from_numpy(
+                    infer_output.as_numpy(), binary_data=True
+                )
             infer_output_dict = {
                 "name": infer_output.name,
                 "shape": infer_output.shape,
