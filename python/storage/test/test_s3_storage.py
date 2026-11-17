@@ -887,7 +887,8 @@ def test_s3_no_patterns_downloads_all(mock_storage):
 @mock.patch("boto3.resource")
 def test_s3_prefix_does_not_match_sibling_directory(mock_storage):
     bucket_name = "foo"
-    object_paths = ["models/bert/config.json", "models/bert-v2/weights"]
+    # S3 lists in byte order, so "bert-v2/" comes before "bert/"
+    object_paths = ["models/bert-v2/weights", "models/bert/config.json"]
     mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
 
     Storage._download_s3(f"s3://{bucket_name}/models/bert", "dest_path")

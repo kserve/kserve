@@ -43,8 +43,8 @@ def create_mock_blob(mock_storage, paths):
 
     # Mock async list_blobs (changed from walk_blobs)
     async def mock_list_blobs(name_starts_with=None, include=None):
-        # Filter like the real listing
-        for obj in mock_objs:
+        # Filter and sort like the real listing
+        for obj in sorted(mock_objs, key=lambda o: o.name):
             if obj.name.startswith(name_starts_with or ""):
                 yield obj
 
