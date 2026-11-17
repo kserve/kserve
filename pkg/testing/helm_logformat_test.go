@@ -67,7 +67,7 @@ func renderChart(t *testing.T, helm, root, chart string, sets ...string) []byte 
 		args = append(args, "--set", set)
 	}
 
-	cmd := exec.Command(helm, args...)
+	cmd := exec.CommandContext(t.Context(), helm, args...) // #nosec G204 -- helm from PATH, fixed chart paths
 	cmd.Dir = root
 	out, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "helm template %s\n%s", chart, out)
