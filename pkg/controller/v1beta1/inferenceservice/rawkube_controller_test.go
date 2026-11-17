@@ -3885,6 +3885,89 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
 	})
+	Context("When a component with autoscalerClass external has an HPA its user created", func() {
+		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+			"disableIngressCreation": true,
+			"ingressDomain":          "example.com",
+		})
+
+		It("Should leave the HPA alone", func(ctx SpecContext) {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
+			defer k8sClient.Delete(ctx, configMap)
+			servingRuntime := getServingRuntime("tf-serving-raw", "default")
+			_ = k8sClient.Create(ctx, &servingRuntime)
+			defer k8sClient.Delete(ctx, &servingRuntime)
+
+			serviceKey := types.NamespacedName{Name: "raw-external-user-hpa", Namespace: "default"}
+			predictorKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+
+			By("creating the HPA that kubectl autoscale would create for the predictor")
+			userHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{Name: predictorKey.Name, Namespace: predictorKey.Namespace},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       predictorKey.Name,
+					},
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: 5,
+				},
+			}
+			Expect(k8sClient.Create(ctx, userHPA)).To(Succeed())
+			defer k8sClient.Delete(ctx, userHPA)
+			createdVersion := userHPA.ResourceVersion
+
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceKey.Name,
+					Namespace:   serviceKey.Namespace,
+					Annotations: getDefaultAnnotations(constants.AutoscalerClassExternal),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).To(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			By("making the controller reconcile the InferenceService again")
+			Eventually(func() error {
+				deployment := &appsv1.Deployment{}
+				if err := k8sClient.Get(ctx, predictorKey, deployment); err != nil {
+					return err
+				}
+				deployment.Status.Conditions = []appsv1.DeploymentCondition{
+					{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue, Reason: "ExternalHPATest"},
+				}
+				return k8sClient.Status().Update(ctx, deployment)
+			}, timeout, interval).Should(Succeed())
+			Eventually(func(g Gomega) {
+				updated := &v1beta1.InferenceService{}
+				g.Expect(k8sClient.Get(ctx, serviceKey, updated)).To(Succeed())
+				cond := updated.Status.GetCondition(v1beta1.PredictorReady)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Reason).To(Equal("ExternalHPATest"))
+			}, timeout, interval).Should(Succeed())
+
+			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+			Expect(k8sClient.Get(ctx, predictorKey, hpa)).To(Succeed())
+			Expect(*hpa.Spec.MinReplicas).To(Equal(int32(2)))
+			Expect(hpa.Spec.MaxReplicas).To(Equal(int32(5)))
+			Expect(hpa.OwnerReferences).To(BeEmpty())
+			// envtest runs no HPA controller, so any write to this HPA would be KServe's.
+			Expect(hpa.ResourceVersion).To(Equal(createdVersion))
+		})
+	})
 	Context("When creating inference service with raw kube predictor and transformer", func() {
 		configs := getRawKubeTestConfigs()
 
