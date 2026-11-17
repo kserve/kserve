@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"errors"
 
-	"gopkg.in/go-playground/validator.v9"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,7 +66,7 @@ type ServingRuntimePodSpec struct {
 	// Cannot be updated.
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	Containers []corev1.Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name" validate:"required"`
+	Containers []corev1.Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name"`
 
 	// List of volumes that can be mounted by containers belonging to the pod.
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes
@@ -354,9 +353,10 @@ func (srSpec *ServingRuntimeSpec) IsValid() bool {
 
 // common validation logic
 func (srSpec *ServingRuntimeSpec) validatePodSpecAndWorkerSpec() error {
-	// Respect for ServingRuntimePodSpec validate fields
-	if err := validate.Struct(srSpec.ServingRuntimePodSpec); err != nil {
-		return err
+	// Nil, not empty, matches the previous validator `required` tag. The CRD
+	// schema already requires the field, so this only guards direct callers.
+	if srSpec.Containers == nil {
+		return errors.New("spec.containers: Required value")
 	}
 
 	// Additional validation for WorkerSpec
@@ -368,8 +368,6 @@ func (srSpec *ServingRuntimeSpec) validatePodSpecAndWorkerSpec() error {
 
 	return nil
 }
-
-var validate = validator.New()
 
 func (srSpec *ServingRuntimeSpec) ValidateCreate() error {
 	return srSpec.validatePodSpecAndWorkerSpec()

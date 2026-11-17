@@ -48,13 +48,13 @@ type LocalModelStorageSpec struct {
 type LocalModelCacheSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
 	// Original StorageUri
-	SourceModelUri string `json:"sourceModelUri" validate:"required"`
+	SourceModelUri string `json:"sourceModelUri"`
 	// Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.
-	ModelSize resource.Quantity `json:"modelSize" validate:"required"`
+	ModelSize resource.Quantity `json:"modelSize"`
 	// group of nodes to cache the model on.
 	// Todo: support more than 1 node groups
 	// +kubebuilder:validation:MinItems=1
-	NodeGroups []string `json:"nodeGroups" validate:"required"`
+	NodeGroups []string `json:"nodeGroups"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
 	// The service account must exist in the download job namespace (localModel.jobNamespace).
 	// +optional
@@ -94,7 +94,7 @@ type LocalModelCache struct {
 type LocalModelCacheList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []LocalModelCache `json:"items" validate:"required"`
+	Items           []LocalModelCache `json:"items"`
 }
 
 // MatchStorageURI checks if storageUri matches the sourceModelUri or is a subdirectory of it
