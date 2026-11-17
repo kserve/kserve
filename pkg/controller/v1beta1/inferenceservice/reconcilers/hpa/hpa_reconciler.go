@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -221,7 +222,74 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 	} else if hasDesiredAutoscalerClass || hasExistingAutoscalerClass {
 		autoscalerClassChanged = true
 	}
-	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) && !autoscalerClassChanged
+	// An HPA without a controller reference is adopted by updating it.
+	adopt := metav1.GetControllerOf(desired) != nil && metav1.GetControllerOf(existing) == nil
+	return equality.Semantic.DeepEqual(withHPADefaults(desired.Spec), withHPADefaults(existing.Spec)) &&
+		equality.Semantic.DeepDerivative(desired.Labels, existing.Labels) &&
+		!autoscalerClassChanged && !adopt
+}
+
+// withHPADefaults returns a copy of spec with the defaults the API server applies to an
+// autoscaling/v2 HorizontalPodAutoscaler, so that an HPA compares equal to its stored copy.
+// A stored spec already has them. It follows SetDefaults_HorizontalPodAutoscaler in
+// k8s.io/kubernetes/pkg/apis/autoscaling/v2.
+func withHPADefaults(spec autoscalingv2.HorizontalPodAutoscalerSpec) autoscalingv2.HorizontalPodAutoscalerSpec {
+	spec = *spec.DeepCopy()
+	if spec.MinReplicas == nil {
+		spec.MinReplicas = ptr.To(int32(1))
+	}
+	if len(spec.Metrics) == 0 {
+		spec.Metrics = []autoscalingv2.MetricSpec{
+			{
+				Type: autoscalingv2.ResourceMetricSourceType,
+				Resource: &autoscalingv2.ResourceMetricSource{
+					Name: corev1.ResourceCPU,
+					Target: autoscalingv2.MetricTarget{
+						Type:               autoscalingv2.UtilizationMetricType,
+						AverageUtilization: ptr.To(int32(80)),
+					},
+				},
+			},
+		}
+	}
+	if spec.Behavior != nil {
+		spec.Behavior.ScaleUp = withScalingRulesDefaults(spec.Behavior.ScaleUp, autoscalingv2.HPAScalingRules{
+			StabilizationWindowSeconds: ptr.To(int32(0)),
+			Policies: []autoscalingv2.HPAScalingPolicy{
+				{Type: autoscalingv2.PodsScalingPolicy, Value: 4, PeriodSeconds: 15},
+				{Type: autoscalingv2.PercentScalingPolicy, Value: 100, PeriodSeconds: 15},
+			},
+		})
+		spec.Behavior.ScaleDown = withScalingRulesDefaults(spec.Behavior.ScaleDown, autoscalingv2.HPAScalingRules{
+			Policies: []autoscalingv2.HPAScalingPolicy{
+				{Type: autoscalingv2.PercentScalingPolicy, Value: 100, PeriodSeconds: 15},
+			},
+		})
+	}
+	return spec
+}
+
+// withScalingRulesDefaults fills the fields rules leaves unset from defaults, whose select
+// policy is always Max.
+func withScalingRulesDefaults(rules *autoscalingv2.HPAScalingRules, defaults autoscalingv2.HPAScalingRules) *autoscalingv2.HPAScalingRules {
+	defaults.SelectPolicy = ptr.To(autoscalingv2.MaxChangePolicySelect)
+	if rules == nil {
+		return &defaults
+	}
+	if rules.SelectPolicy != nil {
+		defaults.SelectPolicy = rules.SelectPolicy
+	}
+	if rules.StabilizationWindowSeconds != nil {
+		defaults.StabilizationWindowSeconds = rules.StabilizationWindowSeconds
+	}
+	// An empty list is left out of the request, so the API server defaults it as well.
+	if len(rules.Policies) > 0 {
+		defaults.Policies = rules.Policies
+	}
+	if rules.Tolerance != nil {
+		defaults.Tolerance = rules.Tolerance
+	}
+	return &defaults
 }
 
 func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *autoscalingv2.HorizontalPodAutoscaler) bool {
@@ -240,7 +308,7 @@ func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *a
 	}
 
 	// Forcibly stop the HPA based on the stop annotation
-	forceStopRuntime := utils.GetForceStopRuntime(existing)
+	forceStopRuntime := utils.GetForceStopRuntime(desired)
 	if forceStopRuntime {
 		return true
 	}
