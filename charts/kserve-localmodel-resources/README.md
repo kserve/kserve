@@ -70,6 +70,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
 | kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
 | kserve.kernelcachenode.controller.affinity | object | `{}` |  |
+| kserve.kernelcachenode.controller.extraArgs | list | `[]` | Additional container arguments. |
 | kserve.kernelcachenode.controller.image | string | `"kserve/kserve-kernelcachenode-agent"` |  |
 | kserve.kernelcachenode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.kernelcachenode.controller.resources.limits.cpu | string | `"100m"` |  |

@@ -185,6 +185,8 @@ kserve:
   kernelcachenode:
     controller:
       image: kserve/kserve-kernelcachenode-agent
+      # -- Additional container arguments.
+      extraArgs: []
       tag: ''
       imagePullPolicy: IfNotPresent
       resources:
