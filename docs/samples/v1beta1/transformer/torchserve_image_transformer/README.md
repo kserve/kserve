@@ -1,6 +1,6 @@
 # Deploy InferenceService with Transformer and PyTorch Runtimes
 
-Please refer to [transformer example doc](https://github.com/kserve/website/tree/main/docs/modelserving/v1beta1/transformer/torchserve_image_transformer) on KServe website repository for deploying PyTorch models with pre-processing in Transformer.
+Please refer to the [custom transformer guide](https://kserve.github.io/website/docs/model-serving/predictive-inference/transformers/custom-transformer) for deploying PyTorch models with pre-processing in Transformer.
 
 ## Testing with a local transformer & predictor in Kubernetes (KServe developer guide)
 

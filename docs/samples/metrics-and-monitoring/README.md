@@ -26,7 +26,7 @@ kubectl apply -k docs/samples/metrics-and-monitoring/prometheus
 
 ### How Metrics are Scraped
 
-* [This](https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/user-guides/getting-started.md) article provides details of how Prometheus setup using the above operator actually scrapes metrics.
+* [This](https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/developer/getting-started.md) article provides details of how Prometheus setup using the above operator actually scrapes metrics.
 
 * Basically, the config `serviceMonitorNamespaceSelector: {}` in the Prometheus CRD means all namespaces will be watched for service monitor objects. You can confirm that by running:
 
@@ -94,7 +94,7 @@ In this section, we will use a v1beta1 InferenceService sample to demonstrate ho
 2. `cd docs/samples/v1beta1/sklearn`
 3. `kubectl apply -f sklearn.yaml -n kfserving-test`
 4. If you are using a Minikube based cluster, then in a separate terminal, run `minikube tunnel --cleanup` and supply password if prompted.
-5. In a separate terminal, follow [these instructions](https://github.com/kubeflow/kfserving/blob/master/README.md#determine-the-ingress-ip-and-ports) to find and set your ingress IP, host, and service hostname. Then, send prediction requests to the `sklearn-iris` model you created in Step 3. above as follows.
+5. In a separate terminal, follow [these instructions](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) to find and set your ingress IP, host, and service hostname. Then, send prediction requests to the `sklearn-iris` model you created in Step 3. above as follows.
 ```
 while clear; do \
   curl -v \

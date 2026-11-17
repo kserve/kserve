@@ -18,7 +18,7 @@ artserver   http://artserver.default.example.com   True           100           
 ```
 
 ## Explanation
-The first step is to [determine the ingress IP and ports](../../../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
 MODEL_NAME=artserver
@@ -45,7 +45,7 @@ python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL
 
 ## Build a Development ART Explainer Docker Image
 
-If you would like to build a development image for the ART Explainer then follow [these instructions](/python/artexplainer#build-a-development-art-model-explainer-docker-image)
+If you would like to build a development image for the ART Explainer then follow [these instructions](/python/artexplainer#build-your-own-art-model-explainer-docker-image)
 
 ## Troubleshooting
 

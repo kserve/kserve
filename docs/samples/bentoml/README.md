@@ -21,7 +21,7 @@ workflow, with DevOps best practices baked in.
 
 Before starting this guide, make sure you have the following:
 
-* Your ~/.kube/config should point to a cluster with [KFServing installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+* Your ~/.kube/config should point to a cluster with [KFServing installed](https://kserve.github.io/website/docs/getting-started/quickstart-guide).
 * Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 * Docker and Docker hub must be properly configured on your local system
 * Python 3.6 or above
@@ -155,7 +155,7 @@ kubectl apply -f bentoml.yaml
 ```
 
 ### Run prediction
-The first step is to [determine the ingress IP and ports](../../../README.md#determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
+The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```shell
 MODEL_NAME=iris-classifier

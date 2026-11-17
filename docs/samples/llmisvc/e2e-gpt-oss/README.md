@@ -105,7 +105,7 @@ kubectl wait --for=condition=complete job/gpt-oss-20b-init-job -n kserve-lab --t
 kubectl get pods -n kserve-lab -l job-name=gpt-oss-20b-init-job -w
 ```
 
-The Job uses [kserve-storage-initializer](https://github.com/kserve/kserve/tree/master/python/kserve_storage_initializer) and writes to the PVC at `/mnt/models`. Do not delete the PVC before inference is no longer needed.
+The Job uses [kserve-storage-initializer](https://github.com/kserve/kserve/tree/master/python/storage-initializer) and writes to the PVC at `/mnt/models`. Do not delete the PVC before inference is no longer needed.
 
 ---
 
@@ -189,7 +189,7 @@ Clients should send the header `x-ai-eg-model: RedHatAI/gpt-oss-20b` when callin
 
 ## 8. Alternate configuration: Precise Prefix Cache Aware Routing
 
-For **precise prefix cache aware routing** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the 3-plugin pipeline (token-producer, precise-prefix-cache-producer, prefix-cache-scorer). See [llm-d guide](https://llm-d.ai/docs/guide/Installation/precise-prefix-cache-aware) for an in-depth description.
+For **precise prefix cache aware routing** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the 3-plugin pipeline (token-producer, precise-prefix-cache-producer, prefix-cache-scorer). See [llm-d guide](https://llm-d.ai/docs/well-lit-paths/foundations/precise-prefix-cache-routing) for an in-depth description.
 
 ### 8.1 LLMInferenceServiceConfig with precise prefix cache aware routing
 
@@ -223,7 +223,7 @@ The Gateway and Route from step 7 still apply; they reference the same `Inferenc
 ## 9. Alternative configuration: Prefill/Decode Disaggregation
 
 For **prefill/decode disaggregation** (Prefill vLLM + Decode vLLM + EPP), use the alternative inference service that enables
-Prefill and Decode to be performed on separate GPUs. See [llm-d guide](https://llm-d.ai/docs/guide/Installation/pd-disaggregation)
+Prefill and Decode to be performed on separate GPUs. See [llm-d guide](https://llm-d.ai/docs/well-lit-paths/foundations/pd-disaggregation)
 for an in depth description.
 
 ### 9.1 LLMInferenceServiceConfig with prefill/decode disaggregation
@@ -372,4 +372,4 @@ kubectl apply -k docs/samples/llmisvc/e2e-gpt-oss/ -n kserve-lab
 - **GPU resource**: Inference YAMLs use `nvidia.com/gpu`. Replace with your GPU resource name if different (e.g. MIG `nvidia.com/mig-3g.40gb`).
 - **Storage class**: If your cluster does not have `local-path`, change `storageClassName` in the PVC or create a matching PV.
 
-For more on llm-d and monitoring, see [llm-d Observability and Monitoring](https://github.com/llm-d/llm-d/blob/main/docs/monitoring/README.md).
+For more on llm-d and monitoring, see [llm-d Observability and Monitoring](https://llm-d.ai/docs/operations/observability/setup).

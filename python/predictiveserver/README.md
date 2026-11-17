@@ -172,7 +172,7 @@ This is handled automatically in `__main__.py` to prevent runtime errors with Li
 
 ### ClusterServingRuntime Configuration
 
-The Predictive Server runtime is defined in [config/runtimes/kserve-predictiveserver.yaml](../../../config/runtimes/kserve-predictiveserver.yaml).
+The Predictive Server runtime is defined in [config/runtimes/kserve-predictiveserver.yaml](../../config/runtimes/kserve-predictiveserver.yaml).
 
 Key points:
 

@@ -14,6 +14,7 @@ YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
 PINACT = $(LOCALBIN)/pinact
 SHELLCHECK = $(LOCALBIN)/shellcheck
+LYCHEE = $(LOCALBIN)/lychee
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
 PYTEST = $(PYTHON_BIN)/pytest
@@ -75,6 +76,15 @@ $(SHELLCHECK): $(LOCALBIN) $(DEPS_ENV)
 	mv $(LOCALBIN)/shellcheck $(SHELLCHECK)-$(SHELLCHECK_VERSION) ; \
 	} ; \
 	ln -sf "$$(basename $(SHELLCHECK)-$(SHELLCHECK_VERSION))" "$(SHELLCHECK)"
+
+.PHONY: lychee
+lychee: $(LYCHEE)
+$(LYCHEE): $(DEPS_ENV) hack/setup/cli/install-lychee.sh hack/setup/cli/lychee-checksums.txt | $(LOCALBIN)
+	@[ -f "$(LYCHEE)-$(LYCHEE_VERSION)" ] || { \
+	BIN_DIR="$(LOCALBIN)" hack/setup/cli/install-lychee.sh && \
+	mv "$(LYCHEE)" "$(LYCHEE)-$(LYCHEE_VERSION)"; \
+	} || exit $$?; \
+	ln -sf "$$(basename "$(LYCHEE)-$(LYCHEE_VERSION)")" "$(LYCHEE)"
 
 ## Download helm-docs locally if necessary.
 .PHONY: helm-docs

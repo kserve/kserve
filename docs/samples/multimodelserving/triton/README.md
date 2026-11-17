@@ -10,7 +10,7 @@ KFServing multi model serving design addresses these issues and gives a scalable
 > :warning: You must set Triton's multiModelServer flag in `inferenceservice.yaml` to true to enable multi-model serving for Triton.
 
 ## Setup
-1. Your ~/.kube/config should point to a cluster with [KFServing 0.6 installed](https://github.com/kubeflow/kfserving/#install-kfserving).
+1. Your ~/.kube/config should point to a cluster with [KFServing 0.6 installed](https://github.com/kserve/kserve/blob/v0.6.1/README.md#install-kfserving).
 2. Your cluster's Istio Ingress gateway must be [network accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Skip [tag resolution](https://knative.dev/docs/serving/tag-resolution/) for `nvcr.io` which requires auth to resolve triton inference server image digest
 ```bash

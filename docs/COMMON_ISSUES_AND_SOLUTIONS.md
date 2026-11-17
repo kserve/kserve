@@ -3,8 +3,8 @@
 This document compiles common issues that users may encounter and provides solutions for troubleshooting.
 
 ## Issue list
-  - [CRD Annotations Too Long](#issue-crd-annotations-too-longissue-crd-annotations-too-long)
-  - [Failed ci - Verify Generated Code / verify-codegen](#issue-failed-ci---verify-generated-code--verify-codegen)
+  - [CRD Annotations Too Long](#crd-annotations-too-long)
+  - [Failed ci - Verify Generated Code / verify-codegen](#failed-ci---verify-generated-code--verify-codegen)
 ## Issue detail
 
 **New issues should be documented above existing issues.**

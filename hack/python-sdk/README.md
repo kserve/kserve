@@ -21,6 +21,16 @@ From root folder, execute the script `/hack/python-sdk/client-gen.sh` to install
 ```
 After the script execution, the Python SDK is generated in the `python/kserve` directory. Some files such as [README](../../python/kserve/README.md) and documents need to be merged manually after the script execution.
 
+The generator also runs `fix-doc-links.py`. Imported Kubernetes types link to
+their upstream documentation. Embedded types without a generated model page
+link to their Go definitions or upstream type references. Fix references in this
+postprocessor rather than editing generated Markdown. It validates its pending
+changes before writing them, but the SDK generator has already produced files
+at that point. For an unresolved name, extend `CORE_TYPES` or `REFERENCES` and
+rerun generation before committing. Upstream Go references use the versions
+resolved from `go.mod`; local definitions link to files so line movement does
+not churn generated documentation.
+
 ## (Optional) Refresh Python SDK in the Pypi
 
 Navigate to `python/kserve` directory from the root folder.

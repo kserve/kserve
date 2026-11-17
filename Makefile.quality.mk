@@ -174,8 +174,20 @@ bump-version: ## Release prep: bump versions, uv-lock, precommit, install/. Set 
 	@hack/release/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
 
 .PHONY: check-doc-links
-check-doc-links: ## After editing Markdown: check that links resolve. Needs network.
-	@python3 hack/verify-doc-links.py && echo "$@: OK"
+# Network checks stay out of precommit. Use LINK_CHECK_ARGS=--offline locally,
+# --base-dir <checkout> for PR regressions, or --advisory for the full backlog.
+LINK_CHECK_ARGS ?=
+check-doc-links: lychee ## After editing documentation: check links and anchors. Needs network unless --offline.
+	@python3 hack/verify-doc-links.py --lychee $(LYCHEE) $(LINK_CHECK_ARGS)
+
+# Read-only preview by default. Only the trusted nightly workflow publishes.
+.PHONY: triage-doc-links
+triage-doc-links: ## After a link audit: preview issue triage from bin/link-check; writes local history and preview.
+	@python3 hack/triage-doc-links.py
+
+.PHONY: test-doc-links
+test-doc-links: lychee ## Link-check changes: run scanner, history and publisher tests with pinned Lychee.
+	@LYCHEE_TEST_BINARY="$(LYCHEE)" python3 -m unittest discover -s hack/tests -p 'test*link*.py'
 
 # Kept out of precommit: it pulls and runs every image whose tag changed versus BASE_REF.
 .PHONY: check-image-flag-drift

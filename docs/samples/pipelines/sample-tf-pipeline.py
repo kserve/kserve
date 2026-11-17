@@ -19,7 +19,7 @@ from kfp import components
 #                                                  'master/components/kubeflow/kfserving/component.yaml')
 kserve_op = components.load_component_from_url(
     "https://raw.githubusercontent.com/kubeflow/pipelines/"
-    "master/components/kserve/component.yaml"
+    "2.5.0/components/kserve/component.yaml"
 )
 
 

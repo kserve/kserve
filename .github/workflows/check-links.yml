@@ -1,0 +1,162 @@
+name: Documentation links
+
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Update the aggregate issue and nightly history (default branch only)
+        type: boolean
+        default: false
+  schedule:
+    # Nightly observations allow escalation after a measured week of downtime.
+    - cron: '23 2 * * *'
+
+permissions:
+  contents: read
+
+# Reports use artifacts; neither job needs a cache token.
+cache-mode: none
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Audits and their state writes must finish in order. New PR runs supersede old ones.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+
+jobs:
+  check-links:
+    name: Check documentation links
+    if: github.event_name != 'schedule' || github.repository == 'kserve/kserve'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      audit-url: ${{ steps.report.outputs.artifact-url }}
+    steps:
+      - name: Checkout proposed changes
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          path: head
+          persist-credentials: false
+
+      - name: Checkout target branch for comparison
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Install pinned link checker
+        working-directory: head
+        run: make lychee
+
+      - name: Test link-check policy
+        working-directory: head
+        run: python3 -m unittest discover -s hack/tests -p 'test*link*.py'
+
+      - name: Check for regressions or audit existing links
+        working-directory: head
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          CHECKOUT_BRANCH: ${{ github.event.pull_request.base.ref || github.event.merge_group.base_ref || github.event.repository.default_branch }}
+        run: |
+          if [[ "$EVENT_NAME" == pull_request || "$EVENT_NAME" == merge_group ]]; then
+            make check-doc-links LINK_CHECK_ARGS="--base-dir ../base"
+          else
+            # The scanner records all outcomes. A separate, trusted job below
+            # applies history and escalation without giving the scanner write access.
+            make check-doc-links LINK_CHECK_ARGS="--advisory"
+          fi
+
+      - name: Upload link reports
+        id: report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: link-check-report
+          path: head/bin/link-check/
+          retention-days: 30
+          if-no-files-found: warn
+
+  triage:
+    name: Track failures and update the documentation issue
+    needs: check-links
+    if: >-
+      github.repository == 'kserve/kserve' &&
+      (github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_dispatch' &&
+        github.ref == format('refs/heads/{0}', github.event.repository.default_branch)))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Read only successful default-branch history artifacts.
+      actions: read
+      # Only this trusted publisher updates the single bot-owned issue.
+      issues: write
+    steps:
+      - name: Checkout trusted publisher at the audited revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download this run's completed audit
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: link-check-report
+          path: bin/link-check/input
+
+      - name: Locate the latest trusted history artifact
+        id: previous
+        env:
+          PYTHONPATH: hack
+          GITHUB_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 -m linkcheck.persistence
+
+      - name: Recover history from the previous trusted audit
+        if: steps.previous.outputs.run_id != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: link-triage-report
+          path: bin/link-check/previous
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.previous.outputs.run_id }}
+
+      - name: Restore the recovered registry
+        if: steps.previous.outputs.run_id != ''
+        run: cp bin/link-check/previous/state.json bin/link-check/state.json
+
+      - name: Reconcile history and preview or publish the issue
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+          AUDIT_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AUDIT_URL: ${{ needs.check-links.outputs.audit-url }}
+        run: |
+          args=(--report bin/link-check/input/observations.json --sha "$AUDIT_SHA" --run-url "$RUN_URL" --audit-url "$AUDIT_URL")
+          if [[ "$PUBLISH" == true ]]; then
+            args+=(--publish)
+          fi
+          python3 hack/triage-doc-links.py "${args[@]}"
+
+      - name: Upload triage history and issue preview
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          # Dry-run previews never become authoritative history for later audits.
+          name: ${{ (github.event_name == 'schedule' || inputs.publish) && 'link-triage-report' || 'link-triage-preview' }}
+          path: |
+            bin/link-check/state.json
+            bin/link-check/issue-plan.json
+            bin/link-check/issue-preview.md
+          retention-days: 30
+          if-no-files-found: warn

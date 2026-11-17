@@ -81,3 +81,5 @@ istio-*
 # bkit
 .bkit/
 
+# Temporary notebook prose; sibling paths preserve relative link resolution.
+.lychee-*.md

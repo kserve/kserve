@@ -8,7 +8,7 @@ Name | Type | Description | Notes
 **artifact** | [**V1alpha1KernelCacheArtifact**](V1alpha1KernelCacheArtifact.md) |  | [optional] 
 **captured_at** | [**V1Time**](V1Time.md) |  | [optional] 
 **captured_cache_size_bytes** | **int** | CapturedCacheSizeBytes is the captured cache size. | [optional] 
-**conditions** | [**list[V1Condition]**](V1Condition.md) | Conditions report whether the capture is ready and why it is not ready. | [optional] 
+**conditions** | [**list[V1Condition]**](https://pkg.go.dev/k8s.io/apimachinery@v0.37.1/pkg/apis/meta/v1#Condition) | Conditions report whether the capture is ready and why it is not ready. | [optional] 
 **kernel_cache_ref** | [**V1alpha1NamespacedName**](V1alpha1NamespacedName.md) |  | [optional] 
 **phase** | **str** | Phase indicates the current capture phase. | [optional] 
 **runtime_result** | **dict(str, str)** | RuntimeResult contains the raw key-value result reported by the capture sidecar. | [optional] 
