@@ -2246,6 +2246,87 @@ func TestIngressReconciler_Reconcile_SkipVirtualService(t *testing.T) {
 	g.Expect(apierr.IsNotFound(err)).To(gomega.BeTrue())
 }
 
+func TestIngressReconciler_Reconcile_StoppedVirtualService(t *testing.T) {
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "stopped-isvc",
+			Namespace:   "default",
+			UID:         "isvc-uid",
+			Annotations: map[string]string{constants.StopAnnotationKey: "true"},
+		},
+	}
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressGateway:             constants.KnativeIngressGateway,
+		KnativeLocalGatewayService: "knative-local-gateway.istio-system.svc.cluster.local",
+		LocalGateway:               constants.KnativeLocalGateway,
+	}
+
+	tests := []struct {
+		name            string
+		ownerReferences []metav1.OwnerReference
+		wantDeleted     bool
+	}{
+		{
+			name:        "virtual service without owner references is kept",
+			wantDeleted: false,
+		},
+		{
+			name: "virtual service controlled by the inference service is deleted",
+			ownerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(isvc, v1beta1.SchemeGroupVersion.WithKind("InferenceService")),
+			},
+			wantDeleted: true,
+		},
+		{
+			name: "virtual service controlled by a different inference service is kept",
+			ownerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(&v1beta1.InferenceService{ObjectMeta: metav1.ObjectMeta{Name: "stopped-isvc", UID: "previous-isvc-uid"}},
+					v1beta1.SchemeGroupVersion.WithKind("InferenceService")),
+			},
+			wantDeleted: false,
+		},
+		{
+			name: "virtual service with a non-controller owner reference to the inference service is kept",
+			ownerReferences: []metav1.OwnerReference{
+				{APIVersion: v1beta1.SchemeGroupVersion.String(), Kind: "InferenceService", Name: "stopped-isvc", UID: "isvc-uid"},
+			},
+			wantDeleted: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			scheme := runtime.NewScheme()
+			_ = v1beta1.AddToScheme(scheme)
+			_ = corev1.AddToScheme(scheme)
+			_ = istioclientv1beta1.AddToScheme(scheme)
+
+			existingVS := &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            isvc.Name,
+					Namespace:       isvc.Namespace,
+					OwnerReferences: tt.ownerReferences,
+				},
+			}
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(isvc.DeepCopy(), existingVS).Build()
+			reconciler := NewIngressReconciler(client, kubernetesfake.NewSimpleClientset(), scheme,
+				ingressConfig, &v1beta1.InferenceServicesConfig{}, true)
+
+			res, err := reconciler.Reconcile(t.Context(), isvc.DeepCopy())
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(res).To(gomega.Equal(ctrl.Result{}))
+
+			err = client.Get(t.Context(), types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, &istioclientv1beta1.VirtualService{})
+			if tt.wantDeleted {
+				g.Expect(apierr.IsNotFound(err)).To(gomega.BeTrue())
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		})
+	}
+}
+
 func TestReconcileExternalService_NoUpdateWhenUnchanged(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
