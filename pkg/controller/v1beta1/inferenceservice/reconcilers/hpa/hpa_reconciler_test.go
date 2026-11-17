@@ -613,8 +613,23 @@ func TestSemanticHPAEqualsStoredHPA(t *testing.T) {
 			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) { h.Labels["example.com/team"] = "a" },
 		},
 		{
+			name: "label value cleared on the inference service",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Labels["example.com/team"] = ""
+			},
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Labels["example.com/team"] = "a"
+			},
+		},
+		{
 			name:   "stored HPA has no controller reference",
 			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) { h.OwnerReferences = nil },
+		},
+		{
+			name: "stored HPA still owned by a deleted inference service of the same name",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.OwnerReferences[0].UID = "67890"
+			},
 		},
 	}
 

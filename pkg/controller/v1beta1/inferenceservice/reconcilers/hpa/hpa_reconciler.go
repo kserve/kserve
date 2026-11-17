@@ -222,11 +222,27 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 	} else if hasDesiredAutoscalerClass || hasExistingAutoscalerClass {
 		autoscalerClassChanged = true
 	}
-	// An HPA without a controller reference is adopted by updating it.
-	adopt := metav1.GetControllerOf(desired) != nil && metav1.GetControllerOf(existing) == nil
+	// An HPA without a controller reference, or one still owned by a deleted InferenceService
+	// of the same name, is adopted by updating it.
+	adopt := false
+	if desiredOwner := metav1.GetControllerOf(desired); desiredOwner != nil {
+		existingOwner := metav1.GetControllerOf(existing)
+		adopt = existingOwner == nil || existingOwner.UID != desiredOwner.UID
+	}
 	return equality.Semantic.DeepEqual(withHPADefaults(desired.Spec), withHPADefaults(existing.Spec)) &&
-		equality.Semantic.DeepDerivative(desired.Labels, existing.Labels) &&
+		hasLabels(existing.Labels, desired.Labels) &&
 		!autoscalerClassChanged && !adopt
+}
+
+// hasLabels reports whether labels contains every key in want with the same value. Labels that
+// other clients added are ignored.
+func hasLabels(labels, want map[string]string) bool {
+	for key, value := range want {
+		if got, ok := labels[key]; !ok || got != value {
+			return false
+		}
+	}
+	return true
 }
 
 // withHPADefaults returns a copy of spec with the defaults the API server applies to an
