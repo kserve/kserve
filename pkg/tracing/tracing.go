@@ -19,6 +19,7 @@ package tracing
 const (
 	EnvOtelServiceName                = "OTEL_SERVICE_NAME"
 	EnvOtelExporterEndpoint           = "OTEL_EXPORTER_OTLP_ENDPOINT"
+	EnvOtelTracesCertificate          = "OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE"
 	EnvOtelTracesExporter             = "OTEL_TRACES_EXPORTER"
 	EnvOtelTracesSampler              = "OTEL_TRACES_SAMPLER"
 	EnvOtelTracesSamplerArg           = "OTEL_TRACES_SAMPLER_ARG"

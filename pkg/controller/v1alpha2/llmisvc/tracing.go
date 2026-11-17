@@ -105,6 +105,9 @@ func injectGoTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceNam
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSampler, Value: ptr.Deref(t.Sampler, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSamplerArg, Value: ptr.Deref(t.SamplerArg, "")},
 	)
+	if certificate := ptr.Deref(t.ExporterCertificate, ""); certificate != "" {
+		tracingEnvVars = append(tracingEnvVars, corev1.EnvVar{Name: tracing.EnvOtelTracesCertificate, Value: certificate})
+	}
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
 	container.Env = utils.AppendEnvVarIfNotExists(container.Env, tracingEnvVars...)
@@ -153,6 +156,9 @@ func injectVLLMTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceN
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSampler, Value: ptr.Deref(t.Sampler, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSamplerArg, Value: ptr.Deref(t.SamplerArg, "")},
 	)
+	if certificate := ptr.Deref(t.ExporterCertificate, ""); certificate != "" {
+		tracingEnvVars = append(tracingEnvVars, corev1.EnvVar{Name: tracing.EnvOtelTracesCertificate, Value: certificate})
+	}
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
 	container.Env = utils.AppendEnvVarIfNotExists(container.Env, tracingEnvVars...)
