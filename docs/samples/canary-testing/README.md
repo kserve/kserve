@@ -71,7 +71,7 @@ brew install iter8@0.13
 
 ## Simulate users
 
-In a production cluster, there would be no need to simulate users as there would be real users. For the purposes of this tutorial, simulate users using [the port forward approach](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports).
+In a production cluster, there would be no need to simulate users as there would be real users. For the purposes of this tutorial, simulate users using [the port forward approach](https://kserve.github.io/website/docs/getting-started/predictive-first-isvc#4-determine-the-ingress-ip-and-ports).
 
 ```shell
 INGRESS_GATEWAY_SERVICE=$(kubectl get svc --namespace istio-system --selector="app=istio-ingressgateway" --output jsonpath='{.items[0].metadata.name}')
