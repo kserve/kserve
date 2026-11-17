@@ -287,7 +287,15 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	reconcileErr := r.reconcile(ctx, resource)
 	reconciler.PostProcessReconcile(ctx, resource, original)
 
-	if err := errors.Join(cleanupErr, reconcileErr); err != nil {
+	// The shared PVC evictor objects have other writers, so losing a write race on one
+	// requeues without a Warning. reconcile returns the evictor error only once every
+	// other step succeeded, so skipping it cannot hide another failure.
+	eventErr := reconcileErr
+	if errors.Is(reconcileErr, errPVCEvictorWriteConflict) {
+		logger.Info("Lost a write race on a shared PVC evictor object, requeueing", "error", reconcileErr)
+		eventErr = nil
+	}
+	if err := errors.Join(cleanupErr, eventErr); err != nil {
 		logger.Error(err, "Failed to reconcile LLMInferenceService")
 		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", err.Error())
 	}
