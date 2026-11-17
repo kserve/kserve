@@ -957,6 +957,12 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-qpext-${{ matrix.install-method }}
+
   test-with-helm:
     runs-on: ubuntu-latest
     timeout-minutes: 20

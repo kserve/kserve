@@ -14,6 +14,7 @@
 
 import asyncio
 import os
+from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
@@ -25,6 +26,7 @@ from kserve import KServeClient, InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
 from kserve.logging import logger, KSERVE_LOG_CONFIG
 
+from .common.diagnostics import collect_failure_diagnostics, setup_or_call_failed
 from .common.http_retry import (
     DEFAULT_RETRY_BACKOFF_FACTOR,
     DEFAULT_RETRY_STATUS_CODES,
@@ -158,10 +160,27 @@ def test_namespace_session(_e2e_worker_id):
             delete_namespace(core_v1, ns_name)
 
 
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Stash test outcome on the node so fixtures can check it at teardown."""
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, f"rep_{rep.when}", rep)
+
+
 @pytest.fixture(scope="function")
-def test_namespace(test_namespace_session):
-    """Reuse the worker namespace; delete ISVCs and wait for pods after each test."""
+def test_namespace(request, test_namespace_session, _e2e_worker_id):
+    """Reuse the worker namespace; delete ISVCs and wait for pods after each test.
+
+    A failed test's resources are captured before cleanup deletes them. They are
+    not kept: the next test on this worker reuses the namespace.
+    """
+    started_at = datetime.now(timezone.utc)
     yield test_namespace_session
+    if setup_or_call_failed(request.node):
+        collect_failure_diagnostics(
+            test_namespace_session, request.node.nodeid, _e2e_worker_id, started_at
+        )
     if not skip_resource_deletion():
         cleanup_isvcs(test_namespace_session)
         wait_pods_terminated(get_core_api(), test_namespace_session)

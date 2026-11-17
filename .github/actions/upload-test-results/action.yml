@@ -1,5 +1,5 @@
 name: 'Upload test results'
-description: 'Uploads JUnit XML and JSON structured test result artifacts'
+description: 'Uploads JUnit XML, JSON structured test results and failure diagnostics'
 
 inputs:
   name:
@@ -11,6 +11,7 @@ inputs:
     default: |
       /tmp/junit_e2e*.xml
       /tmp/e2e_results*.json
+      /tmp/e2e-diagnostics*/
 
 runs:
   using: "composite"
