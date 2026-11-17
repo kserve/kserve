@@ -1,5 +1,22 @@
 # Quality gates: format, lint, vet, verify, test, precommit, release prep.
 
+GPGME := gpgme
+
+ifeq ($(shell pkg-config --exists $(GPGME) && echo 1),1)
+    GPGME_FOUND := yes
+else
+    GPGME_FOUND := no
+endif
+
+
+BTRFS_HEADER := /usr/include/btrfs/version.h
+
+ifneq (,$(wildcard $(BTRFS_HEADER)))
+    GO_BUILD_TAGS := "$(GOOS)"
+else
+    GO_BUILD_TAGS := "$(GOOS),exclude_graphdriver_btrfs"
+endif
+
 ##@ Quality gates and tests
 
 .PHONY: setup-envtest
@@ -20,10 +37,10 @@ py-fmt: $(RUFF) ## ruff format python/, docs/, test/ and hack/. Rewrites files.
 	$(RUFF) format --config ruff.toml ./python ./docs ./test ./hack
 
 vet: ## Compile and vet Go code, tests included: pkg/, cmd/, qpext. kernelcache/mcv needs gpgme.
-	go vet ./pkg/... ./cmd/... && cd qpext && go vet ./...
+	go vet ./pkg/... ./cmd/... && cd qpext && go vet -tags $(GO_BUILD_TAGS) ./...
 	@if pkg-config --exists gpgme 2>/dev/null; then \
 		echo "Vetting kernelcache/mcv..."; \
-		(cd kernelcache/mcv && CGO_ENABLED=1 go vet ./...) || exit 1; \
+		(cd kernelcache/mcv && CGO_ENABLED=1 go vet -tags $(GO_BUILD_TAGS) ./...) || exit 1; \
 	else \
 		echo "Skipping kernelcache/mcv vet (CGO dependencies not installed, covered by mcv-build-test CI)"; \
 	fi
@@ -41,7 +58,7 @@ go-lint: golangci-lint ## golangci-lint --fix on the Go modules. Rewrites files.
 	done
 	@if pkg-config --exists gpgme 2>/dev/null; then \
 		echo "Linting kernelcache/mcv..."; \
-		(cd kernelcache/mcv && CGO_ENABLED=1 $(GOLANGCI_LINT) run --fix) || exit 1; \
+		(cd kernelcache/mcv && CGO_ENABLED=1 $(GOLANGCI_LINT) run --build-tags $(GO_BUILD_TAGS) --fix) || exit 1; \
 	else \
 		echo "Skipping kernelcache/mcv lint (CGO dependencies not installed, covered by mcv-build-test CI)"; \
 	fi
