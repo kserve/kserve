@@ -23,8 +23,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from test.e2e import conftest
-from test.e2e.common import diagnostics
+from e2e import conftest
+from e2e.common import diagnostics
 
 STARTED_AT = datetime(2026, 10, 26, 9, 7, 26, tzinfo=timezone.utc)
 NODEID = (

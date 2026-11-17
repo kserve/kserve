@@ -18,11 +18,15 @@ The e2e conftest is loaded as a plugin into an inner pytest session with its
 cluster calls replaced by recorders, so fixture order and test outcomes are
 pytest's own. e2e runs never load this file: test/e2e/pytest.ini makes test/e2e
 their rootdir.
+
+Imports use e2e.*, the names real e2e runs give these modules (pytest puts test/
+on sys.path). test.e2e breaks on Pythons that ship the standard library's test
+package, which wins over this directory because it has an __init__.py.
 """
 
 import pytest
 
-from test.e2e import conftest as e2e_conftest
+from e2e import conftest as e2e_conftest
 
 pytest_plugins = ["pytester"]
 
@@ -77,7 +81,7 @@ def run_e2e(pytester):
         pytester.makepyfile(test_inner=source)
         return pytester.runpytest(
             "-p",
-            "test.e2e.conftest",
+            "e2e.conftest",
             "-p",
             "no:cacheprovider",
             # Silences pytest-asyncio; no inner test uses an async fixture.

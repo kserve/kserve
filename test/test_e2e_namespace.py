@@ -24,8 +24,8 @@ from uuid import UUID
 
 from kubernetes import client
 
-from test.e2e.common import namespace
-from test.e2e import conftest
+from e2e.common import namespace
+from e2e import conftest
 
 PASSING_TEST = """
 def test_passes(test_namespace):
