@@ -67,7 +67,9 @@ spec:
         args:
         - "--metrics-addr={{ .Values.kserve.controller.metricsBindAddress }}:{{ .Values.kserve.controller.metricsBindPort }}"
         - "--leader-elect"
-        - "--log-format={{ .Values.kserve.controller.logFormat }}"
+        {{- with .Values.kserve.controller.extraArgs }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         resources:
 {{- if .Values.kserve.controller.resources }}
 {{ toYaml .Values.kserve.controller.resources | trim | indent 12 }}

@@ -36,25 +36,29 @@ func TestControllerLogFormatHelmRender(t *testing.T) {
 
 	root := ProjectRoot()
 
-	t.Run("default is zap", func(t *testing.T) {
+	t.Run("default omits log format", func(t *testing.T) {
 		manager := renderChart(t, helm, root, "charts/kserve-resources")
-		requireLogFormat(t, manager, "Deployment", "kserve-controller-manager", "--log-format=zap")
+		requireLogFormat(t, manager, "Deployment", "kserve-controller-manager", "")
+		require.Subset(t, managerArgs(t, manager, "Deployment", "kserve-controller-manager"), []string{
+			"--metrics-addr=127.0.0.1:8080",
+			"--leader-elect",
+		})
 
 		localmodel := renderChart(t, helm, root, "charts/kserve-localmodel-resources")
-		requireLogFormat(t, localmodel, "Deployment", "kserve-localmodel-controller-manager", "--log-format=zap")
-		requireLogFormat(t, localmodel, "DaemonSet", "kserve-localmodelnode-agent", "--log-format=zap")
+		requireLogFormat(t, localmodel, "Deployment", "kserve-localmodel-controller-manager", "")
+		requireLogFormat(t, localmodel, "DaemonSet", "kserve-localmodelnode-agent", "")
 	})
 
 	t.Run("otel-json when configured", func(t *testing.T) {
-		manager := renderChart(t, helm, root, "charts/kserve-resources", "kserve.controller.logFormat=otel-json")
+		manager := renderChart(t, helm, root, "charts/kserve-resources", "kserve.controller.extraArgs[0]=--log-format=otel-json")
 		requireLogFormat(t, manager, "Deployment", "kserve-controller-manager", "--log-format=otel-json")
 
-		localmodel := renderChart(t, helm, root, "charts/kserve-localmodel-resources", "kserve.localmodel.controller.logFormat=otel-json")
+		localmodel := renderChart(t, helm, root, "charts/kserve-localmodel-resources", "kserve.localmodel.controller.extraArgs[0]=--log-format=otel-json")
 		requireLogFormat(t, localmodel, "Deployment", "kserve-localmodel-controller-manager", "--log-format=otel-json")
-		requireLogFormat(t, localmodel, "DaemonSet", "kserve-localmodelnode-agent", "--log-format=zap")
+		requireLogFormat(t, localmodel, "DaemonSet", "kserve-localmodelnode-agent", "")
 
-		node := renderChart(t, helm, root, "charts/kserve-localmodel-resources", "kserve.localmodelnode.controller.logFormat=otel-json")
-		requireLogFormat(t, node, "Deployment", "kserve-localmodel-controller-manager", "--log-format=zap")
+		node := renderChart(t, helm, root, "charts/kserve-localmodel-resources", "kserve.localmodelnode.controller.extraArgs[0]=--log-format=otel-json")
+		requireLogFormat(t, node, "Deployment", "kserve-localmodel-controller-manager", "")
 		requireLogFormat(t, node, "DaemonSet", "kserve-localmodelnode-agent", "--log-format=otel-json")
 	})
 }
@@ -83,6 +87,10 @@ func requireLogFormat(t *testing.T, manifest []byte, kind, name, want string) {
 		if arg == "--log-format" || strings.HasPrefix(arg, "--log-format=") {
 			got = append(got, arg)
 		}
+	}
+	if want == "" {
+		require.Empty(t, got, "%s %s log format args", kind, name)
+		return
 	}
 	require.Equal(t, []string{want}, got, "%s %s log format args", kind, name)
 }
@@ -118,7 +126,9 @@ func managerArgs(t *testing.T, manifest []byte, kind, name string) []string {
 			}
 			args, found, err := unstructured.NestedStringSlice(cm, "args")
 			require.NoError(t, err)
-			require.Truef(t, found, "%s %s manager container has no args", kind, name)
+			if !found {
+				return nil
+			}
 			return args
 		}
 		t.Fatalf("%s %s has no manager container", kind, name)

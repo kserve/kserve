@@ -73,8 +73,8 @@ kserve:
     controller:
       image: kserve/kserve-localmodel-controller
       tag: ''
-      # -- Log output format. One of zap or otel-json.
-      logFormat: zap
+      # -- Additional container arguments. Example: ["--log-format=otel-json"].
+      extraArgs: []
       imagePullPolicy: IfNotPresent
       resources:
         limits:
@@ -167,8 +167,8 @@ kserve:
   localmodelnode:
     controller:
       image: kserve/kserve-localmodelnode-agent
-      # -- Log output format. One of zap or otel-json.
-      logFormat: zap
+      # -- Additional container arguments. Example: ["--log-format=otel-json"].
+      extraArgs: []
       tag: ''
       imagePullPolicy: IfNotPresent
       resources:

@@ -87,9 +87,9 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
 | kserve.localmodel.agent.tag | string | `""` |  |
 | kserve.localmodel.agent.tolerations | list | `[]` |  |
+| kserve.localmodel.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
-| kserve.localmodel.controller.logFormat | string | `"zap"` | Log output format. One of zap or otel-json. |
 | kserve.localmodel.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.localmodel.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.localmodel.controller.resources.requests.cpu | string | `"100m"` |  |
@@ -104,9 +104,9 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
 | kserve.localmodel.sharedPVCImportFSGroup | int | `1000` | fsGroup for shared-PVC import Jobs, which run in the cache's namespace. Independent of securityContext.fsGroup (per-node download Jobs). Set to null to omit it and let namespace admission (e.g. an OpenShift SCC) assign the group. |
 | kserve.localmodelnode.controller.affinity | object | `{}` |  |
+| kserve.localmodelnode.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | kserve.localmodelnode.controller.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
-| kserve.localmodelnode.controller.logFormat | string | `"zap"` | Log output format. One of zap or otel-json. |
 | kserve.localmodelnode.controller.nodeSelector.kserve/localmodel | string | `"worker"` |  |
 | kserve.localmodelnode.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.localmodelnode.controller.resources.limits.memory | string | `"300Mi"` |  |
