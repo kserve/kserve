@@ -29,6 +29,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.containerSecurityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.controller.deploymentMode | string | `"Knative"` |  |
+| kserve.controller.env | list | `[]` |  |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
 | kserve.controller.gateway.disableHTTPRouteTimeout | bool | `false` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |

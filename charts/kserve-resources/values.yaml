@@ -177,6 +177,7 @@ kserve:
     podLabels: {}
     annotations: {}
     podAnnotations: {}
+    env: []
     serviceAnnotations: {}
     webhookServiceAnnotations: {}
     securityContext:
