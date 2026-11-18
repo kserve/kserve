@@ -35,8 +35,6 @@ import (
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
-var hashDirRegex = regexp.MustCompile(`^[a-f0-9]{32}$`) // Adjust the regex as needed
-
 const (
 	cacheVLLMImagePrefix     = "cache.vllm.image"
 	cacheVLLMImageEntryCount = cacheVLLMImagePrefix + "/entry-count"
