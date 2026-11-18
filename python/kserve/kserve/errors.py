@@ -22,7 +22,7 @@ class ModelMissingError(Exception):
         self.path = path
 
     def __str__(self):
-        return self.path
+        return str(self.path)
 
 
 class InferenceError(RuntimeError):
