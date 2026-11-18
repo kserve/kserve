@@ -317,5 +317,9 @@ func (n *gpuNvml) GetAllSummaries() ([]DeviceSummary, error) {
 
 // GetSummary implements Device.
 func (n *gpuNvml) GetSummary(gpuID int) (DeviceSummary, error) {
-	panic("unimplemented")
+	dev, exists := n.devices[gpuID]
+	if !exists {
+		return DeviceSummary{}, fmt.Errorf("GPU device %d not found", gpuID)
+	}
+	return dev.Summary, nil
 }
