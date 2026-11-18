@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -196,25 +197,13 @@ func (r *LLMISVCReconciler) validateHTTPRouteTargets(ctx context.Context, routes
 		}
 
 		for _, parentRef := range route.Spec.ParentRefs {
-			gatewayKey := types.NamespacedName{
-				Name: string(parentRef.Name),
-			}
-
-			if parentRef.Namespace != nil {
-				gatewayKey.Namespace = string(*parentRef.Namespace)
-			} else {
-				gatewayKey.Namespace = route.Namespace
-			}
-
-			gateway := &gwapiv1.Gateway{}
-			err := r.Get(ctx, gatewayKey, gateway)
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					targetErrors = append(targetErrors, fmt.Sprintf("HTTPRoute %s/%s references non-existent Gateway %s/%s", route.Namespace, route.Name, gatewayKey.Namespace, gatewayKey.Name))
-				} else {
-					logger.Error(err, "Error fetching parent Gateway", "route", route.Name, "gateway", gatewayKey)
-					targetErrors = append(targetErrors, fmt.Sprintf("HTTPRoute %s/%s failed to validate parent Gateway %s/%s: %v", route.Namespace, route.Name, gatewayKey.Namespace, gatewayKey.Name, err))
-				}
+			err := r.validateParentRef(ctx, parentRef, route.Namespace)
+			switch {
+			case IsValidationError(err):
+				targetErrors = append(targetErrors, fmt.Sprintf("HTTPRoute %s/%s references %v", route.Namespace, route.Name, err))
+			case err != nil:
+				logger.Error(err, "Error fetching parent Gateway", "route", route.Name, "gateway", parentKey(parentRef, route.Namespace))
+				targetErrors = append(targetErrors, fmt.Sprintf("HTTPRoute %s/%s %v", route.Namespace, route.Name, err))
 			}
 		}
 	}
@@ -224,6 +213,37 @@ func (r *LLMISVCReconciler) validateHTTPRouteTargets(ctx context.Context, routes
 		return NewValidationError("HTTPRoute target validation failed: " + message)
 	}
 
+	return nil
+}
+
+// validateParentRef checks that a route parent exists and, for a ListenerSet,
+// that its Gateway does too. A missing or unsupported parent is returned as a
+// *ValidationError naming it; any other error is a failed read, wrapped with
+// the object it was reading.
+func (r *LLMISVCReconciler) validateParentRef(ctx context.Context, parentRef gwapiv1.ParentReference, routeNS string) error {
+	gatewayKey, listenerSet, err := parentGatewayKey(ctx, r.Client, parentRef, routeNS)
+	var unsupported *unsupportedParentKindError
+	switch {
+	case errors.As(err, &unsupported):
+		return NewValidationError(unsupported.Error())
+	case apierrors.IsNotFound(err):
+		return NewValidationError(fmt.Sprintf("non-existent ListenerSet %s", parentKey(parentRef, routeNS)))
+	case meta.IsNoMatchError(err):
+		return NewValidationError(fmt.Sprintf("ListenerSet %s, but the ListenerSet CRD is not installed", parentKey(parentRef, routeNS)))
+	case err != nil:
+		return err
+	}
+
+	if err := r.Get(ctx, gatewayKey, &gwapiv1.Gateway{}); err != nil {
+		switch {
+		case !apierrors.IsNotFound(err):
+			return fmt.Errorf("failed to validate parent Gateway %s: %w", gatewayKey, err)
+		case listenerSet != nil:
+			return NewValidationError(fmt.Sprintf("ListenerSet %s/%s whose Gateway %s does not exist",
+				listenerSet.Namespace, listenerSet.Name, gatewayKey))
+		}
+		return NewValidationError(fmt.Sprintf("non-existent Gateway %s", gatewayKey))
+	}
 	return nil
 }
 
@@ -240,25 +260,13 @@ func (r *LLMISVCReconciler) validateManagedHTTPRouteSpec(ctx context.Context, ll
 	httpSpec := llmSvc.Spec.Router.Route.HTTP.Spec
 
 	for _, parentRef := range httpSpec.ParentRefs {
-		gatewayKey := types.NamespacedName{
-			Name: string(parentRef.Name),
-		}
-
-		if parentRef.Namespace != nil {
-			gatewayKey.Namespace = string(*parentRef.Namespace)
-		} else {
-			gatewayKey.Namespace = llmSvc.GetNamespace()
-		}
-
-		gateway := &gwapiv1.Gateway{}
-		err := r.Get(ctx, gatewayKey, gateway)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				targetErrors = append(targetErrors, fmt.Sprintf("Managed HTTPRoute references non-existent Gateway %s/%s", gatewayKey.Namespace, gatewayKey.Name))
-			} else {
-				logger.Error(err, "Error fetching parent Gateway for managed route", "gateway", gatewayKey)
-				return fmt.Errorf("failed to validate parent Gateway %s/%s: %w", gatewayKey.Namespace, gatewayKey.Name, err)
-			}
+		err := r.validateParentRef(ctx, parentRef, llmSvc.GetNamespace())
+		switch {
+		case IsValidationError(err):
+			targetErrors = append(targetErrors, fmt.Sprintf("Managed HTTPRoute references %v", err))
+		case err != nil:
+			logger.Error(err, "Error fetching parent Gateway for managed route", "gateway", parentKey(parentRef, llmSvc.GetNamespace()))
+			return err
 		}
 	}
 

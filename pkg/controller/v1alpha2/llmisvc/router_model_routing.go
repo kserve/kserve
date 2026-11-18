@@ -18,13 +18,13 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"slices"
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -152,21 +152,23 @@ type parentGateways struct {
 // readParentGateways reads every parent of the rendered route rather than
 // spec.router.gateway.refs, so the default ingress Gateway counts too, and only
 // the Gateways themselves, so a GatewayClass problem cannot flip the answer.
-// Every parent is read, so the outcome doesn't depend on parentRef order; a
-// parent that isn't a Gateway counts as unset.
+// Every parent is read, so the outcome doesn't depend on parentRef order. A
+// ListenerSet parent counts as, and is named by, its Gateway; a parent of any
+// other kind counts as unset.
 func (r *LLMISVCReconciler) readParentGateways(ctx context.Context, route *gwapiv1.HTTPRoute) parentGateways {
 	var parents parentGateways
 	for _, ref := range route.Spec.ParentRefs {
-		key := types.NamespacedName{
-			Namespace: string(ptr.Deref(ref.Namespace, gwapiv1.Namespace(route.Namespace))),
-			Name:      string(ref.Name),
-		}
-		if ptr.Deref(ref.Group, gwapiv1.GroupName) != gwapiv1.GroupName || ptr.Deref(ref.Kind, "Gateway") != "Gateway" {
+		key, _, err := parentGatewayKey(ctx, r.Client, ref, route.Namespace)
+		var unsupported *unsupportedParentKindError
+		if errors.As(err, &unsupported) {
 			parents.unset = append(parents.unset, key.String())
 			continue
 		}
 		gateway := &gwapiv1.Gateway{}
-		if err := r.Get(ctx, key, gateway); err != nil {
+		if err == nil {
+			err = r.Get(ctx, key, gateway)
+		}
+		if err != nil {
 			parents.unreadable = append(parents.unreadable, key.String())
 			if parents.err == nil {
 				parents.err = err

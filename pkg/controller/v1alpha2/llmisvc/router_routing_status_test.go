@@ -211,6 +211,28 @@ func TestBuildObservedGateways(t *testing.T) {
 				),
 			},
 		},
+		{
+			name: "ListenerSet parent keeps its kind, apart from a Gateway of the same name",
+			input: []*gwapiv1.HTTPRoute{
+				HTTPRoute("my-route",
+					WithParentRef(withSectionName(ListenerSetParentRef("gw-1", "ns-a"), "tenant-https")),
+					WithParentRef(parentRef("gw-1", "ns-a", nil)),
+				),
+			},
+			expected: []v1alpha2.ObservedGateway{
+				observedGateway("gw-1", "ns-a", nil, []gwapiv1.ObjectReference{routeRef("my-route")}),
+				{
+					ObjectReference: gwapiv1.ObjectReference{
+						Group:     gwapiv1.Group(gwapiv1.GroupName),
+						Kind:      "ListenerSet",
+						Name:      "gw-1",
+						Namespace: ptr.To(gwapiv1.Namespace("ns-a")),
+					},
+					Listeners:  []gwapiv1.SectionName{"tenant-https"},
+					HTTPRoutes: []gwapiv1.ObjectReference{routeRef("my-route")},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

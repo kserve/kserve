@@ -165,6 +165,10 @@ type LLMISVCReconciler struct {
 	// CRD was present when SetupWithManager ran.
 	DisaggregatedSetRoleScalerAvailable bool
 
+	// ListenerSetAvailable reports whether the Gateway API ListenerSet CRD was present
+	// when SetupWithManager ran, so ListenerSets are watched and may be listed.
+	ListenerSetAvailable bool
+
 	// GenerateCertificateKey creates the private key of each workload serving
 	// certificate. Nil means a fresh RSA 4096 key per certificate.
 	GenerateCertificateKey func() (*rsa.PrivateKey, error)
@@ -197,6 +201,7 @@ func (r *LLMISVCReconciler) finalizationRequeueAfter() time.Duration {
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes;gateways;gatewayclasses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=listenersets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=inference.networking.x-k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels;inferencemodelrewrites;inferencepoolimports,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=inference.networking.k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=resource.k8s.io,resources=resourceclaims;resourceclaimtemplates,verbs=get;list;watch;create;update;patch;delete
@@ -548,6 +553,13 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gwapiv1.GroupVersion.String(), "Gateway"); ok && err == nil {
 		b = b.Watches(&gwapiv1.Gateway{}, r.enqueueOnGatewayChange(logger))
 	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gwapiv1.GroupVersion.String(), "ListenerSet"); ok && err == nil {
+		if err := setupListenerSetGatewayIndex(context.Background(), mgr.GetFieldIndexer()); err != nil {
+			return fmt.Errorf("failed to set up field indexer for ListenerSet gateways: %w", err)
+		}
+		r.ListenerSetAvailable = true
+		b = b.Watches(&gwapiv1.ListenerSet{}, r.enqueueOnListenerSetChange(logger))
+	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
 		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate)).
@@ -626,8 +638,11 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
+		// Status records a ListenerSet parent as the ListenerSet, not this Gateway.
+		attachedListenerSets := r.listenerSetsOfGateway(ctx, logger, sub)
 		for _, llmSvc := range llmSvcList.Items {
-			if hasRoutingGatewayRef(&llmSvc, gwapiv1.ObjectName(sub.Name), gwapiv1.Namespace(sub.Namespace)) {
+			if hasRoutingGatewayRef(&llmSvc, gwapiv1.ObjectName(sub.Name), gwapiv1.Namespace(sub.Namespace)) ||
+				hasAnyRoutingListenerSetRef(&llmSvc, attachedListenerSets) {
 				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 					Namespace: llmSvc.Namespace,
 					Name:      llmSvc.Name,
@@ -675,6 +690,66 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 			}
 		}
 
+		return reqs
+	})
+}
+
+const listenerSetGatewayIndex = ".spec.parentRef"
+
+// setupListenerSetGatewayIndex registers a field indexer on the Gateway a
+// ListenerSet attaches to, so a Gateway event finds its ListenerSets without
+// listing all of them.
+func setupListenerSetGatewayIndex(ctx context.Context, indexer client.FieldIndexer) error {
+	return indexer.IndexField(ctx, &gwapiv1.ListenerSet{}, listenerSetGatewayIndex, listenerSetGatewayIndexValue)
+}
+
+func listenerSetGatewayIndexValue(obj client.Object) []string {
+	return []string{listenerSetGatewayKey(obj.(*gwapiv1.ListenerSet)).String()}
+}
+
+// listenerSetsOfGateway returns the ListenerSets attached to gateway. It returns nil
+// when the ListenerSet CRD is absent or the read fails, so a Gateway event still
+// reaches the services that name the Gateway directly.
+func (r *LLMISVCReconciler) listenerSetsOfGateway(ctx context.Context, logger logr.Logger, gateway *gwapiv1.Gateway) []gwapiv1.ListenerSet {
+	if !r.ListenerSetAvailable {
+		return nil
+	}
+	listenerSets := &gwapiv1.ListenerSetList{}
+	if err := r.List(ctx, listenerSets,
+		client.MatchingFields{listenerSetGatewayIndex: client.ObjectKeyFromObject(gateway).String()}); err != nil {
+		logger.Error(err, "Failed to list ListenerSets")
+		return nil
+	}
+	return listenerSets.Items
+}
+
+func hasAnyRoutingListenerSetRef(llmSvc *v1alpha2.LLMInferenceService, listenerSets []gwapiv1.ListenerSet) bool {
+	for i := range listenerSets {
+		if hasRoutingParentRef(llmSvc, "ListenerSet", gwapiv1.ObjectName(listenerSets[i].Name), gwapiv1.Namespace(listenerSets[i].Namespace)) {
+			return true
+		}
+	}
+	return false
+}
+
+// enqueueOnListenerSetChange triggers reconciliation of the LLMInferenceServices
+// whose routes attach through a changed ListenerSet, so a listener hostname or
+// port change reaches status.url.
+func (r *LLMISVCReconciler) enqueueOnListenerSetChange(logger logr.Logger) handler.EventHandler {
+	logger = logger.WithName("enqueueOnListenerSetChange")
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, llmSvcList); err != nil {
+			logger.Error(err, "Failed to list LLMInferenceService")
+			return nil
+		}
+		var reqs []reconcile.Request
+		for i := range llmSvcList.Items {
+			llmSvc := &llmSvcList.Items[i]
+			if hasRoutingParentRef(llmSvc, "ListenerSet", gwapiv1.ObjectName(object.GetName()), gwapiv1.Namespace(object.GetNamespace())) {
+				reqs = append(reqs, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(llmSvc)})
+			}
+		}
 		return reqs
 	})
 }
@@ -869,13 +944,24 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 }
 
 func hasRoutingGatewayRef(llmSvc *v1alpha2.LLMInferenceService, gatewayName gwapiv1.ObjectName, gatewayNamespace gwapiv1.Namespace) bool {
+	return hasRoutingParentRef(llmSvc, "Gateway", gatewayName, gatewayNamespace)
+}
+
+// hasRoutingParentRef reports whether status.router.gateways records a route
+// parent of the given kind. An empty kind counts as Gateway, the Gateway API
+// default for a parent reference.
+func hasRoutingParentRef(llmSvc *v1alpha2.LLMInferenceService, kind gwapiv1.Kind, name gwapiv1.ObjectName, namespace gwapiv1.Namespace) bool {
 	if llmSvc.Status.Router == nil || len(llmSvc.Status.Router.Gateways) == 0 {
 		return false
 	}
 
 	for _, gw := range llmSvc.Status.Router.Gateways {
-		if string(gw.Name) == string(gatewayName) &&
-			gw.Namespace != nil && string(*gw.Namespace) == string(gatewayNamespace) {
+		gwKind := gw.Kind
+		if gwKind == "" {
+			gwKind = "Gateway"
+		}
+		if gwKind == kind && gw.Name == name &&
+			gw.Namespace != nil && *gw.Namespace == namespace {
 			return true
 		}
 	}
