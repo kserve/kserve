@@ -11,10 +11,6 @@ To install the chart, run the following:
 $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version {{ template "chart.version" . }}
 ```
 
-## Extra environment variables
-
-Environment variables can be added to the controller manager container with `kserve.controller.env`.
-
 {{ template "chart.requirementsSection" . }}
 
 {{ template "chart.valuesSection" . }}
