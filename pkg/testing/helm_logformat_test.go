@@ -18,6 +18,7 @@ package testing
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os/exec"
 	"strings"
@@ -110,7 +111,7 @@ func managerArgs(t *testing.T, manifest []byte, kind, name string) []string {
 	for {
 		obj := map[string]any{}
 		err := decoder.Decode(&obj)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
