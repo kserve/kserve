@@ -227,10 +227,12 @@ data:
       "scaleDownStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleDownStabilizationWindowSeconds }}"
     }
 
+  {{- if or (dig "llmisvc" "featureGates" "disaggregatedSet" false .Values.kserve) (dig "llmisvc" "featureGates" "recursiveConfigRender" false .Values.kserve) }}
   llmisvc: |-
     {
       "featureGates": {
-        "disaggregatedSet": {{ .Values.kserve.llmisvc.featureGates.disaggregatedSet | default false }},
-        "recursiveConfigRender": {{ .Values.kserve.llmisvc.featureGates.recursiveConfigRender | default false }}
+        "disaggregatedSet": {{ dig "llmisvc" "featureGates" "disaggregatedSet" false .Values.kserve }},
+        "recursiveConfigRender": {{ dig "llmisvc" "featureGates" "recursiveConfigRender" false .Values.kserve }}
       }
     }
+  {{- end }}

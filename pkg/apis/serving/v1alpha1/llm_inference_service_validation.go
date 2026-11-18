@@ -89,6 +89,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, v1alpha2.ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, v1alpha2.ValidateRouteRuleNamingAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
+	allErrs = append(allErrs, v1alpha2.ValidateConfigRendererAnnotation(llmSvc.GetAnnotations(), field.NewPath("metadata", "annotations"))...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {

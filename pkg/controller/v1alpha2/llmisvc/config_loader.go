@@ -134,9 +134,10 @@ type FeatureGates struct {
 // LLMISVCConfig holds LLMInferenceService controller settings read from the "llmisvc"
 // key of the inferenceservice-config ConfigMap.
 //
-// The key is optional. The Helm charts always render it from kserve.llmisvc.featureGates,
-// with every gate off by default, while the kustomize manifests do not ship it. To
-// enable a gate without Helm, add for example:
+// The key is optional and every gate is off when it is unset. The Helm charts render it
+// from kserve.llmisvc.featureGates only when a gate is on, so an upgrade with every gate
+// off leaves a hand-set key alone. The kustomize manifests do not ship it. To enable a
+// gate without Helm, add for example:
 //
 //	llmisvc: |-
 //	  {"featureGates": {"disaggregatedSet": true}}

@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -2494,6 +2495,202 @@ func TestReplaceVariables_RecursiveRenderMapKeys(t *testing.T) {
 	})
 }
 
+// TestReplaceVariables_RecursiveRenderSkipsMetadata covers kubectl's
+// last-applied-configuration annotation, which holds a copy of the spec with the
+// quotes inside its actions escaped. That text is not a valid template, and nothing
+// reads templates from the rendered metadata, so only the spec is rendered.
+func TestReplaceVariables_RecursiveRenderSkipsMetadata(t *testing.T) {
+	lastApplied := `{"spec":{"labels":{"example":"{{ index .ObjectMeta.Annotations \"example\" }}"}}}`
+	cfg := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-config",
+			Annotations: map[string]string{"kubectl.kubernetes.io/last-applied-configuration": lastApplied},
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Labels: map[string]string{"example": `{{ index .ObjectMeta.Annotations "example" }}`},
+			},
+		},
+	}
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-llm",
+			Namespace:   "test-ns",
+			Annotations: map[string]string{"example": "value"},
+		},
+	}
+
+	got, err := llmisvc.ReplaceVariables(llmSvc, cfg, templateRenderers[1].config(&llmisvc.Config{}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if diff := cmp.Diff(map[string]string{"example": "value"}, got.Spec.Labels); diff != "" {
+		t.Errorf("spec labels (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(cfg.ObjectMeta, got.ObjectMeta); diff != "" {
+		t.Errorf("metadata changed (-want +got):\n%s", diff)
+	}
+}
+
+// TestReplaceVariables_RecursiveRenderReportsFirstFailingKey covers several failing
+// fields in one map. The reported field must not depend on map iteration order, or the
+// PresetsCombined message would change between reconciles.
+func TestReplaceVariables_RecursiveRenderReportsFirstFailingKey(t *testing.T) {
+	labels := map[string]string{}
+	for _, key := range []string{"e", "c", "a", "d", "b"} {
+		labels[key] = "{{ .Missing }}"
+	}
+	cfg := &v1alpha2.LLMInferenceServiceConfig{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{Labels: labels},
+		},
+	}
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "test-ns"},
+	}
+	recursive := templateRenderers[1].config(&llmisvc.Config{})
+
+	for range 20 {
+		_, err := llmisvc.ReplaceVariables(llmSvc, cfg, recursive)
+		if err == nil {
+			t.Fatal("expected an error for the failing labels")
+		}
+		if !strings.Contains(err.Error(), "template: spec.labels.a:") {
+			t.Fatalf("expected the error for spec.labels.a, got: %v", err)
+		}
+	}
+}
+
+// TestReplaceVariables_ConfigRendererAnnotation covers the service annotation that
+// overrides the RecursiveConfigRender gate in both directions.
+func TestReplaceVariables_ConfigRendererAnnotation(t *testing.T) {
+	// The value breaks the JSON round trip and renders as it is under the recursive
+	// renderer, so the outcome shows which renderer ran.
+	value := "say \"hi\""
+	cfg := &v1alpha2.LLMInferenceServiceConfig{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Labels: map[string]string{"example": `{{ index .ObjectMeta.Annotations "example" }}`},
+			},
+		},
+	}
+
+	for _, tt := range []struct {
+		name          string
+		gate          bool
+		annotation    *string
+		wantRecursive bool
+		wantErr       string
+	}{
+		{name: "gate off, no annotation", gate: false, wantRecursive: false},
+		{name: "gate on, no annotation", gate: true, wantRecursive: true},
+		{name: "annotation recursive wins over gate off", gate: false, annotation: ptr.To("recursive"), wantRecursive: true},
+		{name: "annotation json wins over gate on", gate: true, annotation: ptr.To("json"), wantRecursive: false},
+		{name: "annotation is trimmed and case-insensitive", gate: false, annotation: ptr.To(" Recursive "), wantRecursive: true},
+		{name: "empty annotation defers to the gate", gate: true, annotation: ptr.To(""), wantRecursive: true},
+		{name: "unsupported annotation is an error", gate: true, annotation: ptr.To("walk"), wantErr: llmisvc.AnnotationConfigRenderer},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			annotations := map[string]string{"example": value}
+			if tt.annotation != nil {
+				annotations[llmisvc.AnnotationConfigRenderer] = *tt.annotation
+			}
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "test-ns", Annotations: annotations},
+			}
+			reconcilerConfig := &llmisvc.Config{}
+			reconcilerConfig.FeatureGates.RecursiveConfigRender = tt.gate
+
+			got, err := llmisvc.ReplaceVariables(llmSvc, cfg, reconcilerConfig)
+
+			switch {
+			case tt.wantErr != "":
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected an error mentioning %q, got: %v", tt.wantErr, err)
+				}
+			case tt.wantRecursive:
+				if err != nil {
+					t.Fatalf("recursive renderer: unexpected error: %v", err)
+				}
+				if diff := cmp.Diff(value, got.Spec.Labels["example"]); diff != "" {
+					t.Errorf("recursive renderer changed the value (-want +got):\n%s", diff)
+				}
+			default:
+				if err == nil {
+					t.Error("JSON renderer: expected the unescaped value to break the JSON round trip")
+				}
+			}
+		})
+	}
+}
+
+// TestValidateConfigTemplates covers the LLMInferenceServiceConfig webhook check. A
+// service can pick either renderer, so a config is admitted when one of them renders it.
+func TestValidateConfigTemplates(t *testing.T) {
+	podWithArgs := func(arg string) *v1alpha2.LLMInferenceServiceConfig {
+		return &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{Name: "main", Args: []string{arg}}},
+					},
+				},
+			},
+		}
+	}
+
+	for _, tt := range []struct {
+		name string
+		cfg  *v1alpha2.LLMInferenceServiceConfig
+		// wantErr maps the gate setting to the expected error text, or "" to admit.
+		wantErr map[bool]string
+	}{
+		{
+			name:    "works under both renderers",
+			cfg:     podWithArgs("{{ .Name }}"),
+			wantErr: map[bool]string{false: "", true: ""},
+		},
+		{
+			name:    "works only under the recursive renderer",
+			cfg:     podWithArgs(`{{ "\"" }}`),
+			wantErr: map[bool]string{false: "", true: ""},
+		},
+		{
+			name:    "works only under the JSON renderer",
+			cfg:     podWithArgs("{{ kvTransferConfig .Spec.KVCacheOffloading }}"),
+			wantErr: map[bool]string{false: "", true: ""},
+		},
+		{
+			name: "fails under both reports the cluster default",
+			cfg:  podWithArgs("{{ .Missing }}"),
+			wantErr: map[bool]string{
+				false: "template: config:",
+				true:  "template: spec.template.containers[0].args[0]:",
+			},
+		},
+	} {
+		for _, gate := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/gate %t", tt.name, gate), func(t *testing.T) {
+				reconcilerConfig := &llmisvc.Config{}
+				reconcilerConfig.FeatureGates.RecursiveConfigRender = gate
+
+				err := llmisvc.ValidateConfigTemplates(tt.cfg, reconcilerConfig)
+
+				want := tt.wantErr[gate]
+				if want == "" {
+					if err != nil {
+						t.Fatalf("expected the config to be admitted, got: %v", err)
+					}
+					return
+				}
+				if err == nil || !strings.Contains(err.Error(), want) {
+					t.Fatalf("expected an error containing %q, got: %v", want, err)
+				}
+			})
+		}
+	}
+}
+
 // TestReplaceVariables_KVTransferConfigBashSafe guards against the shell eating the
 // quotes in the rendered --kv-transfer-config JSON. The config template assigns the
 // value with KV_TRANSFER_ARGS="..." and then eval's the command line; if the quotes
@@ -3057,6 +3254,9 @@ func TestReplaceVariables_TemplateInjection(t *testing.T) {
 	tests := []struct {
 		name   string
 		config string
+		// inMetadata marks an injection in metadata, which the recursive renderer
+		// does not execute, so it must come back as written.
+		inMetadata bool
 	}{
 		{
 			name: "access CredentialConfig via template injection",
@@ -3067,6 +3267,7 @@ metadata:
 spec:
   model:
     name: "safe-model"`,
+			inMetadata: true,
 		},
 		{
 			name: "access StorageConfig via template injection",
@@ -3096,7 +3297,16 @@ spec:
 				}
 
 				llmSvc := &v1alpha2.LLMInferenceService{}
-				_, err := llmisvc.ReplaceVariables(llmSvc, preset, renderer.config(reconcilerConfig))
+				got, err := llmisvc.ReplaceVariables(llmSvc, preset, renderer.config(reconcilerConfig))
+				if tt.inMetadata && renderer.name == "recursive" {
+					if err != nil {
+						t.Fatalf("ReplaceVariables() unexpected error: %v", err)
+					}
+					if got.Name != preset.Name {
+						t.Errorf("metadata.name = %q, want it unrendered as %q", got.Name, preset.Name)
+					}
+					return
+				}
 				if err == nil {
 					t.Errorf("ReplaceVariables() should reject template accessing sensitive GlobalConfig fields, but succeeded")
 				}

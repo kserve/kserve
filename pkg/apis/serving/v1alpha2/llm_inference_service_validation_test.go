@@ -553,6 +553,38 @@ func TestValidateRouteRuleNamingAnnotation(t *testing.T) {
 	}
 }
 
+func TestValidateConfigRendererAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   *string
+		wantErr bool
+	}{
+		{name: "absent defers to the feature gate", value: nil},
+		{name: "empty defers to the feature gate", value: ptr.To("")},
+		{name: "recursive", value: ptr.To("recursive")},
+		{name: "json", value: ptr.To("json")},
+		{name: "trimmed and case-insensitive like the consumer", value: ptr.To(" JSON ")},
+		{name: "unsupported value is rejected at admission", value: ptr.To("walk"), wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			if tt.value != nil {
+				svc.Annotations = map[string]string{constants.ConfigRendererAnnotationKey: *tt.value}
+			}
+
+			_, err := validator.ValidateCreate(t.Context(), svc)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, "metadata.annotations["+constants.ConfigRendererAnnotationKey+"]")
+			require.ErrorContains(t, err, "Unsupported value")
+		})
+	}
+}
+
 func TestValidateManagedDRAAnnotations(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 

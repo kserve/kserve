@@ -443,8 +443,7 @@ func validateLLMISVCConfig(ctx context.Context, reader client.Reader, config *v1
 	if err != nil {
 		return err
 	}
-	_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, cfg)
-	return err
+	return llmisvc.ValidateConfigTemplates(config, cfg)
 }
 
 // createV1Alpha1ConfigValidationFunc creates a validation function for v1alpha1 LLMInferenceServiceConfig.
