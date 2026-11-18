@@ -150,9 +150,9 @@ def _request_once(method: str, url: str, host: str) -> httpx.Response:
 def _assert_gateway_not_found(response: httpx.Response):
     """The gateway itself must answer 404: the request must not reach a model server."""
     assert response.status_code == 404
-    assert (
-        response.headers.get("server", "").lower() != "uvicorn"
-    ), "request was forwarded to a model server instead of being rejected by the gateway"
+    assert response.headers.get("server", "").lower() != "uvicorn", (
+        "request was forwarded to a model server instead of being rejected by the gateway"
+    )
 
 
 @pytest.mark.raw

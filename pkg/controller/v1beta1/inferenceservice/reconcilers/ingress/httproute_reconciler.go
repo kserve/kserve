@@ -746,7 +746,7 @@ func getExplainerModelName(isvc *v1beta1.InferenceService) string {
 	var args []string
 	if explainer.ART != nil {
 		args = explainer.ART.Args
-	} else if len(explainer.PodSpec.Containers) > 0 {
+	} else if len(explainer.Containers) > 0 {
 		args = explainer.PodSpec.Containers[0].Args
 	}
 	modelName := isvc.Name
