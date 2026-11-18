@@ -252,3 +252,41 @@ func TestDownloadModel_NoPrefixInURI(t *testing.T) {
 		t.Error("expected model.pt to exist")
 	}
 }
+
+func TestDownloadModel_SiblingPrefixCollision(t *testing.T) {
+	// S3 ListObjectsV2 uses a plain string prefix match, so "merlinite-7b-lab"
+	// also matches objects under the sibling "merlinite-7b-lab-hf/" directory.
+	// DownloadModel must skip any key that does not equal the prefix or start
+	// at a "/" boundary.
+	syscall.Umask(0)
+	modelDir := t.TempDir()
+
+	provider := &S3Provider{
+		Client: &mocks.MockS3PaginatedClient{
+			Pages: [][]string{
+				{
+					"merlinite-7b-lab/config.json",
+					"merlinite-7b-lab-hf/config.json",
+				},
+			},
+		},
+		TransferClient: &mocks.MockS3TransferClient{},
+	}
+
+	err := provider.DownloadModel(modelDir, "model", "s3://modelRepo/merlinite-7b-lab")
+	if err != nil {
+		t.Fatalf("DownloadModel failed: %v", err)
+	}
+
+	// Only the exact-prefix file should have been downloaded
+	wantPath := filepath.Join(modelDir, "model", "config.json")
+	if !FileExists(wantPath) {
+		t.Errorf("expected %s to exist", wantPath)
+	}
+
+	// The sibling-prefix file must not have been downloaded
+	siblingPath := filepath.Join(modelDir, "model", "-hf", "config.json")
+	if FileExists(siblingPath) {
+		t.Errorf("sibling-prefix file %s should not have been downloaded", siblingPath)
+	}
+}
