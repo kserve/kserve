@@ -12,17 +12,9 @@ To install the chart, run the following:
 $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.21.0
 ```
 
-## Knative Serving in a non-default namespace
+## Extra environment variables
 
-The controller reads Knative's `config-autoscaler` ConfigMap from the `knative-serving` namespace. If Knative Serving is installed in another namespace, set `KNATIVE_CONFIG_AUTOSCALER_NAMESPACE` through `kserve.controller.env`, otherwise Knative-mode InferenceServices fail to reconcile with `configmaps "config-autoscaler" not found`:
-
-```yaml
-kserve:
-  controller:
-    env:
-      - name: KNATIVE_CONFIG_AUTOSCALER_NAMESPACE
-        value: <knative-serving-namespace>
-```
+Environment variables can be added to the controller manager container with `kserve.controller.env`.
 
 ## Values
 
@@ -41,7 +33,7 @@ kserve:
 | kserve.controller.containerSecurityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.controller.deploymentMode | string | `"Knative"` |  |
-| kserve.controller.env | list | `[]` | Extra environment variables for the controller manager container, merged by name with the built-in ones (POD_NAMESPACE, SECRET_NAME). Add new names; to change a built-in one, use the same kind of field it uses (value or valueFrom), not the other. Example: set KNATIVE_CONFIG_AUTOSCALER_NAMESPACE when Knative Serving is not installed in knative-serving. |
+| kserve.controller.env | list | `[]` |  |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
 | kserve.controller.gateway.disableHTTPRouteTimeout | bool | `false` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
