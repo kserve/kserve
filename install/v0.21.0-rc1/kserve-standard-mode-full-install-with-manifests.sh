@@ -5530,7 +5530,6 @@ spec:
           --port 8000
           --host 0.0.0.0
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tp {{ .Spec.Parallelism.Tensor }}{{- end }}
-          {{- if .Spec.TrustRemoteCode }} --trust-remote-code{{- end }}
         )
         exec "${args[@]}" "$@"
       - --
