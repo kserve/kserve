@@ -73,7 +73,8 @@ func TestControllerLogFormatHelmRender(t *testing.T) {
 func renderChart(t *testing.T, helm, root, chart string, sets ...string) []byte {
 	t.Helper()
 
-	args := []string{"template", "kserve", chart}
+	args := make([]string, 0, 3+2*len(sets))
+	args = append(args, "template", "kserve", chart)
 	for _, set := range sets {
 		args = append(args, "--set", set)
 	}
