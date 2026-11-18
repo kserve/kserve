@@ -1,5 +1,5 @@
 # Build the KernelCacheNode agent.
-FROM golang:1.26.8 AS deps
+FROM golang:1.27.4 AS deps
 
 WORKDIR /go/src/github.com/kserve/kserve
 COPY go.mod go.mod
