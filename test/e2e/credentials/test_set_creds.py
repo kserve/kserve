@@ -25,6 +25,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import configparser
 from os.path import expanduser
 from kubernetes import client
@@ -95,12 +96,16 @@ def test_set_credentials_s3(test_namespace):
     s3_access_key_id = config.get("default", "aws_access_key_id")
     s3_secret_access_key = config.get("default", "aws_secret_access_key")
 
+    # The API returns secret data base64 encoded.
     assert (
-        created_secret.data[constants.S3_ACCESS_KEY_ID_DEFAULT_NAME] == s3_access_key_id
+        base64.b64decode(created_secret.data[constants.S3_ACCESS_KEY_ID_DEFAULT_NAME])
+        == s3_access_key_id.encode()
     )
     assert (
-        created_secret.data[constants.S3_SECRET_ACCESS_KEY_DEFAULT_NAME]
-        == s3_secret_access_key
+        base64.b64decode(
+            created_secret.data[constants.S3_SECRET_ACCESS_KEY_DEFAULT_NAME]
+        )
+        == s3_secret_access_key.encode()
     )
     assert (
         created_secret.metadata.annotations[constants.KSERVE_GROUP + "/s3-endpoint"]
