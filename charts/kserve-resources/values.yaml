@@ -177,6 +177,8 @@ kserve:
     podLabels: {}
     annotations: {}
     podAnnotations: {}
+    # -- (list) Extra environment variables for the controller manager container, merged by name with the built-in ones (POD_NAMESPACE, SECRET_NAME). Add new names; to change a built-in one, use the same kind of field it uses (value or valueFrom), not the other. Example: set KNATIVE_CONFIG_AUTOSCALER_NAMESPACE when Knative Serving is not installed in knative-serving.
+    env: []
     serviceAnnotations: {}
     webhookServiceAnnotations: {}
     securityContext:

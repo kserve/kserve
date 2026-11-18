@@ -29,6 +29,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.containerSecurityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.controller.deploymentMode | string | `"Knative"` |  |
+| kserve.controller.env | list | `[]` | Extra environment variables for the controller manager container, merged by name with the built-in ones (POD_NAMESPACE, SECRET_NAME). Add new names; to change a built-in one, use the same kind of field it uses (value or valueFrom), not the other. Example: set KNATIVE_CONFIG_AUTOSCALER_NAMESPACE when Knative Serving is not installed in knative-serving. |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
 | kserve.controller.gateway.disableHTTPRouteTimeout | bool | `false` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
