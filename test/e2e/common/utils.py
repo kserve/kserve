@@ -664,7 +664,7 @@ def _get_openai_endpoint_and_host(
     isvc = kfs_client.get(service_name, namespace=namespace, version=version)
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
 
-    # vLLM runtime does not use /openai prefix, others do
+    # vLLM and llama.cpp serve OpenAI endpoints without the /openai prefix.
     model_format = (
         isvc.get("spec", {})
         .get("predictor", {})
@@ -672,7 +672,7 @@ def _get_openai_endpoint_and_host(
         .get("modelFormat", {})
         .get("name", "")
     )
-    if model_format == "vLLM":
+    if model_format in ("vLLM", "gguf"):
         return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
     else:
         return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
