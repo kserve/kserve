@@ -469,14 +469,15 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// Mount PVC storage URIs directly as volumes (no init container needed)
 		for _, storageURI := range pvcStorageURIs {
 			for _, containerName := range mountContainerNames {
-				pvcName, _, err := utils.ParsePvcURI(storageURI.Uri)
+				pvcName, pvcPath, err := utils.ParsePvcURI(storageURI.Uri)
 				if err != nil {
 					return fmt.Errorf("failed to parse PVC URI %q: %w", storageURI.Uri, err)
 				}
 
+				// Mount only the path named in the URI, as the single storageUri case does.
 				storageMountParams := utils.StorageMountParams{
 					MountPath:  storageURI.MountPath,
-					SubPath:    "",
+					SubPath:    pvcPath,
 					VolumeName: utils.GetVolumeNameFromPath(storageURI.MountPath),
 					PVCName:    pvcName,
 					ReadOnly:   params.IsReadOnly,

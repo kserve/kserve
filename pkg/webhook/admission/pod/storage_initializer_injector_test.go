@@ -5066,6 +5066,7 @@ func TestCommonStorageInitialization(t *testing.T) {
 		expectedInitContainer bool
 		expectedVolumeCount   int
 		expectedMountPaths    []string
+		expectedSubPaths      []string
 		expectError           bool
 		errorContains         string
 	}{
@@ -5088,6 +5089,7 @@ func TestCommonStorageInitialization(t *testing.T) {
 			expectedInitContainer: true,
 			expectedVolumeCount:   2,                                                    // One for PVC, one for cloud storage
 			expectedMountPaths:    []string{"/mnt/models/model", "/mnt/models/adapter"}, // PVC gets individual mount, single cloud URI gets individual mount
+			expectedSubPaths:      []string{"model", ""},
 		},
 		"Multiple PVC URIs": {
 			storageURIs: []v1beta1.StorageUri{
@@ -5098,6 +5100,18 @@ func TestCommonStorageInitialization(t *testing.T) {
 			expectedInitContainer: false, // No init container for PVC-only
 			expectedVolumeCount:   2,     // One volume per PVC
 			expectedMountPaths:    []string{"/mnt/models/model1", "/mnt/models/model2"},
+			expectedSubPaths:      []string{"model1", "model2"},
+		},
+		"Multiple PVC URIs with nested and root paths": {
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "pvc://model-pvc/models/llama/v1", MountPath: "/mnt/models/base"},
+				{Uri: "pvc://adapter-pvc", MountPath: "/mnt/models/adapter"},
+			},
+			isLegacyURI:           false,
+			expectedInitContainer: false,
+			expectedVolumeCount:   2,
+			expectedMountPaths:    []string{"/mnt/models/base", "/mnt/models/adapter"},
+			expectedSubPaths:      []string{"models/llama/v1", ""},
 		},
 		"Three Storage URIs with Mixed Types": {
 			storageURIs: []v1beta1.StorageUri{
@@ -5109,6 +5123,7 @@ func TestCommonStorageInitialization(t *testing.T) {
 			expectedInitContainer: true,
 			expectedVolumeCount:   2, // One for PVC, one for cloud storage
 			expectedMountPaths:    []string{"/mnt/models/base", "/mnt/models"},
+			expectedSubPaths:      []string{"model", ""},
 		},
 		"Empty Storage URIs": {
 			storageURIs:           []v1beta1.StorageUri{},
@@ -5201,6 +5216,12 @@ func TestCommonStorageInitialization(t *testing.T) {
 						mount := userContainer.VolumeMounts[i]
 						assert.Equal(t, expectedPath, mount.MountPath, "Mount path mismatch at index %d", i)
 						assert.Equal(t, scenario.isReadOnly, mount.ReadOnly, "Volume mount readonly setting mismatch for %s", mount.MountPath)
+					}
+				}
+				for i, expectedSubPath := range scenario.expectedSubPaths {
+					if i < len(userContainer.VolumeMounts) {
+						mount := userContainer.VolumeMounts[i]
+						assert.Equal(t, expectedSubPath, mount.SubPath, "Sub path mismatch for %s", mount.MountPath)
 					}
 				}
 			}
