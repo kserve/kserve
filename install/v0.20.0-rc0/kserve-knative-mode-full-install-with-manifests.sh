@@ -1162,7 +1162,7 @@ install_istio() {
     fi
 
     log_info "Adding Istio Helm repository..."
-    helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
+    helm repo add istio https://blob.istio.io/istio-release/charts --force-update
 
     log_info "Installing istio-base ${ISTIO_VERSION}..."
     helm install istio-base istio/base \
