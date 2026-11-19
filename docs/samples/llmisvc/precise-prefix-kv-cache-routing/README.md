@@ -71,7 +71,7 @@ Key vLLM settings for cache routing:
 VLLM_ADDITIONAL_ARGS:
   - --prefix-caching-hash-algo sha256_cbor
   - --block-size 64
-  - --kv-events-config '{"enable_kv_cache_events":true,"publisher":"zmq","endpoint":"tcp://...:5557","topic":"kv@${POD_IP}@..."}'
+  - --kv-events-config '{"enable_kv_cache_events":true,"publisher":"zmq","endpoint":"tcp://...:5557","topic":"kv@$(POD_IP):8000@..."}'
 
 PYTHONHASHSEED: "42"
 ```
