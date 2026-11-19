@@ -20,7 +20,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -303,4 +305,34 @@ func TestPlacePredictorContainer(t *testing.T) {
 			assert.Equal(t, tt.expected, podSpec.Containers)
 		})
 	}
+}
+
+func TestBuildPredictorResourcesCustomPredictorWithoutKServeContainer(t *testing.T) {
+	scheme := runtime.NewScheme()
+	p := &Predictor{
+		client:                 fake.NewClientBuilder().WithScheme(scheme).Build(),
+		inferenceServiceConfig: &v1beta1.InferenceServicesConfig{},
+	}
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "custom", Namespace: "default"},
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{
+				PodSpec: v1beta1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: constants.TransformerContainerName, Image: "transformer:0.1.0"},
+						{Name: "my-predictor", Image: "predictor:0.1.0"},
+					},
+				},
+			},
+		},
+	}
+
+	// A custom predictor with no container named kserve-container must not
+	// panic, and both containers must survive untouched.
+	res, err := p.buildPredictorResources(context.Background(), isvc, false)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	assert.Len(t, res.podSpec.Containers, 2)
+	assert.Equal(t, constants.TransformerContainerName, res.podSpec.Containers[0].Name)
+	assert.Equal(t, "my-predictor", res.podSpec.Containers[1].Name)
 }
