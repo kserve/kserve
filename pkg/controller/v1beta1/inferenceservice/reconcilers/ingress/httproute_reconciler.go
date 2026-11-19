@@ -44,6 +44,9 @@ import (
 const (
 	HTTPRouteNotReady                 = "HttpRouteNotReady"
 	HTTPRouteParentStatusNotAvailable = "ParentStatusNotAvailable"
+	// HTTPRouteConflict is the IngressReady reason set when an HTTPRoute the InferenceService needs already exists
+	// and is controlled by another resource.
+	HTTPRouteConflict = "HTTPRouteConflict"
 )
 
 var DefaultTimeout = toGatewayAPIDuration(60)
@@ -870,6 +873,36 @@ func createRawPathHTTPRoute(ctx context.Context, client client.Client, isvc *v1b
 // ignores fields defaulted by the API server, but it also treats missing or extra trailing slice elements in the
 // existing route as matching, so list lengths are compared explicitly to detect removed hostnames, rules, matches,
 // filters and backends (including canary backend addition/removal).
+// httpRouteConflictError reports that an HTTPRoute is controlled by a resource other than the InferenceService.
+type httpRouteConflictError struct {
+	route string
+	owner metav1.OwnerReference
+}
+
+func (e *httpRouteConflictError) Error() string {
+	return fmt.Sprintf("HTTPRoute %s is owned by another %s %s", e.route, e.owner.Kind, e.owner.Name)
+}
+
+// ensureHTTPRouteOwnership returns an error, and marks IngressReady false, when the existing HTTPRoute is controlled by
+// a resource other than the InferenceService. Route names are derived from InferenceService names, so two
+// InferenceServices can map to the same route (e.g. the path route of "foo" and the top level route of "foo-path").
+// Without this check they would overwrite each other's route on every reconcile; instead the first owner keeps it.
+// Routes without a controller are adopted, as before.
+func ensureHTTPRouteOwnership(isvc *v1beta1.InferenceService, existing *gwapiv1.HTTPRoute) error {
+	owner := metav1.GetControllerOf(existing)
+	if owner == nil || owner.UID == isvc.UID {
+		return nil
+	}
+	conflict := &httpRouteConflictError{route: existing.Name, owner: *owner}
+	isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
+		Type:    v1beta1.IngressReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  HTTPRouteConflict,
+		Message: conflict.Error(),
+	})
+	return conflict
+}
+
 func semanticHttpRouteEquals(desired, existing *gwapiv1.HTTPRoute) bool {
 	if !equality.Semantic.DeepDerivative(desired.Labels, existing.Labels) ||
 		!equality.Semantic.DeepDerivative(desired.Annotations, existing.Annotations) {
@@ -956,6 +989,9 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 		return nil
 	}
 
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
+	}
 	// Set ResourceVersion which is required for update operation.
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
 	if !semanticHttpRouteEquals(desired, existingHttpRoute) {
@@ -1015,6 +1051,9 @@ func (r *RawHTTPRouteReconciler) reconcileTransformerHTTPRoute(ctx context.Conte
 			return err
 		}
 		return nil
+	}
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
 	}
 	// Set ResourceVersion which is required for update operation.
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
@@ -1076,6 +1115,9 @@ func (r *RawHTTPRouteReconciler) reconcileExplainerHTTPRoute(ctx context.Context
 		return nil
 	}
 
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
+	}
 	// Set ResourceVersion which is required for update operation.
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
 	if !semanticHttpRouteEquals(desired, existingHttpRoute) {
@@ -1138,6 +1180,9 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 		return nil
 	}
 
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
+	}
 	// Set ResourceVersion which is required for update operation.
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
 	if !semanticHttpRouteEquals(desired, existingHttpRoute) {
@@ -1202,6 +1247,9 @@ func (r *RawHTTPRouteReconciler) reconcilePathHTTPRoute(ctx context.Context, isv
 		return nil
 	}
 
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
+	}
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
 	if !semanticHttpRouteEquals(desired, existingHttpRoute) {
 		if err := r.client.Update(ctx, desired); err != nil {

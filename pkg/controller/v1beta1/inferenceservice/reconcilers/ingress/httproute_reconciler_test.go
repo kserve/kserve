@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -4051,5 +4052,112 @@ func TestCreateRawPathHTTPRouteCanaryAndDualProtocol(t *testing.T) {
 		for _, rule := range route.Spec.Rules {
 			g.Expect(rule.Timeouts).To(BeNil())
 		}
+	})
+}
+
+// newConflictTestIsvc returns a ready predictor-only InferenceService with a unique UID.
+func newConflictTestIsvc(name string) *v1beta1.InferenceService {
+	isvc := &v1beta1.InferenceService{
+		TypeMeta:   metav1.TypeMeta{APIVersion: v1beta1.SchemeGroupVersion.String(), Kind: "InferenceService"},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", UID: types.UID(name + "-uid")},
+		Spec:       v1beta1.InferenceServiceSpec{Predictor: v1beta1.PredictorSpec{}},
+	}
+	isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{Type: v1beta1.PredictorReady, Status: corev1.ConditionTrue})
+	return isvc
+}
+
+func TestRawHTTPRouteReconciler_RouteNameConflict(t *testing.T) {
+	s := scheme.Scheme
+	_ = gwapiv1.Install(s)
+	_ = v1beta1.AddToScheme(s)
+	ingressConfig := newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}")
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+	sharedKey := types.NamespacedName{Name: "foo-path", Namespace: "default"}
+
+	expectConflict := func(g *WithT, err error, isvc *v1beta1.InferenceService, route string) {
+		g.Expect(err).To(HaveOccurred())
+		var conflict *httpRouteConflictError
+		g.Expect(errors.As(err, &conflict)).To(BeTrue())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(Equal(HTTPRouteConflict))
+		g.Expect(cond.Message).To(ContainSubstring("HTTPRoute " + route + " is owned by another InferenceService"))
+	}
+	expectOwnedBy := func(g *WithT, c client.Client, key types.NamespacedName, owner *v1beta1.InferenceService) *gwapiv1.HTTPRoute {
+		route := &gwapiv1.HTTPRoute{}
+		g.Expect(c.Get(t.Context(), key, route)).To(Succeed())
+		ctrlRef := metav1.GetControllerOf(route)
+		g.Expect(ctrlRef).NotTo(BeNil())
+		g.Expect(ctrlRef.UID).To(Equal(owner.UID))
+		return route
+	}
+
+	t.Run("foo-path cannot take the path route of foo", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := NewRawHTTPRouteReconciler(c, s, ingressConfig, isvcConfig)
+		foo, fooPath := newConflictTestIsvc("foo"), newConflictTestIsvc("foo-path")
+
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), foo)).To(Succeed())
+		before := expectOwnedBy(g, c, sharedKey, foo)
+
+		expectConflict(g, r.reconcileTopLevelHTTPRoute(t.Context(), fooPath), fooPath, "foo-path")
+
+		// The first owner's route is left untouched and keeps working.
+		after := expectOwnedBy(g, c, sharedKey, foo)
+		g.Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
+		g.Expect(after.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"example.com"}))
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), foo)).To(Succeed())
+	})
+
+	t.Run("foo cannot take the top level route of foo-path", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := NewRawHTTPRouteReconciler(c, s, ingressConfig, isvcConfig)
+		foo, fooPath := newConflictTestIsvc("foo"), newConflictTestIsvc("foo-path")
+
+		g.Expect(r.reconcileTopLevelHTTPRoute(t.Context(), fooPath)).To(Succeed())
+		before := expectOwnedBy(g, c, sharedKey, fooPath)
+
+		expectConflict(g, r.reconcilePathHTTPRoute(t.Context(), foo), foo, "foo-path")
+
+		after := expectOwnedBy(g, c, sharedKey, fooPath)
+		g.Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
+		g.Expect(after.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"foo-path-default.example.com"}))
+	})
+
+	t.Run("Reconcile surfaces the conflict on the InferenceService", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := NewRawHTTPRouteReconciler(c, s, ingressConfig, isvcConfig)
+		foo, fooPath := newConflictTestIsvc("foo"), newConflictTestIsvc("foo-path")
+
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), foo)).To(Succeed())
+		_, err := r.Reconcile(t.Context(), fooPath)
+		expectConflict(g, err, fooPath, "foo-path")
+	})
+
+	t.Run("older -predictor name collision is detected", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := NewRawHTTPRouteReconciler(c, s, newPathTestIngressConfig(""), isvcConfig)
+		foo, fooPredictor := newConflictTestIsvc("foo"), newConflictTestIsvc("foo-predictor")
+
+		g.Expect(r.reconcilePredictorHTTPRoute(t.Context(), foo)).To(Succeed())
+		expectConflict(g, r.reconcileTopLevelHTTPRoute(t.Context(), fooPredictor), fooPredictor, "foo-predictor")
+		expectOwnedBy(g, c, types.NamespacedName{Name: "foo-predictor", Namespace: "default"}, foo)
+	})
+
+	t.Run("an existing route without a controller is still adopted", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		unowned := &gwapiv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "foo-path", Namespace: "default"}}
+		c := fake.NewClientBuilder().WithScheme(s).WithObjects(unowned).Build()
+		r := NewRawHTTPRouteReconciler(c, s, ingressConfig, isvcConfig)
+		foo := newConflictTestIsvc("foo")
+
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), foo)).To(Succeed())
+		route := expectOwnedBy(g, c, sharedKey, foo)
+		g.Expect(route.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"example.com"}))
 	})
 }
