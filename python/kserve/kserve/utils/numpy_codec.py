@@ -35,35 +35,42 @@ def to_np_dtype(dtype):
 
 
 def from_np_dtype(np_dtype):
-    if np_dtype == bool:  # noqa: E721
+    if np_dtype is None:
+        return None
+    try:
+        dt = np.dtype(np_dtype)
+    except (TypeError, ValueError):
+        return None
+
+    if dt == np.bool_:
         return "BOOL"
-    elif np_dtype == np.int8:
+    elif dt == np.int8:
         return "INT8"
-    elif np_dtype == np.int16:
+    elif dt == np.int16:
         return "INT16"
-    elif np_dtype == np.int32:
+    elif dt == np.int32:
         return "INT32"
-    elif np_dtype == np.int64:
+    elif dt == np.int64:
         return "INT64"
-    elif np_dtype == np.uint8:
+    elif dt == np.uint8:
         return "UINT8"
-    elif np_dtype == np.uint16:
+    elif dt == np.uint16:
         return "UINT16"
-    elif np_dtype == np.uint32:
+    elif dt == np.uint32:
         return "UINT32"
-    elif np_dtype == np.uint64:
+    elif dt == np.uint64:
         return "UINT64"
-    elif np_dtype == np.float16:
+    elif dt == np.float16:
         return "FP16"
-    elif np_dtype == np.float32:
+    elif dt == np.float32:
         return "FP32"
-    elif np_dtype == np.float64:
+    elif dt == np.float64:
         return "FP64"
     elif (
-        np_dtype == np.object_
-        or np_dtype.type == np.bytes_
-        or np_dtype.type == np.str_
-        or np.issubdtype(np_dtype, np.datetime64)
+        dt == np.object_
+        or dt.type == np.bytes_
+        or dt.type == np.str_
+        or np.issubdtype(dt, np.datetime64)
     ):
         return "BYTES"
     return None

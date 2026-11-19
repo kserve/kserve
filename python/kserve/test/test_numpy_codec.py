@@ -51,8 +51,62 @@ def test_from_np_dtype_unicode_is_bytes():
 
 @pytest.mark.parametrize(
     "datatype",
-    ["BOOL", "INT8", "INT16", "INT32", "INT64", "UINT8", "FP16", "FP32", "FP64"],
+    [
+        "BOOL",
+        "INT8",
+        "INT16",
+        "INT32",
+        "INT64",
+        "UINT8",
+        "UINT16",
+        "UINT32",
+        "UINT64",
+        "FP16",
+        "FP32",
+        "FP64",
+        "BYTES",
+    ],
 )
 def test_np_dtype_round_trip(datatype):
-    """Numeric datatypes round-trip through to_np_dtype / from_np_dtype."""
-    assert from_np_dtype(np.dtype(to_np_dtype(datatype))) == datatype
+    """Datatypes round-trip through to_np_dtype / from_np_dtype."""
+    np_type = to_np_dtype(datatype)
+    assert from_np_dtype(np_type) == datatype
+    assert from_np_dtype(np.dtype(np_type)) == datatype
+
+
+@pytest.mark.parametrize(
+    "type_input, expected",
+    [
+        (bool, "BOOL"),
+        (np.bool_, "BOOL"),
+        (int, "INT64"),
+        (np.int8, "INT8"),
+        (np.int16, "INT16"),
+        (np.int32, "INT32"),
+        (np.int64, "INT64"),
+        (np.uint8, "UINT8"),
+        (np.uint16, "UINT16"),
+        (np.uint32, "UINT32"),
+        (np.uint64, "UINT64"),
+        (float, "FP64"),
+        (np.float16, "FP16"),
+        (np.float32, "FP32"),
+        (np.float64, "FP64"),
+        (str, "BYTES"),
+        (np.str_, "BYTES"),
+        (bytes, "BYTES"),
+        (np.bytes_, "BYTES"),
+        (object, "BYTES"),
+        (np.object_, "BYTES"),
+    ],
+)
+def test_from_np_dtype_types_and_scalars(type_input, expected):
+    """from_np_dtype handles Python built-in types and numpy scalar types."""
+    assert from_np_dtype(type_input) == expected
+
+
+def test_from_np_dtype_invalid_returns_none():
+    """from_np_dtype returns None on invalid or unsupported types without raising AttributeError."""
+    assert from_np_dtype("invalid_dtype_str") is None
+    assert from_np_dtype(None) is None
+    assert from_np_dtype(object()) is None
