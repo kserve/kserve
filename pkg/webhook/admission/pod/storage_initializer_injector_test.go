@@ -77,6 +77,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *corev1.Pod
 		expected *corev1.Pod
+		config   *kserveTypes.StorageInitializerConfig
 	}{
 		"MissingAnnotations": {
 			original: &corev1.Pod{
@@ -145,6 +146,9 @@ func TestStorageInitializerInjector(t *testing.T) {
 			},
 		},
 		"StorageInitializerInjected": {
+			config: &kserveTypes.StorageInitializerConfig{
+				HTTPStorageURIAllowlist: []string{"models.ml-platform.svc", "10.20.0.0/16"},
+			},
 			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -185,6 +189,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources: resourceRequirement,
 							Env: []corev1.EnvVar{
+								{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: `["models.ml-platform.svc","10.20.0.0/16"]`},
 								{Name: "HF_HUB_ENABLE_HF_TRANSFER", Value: "1"},
 								{Name: "HF_XET_HIGH_PERFORMANCE", Value: "1"},
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
@@ -536,11 +541,17 @@ func TestStorageInitializerInjector(t *testing.T) {
 	}
 
 	for name, scenario := range scenarios {
+		config := storageInitializerConfig
+		if scenario.config != nil {
+			configuredStorageInitializer := *storageInitializerConfig
+			configuredStorageInitializer.HTTPStorageURIAllowlist = scenario.config.HTTPStorageURIAllowlist
+			config = &configuredStorageInitializer
+		}
 		injector := &StorageInitializerInjector{
 			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
-			config: storageInitializerConfig,
+			config: config,
 			client: c,
 		}
 		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
@@ -5313,6 +5324,74 @@ func TestCommonStorageInitializationWithCustomStorageContainer(t *testing.T) {
 	// Verify volume mounts on user container
 	assert.Len(t, podSpec.Containers[0].VolumeMounts, 1)
 	assert.Equal(t, "/mnt/models", podSpec.Containers[0].VolumeMounts[0].MountPath)
+}
+
+func TestCommonStorageInitializationHTTPAllowlistWithCustomName(t *testing.T) {
+	for _, legacy := range []bool{true, false} {
+		pathName := "multiple URIs"
+		if legacy {
+			pathName = "legacy URI"
+		}
+		t.Run(pathName, func(t *testing.T) {
+			for _, test := range []struct {
+				name      string
+				allowlist []string
+				customEnv []corev1.EnvVar
+				want      string
+			}{
+				{
+					name:      "injects configured policy",
+					allowlist: []string{"models.ml-platform.svc", "10.20.0.0/16"},
+					want:      `["models.ml-platform.svc","10.20.0.0/16"]`,
+				},
+				{
+					name:      "overrides custom policy",
+					allowlist: []string{"10.20.0.0/16"},
+					customEnv: []corev1.EnvVar{{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: `["10.30.0.0/16"]`}},
+					want:      `["10.20.0.0/16"]`,
+				},
+				{
+					name: "empty policy clears custom source",
+					customEnv: []corev1.EnvVar{{
+						Name: constants.HTTPStorageURIAllowlistEnvVar,
+						ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "custom-policy"},
+							Key:                  "allowlist",
+						}},
+					}},
+					want: `[]`,
+				},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					config := *storageInitializerConfig
+					config.HTTPStorageURIAllowlist = test.allowlist
+					podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}}}
+					uris := []v1beta1.StorageUri{{Uri: "http://models.ml-platform.svc/base", MountPath: "/mnt/models/base"}}
+					if !legacy {
+						uris = append(uris, v1beta1.StorageUri{Uri: "http://models.ml-platform.svc/adapter", MountPath: "/mnt/models/adapter"})
+					}
+					err := CommonStorageInitialization(t.Context(), &StorageInitializerParams{
+						Namespace:         "default",
+						StorageURIs:       uris,
+						IsLegacyURI:       legacy,
+						PodSpec:           podSpec,
+						Config:            &config,
+						Client:            c,
+						CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+						StorageContainerSpec: &v1alpha1.StorageContainerSpec{
+							Container:                  corev1.Container{Name: "custom-downloader", Env: test.customEnv},
+							SupportsMultiModelDownload: ptr.Bool(true),
+						},
+					})
+					require.NoError(t, err)
+					require.Len(t, podSpec.InitContainers, 1)
+					container := podSpec.InitContainers[0]
+					assert.Equal(t, "custom-downloader", container.Name)
+					assert.Contains(t, container.Env, corev1.EnvVar{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: test.want})
+				})
+			}
+		})
+	}
 }
 
 func TestCommonStorageInitializationErrorCases(t *testing.T) {

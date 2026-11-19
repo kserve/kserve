@@ -1214,6 +1214,42 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 	})
 }
 
+func TestGetHTTPStorageURIAllowlist(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		config  string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name:   "reads configured hosts and CIDRs",
+			config: `{"httpStorageUriAllowlist":["models.ml-platform.svc","10.20.0.0/16"]}`,
+			want:   []string{"models.ml-platform.svc", "10.20.0.0/16"},
+		},
+		{
+			name:   "empty configuration defaults to no exceptions",
+			config: `{}`,
+		},
+		{
+			name:    "invalid wildcard fails closed",
+			config:  `{"httpStorageUriAllowlist":["*.ml-platform.svc"]}`,
+			wantErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := GetHTTPStorageURIAllowlist(&corev1.ConfigMap{
+				Data: map[string]string{StorageInitializerConfigMapKeyName: test.config},
+			})
+			if (err != nil) != test.wantErr {
+				t.Fatalf("GetHTTPStorageURIAllowlist() error = %v, wantErr = %v", err, test.wantErr)
+			}
+			if err == nil {
+				gomega.NewGomegaWithT(t).Expect(got).To(gomega.Equal(test.want))
+			}
+		})
+	}
+}
+
 func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
 	for _, tt := range []struct {
 		name    string

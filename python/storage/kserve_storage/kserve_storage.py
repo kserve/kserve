@@ -89,6 +89,90 @@ _OCI_PREFIX = "oci://"
 _GIT_RE = r"https://.+\.git"
 _SHARED_ADDRESS_SPACE = ipaddress.ip_network("100.64.0.0/10")
 _SENSITIVE_REDIRECT_HEADERS = {"authorization", "cookie", "proxy-authorization"}
+_HTTP_STORAGE_URI_ALLOWLIST_ENV = "KSERVE_HTTP_STORAGE_URI_ALLOWLIST"
+
+
+def _parse_http_storage_uri_allowlist() -> tuple[
+    set[str], list[ipaddress.IPv4Network | ipaddress.IPv6Network]
+]:
+    raw_allowlist = os.environ.get(_HTTP_STORAGE_URI_ALLOWLIST_ENV, "")
+    if not raw_allowlist:
+        return set(), []
+    try:
+        entries = json.loads(raw_allowlist)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"Unable to parse {_HTTP_STORAGE_URI_ALLOWLIST_ENV}"
+        ) from error
+    if not isinstance(entries, list):
+        raise RuntimeError(f"{_HTTP_STORAGE_URI_ALLOWLIST_ENV} must be a JSON list")
+
+    allowed_hosts: set[str] = set()
+    allowed_networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for entry in entries:
+        if not isinstance(entry, str) or not entry.strip():
+            raise RuntimeError(f"Invalid entry in {_HTTP_STORAGE_URI_ALLOWLIST_ENV}")
+        entry = entry.strip().lower().rstrip(".")
+        try:
+            network = ipaddress.ip_network(entry, strict=False)
+        except ValueError:
+            try:
+                address = ipaddress.ip_address(entry)
+            except ValueError:
+                address = None
+            if address is not None:
+                if (
+                    address.is_loopback
+                    or address.is_link_local
+                    or address.is_multicast
+                    or address.is_unspecified
+                    or address == ipaddress.ip_address("fd00:ec2::254")
+                ):
+                    raise RuntimeError(
+                        f"Blocked address in {_HTTP_STORAGE_URI_ALLOWLIST_ENV}: {entry}"
+                    )
+                allowed_hosts.add(str(address))
+                continue
+            if (
+                not re.fullmatch(
+                    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+                    r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*",
+                    entry,
+                )
+                or entry
+                in {
+                    "localhost",
+                    "metadata",
+                    "metadata.google.internal",
+                    "kubernetes",
+                    "kubernetes.default",
+                    "kubernetes.default.svc",
+                    "kubernetes.default.svc.cluster.local",
+                    "host.docker.internal",
+                    "host.containers.internal",
+                }
+                or entry.endswith(".localhost")
+            ):
+                raise RuntimeError(
+                    f"Invalid or blocked hostname in {_HTTP_STORAGE_URI_ALLOWLIST_ENV}: {entry}"
+                )
+            allowed_hosts.add(entry)
+            continue
+        if any(
+            ipaddress.ip_address(metadata_ip) in network
+            for metadata_ip in ("169.254.169.254", "169.254.170.2", "fd00:ec2::254")
+        ):
+            raise RuntimeError(f"CIDR includes a metadata endpoint: {entry}")
+        allowed_networks.append(network)
+    return allowed_hosts, allowed_networks
+
+
+def _normalize_http_storage_address(
+    address: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        return address.ipv4_mapped
+    return address
 
 
 def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
@@ -98,6 +182,8 @@ def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
         return ()
     host = parsed.hostname
     normalized_host = (host or "").rstrip(".").lower()
+    allowed_hosts, allowed_networks = _parse_http_storage_uri_allowlist()
+    host_allowed = normalized_host in allowed_hosts
     if (
         not normalized_host
         or normalized_host
@@ -112,17 +198,17 @@ def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
             "host.docker.internal",
             "host.containers.internal",
         }
-        or normalized_host.endswith(
-            (".localhost", ".svc", ".cluster.local", ".internal")
-        )
+        or normalized_host.endswith(".localhost")
     ):
         raise RuntimeError(f"HTTP storage URI targets a blocked host or IP: {uri}")
     try:
-        addresses = {ipaddress.ip_address(normalized_host)}
+        addresses = {
+            _normalize_http_storage_address(ipaddress.ip_address(normalized_host))
+        }
     except ValueError:
         try:
             addresses = {
-                ipaddress.ip_address(result[4][0])
+                _normalize_http_storage_address(ipaddress.ip_address(result[4][0]))
                 for result in socket.getaddrinfo(normalized_host, parsed.port or 443)
             }
         except socket.gaierror as error:
@@ -131,13 +217,39 @@ def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
             ) from error
 
     if any(
-        address.is_private
-        or address.is_loopback
+        address.is_loopback
         or address.is_link_local
         or address.is_multicast
         or address.is_unspecified
-        or address in _SHARED_ADDRESS_SPACE
+        or address == ipaddress.ip_address("fd00:ec2::254")
         for address in addresses
+    ):
+        raise RuntimeError(f"HTTP storage URI targets a blocked host or IP: {uri}")
+
+    blocked_addresses = any(
+        address.is_private or address in _SHARED_ADDRESS_SPACE for address in addresses
+    )
+    private_addresses = {
+        address
+        for address in addresses
+        if address.is_private or address in _SHARED_ADDRESS_SPACE
+    }
+    if (
+        blocked_addresses
+        and not host_allowed
+        and not all(
+            any(address in network for network in allowed_networks)
+            for address in private_addresses
+        )
+    ):
+        raise RuntimeError(f"HTTP storage URI targets a blocked host or IP: {uri}")
+    if (
+        normalized_host.endswith((".svc", ".cluster.local", ".internal"))
+        and not host_allowed
+        and not all(
+            any(address in network for network in allowed_networks)
+            for address in addresses
+        )
     ):
         raise RuntimeError(f"HTTP storage URI targets a blocked host or IP: {uri}")
     return tuple(str(address) for address in addresses)
