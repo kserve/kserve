@@ -16,6 +16,7 @@ import asyncio
 import multiprocessing as mp
 import os
 import signal
+import socket as socket_module
 import threading
 from socket import socket
 from typing import Any, Callable, List, Optional, Union
@@ -28,6 +29,25 @@ from kserve.protocol.rest.server import RESTServer
 
 mp.allow_connection_pickling()
 spawn = mp.get_context("spawn")
+
+
+def _set_tcp_socket_protocol(sock: socket) -> socket:
+    """Ensure TCP sockets carry IPPROTO_TCP in their Python socket metadata."""
+    if (
+        sock.family in (socket_module.AF_INET, socket_module.AF_INET6)
+        and sock.type == socket_module.SOCK_STREAM
+        and sock.proto != socket_module.IPPROTO_TCP
+    ):
+        rewrapped_sock = socket_module.socket(
+            sock.family,
+            sock.type,
+            socket_module.IPPROTO_TCP,
+            fileno=sock.fileno(),
+        )
+        sock.detach()
+        sock = rewrapped_sock
+
+    return sock
 
 
 class RESTServerProcess:
@@ -169,7 +189,10 @@ class RESTServerMultiProcess:
         logger.info(
             "Starting uvicorn with %s workers", self._rest_server.config.workers
         )
-        sockets = [self._rest_server.config.bind_socket()]
+        sock = self._rest_server.config.bind_socket()
+        sock = _set_tcp_socket_protocol(sock)
+        sockets = [sock]
+
         logger.info("Started parent process [%s]", os.getpid())
         self.init_processes(sockets)
         # Blocks until the parent process is ready to exit
