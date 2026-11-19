@@ -2354,6 +2354,32 @@ func TestValidateStorageUri(t *testing.T) {
 			},
 			expected: gomega.MatchError("storage path must be absolute: mnt/models/model2"),
 		},
+		"DuplicatePvcMountPaths": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "pvc://my-pvc/model1",
+					MountPath: "/mnt/models",
+				},
+				{
+					Uri:       "pvc://my-pvc/model2",
+					MountPath: "/mnt/models",
+				},
+			},
+			expected: gomega.MatchError("PVC storage paths must be unique"),
+		},
+		"UniquePvcMountPaths": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "pvc://my-pvc/model1",
+					MountPath: "/mnt/models/model1",
+				},
+				{
+					Uri:       "pvc://my-pvc/model2",
+					MountPath: "/mnt/models/model2",
+				},
+			},
+			expected: gomega.BeNil(),
+		},
 	}
 
 	for name, scenario := range scenarios {
