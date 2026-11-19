@@ -88,6 +88,13 @@ func IsMemoryResourceAvailable(isvc *v1beta1.InferenceService, totalReqMemory re
 	}
 
 	container := isvc.Spec.Predictor.GetImplementation().GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), nil)
+	if container == nil {
+		// CustomPredictor.GetContainer returns nil when no container is named
+		// kserve-container (e.g. a leading transformer-container with the
+		// predictor container unnamed). There is no predictor memory limit to
+		// compare against, so multi-model serving is not available.
+		return false
+	}
 
 	predictorMemoryLimit := container.Resources.Limits.Memory()
 	return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
