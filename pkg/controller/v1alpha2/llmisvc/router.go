@@ -214,14 +214,17 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.MarkGroupReadyUnset()
 		llmSvc.MarkPerModelPathsDroppedUnset()
-		if _, err := r.updateRoutingStatus(ctx, llmSvc); err != nil {
+		// Gateways referenced in the spec are still part of the routing topology here,
+		// so they are returned for condition evaluation even though no HTTPRoute exists.
+		resolvedGWs, err := r.updateRoutingStatus(ctx, llmSvc)
+		if err != nil {
 			return nil, err
 		}
 		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
 			return nil, err
 		}
 		r.EvaluateHTTPRouteConditions(ctx, llmSvc, nil)
-		return nil, nil
+		return resolvedGWs, nil
 	}
 
 	// Checked only after the stop path above, which needs just the route's
@@ -481,7 +484,30 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	}
 
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
-		llmSvc.Status.Router = nil
+		// No KServe-managed or referenced HTTPRoute exists, so gateways cannot be
+		// discovered through route parentRefs. Resolve them from spec.router.gateway.refs
+		// instead: an external controller (Envoy AI Gateway, agentgateway, ...) attaches
+		// the InferencePool to that Gateway with its own route type, which KServe neither
+		// sees nor needs to understand.
+		specGateways, err := r.resolveSpecRefGateways(ctx, llmSvc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve referenced gateways: %w", err)
+		}
+
+		if len(specGateways) > 0 {
+			if llmSvc.Status.Router == nil {
+				llmSvc.Status.Router = &v1alpha2.RouterStatus{}
+			}
+			// No HTTPRoutes are listed for these gateways: the attaching route is
+			// owned by the gateway implementation and is not a KServe concern.
+			llmSvc.Status.Router.Gateways = observedGatewaysFromResolved(specGateways)
+			// A routing group is defined on the route, so none can exist here. Clear it
+			// explicitly now that status.router survives this path.
+			llmSvc.Status.Router.Group = nil
+		} else {
+			llmSvc.Status.Router = nil
+		}
+
 		urlFn := apis.HTTPS
 		statusCfg, err := r.loadConfig(ctx)
 		if err != nil {
@@ -490,6 +516,9 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		if !statusCfg.EnableTLS {
 			urlFn = apis.HTTP
 		}
+		// External URLs are deliberately not synthesized here: without the attaching
+		// route, the hostname and path it serves are unknowable, and a fabricated
+		// address is worse than none.
 		llmSvc.Status.Addresses = []v1alpha2.SourcedAddress{{
 			Addressable: duckv1.Addressable{
 				URL: urlFn(network.GetServiceHostname(
@@ -498,7 +527,9 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 				)),
 			},
 		}}
-		return nil, nil
+		// Deduplicated only now: observed status above needs the sectionName of every
+		// ref, while readiness evaluation needs each Gateway once.
+		return uniqueResolvedGateways(specGateways), nil
 	}
 
 	cfg, err := r.loadConfig(ctx)
@@ -555,18 +586,15 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		llmSvc.Status.Addresses = append(llmSvc.Status.Addresses, SourcedAddress(ctx, d, llmSvc))
 	}
 
-	// Deduplicate resolved gateways for downstream condition evaluation.
-	seen := make(map[string]struct{})
-	deduped := allResolved[:0]
-	for _, gw := range allResolved {
-		key := gw.Gateway.Namespace + "/" + gw.Gateway.Name
-		if _, ok := seen[key]; !ok {
-			seen[key] = struct{}{}
-			deduped = append(deduped, gw)
-		}
-	}
+	// spec.router.gateway.refs is deliberately not merged in here. When a route exists it
+	// resolves its own gateways, and pool readiness requires every gateway in scope to
+	// have accepted the pool. A gateway declared in refs but not a parent of any route
+	// never has the pool attached, so including it would pin the service at
+	// WaitingForGateway for that gateway. The observed topology stays consistent with
+	// the readiness scope for the same reason.
 
-	return deduped, nil
+	// Deduplicate resolved gateways for downstream condition evaluation.
+	return uniqueResolvedGateways(allResolved), nil
 }
 
 // preferPathBasedURL selects the first URL whose path starts with
@@ -816,7 +844,10 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 		return nil
 	}
 
-	// Resolve gateway identities once for pool parent matching.
+	// Resolve gateway identities once for pool parent matching. resolvedGWs comes from
+	// the HTTPRoute parentRefs when a route exists, or from spec.router.gateway.refs when
+	// none does, so this scope is populated even in BYO-gateway deployments that have no
+	// managed HTTPRoute.
 	gatewayKeys := resolvedGatewayKeys(resolvedGWs)
 
 	// For referenced pools (external), only check that pool
@@ -1007,6 +1038,69 @@ func (r *LLMISVCReconciler) evaluateInferencePoolCondition(ctx context.Context, 
 	llmSvc.MarkInferencePoolReady()
 	log.FromContext(ctx).V(2).Info("Inference Pool is ready", "pool", curr)
 	return nil
+}
+
+// observedGatewaysFromResolved projects resolved gateways into observed status when no
+// KServe-managed HTTPRoute binds them, as in bring-your-own-gateway deployments where an
+// external controller attaches the InferencePool. HTTPRoutes is left empty because the
+// attaching route belongs to the gateway implementation.
+//
+// As in BuildObservedGateways, each Gateway gets one entry with its listeners merged.
+// spec.router.gateway.refs is not validated for uniqueness, so it can repeat a Gateway or
+// mix a whole-Gateway ref with listener pins. A ref without sectionName covers every
+// listener, so any such ref leaves Listeners nil regardless of the pins beside it.
+func observedGatewaysFromResolved(resolved []ResolvedGateway) []v1alpha2.ObservedGateway {
+	if len(resolved) == 0 {
+		return nil
+	}
+
+	type gatewayListeners struct {
+		pinned []gwapiv1.SectionName
+		all    bool
+	}
+
+	byGateway := make(map[types.NamespacedName]*gatewayListeners, len(resolved))
+	for _, rg := range resolved {
+		key := types.NamespacedName{Namespace: rg.Gateway.Namespace, Name: rg.Gateway.Name}
+		gl, ok := byGateway[key]
+		if !ok {
+			gl = &gatewayListeners{}
+			byGateway[key] = gl
+		}
+		if rg.ParentRef.SectionName == nil {
+			gl.all = true
+			continue
+		}
+		gl.pinned = append(gl.pinned, *rg.ParentRef.SectionName)
+	}
+
+	observed := make([]v1alpha2.ObservedGateway, 0, len(byGateway))
+	for key, gl := range byGateway {
+		var listeners []gwapiv1.SectionName
+		if !gl.all {
+			slices.Sort(gl.pinned)
+			listeners = slices.Compact(gl.pinned)
+		}
+
+		observed = append(observed, v1alpha2.ObservedGateway{
+			ObjectReference: gwapiv1.ObjectReference{
+				Group:     gwapiv1.Group(gwapiv1.GroupName),
+				Kind:      "Gateway",
+				Name:      gwapiv1.ObjectName(key.Name),
+				Namespace: ptr.To(gwapiv1.Namespace(key.Namespace)),
+			},
+			Listeners: listeners,
+		})
+	}
+
+	slices.SortFunc(observed, func(a, b v1alpha2.ObservedGateway) int {
+		if c := cmp.Compare(string(ptr.Deref(a.Namespace, "")), string(ptr.Deref(b.Namespace, ""))); c != 0 {
+			return c
+		}
+		return cmp.Compare(string(a.Name), string(b.Name))
+	})
+
+	return observed
 }
 
 // BuildObservedGateways constructs the RouterStatus.Gateways slice from HTTPRoutes.
