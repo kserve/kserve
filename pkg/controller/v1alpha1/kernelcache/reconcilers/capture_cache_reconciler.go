@@ -74,17 +74,23 @@ func (r *KernelCacheReconciler) reconcileCaptureKernelCache(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	selection, err := r.captureNodeGroup(ctx, capture, config)
-	if err != nil {
-		var selectionErr *nodeGroupSelectionError
-		if !errors.As(err, &selectionErr) {
-			return err
+	// pvc caches are extracted in-pod and become Ready without node preparation,
+	// so a missing or unmatched node group must not block KernelCache creation.
+	var selection *nodeGroupSelection
+	if mountType != v1alpha1.KernelCacheMountTypePVC {
+		selected, err := r.captureNodeGroup(ctx, capture, config)
+		if err != nil {
+			var selectionErr *nodeGroupSelectionError
+			if !errors.As(err, &selectionErr) {
+				return err
+			}
+			r.Log.Info("Skipping KernelCache creation", "capture", client.ObjectKeyFromObject(capture), "reason", selectionErr.Reason, "message", selectionErr.Message)
+			if r.Recorder != nil {
+				r.Recorder.Eventf(capture, nil, corev1.EventTypeWarning, selectionErr.Reason, "SelectNodeGroup", selectionErr.Message)
+			}
+			return nil
 		}
-		r.Log.Info("Skipping KernelCache creation", "capture", client.ObjectKeyFromObject(capture), "reason", selectionErr.Reason, "message", selectionErr.Message)
-		if r.Recorder != nil {
-			r.Recorder.Eventf(capture, nil, corev1.EventTypeWarning, selectionErr.Reason, "SelectNodeGroup", selectionErr.Message)
-		}
-		return nil
+		selection = &selected
 	}
 
 	kernelCache := &v1alpha1.KernelCache{}
@@ -96,15 +102,17 @@ func (r *KernelCacheReconciler) reconcileCaptureKernelCache(ctx context.Context,
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      req.Name,
 				Namespace: req.Namespace,
-				Annotations: map[string]string{
-					constants.KernelCacheNodeGroupSelectionSourceAnnotationKey: selection.Source,
-				},
 			},
 			Spec: v1alpha1.KernelCacheSpec{
-				Artifact:     *capture.Status.Artifact.DeepCopy(),
-				MountType:    mountType,
-				NodeGroupRef: &corev1.LocalObjectReference{Name: selection.Name},
+				Artifact:  *capture.Status.Artifact.DeepCopy(),
+				MountType: mountType,
 			},
+		}
+		if selection != nil {
+			kernelCache.Annotations = map[string]string{
+				constants.KernelCacheNodeGroupSelectionSourceAnnotationKey: selection.Source,
+			}
+			kernelCache.Spec.NodeGroupRef = &corev1.LocalObjectReference{Name: selection.Name}
 		}
 		if err := r.Create(ctx, kernelCache); err != nil {
 			if !apierrors.IsAlreadyExists(err) {
@@ -264,6 +272,8 @@ func captureMountType(config *v1beta1.KernelCacheConfig) (v1alpha1.KernelCacheMo
 		return v1alpha1.KernelCacheMountType(v1beta1.DefaultKernelCacheMountType), nil
 	case string(v1alpha1.KernelCacheMountTypeOCI):
 		return v1alpha1.KernelCacheMountTypeOCI, nil
+	case string(v1alpha1.KernelCacheMountTypePVC):
+		return v1alpha1.KernelCacheMountTypePVC, nil
 	default:
 		return "", fmt.Errorf("invalid kernelcache.defaultMountType %q", config.DefaultMountType)
 	}

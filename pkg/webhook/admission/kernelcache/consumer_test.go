@@ -116,3 +116,190 @@ func TestInjectKernelCacheMountRejectsUnresolvedEnvironment(t *testing.T) {
 	err := injectKernelCacheMount(pod, cache, &v1beta1.KernelCacheConfig{})
 	require.ErrorContains(t, err, "VLLM_CACHE_ROOT uses valueFrom")
 }
+
+func TestInjectKernelCacheMountPVCExtractsIntoEmptyDir(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name: constants.InferenceServiceContainerName,
+		}}},
+	}
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "manual-cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{
+			MountType: v1alpha1.KernelCacheMountTypePVC,
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.example/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				CachePaths: []v1alpha1.KernelCachePath{{
+					OCIPath: "io.vllm.cache",
+				}},
+			},
+		},
+	}
+
+	err := injectKernelCacheMount(pod, cache, &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test"})
+	require.NoError(t, err)
+
+	require.Len(t, pod.Spec.Volumes, 2)
+	var source corev1.Volume
+	for _, volume := range pod.Spec.Volumes {
+		if volume.Name == kernelCacheSourceVolumeName {
+			source = volume
+		}
+	}
+	require.NotNil(t, source.EmptyDir)
+	require.Nil(t, source.Image)
+
+	require.Len(t, pod.Spec.InitContainers, 2)
+	extractor := pod.Spec.InitContainers[0]
+	require.Equal(t, kernelCacheExtractorName, extractor.Name)
+	require.Equal(t, "example/mcv:test", extractor.Image)
+	require.Equal(t, []string{"/mcv"}, extractor.Command)
+	require.Equal(t, []string{
+		"--extract",
+		"--image", cache.Spec.Artifact.ImageReference,
+		"--dir", "/var/run/gkm/kernel-cache/io.vllm.cache",
+		"--no-gpu",
+	}, extractor.Args)
+	require.Contains(t, extractor.VolumeMounts, corev1.VolumeMount{
+		Name:      kernelCacheSourceVolumeName,
+		MountPath: kernelCacheSourceMountPath,
+	})
+
+	linker := pod.Spec.InitContainers[1]
+	require.Equal(t, kernelCacheLinkerName, linker.Name)
+	require.Contains(t, linker.Args, "/var/run/gkm/kernel-cache/io.vllm.cache")
+	require.Contains(t, linker.Args, "/root/.cache/vllm")
+}
+
+func TestInjectKernelCacheMountPVCRejectsMultipleOCIPaths(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name: constants.InferenceServiceContainerName,
+		}}},
+	}
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "manual-cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{
+			MountType: v1alpha1.KernelCacheMountTypePVC,
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.example/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				CachePaths: []v1alpha1.KernelCachePath{
+					{ContainerPath: "/cache/vllm", OCIPath: "io.vllm.cache"},
+					{ContainerPath: "/cache/triton", OCIPath: "io.triton.cache"},
+				},
+			},
+		},
+	}
+
+	err := injectKernelCacheMount(pod, cache, &v1beta1.KernelCacheConfig{})
+	require.ErrorContains(t, err, "pvc mount type supports a single ociPath")
+}
+
+func TestInjectKernelCacheMountRejectsUnknownMountType(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name: constants.InferenceServiceContainerName,
+		}}},
+	}
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "manual-cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{
+			MountType: "hostPath",
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.example/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				CachePaths:     []v1alpha1.KernelCachePath{{OCIPath: "io.vllm.cache"}},
+			},
+		},
+	}
+
+	err := injectKernelCacheMount(pod, cache, &v1beta1.KernelCacheConfig{})
+	require.ErrorContains(t, err, `unsupported KernelCache mount type "hostPath"`)
+}
+
+func TestKernelCacheExtractorDirRequiresSinglePath(t *testing.T) {
+	dir, err := kernelCacheExtractorDir([]v1alpha1.KernelCachePath{{OCIPath: "io.vllm.cache"}})
+	require.NoError(t, err)
+	require.Equal(t, "/var/run/gkm/kernel-cache/io.vllm.cache", dir)
+
+	_, err = kernelCacheExtractorDir(nil)
+	require.ErrorContains(t, err, "no cache paths")
+}
+
+func TestInjectKernelCacheMountPVCExtractorUsesRegistryConfig(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name: constants.InferenceServiceContainerName,
+		}}},
+	}
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "manual-cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{
+			MountType: v1alpha1.KernelCacheMountTypePVC,
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.example:5000/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				CachePaths:     []v1alpha1.KernelCachePath{{OCIPath: "io.vllm.cache"}},
+			},
+		},
+	}
+	cfg := &v1beta1.KernelCacheConfig{Registry: v1beta1.KernelCacheRegistryConfig{
+		Endpoint: "registry.example:5000",
+		Auth: v1beta1.KernelCacheRegistryAuth{
+			Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
+			PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+			PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+		},
+		CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "bundle"},
+	}}
+
+	require.NoError(t, injectKernelCacheMount(pod, cache, cfg))
+
+	extractor := pod.Spec.InitContainers[0]
+	require.Equal(t, kernelCacheExtractorName, extractor.Name)
+	require.Equal(t, []corev1.EnvVar{{Name: "MCV_REGISTRY_CA_FILE", Value: "/var/run/secrets/mcv-registry/ca.crt"}}, extractor.Env)
+	require.Contains(t, extractor.VolumeMounts, corev1.VolumeMount{Name: "mcv-registry-access", MountPath: "/var/run/secrets/mcv-registry", ReadOnly: true})
+	var registry *corev1.Volume
+	for i := range pod.Spec.Volumes {
+		if pod.Spec.Volumes[i].Name == "mcv-registry-access" {
+			registry = &pod.Spec.Volumes[i]
+		}
+	}
+	require.NotNil(t, registry)
+	require.Len(t, registry.Projected.Sources, 1)
+	require.Equal(t, "registry-ca", registry.Projected.Sources[0].ConfigMap.Name)
+
+	linker := pod.Spec.InitContainers[1]
+	require.Empty(t, linker.Env)
+	require.NotContains(t, linker.VolumeMounts, corev1.VolumeMount{Name: "mcv-registry-access", MountPath: "/var/run/secrets/mcv-registry", ReadOnly: true})
+}
+
+func TestInjectKernelCacheMountPVCExtractorUsesInsecureRegistry(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name: constants.InferenceServiceContainerName,
+		}}},
+	}
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "manual-cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.local:5000/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				CachePaths:     []v1alpha1.KernelCachePath{{OCIPath: "io.vllm.cache"}},
+			},
+		},
+	}
+	cfg := &v1beta1.KernelCacheConfig{
+		DefaultMountType: string(v1alpha1.KernelCacheMountTypePVC),
+		Registry:         v1beta1.KernelCacheRegistryConfig{Insecure: true},
+	}
+
+	require.NoError(t, injectKernelCacheMount(pod, cache, cfg))
+
+	extractor := pod.Spec.InitContainers[0]
+	require.Equal(t, kernelCacheExtractorName, extractor.Name)
+	require.Equal(t, []corev1.EnvVar{{Name: "MCV_REGISTRY_INSECURE", Value: "true"}}, extractor.Env)
+}

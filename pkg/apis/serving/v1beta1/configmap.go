@@ -744,8 +744,9 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 	if kernelCacheConfig.AbandonedCapturePolicy != "retain" && kernelCacheConfig.AbandonedCapturePolicy != "delete" {
 		return nil, errors.New("kernelcache.abandonedCapturePolicy must be retain or delete")
 	}
-	if kernelCacheConfig.DefaultMountType != "" && kernelCacheConfig.DefaultMountType != "oci" {
-		return nil, fmt.Errorf("kernelcache.defaultMountType must be oci, got %q", kernelCacheConfig.DefaultMountType)
+	if kernelCacheConfig.DefaultMountType != "" &&
+		!v1alpha1.IsSupportedKernelCacheMountType(v1alpha1.KernelCacheMountType(kernelCacheConfig.DefaultMountType)) {
+		return nil, fmt.Errorf("kernelcache.defaultMountType must be oci or pvc, got %q", kernelCacheConfig.DefaultMountType)
 	}
 	if kernelCacheConfig.MCVCaptureReadinessTimeoutSeconds <= 0 {
 		return nil, errors.New("kernelcache.mcvCaptureReadinessTimeoutSeconds must be greater than zero")
