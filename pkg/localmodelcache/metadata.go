@@ -40,13 +40,16 @@ type CacheEntry struct {
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
 //
 // Namespace-scoped selection is deterministic and binding-aware: see
-// v1alpha1.SelectLocalModelNamespaceCache. A not-ready shared-PVC
-// LocalModelNamespaceCache is only matched as a fail-closed wait intent: the
-// binding records the intent to serve from that cache, and callers must wait for
-// the cache to become Ready instead of falling back to the workload's original
-// source URI. A servable cluster-scoped cache still wins over a wait intent, so
-// workloads that a ready cluster cache can serve keep being served (including
-// workloads bound to that cluster cache).
+// v1alpha1.SelectLocalModelNamespaceCache. For a CacheRequired workload
+// (serving.kserve.io/local-model-cache-policy: CacheRequired) a not-ready
+// shared-PVC LocalModelNamespaceCache is matched as a fail-closed wait intent:
+// the binding records the intent to serve from that cache, and callers must
+// wait for the cache's import record instead of falling back to the workload's
+// original source URI. A servable cluster-scoped cache still wins over a wait
+// intent. For the default (FallbackToSource) workload no wait intent is ever
+// produced and the cluster-scoped match keeps its #6590 semantics: only caches
+// whose node-group PVC name can be derived match, and the oldest matching cache
+// wins.
 func MatchCacheForURI(
 	sel v1alpha1.LocalModelCacheSelection,
 	models *v1alpha1.LocalModelCacheList,
@@ -70,18 +73,25 @@ func MatchCacheForURI(
 	}
 
 	if models != nil {
+		// Oldest matching cache wins (creation timestamp, then name), so the
+		// choice does not depend on the API list order.
+		var oldest *v1alpha1.LocalModelCache
 		for i := range models.Items {
 			model := &models.Items[i]
 			if !model.Spec.MatchStorageURI(sel.StorageURI) {
 				continue
 			}
-			pvcName, ok := PVCNameForNodeGroup(model.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists, model.Name)
-			if !ok {
+			pvcName, _ := PVCNameForNodeGroup(model.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists, model.Name)
+			if pvcName == "" {
 				continue
 			}
+			oldest = v1alpha1.OlderLocalModelCache(oldest, model)
+		}
+		if oldest != nil {
+			pvcName, _ := PVCNameForNodeGroup(oldest.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists, oldest.Name)
 			return &CacheEntry{
-				Cache:     model.Name,
-				SourceURI: model.Spec.SourceModelUri,
+				Cache:     oldest.Name,
+				SourceURI: oldest.Spec.SourceModelUri,
 				PVCName:   pvcName,
 			}
 		}

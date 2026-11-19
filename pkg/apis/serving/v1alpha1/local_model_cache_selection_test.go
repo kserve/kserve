@@ -126,30 +126,91 @@ func TestSelectLocalModelNamespaceCache_StaysBound(t *testing.T) {
 	older := metav1.NewTime(time.Now().Add(-2 * time.Hour))
 	newer := metav1.NewTime(time.Now().Add(-1 * time.Hour))
 
-	scenarios := map[string]struct {
-		boundReady bool
-	}{
-		"bound cache is ready":     {boundReady: true},
-		"bound cache is not ready": {boundReady: false},
-	}
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			selected, waitIntent := SelectLocalModelNamespaceCache(
-				LocalModelCacheSelection{
-					StorageURI:     "hf://org/model",
-					BoundCache:     "cache-b",
-					BoundNamespace: "default",
-				},
-				selectionList(
-					selectionSharedCache("cache-a", "pvc-a", older, true),
-					selectionSharedCache("cache-b", "pvc-b", newer, scenario.boundReady),
-				))
-			assert.NotNil(t, selected)
-			assert.Equal(t, "cache-b", selected.Name)
-			// A stay-bound result is committed even while the cache is not Ready.
-			assert.False(t, waitIntent)
-		})
-	}
+	t.Run("bound cache is ready", func(t *testing.T) {
+		selected, waitIntent := SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{
+				StorageURI:     "hf://org/model",
+				BoundCache:     "cache-b",
+				BoundNamespace: "default",
+			},
+			selectionList(
+				selectionSharedCache("cache-a", "pvc-a", older, true),
+				selectionSharedCache("cache-b", "pvc-b", newer, true),
+			))
+		assert.NotNil(t, selected)
+		assert.Equal(t, "cache-b", selected.Name)
+		assert.False(t, waitIntent)
+	})
+
+	// #6280 rule for the default (FallbackToSource) policy: a bound shared-PVC
+	// cache keeps the binding while its import record still attests that usable
+	// data is on the current claim, even while the cache is not Ready.
+	t.Run("default policy keeps bound not-ready cache with import record", func(t *testing.T) {
+		notReadyWithRecord := selectionSharedCache("cache-b", "pvc-b", newer, false)
+		notReadyWithRecord.Status.SharedPVCImport = &SharedPVCImportStatus{PVCUID: "pvc-b-uid"}
+		selected, waitIntent := SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{
+				StorageURI:     "hf://org/model",
+				BoundCache:     "cache-b",
+				BoundNamespace: "default",
+			},
+			selectionList(
+				selectionSharedCache("cache-a", "pvc-a", older, true),
+				notReadyWithRecord,
+			))
+		assert.NotNil(t, selected)
+		assert.Equal(t, "cache-b", selected.Name)
+		assert.False(t, waitIntent)
+	})
+
+	// Default policy without a record: the claim was recreated and holds no
+	// usable data yet, so the binding is released and another ready cache wins.
+	t.Run("default policy releases bound not-ready cache without record", func(t *testing.T) {
+		selected, waitIntent := SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{
+				StorageURI:     "hf://org/model",
+				BoundCache:     "cache-b",
+				BoundNamespace: "default",
+			},
+			selectionList(
+				selectionSharedCache("cache-a", "pvc-a", older, true),
+				selectionSharedCache("cache-b", "pvc-b", newer, false),
+			))
+		assert.NotNil(t, selected)
+		assert.Equal(t, "cache-a", selected.Name)
+		assert.False(t, waitIntent)
+	})
+
+	t.Run("default policy releases bound not-ready cache and matches nothing else", func(t *testing.T) {
+		selected, _ := SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{
+				StorageURI:     "hf://org/model",
+				BoundCache:     "cache-b",
+				BoundNamespace: "default",
+			},
+			selectionList(selectionSharedCache("cache-b", "pvc-b", newer, false)))
+		assert.Nil(t, selected)
+	})
+
+	// CacheRequired fails closed: the binding is kept while the cache still
+	// matches, regardless of readiness or import record; the serving gates key
+	// on the import record instead.
+	t.Run("CacheRequired keeps bound not-ready cache without record", func(t *testing.T) {
+		selected, waitIntent := SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{
+				StorageURI:     "hf://org/model",
+				BoundCache:     "cache-b",
+				BoundNamespace: "default",
+				CacheRequired:  true,
+			},
+			selectionList(
+				selectionSharedCache("cache-a", "pvc-a", older, true),
+				selectionSharedCache("cache-b", "pvc-b", newer, false),
+			))
+		assert.NotNil(t, selected)
+		assert.Equal(t, "cache-b", selected.Name)
+		assert.False(t, waitIntent)
+	})
 }
 
 func TestSelectLocalModelNamespaceCache_UnboundPrefersReadySharedPVC(t *testing.T) {
@@ -168,9 +229,20 @@ func TestSelectLocalModelNamespaceCache_UnboundPrefersReadySharedPVC(t *testing.
 		assert.False(t, waitIntent)
 	})
 
-	t.Run("only not-ready caches: the oldest is selected as wait intent", func(t *testing.T) {
+	t.Run("default policy is never routed to a not-ready cache", func(t *testing.T) {
 		selected, waitIntent := SelectLocalModelNamespaceCache(
 			LocalModelCacheSelection{StorageURI: "hf://org/model"},
+			selectionList(
+				selectionSharedCache("cache-a", "pvc-a", older, false),
+				selectionSharedCache("cache-b", "pvc-b", newer, false),
+			))
+		assert.Nil(t, selected)
+		assert.False(t, waitIntent)
+	})
+
+	t.Run("CacheRequired: only not-ready caches, the oldest is selected as wait intent", func(t *testing.T) {
+		selected, waitIntent := SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{StorageURI: "hf://org/model", CacheRequired: true},
 			selectionList(
 				selectionSharedCache("cache-a", "pvc-a", older, false),
 				selectionSharedCache("cache-b", "pvc-b", newer, false),
@@ -206,6 +278,25 @@ func TestSelectLocalModelNamespaceCache_ClassOrder(t *testing.T) {
 		assert.NotNil(t, selected)
 		assert.Equal(t, "node-cache", selected.Name)
 	})
+
+	t.Run("CacheRequired without node-local: not-ready shared-PVC is the wait intent", func(t *testing.T) {
+		selected, waitIntent := SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{StorageURI: "hf://org/model", CacheRequired: true},
+			selectionList(
+				selectionNodeLocalCache("node-cache", []string{"gpu1"}, created),
+				selectionSharedCache("shared-cache", "pvc", created, false),
+			))
+		assert.NotNil(t, selected)
+		assert.Equal(t, "node-cache", selected.Name)
+		assert.False(t, waitIntent)
+
+		selected, waitIntent = SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{StorageURI: "hf://org/model", CacheRequired: true},
+			selectionList(selectionSharedCache("shared-cache", "pvc", created, false)))
+		assert.NotNil(t, selected)
+		assert.Equal(t, "shared-cache", selected.Name)
+		assert.True(t, waitIntent)
+	})
 }
 
 func TestSelectLocalModelNamespaceCache_NodeGroup(t *testing.T) {
@@ -218,10 +309,21 @@ func TestSelectLocalModelNamespaceCache_NodeGroup(t *testing.T) {
 				selectionNodeLocalCache("node-cache", []string{"gpu1"}, created),
 				selectionSharedCache("shared-cache", "pvc", created, false),
 			))
-		// The node-local cache does not serve gpu2, so the not-ready shared cache
-		// is selected as the fail-closed wait intent.
+		// Default policy: the node-local cache does not serve gpu2 and the
+		// not-ready shared cache is never selected, so nothing matches.
+		assert.Nil(t, selected)
+
+		// CacheRequired: the not-ready shared cache is selected as the
+		// fail-closed wait intent.
+		selected, waitIntent := SelectLocalModelNamespaceCache(
+			LocalModelCacheSelection{StorageURI: "hf://org/model", NodeGroup: "gpu2", NodeGroupExists: true, CacheRequired: true},
+			selectionList(
+				selectionNodeLocalCache("node-cache", []string{"gpu1"}, created),
+				selectionSharedCache("shared-cache", "pvc", created, false),
+			))
 		assert.NotNil(t, selected)
 		assert.Equal(t, "shared-cache", selected.Name)
+		assert.True(t, waitIntent)
 	})
 
 	t.Run("bound node-local cache that no longer serves the node group is dropped", func(t *testing.T) {

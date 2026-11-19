@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 )
 
 // LocalModelCacheConditionType is the type of a LocalModelCacheStatus condition.
@@ -74,6 +75,18 @@ func (s *LocalModelCacheStatus) GetCondition(conditionType LocalModelCacheCondit
 func (in *LocalModelNamespaceCache) IsReady() bool {
 	condition := in.Status.GetCondition(LocalModelCacheReady)
 	return condition != nil && condition.Status == metav1.ConditionTrue && condition.ObservedGeneration == in.Generation
+}
+
+// ImportedOntoClaim reports whether the cache's import record attests that a
+// completed import landed on the claim (PVC) with the given UID. This is the
+// serving gate for workloads already bound to the cache under the
+// local-model-cache-policy: CacheRequired policy: such workloads keep serving
+// from the claim while the record holds, even when the cache is not Ready
+// (for example while a re-import onto a fresh claim is pending or blocked),
+// and it distinguishes "not Ready yet on the same claim" from "the claim was
+// recreated and holds no usable data".
+func (in *LocalModelNamespaceCache) ImportedOntoClaim(pvcUID k8stypes.UID) bool {
+	return in.Status.SharedPVCImport != nil && in.Status.SharedPVCImport.PVCUID == pvcUID
 }
 
 // NotReadySummary describes why a cache is not Ready, for use in user-facing
