@@ -126,6 +126,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if errs := validation.ValidateLocalModelCachePolicyAnnotation(isvc.Annotations, field.NewPath("metadata", "annotations")); len(errs) > 0 {
+		return allWarnings, errors.New(errs.ToAggregate().Error())
+	}
+
 	if err := validateMultipleStorageURIs(isvc); err != nil {
 		return allWarnings, err
 	}
