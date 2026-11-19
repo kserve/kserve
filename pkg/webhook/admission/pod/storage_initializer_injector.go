@@ -38,8 +38,10 @@ import (
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/hf"
 	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/validation"
 )
 
 const (
@@ -1093,7 +1095,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		// Fail closed while the shared-PVC cache this pod is bound to is not
 		// Ready: the pod is not admitted (and never rewritten to download from
 		// its original source URI) until the cache import completes.
-		if err := mi.awaitLocalModelCacheReadiness(ctx, pod); err != nil {
+		if err := mi.gateLocalModelCacheWaiting(ctx, pod); err != nil {
 			return err
 		}
 		sourceUri := pod.Annotations[constants.LocalModelSourceUriAnnotationKey]
@@ -1156,17 +1158,36 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	return CommonStorageInitialization(ctx, storageInitializerParams)
 }
 
-// awaitLocalModelCacheReadiness fails closed while the shared-PVC
-// LocalModelNamespaceCache a pod is bound to is not Ready. Returning an error
-// rejects the pod; workload controllers retry creation, so the pod starts once
-// the cache import completes instead of downloading the model from its original
-// source URI. Node-local caches (and cluster-scoped LocalModelCache) have no
-// import gate and are admitted as before.
-func (mi *StorageInitializerInjector) awaitLocalModelCacheReadiness(ctx context.Context, pod *corev1.Pod) error {
+// gateLocalModelCacheWaiting fails closed for CacheRequired pods while the
+// shared-PVC LocalModelNamespaceCache a pod is bound to has no usable data on
+// its current claim. Returning an error rejects the pod; workload controllers
+// retry creation, so the pod starts once the cache import completes instead of
+// downloading the model from its original source URI.
+//
+// The gate keys on the cache's import record for the current claim, not on the
+// cache's Ready condition (which also folds in node-agent propagation): a pod
+// whose workload is already bound keeps being admitted while the record names
+// the live claim even though the cache is not Ready (ReimportBlocked,
+// node-agent failures, spec-generation bumps); Ready remains what admits
+// not-yet-bound workloads to the cache in the workloads' defaulters.
+//
+// Pods without the internal policy annotation (the FallbackToSource default)
+// are not gated: they keep the #6280 behavior of mounting whatever claim their
+// workload was bound to. Node-local caches (and cluster-scoped
+// LocalModelCache) have no import gate and are admitted as before.
+func (mi *StorageInitializerInjector) gateLocalModelCacheWaiting(ctx context.Context, pod *corev1.Pod) error {
+	cacheRequired, err := validation.LocalModelCachePolicyInternalRequired(pod.Annotations)
+	if err != nil {
+		return fmt.Errorf("pod %s/%s: %w", pod.Namespace, pod.Name, err)
+	}
+	if !cacheRequired {
+		return nil
+	}
+
 	cacheName := pod.Labels[constants.LocalModelLabel]
 	cacheNamespace := pod.Labels[constants.LocalModelNamespaceLabel]
 	if cacheNamespace == "" {
-		// Cluster-scoped LocalModelCache: node-local only, no Ready gate.
+		// Cluster-scoped LocalModelCache: node-local only, no import gate.
 		return nil
 	}
 	// Local model cache bindings are always same-namespace: the defaulters only
@@ -1185,7 +1206,18 @@ func (mi *StorageInitializerInjector) awaitLocalModelCacheReadiness(ctx context.
 	if !nsCache.Spec.SharedPVCMode() || nsCache.IsReady() {
 		return nil
 	}
-	return fmt.Errorf("LocalModelNamespaceCache %s/%s is not ready (%s); pod %s/%s is admitted once the model import completes",
+	holdsImport, err := localmodelcache.ClaimHoldsImportedModel(ctx, mi.client, nsCache)
+	if err != nil {
+		return fmt.Errorf("check import record of LocalModelNamespaceCache %s/%s referenced by pod %s/%s: %w",
+			cacheNamespace, cacheName, pod.Namespace, pod.Name, err)
+	}
+	if holdsImport {
+		// The record attests a completed import onto the live claim: the pod is
+		// admitted even though the cache is not Ready (ReimportBlocked, node
+		// agent propagation lag, spec-generation bump).
+		return nil
+	}
+	return fmt.Errorf("LocalModelNamespaceCache %s/%s is not ready and has no model imported onto its current claim (%s); pod %s/%s is admitted once the model import completes",
 		cacheNamespace, cacheName, nsCache.NotReadySummary(), pod.Namespace, pod.Name)
 }
 

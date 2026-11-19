@@ -5092,24 +5092,25 @@ func createLocalModelGateCache(t *testing.T, cache *v1alpha1.LocalModelNamespace
 	t.Helper()
 	// Create decodes the server response into the object, dropping the status
 	// that was set in memory; re-apply it via the status subresource.
-	conditions := cache.Status.Conditions
+	status := cache.Status
 	if err := c.Create(t.Context(), cache); err != nil {
 		t.Fatalf("failed to create LocalModelNamespaceCache: %v", err)
 	}
-	if len(conditions) > 0 {
-		cache.Status.Conditions = conditions
-		if err := c.Status().Update(t.Context(), cache); err != nil {
-			t.Fatalf("failed to update LocalModelNamespaceCache status: %v", err)
-		}
+	cache.Status = status
+	if err := c.Status().Update(t.Context(), cache); err != nil {
+		t.Fatalf("failed to update LocalModelNamespaceCache status: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = c.Delete(t.Context(), cache)
 	})
 }
 
-// A pod bound to a shared-PVC cache that is not Ready must not be admitted:
+// A CacheRequired pod bound to a shared-PVC cache must only be admitted once
+// the cache's import record attests a completed import onto the current claim:
 // admission fails closed instead of letting the pod download from its original
-// source URI, and succeeds once the cache import completes.
+// source URI, and keeps working while the cache is not Ready but the record
+// still names the live claim. Pods without the policy (the FallbackToSource
+// default) are not gated at all.
 func TestLocalModelPVCReadinessGate(t *testing.T) {
 	storageConfig := &kserveTypes.StorageInitializerConfig{}
 	pvcRef := "shared-pvc"
@@ -5130,16 +5131,25 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		return cache
 	}
 
-	t.Run("not-ready shared-PVC cache rejects the pod", func(t *testing.T) {
+	cacheRequiredPod := func(namespaceLabel string) *corev1.Pod {
+		pod := localModelGatePod(namespaceLabel)
+		if pod.Annotations == nil {
+			pod.Annotations = map[string]string{}
+		}
+		pod.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyCacheRequired
+		return pod
+	}
+
+	t.Run("not-ready shared-PVC cache without import record rejects the pod", func(t *testing.T) {
 		createLocalModelGateCache(t, newCache("gate-cache-not-ready", false))
 		injector := &StorageInitializerInjector{config: storageConfig, client: c}
 
-		pod := localModelGatePod("default")
+		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-not-ready"
 		err := injector.InjectStorageInitializer(t.Context(), pod)
 		if err == nil {
 			t.Error("expected an error while the shared-PVC cache is not ready")
-		} else if !strings.Contains(err.Error(), "not ready") || !strings.Contains(err.Error(), "ImportRunning") {
+		} else if !strings.Contains(err.Error(), "no model imported onto its current claim") || !strings.Contains(err.Error(), "ImportRunning") {
 			t.Errorf("expected an actionable not-ready error, got: %v", err)
 		}
 		if len(pod.Spec.Volumes) != 0 {
@@ -5151,7 +5161,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		createLocalModelGateCache(t, newCache("gate-cache-ready", true))
 		injector := &StorageInitializerInjector{config: storageConfig, client: c}
 
-		pod := localModelGatePod("default")
+		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-ready"
 		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -5162,7 +5172,92 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		}
 	})
 
-	t.Run("namespace-scoped node-local cache has no readiness gate", func(t *testing.T) {
+	t.Run("not-ready cache with import record for the live claim admits the pod", func(t *testing.T) {
+		notReady := newCache("gate-cache-import-record", false)
+		pvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: pvcRef, Namespace: "default"},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+				Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")}},
+			},
+		}
+		if err := c.Create(t.Context(), pvc); err != nil {
+			t.Fatalf("failed to create PVC: %v", err)
+		}
+		t.Cleanup(func() { _ = c.Delete(t.Context(), pvc) })
+		notReady.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: pvc.UID}
+		createLocalModelGateCache(t, notReady)
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-import-record"
+		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].PersistentVolumeClaim == nil ||
+			pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName != "shared-pvc" {
+			t.Errorf("expected the pod to mount the cache PVC, got: %+v", pod.Spec.Volumes)
+		}
+	})
+
+	t.Run("import record naming a recreated claim rejects the pod", func(t *testing.T) {
+		notReady := newCache("gate-cache-stale-record", false)
+		notReady.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "uid-of-the-old-claim"}
+		createLocalModelGateCache(t, notReady)
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-stale-record"
+		err := injector.InjectStorageInitializer(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), "no model imported onto its current claim") {
+			t.Errorf("expected an import-record error, got: %v", err)
+		}
+		if len(pod.Spec.Volumes) != 0 {
+			t.Error("the pod must not be rewritten while the claim holds no imported data")
+		}
+	})
+
+	t.Run("default policy (no internal annotation) has no gate", func(t *testing.T) {
+		createLocalModelGateCache(t, newCache("gate-cache-default-policy", false))
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := localModelGatePod("default")
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-default-policy"
+		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if len(pod.Spec.Volumes) != 1 {
+			t.Errorf("expected the pod to be rewritten, got: %+v", pod.Spec.Volumes)
+		}
+	})
+
+	t.Run("internal FallbackToSource annotation has no gate", func(t *testing.T) {
+		createLocalModelGateCache(t, newCache("gate-cache-fallback", false))
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := localModelGatePod("default")
+		pod.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyFallbackToSource
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-fallback"
+		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if len(pod.Spec.Volumes) != 1 {
+			t.Errorf("expected the pod to be rewritten, got: %+v", pod.Spec.Volumes)
+		}
+	})
+
+	t.Run("malformed internal policy value fails closed", func(t *testing.T) {
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := localModelGatePod("default")
+		pod.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = "definitely-not-a-policy"
+		err := injector.InjectStorageInitializer(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), "invalid") {
+			t.Errorf("expected a malformed-policy error, got: %v", err)
+		}
+	})
+
+	t.Run("namespace-scoped node-local cache has no import gate", func(t *testing.T) {
 		createLocalModelGateCache(t, &v1alpha1.LocalModelNamespaceCache{
 			ObjectMeta: metav1.ObjectMeta{Name: "gate-cache-node-local", Namespace: "default"},
 			Spec: v1alpha1.LocalModelNamespaceCacheSpec{
@@ -5172,7 +5267,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		})
 		injector := &StorageInitializerInjector{config: storageConfig, client: c}
 
-		pod := localModelGatePod("default")
+		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-node-local"
 		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -5182,10 +5277,10 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		}
 	})
 
-	t.Run("cluster-scoped binding has no readiness gate", func(t *testing.T) {
+	t.Run("cluster-scoped binding has no import gate", func(t *testing.T) {
 		injector := &StorageInitializerInjector{config: storageConfig, client: c}
 
-		pod := localModelGatePod("")
+		pod := cacheRequiredPod("")
 		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -5194,7 +5289,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 	t.Run("missing cache rejects the pod", func(t *testing.T) {
 		injector := &StorageInitializerInjector{config: storageConfig, client: c}
 
-		pod := localModelGatePod("default")
+		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "no-such-cache"
 		err := injector.InjectStorageInitializer(t.Context(), pod)
 		if err == nil || !strings.Contains(err.Error(), "get LocalModelNamespaceCache") {
@@ -5209,7 +5304,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		// The pod runs in "default" but claims a cache in another namespace: the
 		// gate must refuse the lookup instead of disclosing that namespace's
 		// cache state.
-		pod := localModelGatePod("some-other-namespace")
+		pod := cacheRequiredPod("some-other-namespace")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-foreign"
 		err := injector.InjectStorageInitializer(t.Context(), pod)
 		if err == nil || !strings.Contains(err.Error(), "only served from the pod's own namespace") {

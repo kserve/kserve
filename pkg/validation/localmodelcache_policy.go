@@ -40,6 +40,31 @@ func LocalModelCachePolicyRequired(annotations map[string]string) (bool, error) 
 	if !ok {
 		return false, nil
 	}
+	return LocalModelCachePolicyValue(raw)
+}
+
+// LocalModelCachePolicyInternalRequired resolves the policy from the internal
+// annotation the workload defaulters mirror onto serving pod templates
+// (constants.LocalModelCachePolicyInternalAnnotationKey). It backs the pod
+// mutator's gate. Malformed non-empty values fail closed (treated as
+// CacheRequired) with an error, so a crafted or corrupted annotation never
+// silently disables the gate.
+func LocalModelCachePolicyInternalRequired(annotations map[string]string) (bool, error) {
+	raw, ok := annotations[constants.LocalModelCachePolicyInternalAnnotationKey]
+	if !ok {
+		return false, nil
+	}
+	return LocalModelCachePolicyValue(raw)
+}
+
+// LocalModelCachePolicyValue parses one local-model-cache-policy value.
+// Unset, empty or whitespace-only means the FallbackToSource default. Values
+// are compared case-insensitively after trimming. A malformed non-empty value
+// fails closed: it is reported as an error AND treated as CacheRequired
+// (never as a silent fallback to a source download); admission validation
+// rejects it first, so the fail-closed read only covers workloads admitted
+// before validation was installed or pod annotations tampered with.
+func LocalModelCachePolicyValue(raw string) (bool, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return false, nil
