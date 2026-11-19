@@ -89,6 +89,9 @@ ray = [
 llm = [
     "vllm==0.24.0",
 ]
+pygrpc-native = [
+    "pygrpc-native>=0.5.1,<1",
+]
 
 [dependency-groups]
 test = [
@@ -107,6 +110,7 @@ test = [
     "tomlkit<1.0.0,>=0.12.0",
     "jinja2<4.0.0,>=3.1.4",
     "grpcio-testing<2.0.0,>=1.73.0",
+    "pygrpc-native>=0.5.1,<1",
     "httpx-retries>=0.4.5,<1.0.0",
     "boto3>=1.35.0,<2.0.0",
     "pyarrow>=18.0.0",
