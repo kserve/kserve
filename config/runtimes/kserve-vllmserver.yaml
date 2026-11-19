@@ -51,9 +51,9 @@ spec:
           cpu: "1"
           memory: 2Gi
       readinessProbe:
-        # `/v1/models` only returns 200 once the model is registered.
+        # `/health` checks the engine without requiring an API key.
         httpGet:
-          path: /v1/models
+          path: /health
           port: 8080
         failureThreshold: 3
         periodSeconds: 10
@@ -62,7 +62,7 @@ spec:
       startupProbe:
         # ~30 min grace for large model loads (60 * 30s).
         httpGet:
-          path: /v1/models
+          path: /health
           port: 8080
         failureThreshold: 60
         periodSeconds: 30
