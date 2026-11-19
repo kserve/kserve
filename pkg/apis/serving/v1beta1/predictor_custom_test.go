@@ -218,6 +218,40 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 					},
 				},
 			},
+		}, "UnnamedFirstContainerBesideKServeContainer": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Image: "sidecar:0.1.0",
+						},
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "custom-predictor:0.1.0",
+						},
+					},
+				},
+			},
+			expected: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							// The unnamed first container must NOT be renamed to
+							// kserve-container: that would duplicate the name and
+							// produce an invalid PodSpec.
+							Image: "sidecar:0.1.0",
+							Resources: corev1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "custom-predictor:0.1.0",
+						},
+					},
+				},
+			},
 		},
 	}
 

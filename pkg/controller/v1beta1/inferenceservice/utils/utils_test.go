@@ -704,6 +704,46 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 	}
 }
 
+func TestIsMemoryResourceAvailableCustomPredictorWithoutKServeContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// A leading transformer-container with the predictor container not named
+	// kserve-container: GetContainer returns nil, so the check must return
+	// false instead of panicking on a nil container dereference.
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.TransformerContainerName,
+							Image: "transformer:0.1.0",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									"memory": resource.MustParse("100Gi"),
+								},
+							},
+						},
+						{
+							Image: "custom-predictor:0.1.0",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									"memory": resource.MustParse("100Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	isvc.Spec.Predictor.GetImplementation().Default(nil)
+	g.Expect(IsMemoryResourceAvailable(&isvc, resource.MustParse("1Gi"))).To(gomega.BeFalse())
+}
+
 func TestMergeRuntimeContainers(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

@@ -461,3 +461,50 @@ func TestCleanupOrphansWithMultiNode(t *testing.T) {
 	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-workers-1", Namespace: "default"}, &corev1.Service{})
 	assert.NoError(t, err)
 }
+
+func TestCreateDefaultSvcPredictorPort(t *testing.T) {
+	tests := []struct {
+		name         string
+		podSpec      *corev1.PodSpec
+		expectedPort int32
+	}{
+		{
+			name: "sidecar first, predictor port is used",
+			podSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "sidecar", Ports: []corev1.ContainerPort{{ContainerPort: 9090}}},
+					{Name: constants.InferenceServiceContainerName, Ports: []corev1.ContainerPort{{ContainerPort: 8080}}},
+				},
+			},
+			expectedPort: 8080,
+		},
+		{
+			name: "transformer wins over predictor",
+			podSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.TransformerContainerName, Ports: []corev1.ContainerPort{{ContainerPort: 7070}}},
+					{Name: constants.InferenceServiceContainerName, Ports: []corev1.ContainerPort{{ContainerPort: 8080}}},
+				},
+			},
+			expectedPort: 7070,
+		},
+		{
+			name: "predictor first",
+			podSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName, Ports: []corev1.ContainerPort{{ContainerPort: 8080}}},
+					{Name: "sidecar", Ports: []corev1.ContainerPort{{ContainerPort: 9090}}},
+				},
+			},
+			expectedPort: 8080,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := createDefaultSvc(metav1.ObjectMeta{Name: "predictor", Namespace: "default"}, nil, tt.podSpec, nil)
+			require.Len(t, svc.Spec.Ports, 1)
+			assert.Equal(t, tt.expectedPort, svc.Spec.Ports[0].TargetPort.IntVal)
+		})
+	}
+}
