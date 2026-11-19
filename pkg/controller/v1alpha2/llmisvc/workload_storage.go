@@ -410,8 +410,8 @@ func addsDefaultHFEnv(current, desired *corev1.Container) bool {
 }
 
 // attachStorageInitializer configures a PodSpec to use KServe storage-initializer for
-// downloading a model from compatible storage. When the LLMInferenceService names a
-// ClusterStorageContainer, its container is merged into the storage-initializer.
+// downloading a model from compatible storage.
+// When the LLMInferenceService names a ClusterStorageContainer, its container is merged into the storage-initializer.
 //
 // Parameters:
 //   - ctx: The context for API calls and logging.
@@ -624,11 +624,9 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	return nil
 }
 
-// resolveStorageContainer returns the ClusterStorageContainer named in
-// spec.storageInitializer.storageContainerName, after checking that it is enabled, runs
-// as an init container and supports every given URI. It returns nil when no name is
-// set. A ClusterStorageContainer that cannot be used is an error, recorded as a Warning
-// event, rather than a silent fallback to the default storage-initializer.
+// resolveStorageContainer returns the ClusterStorageContainer named in spec.storageInitializer.storageContainerName, after checking that it is enabled, runs as an init container and supports every given URI.
+// It returns nil when no name is set.
+// A ClusterStorageContainer that cannot be used is an error, recorded as a Warning event, rather than a silent fallback to the default storage-initializer.
 func (r *LLMISVCReconciler) resolveStorageContainer(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, uris ...string) (*v1alpha1.StorageContainerSpec, error) {
 	if llmSvc.Spec.StorageInitializer == nil {
 		return nil, nil
@@ -647,9 +645,8 @@ func (r *LLMISVCReconciler) resolveStorageContainer(ctx context.Context, llmSvc 
 		}
 		storageContainer = spec
 	}
-	// More than one download goes to the initializer as several URI/path pairs, which a
-	// single-model downloader cannot take. The pod webhook rejects such containers for
-	// InferenceService too.
+	// More than one download goes to the initializer as several URI/path pairs, which a single-model downloader cannot take.
+	// The pod webhook rejects such containers for InferenceService too.
 	if len(uris) > 1 && !ptr.Deref(storageContainer.SupportsMultiModelDownload, false) {
 		err := fmt.Errorf("ClusterStorageContainer %q does not support multi-model download, needed for %d downloads", name, len(uris))
 		r.Eventf(llmSvc, corev1.EventTypeWarning, "StorageContainerNotResolved",
@@ -659,10 +656,9 @@ func (r *LLMISVCReconciler) resolveStorageContainer(ctx context.Context, llmSvc 
 	return storageContainer, nil
 }
 
-// applyStorageContainer merges the container of a ClusterStorageContainer into the
-// storage-initializer built from the default configuration, as the InferenceService pod
-// webhook does. The controller keeps the name, arguments and command, because they
-// carry the URIs to download. A nil storageContainer returns initContainer unchanged.
+// applyStorageContainer merges the container of a ClusterStorageContainer into the storage-initializer built from the default configuration, as the InferenceService pod webhook does.
+// The controller keeps the name, arguments and command, because they carry the URIs to download.
+// A nil storageContainer returns initContainer unchanged.
 func applyStorageContainer(initContainer *corev1.Container, storageContainer *v1alpha1.StorageContainerSpec) (*corev1.Container, error) {
 	if storageContainer == nil {
 		return initContainer, nil
