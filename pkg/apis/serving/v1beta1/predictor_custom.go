@@ -67,7 +67,19 @@ func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
 		c.Containers = append(c.Containers, corev1.Container{})
 	}
 	if len(c.Containers) == 1 || len(c.Containers[0].Name) == 0 {
-		c.Containers[0].Name = constants.InferenceServiceContainerName
+		// Only name the first container kserve-container when no container
+		// already carries that name; renaming unconditionally would produce
+		// two containers with the same name, an invalid PodSpec.
+		hasKServeContainer := false
+		for _, container := range c.Containers {
+			if container.Name == constants.InferenceServiceContainerName {
+				hasKServeContainer = true
+				break
+			}
+		}
+		if !hasKServeContainer {
+			c.Containers[0].Name = constants.InferenceServiceContainerName
+		}
 	}
 	setResourceRequirementDefaults(config, &c.Containers[0].Resources)
 }

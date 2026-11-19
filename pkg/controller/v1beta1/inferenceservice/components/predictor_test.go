@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -233,6 +234,73 @@ func TestAdjustStableMinReplicasForCanaries(t *testing.T) {
 			componentExt := isvc.Spec.Predictor.ComponentExtensionSpec
 			adjustStableMinReplicasForCanaries(isvc, &componentExt)
 			assert.Equal(t, tt.expectedStable, *componentExt.MinReplicas)
+		})
+	}
+}
+
+func TestPlacePredictorContainer(t *testing.T) {
+	tests := []struct {
+		name          string
+		podSpec       corev1.PodSpec
+		predContainer *corev1.Container
+		expected      []corev1.Container
+	}{
+		{
+			name:          "empty pod spec gets predictor as only container",
+			podSpec:       corev1.PodSpec{},
+			predContainer: &corev1.Container{Name: constants.InferenceServiceContainerName, Image: "predictor:0.1.0"},
+			expected: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName, Image: "predictor:0.1.0"},
+			},
+		},
+		{
+			name: "predictor container replaced in place, sidecar preserved",
+			podSpec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "sidecar", Image: "sidecar:0.1.0"},
+					{Name: constants.InferenceServiceContainerName, Image: "predictor:old"},
+				},
+			},
+			predContainer: &corev1.Container{Name: constants.InferenceServiceContainerName, Image: "predictor:new"},
+			expected: []corev1.Container{
+				{Name: "sidecar", Image: "sidecar:0.1.0"},
+				{Name: constants.InferenceServiceContainerName, Image: "predictor:new"},
+			},
+		},
+		{
+			name: "predictor container first is replaced in place",
+			podSpec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName, Image: "predictor:old"},
+					{Name: "sidecar", Image: "sidecar:0.1.0"},
+				},
+			},
+			predContainer: &corev1.Container{Name: constants.InferenceServiceContainerName, Image: "predictor:new"},
+			expected: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName, Image: "predictor:new"},
+				{Name: "sidecar", Image: "sidecar:0.1.0"},
+			},
+		},
+		{
+			name: "predictor container missing from pod spec is appended, not overwriting index 0",
+			podSpec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "sidecar", Image: "sidecar:0.1.0"},
+				},
+			},
+			predContainer: &corev1.Container{Name: constants.InferenceServiceContainerName, Image: "predictor:0.1.0"},
+			expected: []corev1.Container{
+				{Name: "sidecar", Image: "sidecar:0.1.0"},
+				{Name: constants.InferenceServiceContainerName, Image: "predictor:0.1.0"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			podSpec := tt.podSpec
+			placePredictorContainer(&podSpec, tt.predContainer)
+			assert.Equal(t, tt.expected, podSpec.Containers)
 		})
 	}
 }
