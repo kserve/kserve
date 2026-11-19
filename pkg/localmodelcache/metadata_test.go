@@ -173,8 +173,8 @@ func TestMatchCacheForURI_ClusterCacheBeatsNotReadySharedPVC(t *testing.T) {
 	}
 
 	for name, sel := range map[string]v1alpha1.LocalModelCacheSelection{
-		"default policy":   {StorageURI: "hf://org/model"},
-		"CacheRequired":    {StorageURI: "hf://org/model", CacheRequired: true},
+		"default policy": {StorageURI: "hf://org/model"},
+		"CacheRequired":  {StorageURI: "hf://org/model", CacheRequired: true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			match := MatchCacheForURI(sel, models, nsModels)

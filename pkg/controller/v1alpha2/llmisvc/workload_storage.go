@@ -93,8 +93,8 @@ func resolveSharedPVCCacheBinding(ctx context.Context, c client.Client, nsCache 
 	// The current claim still holds the imported copy: keep serving through
 	// node-agent / re-import failures; the caller surfaces the degradation.
 	return sharedPVCBinding{
-		sourceURI:   nsCache.Spec.SourceModelUri,
-		pvcName:     *nsCache.Spec.PVCRef,
+		sourceURI: nsCache.Spec.SourceModelUri,
+		pvcName:   *nsCache.Spec.PVCRef,
 		degradedMsg: fmt.Sprintf("LocalModelNamespaceCache %s/%s is not Ready (%s); serving the model copy that its import record attests on the current claim %q",
 			nsCache.Namespace, nsCache.Name, nsCache.NotReadySummary(), *nsCache.Spec.PVCRef),
 	}, nil

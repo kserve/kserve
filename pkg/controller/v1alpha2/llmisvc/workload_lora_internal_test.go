@@ -713,7 +713,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyFailsClosed(t *
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Annotations: map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
+				constants.LocalModelLoRAAnnotationKey:        `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
 				constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
 			},
 		},
@@ -793,7 +793,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCImportRecordServesDegra
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Annotations: map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
+				constants.LocalModelLoRAAnnotationKey:        `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
 				constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
 			},
 		},
