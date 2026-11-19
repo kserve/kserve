@@ -514,3 +514,96 @@ func TestInjectMetricsAggregator(t *testing.T) {
 		}
 	}
 }
+
+func TestInjectMetricsAggregatorStandardModePrometheusPort(t *testing.T) {
+	ma := newMetricsAggregator(&corev1.ConfigMap{})
+	kserveContainer := corev1.Container{Name: constants.InferenceServiceContainerName}
+
+	scenarios := map[string]struct {
+		original *corev1.Pod
+		wantPort string
+		wantPath string
+	}{
+		"StandardModeDefaultsToKserveContainerPort": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "predictor",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.SetPrometheusAnnotation: "true",
+					},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{kserveContainer}},
+			},
+			wantPort: defaultKserveContainerPrometheusPort,
+			wantPath: constants.DefaultPrometheusPath,
+		},
+		"StandardModeUsesKserveContainerPortAnnotation": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "predictor",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.SetPrometheusAnnotation:          "true",
+						constants.KserveContainerPrometheusPortKey: "8082",
+						constants.KServeContainerPrometheusPathKey: "/custom-metrics",
+					},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{kserveContainer}},
+			},
+			wantPort: "8082",
+			wantPath: "/custom-metrics",
+		},
+		"StandardModePreservesExplicitPrometheusPort": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "predictor",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.SetPrometheusAnnotation:     "true",
+						constants.PrometheusPortAnnotationKey: "9090",
+						constants.PrometheusPathAnnotationKey: "/other-metrics",
+					},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{kserveContainer}},
+			},
+			wantPort: "9090",
+			wantPath: "/other-metrics",
+		},
+		"KnativeStillUsesQueueProxyPort": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "predictor",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.SetPrometheusAnnotation: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						kserveContainer,
+						{Name: constants.QueueProxyContainerName},
+					},
+				},
+			},
+			wantPort: constants.DefaultPodPrometheusPort,
+			wantPath: constants.DefaultPrometheusPath,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			if err := ma.InjectMetricsAggregator(scenario.original); err != nil {
+				t.Fatalf("InjectMetricsAggregator returned error: %v", err)
+			}
+			gotPort := scenario.original.Annotations[constants.PrometheusPortAnnotationKey]
+			gotPath := scenario.original.Annotations[constants.PrometheusPathAnnotationKey]
+			if gotPort != scenario.wantPort {
+				t.Errorf("prometheus.io/port: got %q, want %q", gotPort, scenario.wantPort)
+			}
+			if gotPath != scenario.wantPath {
+				t.Errorf("prometheus.io/path: got %q, want %q", gotPath, scenario.wantPath)
+			}
+		})
+	}
+}
