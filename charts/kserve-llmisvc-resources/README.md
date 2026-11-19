@@ -42,6 +42,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.controller.gateway.disableIstioVirtualHost | bool | `false` |  |
 | kserve.controller.gateway.domain | string | `"example.com"` |  |
 | kserve.controller.gateway.domainTemplate | string | `"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"` |  |
+| kserve.controller.gateway.httpRouteMaxShards | int | `1` |  |
 | kserve.controller.gateway.ingressGateway.className | string | `"istio"` |  |
 | kserve.controller.gateway.ingressGateway.createGateway | bool | `false` |  |
 | kserve.controller.gateway.ingressGateway.enableGatewayApi | bool | `false` |  |

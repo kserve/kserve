@@ -42,12 +42,14 @@ fi
 echo "Generating Python SDK for KServe ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
 
-# Preserve the positional constructor contract that predates the LLM TLS fields.
+# Preserve the positional constructor contract that predates the LLM TLS and
+# route sharding fields.
 # New fields are keyword-only so generated clients cannot silently rebind existing
 # positional arguments when this model grows.
 INGRESS_CONFIG_MODEL="${SDK_OUTPUT_PATH}/kserve/models/v1beta1_ingress_config.py"
-INGRESS_KWONLY=", *, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None, route_rule_naming=None):"
+INGRESS_KWONLY=", *, http_route_max_shards=None, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None, route_rule_naming=None):"
 sed -i'.bak' -e '/def __init__(.*, local_vars_configuration=None):/{
+s/, http_route_max_shards=None,/,/
 s/, llm_inference_service_tls_cipher_suites=None,/,/
 s/, llm_inference_service_tls_min_version=None,/,/
 s/, route_rule_naming=None,/,/

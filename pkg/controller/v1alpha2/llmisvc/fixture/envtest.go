@@ -132,7 +132,9 @@ func SetupWebhooks(cfg *rest.Config, mgr ctrl.Manager) error {
 	}
 
 	// Register v1alpha1 validators
-	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{
+		InlineRouteDryRun: llmisvc.NewInlineRouteDryRun(mgr.GetClient()),
+	}
 	if err := v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -145,7 +147,9 @@ func SetupWebhooks(cfg *rest.Config, mgr ctrl.Manager) error {
 	}
 
 	// Register v1alpha2 validators
-	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{
+		InlineRouteDryRun: llmisvc.NewInlineRouteDryRun(mgr.GetClient()),
+	}
 	if err := v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
 		return err
 	}
