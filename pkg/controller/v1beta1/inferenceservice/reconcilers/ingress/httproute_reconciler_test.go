@@ -4161,3 +4161,15 @@ func TestRawHTTPRouteReconciler_RouteNameConflict(t *testing.T) {
 		g.Expect(route.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"example.com"}))
 	})
 }
+
+func TestCreateRawPathHTTPRouteRootPathTemplate(t *testing.T) {
+	for _, pathTemplate := range []string{"/", "//"} {
+		t.Run(pathTemplate, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), newPathTestIsvc(false, false),
+				newPathTestIngressConfig(pathTemplate), &v1beta1.InferenceServicesConfig{})
+			g.Expect(err).To(MatchError(ContainSubstring("must render a non-root path")))
+			g.Expect(route).To(BeNil())
+		})
+	}
+}

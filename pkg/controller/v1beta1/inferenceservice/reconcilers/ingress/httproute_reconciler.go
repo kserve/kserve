@@ -783,7 +783,12 @@ func createRawPathHTTPRoute(ctx context.Context, client client.Client, isvc *v1b
 		log.Error(err, "Failed to generate URL from pathTemplate")
 		return nil, fmt.Errorf("failed to generate URL from pathTemplate: %w", err)
 	}
-	path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
+	renderedPath := path
+	path = strings.TrimRight(path, "/") // remove trailing "/" if present
+	// A root path would claim every request on the shared ingress domain and is not a valid PathPrefix value.
+	if path == "" {
+		return nil, fmt.Errorf("pathTemplate %q must render a non-root path, got %q", ingressConfig.PathTemplate, renderedPath)
+	}
 
 	httpRouteRules := make([]gwapiv1.HTTPRouteRule, 0, 2)
 	headerFilter := addIsvcHeaders(isvc.Name, isvc.Namespace)
