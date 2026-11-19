@@ -46,6 +46,7 @@ import (
 // LocalModelReconciler reconciles cluster-scoped LocalModelCache resources
 type LocalModelReconciler struct {
 	client.Client
+	APIReader                client.Reader
 	Clientset                *kubernetes.Clientset
 	Log                      logr.Logger
 	Scheme                   *runtime.Scheme
@@ -76,6 +77,13 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Step 1 - Checks if the CR is in the deletion process. This runs before
+	// the node groups are resolved: a referenced group may already be deleted,
+	// and the deletion path only needs the group names.
+	if !localModel.DeletionTimestamp.IsZero() {
+		return DeleteModelFromNodes(ctx, c.Client, c.APIReader, c.Clientset, c.Log, localModel, nil, localModel.Spec.NodeGroups, localModelConfig)
+	}
+
 	defaultNodeGroup := &v1alpha1.LocalModelNodeGroup{}
 	nodeGroups := map[string]*v1alpha1.LocalModelNodeGroup{}
 	for idx, nodeGroupName := range localModel.Spec.NodeGroups {
@@ -90,19 +98,14 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	// Step 1 - Checks if the CR is in the deletion process
-	if localModel.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object.
-		if !utils.Includes(localModel.Finalizers, FinalizerName) {
-			patch := client.MergeFrom(localModel.DeepCopy())
-			localModel.Finalizers = append(localModel.Finalizers, FinalizerName)
-			if err := c.Patch(ctx, localModel, patch); err != nil {
-				return ctrl.Result{}, err
-			}
+	// The object is not being deleted, so if it does not have our finalizer,
+	// then lets add the finalizer and update the object.
+	if !utils.Includes(localModel.Finalizers, FinalizerName) {
+		patch := client.MergeFrom(localModel.DeepCopy())
+		localModel.Finalizers = append(localModel.Finalizers, FinalizerName)
+		if err := c.Patch(ctx, localModel, patch); err != nil {
+			return ctrl.Result{}, err
 		}
-	} else {
-		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, localModel, nil, nodeGroups)
 	}
 
 	consumers, err := collectCacheConsumers(ctx, c.Client, c.Log, localModel, nil, c.llmInferenceServiceCRDUp)
@@ -111,9 +114,13 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	previousNamespaces := consumerNamespaces(localModel.Status)
 
-	// Step 2 - Adds this model to LocalModelNode resources in the node group
+	// Step 2 - Adds this model to LocalModelNode resources in the node group.
+	// The error is kept and returned at the end so the work queue retries the
+	// node update, while the volume reconciliation below still runs.
+	var nodeErr error
 	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, localModel, nil, nodeGroups, consumers); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode")
+		nodeErr = err
 	}
 
 	// Step 3 - Creates PV & PVC for model download
@@ -140,12 +147,15 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if localModelConfig.DisableVolumeManagement {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, nodeErr
 	}
 
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
 	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
-	return ctrl.Result{}, err
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nodeErr
 }
 
 // Reconciles corresponding model cache CR when we found an update on an isvc
@@ -248,6 +258,9 @@ func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj clien
 }
 
 func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if c.APIReader == nil {
+		c.APIReader = mgr.GetAPIReader()
+	}
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), c.Clientset)
 	if err != nil {
 		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
