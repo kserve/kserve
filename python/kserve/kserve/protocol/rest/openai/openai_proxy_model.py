@@ -14,7 +14,7 @@
 
 from functools import partial, wraps
 from http import HTTPStatus
-from typing import Any, Dict, AsyncGenerator, Optional, Union
+from typing import Any, Dict, AsyncGenerator, AsyncIterator, Optional, Union
 from fastapi import Request
 
 import httpx
@@ -39,6 +39,20 @@ from .types import (
 
 COMPLETIONS_ENDPOINT = "/v1/completions"
 CHAT_COMPLETIONS_ENDPOINT = "/v1/chat/completions"
+
+
+async def _stream_response(
+    response: httpx.Response,
+    chunks: AsyncIterator[Union[CompletionChunk, ChatCompletionChunk]],
+) -> AsyncGenerator[str, None]:
+    """Adapt the proxy's chunk objects to the endpoints' SSE generator contract."""
+    try:
+        async for chunk in chunks:
+            yield f"data: {chunk.model_dump_json()}\n\n"
+    finally:
+        # The consumer may stop before the upstream iterator is exhausted.
+        await response.aclose()
+    yield "data: [DONE]\n\n"
 
 
 def error_handler(f):
@@ -292,9 +306,8 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
                     request=request,
                     raw_request=raw_request,
                 ),
-                close=r.aclose,
             )
-            return it
+            return _stream_response(r, it)
         else:
             completion = await self.generate_completion(request, raw_request)
             self.postprocess_completion(completion, request, raw_request)
@@ -334,9 +347,8 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
                     request=request,
                     raw_request=raw_request,
                 ),
-                close=r.aclose,
             )
-            return it
+            return _stream_response(r, it)
         else:
             chat_completion = await self.generate_chat_completion(request, raw_request)
             self.postprocess_chat_completion(chat_completion, request, raw_request)

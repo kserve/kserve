@@ -38,6 +38,7 @@ from kserve.protocol.rest.openai import (
 
 from kserve.protocol.rest.openai.types import (
     Completion,
+    CompletionChunk,
     CompletionRequest,
     ChatCompletion,
     ChatCompletionChunk,
@@ -465,6 +466,11 @@ class TestOpenAIProxyModelCompletion:
             async for completion_chunk in await model.create_completion(
                 completion_request
             ):
+                if completion_chunk == "data: [DONE]\n\n":
+                    continue
+                completion_chunk = CompletionChunk.model_validate_json(
+                    completion_chunk.removeprefix("data: ")
+                )
                 cast(
                     MagicMock, OpenAIProxyModel.postprocess_completion_chunk
                 ).assert_called_with(completion_chunk, completion_request, None)
@@ -525,6 +531,11 @@ class TestOpenAIProxyModelCompletion:
             async for chat_completion_chunk in await model.create_chat_completion(
                 chat_completion_request
             ):
+                if chat_completion_chunk == "data: [DONE]\n\n":
+                    continue
+                chat_completion_chunk = ChatCompletionChunk.model_validate_json(
+                    chat_completion_chunk.removeprefix("data: ")
+                )
                 cast(
                     MagicMock, OpenAIProxyModel.postprocess_chat_completion_chunk
                 ).assert_called_with(
