@@ -37,6 +37,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/validation"
 )
 
 // logger for the mutating webhook.
@@ -496,11 +497,22 @@ func deleteLocalModelMetadata(isvc *InferenceService) {
 	if isvc.Annotations != nil {
 		delete(isvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 		delete(isvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+		delete(isvc.Annotations, constants.LocalModelCachePolicyInternalAnnotationKey)
 	}
 }
 
 // setLocalModelLabel sets local model labels on the ISVC if a matching cache exists.
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
+//
+// The per-workload policy (serving.kserve.io/local-model-cache-policy) decides
+// how a not-ready shared-PVC cache is treated: with the default
+// FallbackToSource the ISVC follows the #6590 semantics (never bound to a
+// not-ready shared-PVC cache, released from a bound cache once its import
+// record for the current claim is gone); with CacheRequired the ISVC may be
+// bound to a not-ready shared-PVC cache as a fail-closed wait intent, and the
+// pod mutator keeps serving gated on the cache's import record for the current
+// claim instead of its Ready condition. The resolved policy is mirrored onto
+// the internal policy annotation so it propagates to the serving pod.
 func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
 	var predictor ComponentImplementation
 	if predictor = isvc.Spec.Predictor.GetImplementation(); predictor == nil {
@@ -512,21 +524,28 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 
+	// A malformed non-empty value is already rejected by admission validation;
+	// reading it as CacheRequired here keeps the defaulter fail-closed instead
+	// of silently falling back to a source download.
+	cacheRequired, _ := validation.LocalModelCachePolicyRequired(isvc.Annotations)
+
 	// Selection is deterministic and binding-aware (see
 	// localmodelcache.MatchCacheForURI): a cache the ISVC is already bound to
 	// keeps winning while it still matches the storage URI, otherwise ready
 	// shared-PVC caches are preferred over node-local caches, and the oldest
-	// cache breaks ties (independent of API list order). A not-ready shared-PVC
-	// cache is still matched for an unbound ISVC as a fail-closed wait intent:
-	// the binding records the intent to serve from that cache, and the pod
-	// mutator rejects pods until the cache becomes Ready, so the workload never
-	// falls back to downloading from its original source URI.
+	// cache breaks ties (independent of API list order). For a CacheRequired
+	// ISVC a not-ready shared-PVC cache may be matched for an unbound ISVC as a
+	// fail-closed wait intent: the binding records the intent to serve from
+	// that cache, and the pod mutator gates pods on the cache's import record
+	// for the current claim, so the workload never falls back to downloading
+	// from its original source URI.
 	match := localmodelcache.MatchCacheForURI(v1alpha1.LocalModelCacheSelection{
 		StorageURI:      isvcStorageUri,
 		NodeGroup:       isvcNodeGroup,
 		NodeGroupExists: isvcNodeGroupExists,
 		BoundCache:      isvc.Labels[constants.LocalModelLabel],
 		BoundNamespace:  isvc.Labels[constants.LocalModelNamespaceLabel],
+		CacheRequired:   cacheRequired,
 	}, models, nsModels)
 	if match == nil {
 		deleteLocalModelMetadata(isvc)
@@ -548,6 +567,20 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	}
 	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = match.SourceURI
 	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = match.PVCName
+	setLocalModelCachePolicyInternalAnnotation(isvc, cacheRequired)
 
 	mutatorLogger.Info("LocalModelCache found", "model", match.Cache, "modelNamespace", match.Namespace, "isvcNamespace", isvc.Namespace, "isvc", isvc.Name)
+}
+
+// setLocalModelCachePolicyInternalAnnotation mirrors the resolved
+// local-model-cache-policy onto the internal annotation consumed by the pod
+// mutator. Setting it unconditionally (not only for CacheRequired) makes the
+// propagated value authoritative for the pod even if the user later edits the
+// public annotation on the object without going through defaulting again.
+func setLocalModelCachePolicyInternalAnnotation(isvc *InferenceService, cacheRequired bool) {
+	if cacheRequired {
+		isvc.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyCacheRequired
+	} else {
+		isvc.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyFallbackToSource
+	}
 }
