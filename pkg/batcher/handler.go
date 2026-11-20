@@ -56,6 +56,8 @@ type Response struct {
 	Message     string        `json:"message"`
 	BatchID     string        `json:"batchId"`
 	Predictions []interface{} `json:"predictions"`
+	// StatusCode is the HTTP status of the response. It is not part of the body.
+	StatusCode int `json:"-"`
 }
 
 type ResponseError struct {
@@ -112,6 +114,7 @@ func (handler *BatchHandler) batchPredict() {
 				Message:     string(responseBody),
 				BatchID:     "",
 				Predictions: nil,
+				StatusCode:  rr.Code,
 			}
 			*v.ChannelOut <- res
 		}
@@ -121,8 +124,9 @@ func (handler *BatchHandler) batchPredict() {
 		if err != nil {
 			for _, v := range handler.batcherInfo.ContextMap {
 				res := Response{
-					Message: err.Error(),
-					BatchID: handler.batcherInfo.BatchID,
+					Message:    err.Error(),
+					BatchID:    handler.batcherInfo.BatchID,
+					StatusCode: http.StatusInternalServerError,
 				}
 				*v.ChannelOut <- res
 			}
@@ -130,8 +134,9 @@ func (handler *BatchHandler) batchPredict() {
 			if len(handler.batcherInfo.PredictionResponse.Predictions) != len(handler.batcherInfo.Instances) {
 				for _, v := range handler.batcherInfo.ContextMap {
 					res := Response{
-						Message: "size of prediction is not equal to the size of instances",
-						BatchID: handler.batcherInfo.BatchID,
+						Message:    "size of prediction is not equal to the size of instances",
+						BatchID:    handler.batcherInfo.BatchID,
+						StatusCode: http.StatusInternalServerError,
 					}
 					*v.ChannelOut <- res
 				}
@@ -145,6 +150,7 @@ func (handler *BatchHandler) batchPredict() {
 						Message:     "",
 						BatchID:     handler.batcherInfo.BatchID,
 						Predictions: predictions,
+						StatusCode:  http.StatusOK,
 					}
 					*v.ChannelOut <- res
 				}
@@ -257,7 +263,9 @@ func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rspbytes, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.WriteHeader(response.StatusCode)
 	_, err = w.Write(rspbytes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
