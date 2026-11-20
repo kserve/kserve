@@ -384,13 +384,29 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			}
 		}
 	} else {
-		// Adjust USER_PORT when queueProxy is available
-		for i, envVar := range queueProxyEnvs {
+		userPort := ""
+		for _, envVar := range queueProxyEnvs {
 			if envVar.Name == "USER_PORT" {
+				userPort = envVar.Value
+			}
+		}
+		// Adjust USER_PORT and SERVING_READINESS_PROBE when queueProxy is available, so that
+		// queue-proxy both forwards traffic to and probes the agent rather than the user container.
+		for i, envVar := range queueProxyEnvs {
+			switch envVar.Name {
+			case "USER_PORT":
 				klog.Infof("Adjusting USER_PORT to %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
 				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
-				queueProxyEnvs[i] = envVar // Update the environment variable in the list
+			case "SERVING_READINESS_PROBE":
+				probeJson, err := redirectReadinessProbeToAgent(envVar.Value, userPort)
+				if err != nil {
+					klog.Warningf("Failed to redirect queue-proxy readiness probe to agent for pod %s/%s, leaving it unchanged: %v", pod.Namespace, pod.Name, err)
+					continue
+				}
+				klog.Infof("Adjusting SERVING_READINESS_PROBE to probe agent port %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
+				envVar.Value = probeJson
 			}
+			queueProxyEnvs[i] = envVar // Update the environment variable in the list
 		}
 	}
 
@@ -576,4 +592,79 @@ func appendVolume(existingVolumes []corev1.Volume, additionalVolume corev1.Volum
 	}
 	existingVolumes = append(existingVolumes, additionalVolume)
 	return existingVolumes
+}
+
+// redirectReadinessProbeToAgent rewrites queue-proxy's SERVING_READINESS_PROBE so that it targets the agent
+// instead of the user container. The agent answers Knative probes (kube-probe user agent with the
+// K-Network-Probe: queue header) by running its own copy of the original probe against the user container,
+// so an httpGet probe against the agent checks both the agent and the user container. TCP probes are turned
+// into httpGet probes too, as a TCP probe against the agent would only check that the agent is listening.
+// The value is either a single probe or, with multi-container probes, a list in which only the probes
+// targeting the user container port are rewritten.
+func redirectReadinessProbeToAgent(probeJson string, userPort string) (string, error) {
+	if !strings.HasPrefix(strings.TrimSpace(probeJson), "[") {
+		probe := &corev1.Probe{}
+		if err := json.Unmarshal([]byte(probeJson), probe); err != nil {
+			return "", fmt.Errorf("failed to unmarshal readiness probe: %w", err)
+		}
+		redirectProbeToAgent(probe)
+		updated, err := json.Marshal(probe)
+		return string(updated), err
+	}
+
+	var probes []*corev1.Probe
+	if err := json.Unmarshal([]byte(probeJson), &probes); err != nil {
+		return "", fmt.Errorf("failed to unmarshal readiness probes: %w", err)
+	}
+	for _, probe := range probes {
+		if probe != nil && probePort(probe) == userPort {
+			redirectProbeToAgent(probe)
+		}
+	}
+	updated, err := json.Marshal(probes)
+	return string(updated), err
+}
+
+// redirectProbeToAgent points an httpGet or tcpSocket probe at the agent. Other probe types are left unchanged.
+func redirectProbeToAgent(probe *corev1.Probe) {
+	host, path := "127.0.0.1", "/"
+	switch {
+	case probe.HTTPGet != nil:
+		if probe.HTTPGet.Host != "" {
+			host = probe.HTTPGet.Host
+		}
+		if probe.HTTPGet.Path != "" {
+			path = probe.HTTPGet.Path
+		}
+	case probe.TCPSocket != nil:
+		if probe.TCPSocket.Host != "" {
+			host = probe.TCPSocket.Host
+		}
+	default:
+		return
+	}
+	probe.ProbeHandler = corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			HTTPHeaders: []corev1.HTTPHeader{
+				{
+					Name:  "K-Network-Probe",
+					Value: "queue",
+				},
+			},
+			Host:   host,
+			Port:   intstr.FromInt(constants.InferenceServiceDefaultAgentPort),
+			Path:   path,
+			Scheme: corev1.URISchemeHTTP,
+		},
+	}
+}
+
+func probePort(probe *corev1.Probe) string {
+	switch {
+	case probe.HTTPGet != nil:
+		return probe.HTTPGet.Port.String()
+	case probe.TCPSocket != nil:
+		return probe.TCPSocket.Port.String()
+	}
+	return ""
 }

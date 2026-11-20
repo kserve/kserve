@@ -43,6 +43,9 @@ const (
 	AgentDefaultCPULimit      = "1"
 	AgentDefaultMemoryRequest = "200Mi"
 	AgentDefaultMemoryLimit   = "1Gi"
+
+	// Queue-proxy readiness probe once the user container's TCP probe on 8080 is redirected to the agent.
+	agentRedirectedTCPReadinessProbe = `{"httpGet":{"path":"/","port":9081,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Network-Probe","value":"queue"}]},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}`
 )
 
 var (
@@ -334,7 +337,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: agentRedirectedTCPReadinessProbe}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -462,7 +465,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: agentRedirectedTCPReadinessProbe}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -594,7 +597,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: agentRedirectedTCPReadinessProbe}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -745,7 +748,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: agentRedirectedTCPReadinessProbe}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -1073,7 +1076,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: agentRedirectedTCPReadinessProbe}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -1202,7 +1205,7 @@ func TestAgentInjector(t *testing.T) {
 						{
 							Name: "queue-proxy",
 							Env: []corev1.EnvVar{
-								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
+								{Name: "SERVING_READINESS_PROBE", Value: agentRedirectedTCPReadinessProbe},
 								{Name: "USER_PORT", Value: constants.InferenceServiceDefaultAgentPortStr},
 							},
 						},
@@ -1488,7 +1491,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: agentRedirectedTCPReadinessProbe}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -1642,7 +1645,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: agentRedirectedTCPReadinessProbe}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -2388,4 +2391,81 @@ func marshalReadinessProbe(probe *corev1.Probe) (string, error) {
 	}
 
 	return string(probeJson), nil
+}
+
+func TestRedirectReadinessProbeToAgent(t *testing.T) {
+	tests := []struct {
+		name          string
+		probeJson     string
+		userPort      string
+		expectedJson  string
+		expectedError bool
+	}{
+		{
+			name:         "HTTPGet probe keeps host and path but targets the agent with the Knative probe header",
+			probeJson:    `{"httpGet":{"path":"/v1/health/ready","port":8080,"host":"127.0.0.1","scheme":"HTTPS","httpHeaders":[{"name":"X-Custom","value":"x"}]},"periodSeconds":5}`,
+			userPort:     "8080",
+			expectedJson: `{"httpGet":{"path":"/v1/health/ready","port":9081,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Network-Probe","value":"queue"}]},"periodSeconds":5}`,
+		},
+		{
+			name:         "HTTPGet probe without host or path defaults to localhost and root path",
+			probeJson:    `{"httpGet":{"port":8080}}`,
+			userPort:     "8080",
+			expectedJson: `{"httpGet":{"path":"/","port":9081,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Network-Probe","value":"queue"}]}}`,
+		},
+		{
+			name:         "TCPSocket probe becomes an HTTPGet probe against the agent",
+			probeJson:    `{"tcpSocket":{"port":8080},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}`,
+			userPort:     "8080",
+			expectedJson: agentRedirectedTCPReadinessProbe,
+		},
+		{
+			name:         "Exec probe is left unchanged",
+			probeJson:    `{"exec":{"command":["true"]},"periodSeconds":10}`,
+			userPort:     "8080",
+			expectedJson: `{"exec":{"command":["true"]},"periodSeconds":10}`,
+		},
+		{
+			name:         "GRPC probe is left unchanged",
+			probeJson:    `{"grpc":{"port":8080,"service":null}}`,
+			userPort:     "8080",
+			expectedJson: `{"grpc":{"port":8080,"service":null}}`,
+		},
+		{
+			name:         "Multi-container probes only redirect the probe targeting the user port",
+			probeJson:    `[{"tcpSocket":{"port":8080}},{"httpGet":{"path":"/health","port":8082}}]`,
+			userPort:     "8080",
+			expectedJson: `[{"httpGet":{"path":"/","port":9081,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Network-Probe","value":"queue"}]}},{"httpGet":{"path":"/health","port":8082}}]`,
+		},
+		{
+			name:          "Invalid probe returns an error",
+			probeJson:     `not-json`,
+			userPort:      "8080",
+			expectedError: true,
+		},
+		{
+			name:          "Invalid multi-container probes return an error",
+			probeJson:     `[not-json]`,
+			userPort:      "8080",
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := redirectReadinessProbeToAgent(tt.probeJson, tt.userPort)
+			if tt.expectedError {
+				if err == nil {
+					t.Fatalf("expected an error, got probe %s", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.expectedJson {
+				t.Errorf("unexpected probe\nwant: %s\ngot:  %s", tt.expectedJson, got)
+			}
+		})
+	}
 }
