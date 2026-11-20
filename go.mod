@@ -69,7 +69,10 @@ require (
 	sigs.k8s.io/yaml v1.6.0
 )
 
-require github.com/go-openapi/swag/pools v0.27.1 // indirect
+require (
+	github.com/go-openapi/swag/pools v0.27.1 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
+)
 
 require (
 	cel.dev/expr v0.25.2 // indirect
