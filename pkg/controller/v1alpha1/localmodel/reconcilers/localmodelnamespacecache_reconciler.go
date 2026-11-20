@@ -337,6 +337,36 @@ func (c *LocalModelNamespaceCacheReconciler) localmodelNodeFuncNamespaceCache(ct
 	return requests
 }
 
+// isvcNamespaceCachePredicates passes InferenceService events that can move an
+// ISVC between model caches: creation and deletion of a namespace-cached ISVC,
+// and updates that change either of the labels isvcFuncNamespaceCache keys on
+// (the cache name and the cache namespace). Comparing only the namespace label
+// drops an in-place storageUri replacement that relabels the ISVC to another
+// LocalModelNamespaceCache in the same namespace, so neither cache reconciles.
+func isvcNamespaceCachePredicates() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldNsLabel := e.ObjectOld.GetLabels()[constants.LocalModelNamespaceLabel]
+			newNsLabel := e.ObjectNew.GetLabels()[constants.LocalModelNamespaceLabel]
+			oldLabel := e.ObjectOld.GetLabels()[constants.LocalModelLabel]
+			newLabel := e.ObjectNew.GetLabels()[constants.LocalModelLabel]
+			return oldNsLabel != newNsLabel || oldLabel != newLabel
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			if _, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]; !ok {
+				return false
+			}
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			if _, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]; !ok {
+				return false
+			}
+			return true
+		},
+	}
+}
+
 func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if c.APIReader == nil {
 		c.APIReader = mgr.GetAPIReader()
@@ -381,25 +411,7 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		c.Log.Info("LLMInferenceService CRD not installed; skipping LocalModelNamespaceCache LLMInferenceService index and watch setup")
 	}
 
-	isvcPredicates := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldNsLabel := e.ObjectOld.GetLabels()[constants.LocalModelNamespaceLabel]
-			newNsLabel := e.ObjectNew.GetLabels()[constants.LocalModelNamespaceLabel]
-			return oldNsLabel != newNsLabel
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			if _, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]; !ok {
-				return false
-			}
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			if _, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]; !ok {
-				return false
-			}
-			return true
-		},
-	}
+	isvcPredicates := isvcNamespaceCachePredicates()
 
 	nodePredicates := NodeReadyPredicate()
 
