@@ -979,6 +979,28 @@ class TestTFHttpServerCloudEvent:
         assert body["type"] == "io.kserve.inference.response"
         assert body["time"] > "2021-01-28T21:04:43.144141+00:00"
 
+    def test_predict_ce_structured_without_time(self, http_server_client):
+        # "time" is an optional CloudEvents attribute.
+        event = {
+            "specversion": "1.0",
+            "id": "36077800-0c23-4f38-a0b4-01f4369f670a",
+            "source": "https://example.com/event-producer",
+            "type": "com.example.sampletype1",
+            "datacontenttype": "application/json",
+            "data": {"instances": [[1, 2]]},
+        }
+
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict",
+            headers={"content-type": "application/cloudevents+json"},
+            content=json.dumps(event),
+        )
+        body = json.loads(resp.content)
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/cloudevents+json"
+        assert body["data"] == {"predictions": [[1, 2]]}
+
     def test_predict_custom_ce_attributes(self, http_server_client):
         with mock.patch.dict(
             os.environ,
