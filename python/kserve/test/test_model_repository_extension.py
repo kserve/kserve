@@ -12,11 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
+
 import pytest
-from kserve.errors import ModelNotFound, ModelNotReady
+from kserve.errors import ModelMissingError, ModelNotFound, ModelNotReady
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.model_repository import ModelRepository
 from test.test_server import DummyModel, DummyModelRepository
+
+
+class MissingModelRepository(ModelRepository):
+    async def load(self, name: str) -> bool:
+        raise ModelMissingError(Path("/mnt/models") / name)
+
+
+@pytest.mark.parametrize("path", ["/mnt/models/iris", Path("/mnt/models/iris")])
+def test_model_missing_error_message(path):
+    assert str(ModelMissingError(path)) == str(path)
 
 
 @pytest.mark.asyncio
@@ -80,6 +92,19 @@ class TestModelRepositoryExtension:
             e.value.error_msg == f"Model with name {self.MODEL_NAME} is not ready. "
             f"Error type: <class 'Exception'> error "
             f"msg: Could not load model {self.MODEL_NAME}."
+        )
+
+    async def test_load_fail_with_model_missing_error(self):
+        model_repo_ext = ModelRepositoryExtension(
+            model_registry=MissingModelRepository()
+        )
+        with pytest.raises(ModelNotReady) as e:
+            await model_repo_ext.load(self.MODEL_NAME)
+        assert e.value.model_name == self.MODEL_NAME
+        assert e.value.error_msg == (
+            f"Model with name {self.MODEL_NAME} is not ready. "
+            "Error type: <class 'kserve.errors.ModelMissingError'> "
+            f"error msg: {Path('/mnt/models') / self.MODEL_NAME}"
         )
 
     async def test_unload(self, model_repo_ext):
