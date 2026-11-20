@@ -156,7 +156,7 @@ func appendTreeToTar(tw *tar.Writer, srcDir, prefix string) error {
 		}
 
 		var file *os.File
-		file, err = os.Open(filepath.Clean(path))
+		file, err = os.Open(filepath.Clean(path)) //nolint:gosec // G122: new check; os.Root file handling is a repo-wide change
 		if err != nil {
 			return err
 		}
