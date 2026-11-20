@@ -173,25 +173,33 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 
 /*
 PropagateRawStatus Propagates deployment status onto Inference graph status.
-In raw deployment mode, deployment available denotes the ready status for IG
+In raw deployment mode, the Deployment's Available condition denotes the ready status for IG:
+the graph is Ready, and advertises its URL, only while that condition is True. Otherwise the
+Deployment's reason and message (for example MinimumReplicasUnavailable) are surfaced so users
+can see why it is not ready, and the URL is cleared.
 */
 func PropagateRawStatus(graphStatus *v1alpha1.InferenceGraphStatus, deployment *appsv1.Deployment,
 	url *apis.URL,
 ) {
 	for _, con := range deployment.Status.Conditions {
-		if con.Type == appsv1.DeploymentAvailable {
-			graphStatus.URL = url
-
-			conditions := []apis.Condition{
-				{
-					Type:   apis.ConditionReady,
-					Status: corev1.ConditionTrue,
-				},
-			}
-			graphStatus.SetConditions(conditions)
-			logger.Info("status propagated:")
-			break
+		if con.Type != appsv1.DeploymentAvailable {
+			continue
 		}
+
+		readyCondition := apis.Condition{
+			Type:    apis.ConditionReady,
+			Status:  corev1.ConditionFalse,
+			Reason:  con.Reason,
+			Message: con.Message,
+		}
+		graphStatus.URL = nil
+		if con.Status == corev1.ConditionTrue {
+			readyCondition.Status = corev1.ConditionTrue
+			graphStatus.URL = url
+		}
+		graphStatus.SetConditions([]apis.Condition{readyCondition})
+		logger.Info("status propagated:")
+		break
 	}
 	graphStatus.ObservedGeneration = deployment.Status.ObservedGeneration
 }
