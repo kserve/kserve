@@ -228,8 +228,9 @@ func NodeStatusFromLocalModelStatus(modelStatus v1alpha1.ModelStatus) v1alpha1.N
 // nor the volume cleanup needs the group objects. Any cleanup failure is
 // returned so the reconcile is retried; the finalizer is removed last, only
 // after every cleanup step succeeded.
-// reader must bypass the informer cache (the manager's APIReader): a stale
-// cache List could miss a node entry and drop the finalizer too early.
+// reader must bypass the informer cache (the manager's APIReader). A stale
+// list could miss a node entry and drop the finalizer too early. Matching
+// nodes are read again before patching.
 func DeleteModelFromNodes(
 	ctx context.Context,
 	c client.Client,
@@ -258,9 +259,14 @@ func DeleteModelFromNodes(
 		return ctrl.Result{}, err
 	}
 	for i := range localModelNodes.Items {
-		nodeName := localModelNodes.Items[i].Name
-		if err := DeleteModelFromNode(ctx, reader, c, log, nodeName, params.Name, params.Namespace); err != nil {
-			log.Error(err, "failed to delete model from localModelNode", "localModelNode", nodeName)
+		node := &localModelNodes.Items[i]
+		if !slices.ContainsFunc(node.Spec.LocalModels, func(info v1alpha1.LocalModelInfo) bool {
+			return info.ModelName == params.Name && info.Namespace == params.Namespace
+		}) {
+			continue
+		}
+		if err := DeleteModelFromNode(ctx, reader, c, log, node.Name, params.Name, params.Namespace); err != nil {
+			log.Error(err, "failed to delete model from localModelNode", "localModelNode", node.Name)
 			return ctrl.Result{}, err
 		}
 	}

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,6 +67,51 @@ func isvcConsumer(name, namespace string) cacheConsumers {
 	return cacheConsumers{isvcs: []v1beta1.InferenceService{{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 	}}}
+}
+
+type nodeGetRecorder struct {
+	client.Reader
+	names []string
+}
+
+func (r *nodeGetRecorder) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, ok := obj.(*v1alpha1.LocalModelNode); ok {
+		r.names = append(r.names, key.Name)
+	}
+	return r.Reader.Get(ctx, key, obj, opts...)
+}
+
+func TestDeleteModelFromNodesOnlyFetchesMatchingNodes(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{ObjectMeta: metav1.ObjectMeta{
+		Name: "target", Namespace: "tenant", Finalizers: []string{NamespaceCacheFinalizerName},
+	}}
+	target := v1alpha1.LocalModelInfo{ModelName: cache.Name, Namespace: cache.Namespace}
+	otherModel := v1alpha1.LocalModelInfo{ModelName: "other", Namespace: cache.Namespace}
+	otherNamespace := v1alpha1.LocalModelInfo{ModelName: cache.Name, Namespace: "other-tenant"}
+	node := func(name string, models ...v1alpha1.LocalModelInfo) *v1alpha1.LocalModelNode {
+		return &v1alpha1.LocalModelNode{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: models},
+		}
+	}
+	matching := node("matching", otherModel, target, target)
+	cl := newLocalModelCacheClient(t, cache, matching, node("unrelated", otherModel, otherNamespace), node("empty"))
+	reader := &nodeGetRecorder{Reader: cl}
+
+	ctx := t.Context()
+	if _, err := DeleteModelFromNodes(ctx, cl, reader, nil, logr.Discard(), nil, cache, nil, nil); err != nil {
+		t.Fatalf("DeleteModelFromNodes() error = %v", err)
+	}
+	if diff := cmp.Diff([]string{matching.Name}, reader.names); diff != "" {
+		t.Errorf("LocalModelNode Gets (-want +got):\n%s", diff)
+	}
+	got := &v1alpha1.LocalModelNode{}
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(matching), got); err != nil {
+		t.Fatalf("get matching node: %v", err)
+	}
+	if diff := cmp.Diff([]v1alpha1.LocalModelInfo{otherModel}, got.Spec.LocalModels); diff != "" {
+		t.Errorf("remaining LocalModels (-want +got):\n%s", diff)
+	}
 }
 
 func TestReconcileLocalModelNodeRecordsConsumersWithoutNodeGroups(t *testing.T) {
