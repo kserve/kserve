@@ -156,7 +156,7 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 			Timeout: time.Duration(*routerTimeouts.ServiceClient) * time.Second,
 		}
 	}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // G704: URL is a step's ServiceURL from the InferenceGraph spec
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
@@ -294,7 +294,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 		}
 		// merge responses from parallel steps
 		response := map[string]interface{}{}
-		ensembleStepOutput := EnsembleStepOutput{}
+		var ensembleStepOutput EnsembleStepOutput
 		for i, resultChan := range ensembleRes {
 			key := currentNode.Steps[i].StepName
 			if key == "" {
@@ -418,7 +418,7 @@ func graphHandler(w http.ResponseWriter, req *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 		}
 		w.WriteHeader(statusCode)
-		if _, err := w.Write(response); err != nil {
+		if _, err := w.Write(response); err != nil { //nolint:gosec // G705: relays the graph steps' response by design
 			log.Error(err, "failed to write graphHandler response")
 		}
 	}

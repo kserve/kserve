@@ -43,7 +43,7 @@ func TestS3ServiceAccount(t *testing.T) {
 			serviceAccount: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 					},
 				},
@@ -64,7 +64,7 @@ func TestS3ServiceAccount(t *testing.T) {
 			serviceAccount: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 						InferenceServiceS3SecretHttpsAnnotation:    "0",
 						InferenceServiceS3SecretSSLAnnotation:      "0",
@@ -95,7 +95,7 @@ func TestS3ServiceAccount(t *testing.T) {
 			serviceAccount: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "https://s3.aws.com",
 						InferenceServiceS3SecretHttpsAnnotation:    "0",
 						InferenceServiceS3SecretSSLAnnotation:      "1",
@@ -126,7 +126,7 @@ func TestS3ServiceAccount(t *testing.T) {
 			serviceAccount: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
 						InferenceServiceS3SecretHttpsAnnotation:    "1",
 						InferenceServiceS3SecretSSLAnnotation:      "0",
@@ -157,7 +157,7 @@ func TestS3ServiceAccount(t *testing.T) {
 			serviceAccount: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 						InferenceServiceS3UseAnonymousCredential:   "true",
 					},

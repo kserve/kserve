@@ -165,7 +165,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: gcs.GCSCredentialVolumeName,
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -173,7 +173,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: "blue",
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -182,7 +182,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 			volume: corev1.Volume{
 				Name: gcs.GCSCredentialVolumeName,
 				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
+					Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 						SecretName: "user-gcp-sa",
 					},
 				},
@@ -191,7 +191,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: gcs.GCSCredentialVolumeName,
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -199,7 +199,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: "blue",
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -211,7 +211,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: gcs.GCSCredentialVolumeName,
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -219,7 +219,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: "blue",
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -228,7 +228,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 			volume: corev1.Volume{
 				Name: "green",
 				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
+					Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 						SecretName: "user-gcp-sa",
 					},
 				},
@@ -237,7 +237,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: gcs.GCSCredentialVolumeName,
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -245,7 +245,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: "blue",
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -253,7 +253,7 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 				{
 					Name: "green",
 					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
+						Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 							SecretName: "user-gcp-sa",
 						},
 					},

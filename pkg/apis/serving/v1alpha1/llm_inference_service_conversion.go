@@ -58,7 +58,7 @@ func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status = v1alpha2.LLMInferenceServiceStatus{
 		URL:     src.Status.URL,
 		Status:  src.Status.Status,
-		Address: src.Status.Address,
+		Address: src.Status.Address, //nolint:staticcheck // SA1019: conversion keeps the deprecated field round-tripping
 	}
 	for _, addr := range src.Status.Addresses {
 		dst.Status.Addresses = append(dst.Status.Addresses, v1alpha2.SourcedAddress{

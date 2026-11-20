@@ -155,7 +155,7 @@ func TestAttachModelExpressLayered(t *testing.T) {
 	_, hasSlot := envOf(c, modelArgsEnvVar)
 	assert.False(t, hasSlot, "layered mode serves /mnt/models, so the slot is removed")
 
-	for name, value := range map[string]string{
+	for name, value := range map[string]string{ //nolint:gosec // G101: fake test credential
 		"MX_SERVER_ADDRESS":  "https://mx.mx.svc:8001",
 		"MODEL_EXPRESS_URL":  "https://mx.mx.svc:8001",
 		"MX_MODEL_REVISION":  "r1",

@@ -181,7 +181,7 @@ func validateModelFormatPrioritySame(newSpec *v1alpha1.ServingRuntimeSpec) error
 
 func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existingSpec *v1alpha1.ServingRuntimeSpec, existingRuntimeName string, newRuntimeName string) error {
 	// Skip the runtime if it is disabled or both are not multi model runtime and in update scenario skip the existing runtime if it is same as the new runtime
-	if (newSpec.IsMultiModelRuntime() != existingSpec.IsMultiModelRuntime()) || (existingSpec.IsDisabled()) || (existingRuntimeName == newRuntimeName) {
+	if (newSpec.IsMultiModelRuntime() != existingSpec.IsMultiModelRuntime()) || existingSpec.IsDisabled() || (existingRuntimeName == newRuntimeName) {
 		return nil
 	}
 	// Only validate for priority if both servingruntimes supports the same protocol version

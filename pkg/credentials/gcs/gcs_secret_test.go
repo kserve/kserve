@@ -47,7 +47,7 @@ func TestGcsSecret(t *testing.T) {
 			expectedVolume: corev1.Volume{
 				Name: GCSCredentialVolumeName,
 				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
+					Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 						SecretName: "user-gcp-sa",
 					},
 				},
