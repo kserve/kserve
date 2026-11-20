@@ -238,13 +238,24 @@ func DeleteModelFromNodes(
 	}
 	log.Info("deleting model", "name", params.Name, "namespace", params.Namespace)
 
+	// A nil node group means the referenced LocalModelNodeGroup no longer exists,
+	// so its nodes cannot be listed through the group's node selector. The model
+	// entries it left behind are removed by checking every LocalModelNode below.
+	nodeGroupMissing := false
 	for nodeGroupName, nodeGroup := range nodeGroups {
-		readyNodes, notReadyNodes, err := GetNodesFromNodeGroup(ctx, nodeGroup, c)
-		if err != nil {
-			log.Error(err, "getNodesFromNodeGroup node error")
-			return ctrl.Result{}, err
+		var nodes []corev1.Node
+		if nodeGroup == nil {
+			nodeGroupMissing = true
+		} else {
+			readyNodes, notReadyNodes, err := GetNodesFromNodeGroup(ctx, nodeGroup, c)
+			if err != nil {
+				log.Error(err, "getNodesFromNodeGroup node error")
+				return ctrl.Result{}, err
+			}
+			nodes = append(nodes, readyNodes.Items...)
+			nodes = append(nodes, notReadyNodes.Items...)
 		}
-		for _, node := range append(readyNodes.Items, notReadyNodes.Items...) {
+		for _, node := range nodes {
 			localModelNode := &v1alpha1.LocalModelNode{}
 			err := c.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
 			if err != nil {
@@ -289,6 +300,21 @@ func DeleteModelFromNodes(
 			servingPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace
 			if err := DeletePV(ctx, clientset, log, servingPVName); err != nil {
 				log.Error(err, "failed to delete serving PV", "name", servingPVName)
+			}
+		}
+	}
+
+	if nodeGroupMissing {
+		localModelNodes := &v1alpha1.LocalModelNodeList{}
+		if err := c.List(ctx, localModelNodes); err != nil {
+			log.Error(err, "Failed to list localmodelnodes")
+			return ctrl.Result{}, err
+		}
+		for i := range localModelNodes.Items {
+			localModelNode := &localModelNodes.Items[i]
+			if err := DeleteModelFromNode(ctx, c, log, localModelNode, params.Name, params.Namespace); err != nil {
+				log.Error(err, "failed to delete model from localModelNode", "localModelNode", localModelNode.Name)
+				return ctrl.Result{}, err
 			}
 		}
 	}
