@@ -26889,6 +26889,8 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
               template:
                 properties:
@@ -52685,6 +52687,8 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
               template:
                 properties:
@@ -79205,6 +79209,8 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
               template:
                 properties:
@@ -105896,6 +105902,8 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
               template:
                 properties:
@@ -114385,6 +114393,7 @@ rules:
   - serving.kserve.io
   resources:
   - clusterservingruntimes
+  - clusterstoragecontainers
   - localmodelcaches
   - localmodelnamespacecaches
   - servingruntimes

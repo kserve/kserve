@@ -154,6 +154,7 @@ func TestAttachStorageInitializer_ModelVolumeSource(t *testing.T) {
 			r := &LLMISVCReconciler{}
 			llmSvc := &v1alpha2.LLMInferenceService{}
 			err := r.attachStorageInitializer(
+				t.Context(),
 				llmSvc,
 				"s3://bucket/model",
 				corev1.PodSpec{},
