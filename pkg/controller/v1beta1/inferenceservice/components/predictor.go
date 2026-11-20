@@ -59,6 +59,7 @@ var _ Component = &Predictor{}
 const (
 	ErrInvalidPlaceholder         = "failed to replace placeholders in serving runtime %s Container %s"
 	ErrNoContainerFound           = "no container configuration found in selected serving runtime"
+	ErrNoPredictorContainerFound  = "predictor has no container named %q"
 	ErrRayClusterInsufficientGPUs = "the total required number of GPUs(%d) is less than the number of GPUs assigned to the head node(%d) + worker node(%d)"
 )
 
@@ -138,6 +139,14 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 		}
 	} else {
 		predContainer := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
+		if predContainer == nil {
+			msg := fmt.Sprintf(ErrNoPredictorContainerFound, constants.InferenceServiceContainerName)
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: msg,
+			})
+			return nil, errors.New(msg)
+		}
 		podSpec = corev1.PodSpec(isvc.Spec.Predictor.PodSpec)
 		if len(podSpec.Containers) == 0 {
 			podSpec.Containers = []corev1.Container{*predContainer}

@@ -219,6 +219,112 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 				},
 			},
 		},
+		"MultipleContainersNoneNamedKServeContainer": {
+			// When the user supplies multiple containers (e.g. collocated
+			// predictor + transformer) but none is named "kserve-container",
+			// the defaulter must rename the first container to
+			// "kserve-container". Otherwise GetContainer returns nil and the
+			// reconciler panics with a nil pointer dereference (issue #4986).
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "my-predictor",
+							Image: "custom-predictor:0.1.0",
+						},
+						{
+							Name:  constants.TransformerContainerName,
+							Image: "transformer:0.1.0",
+						},
+					},
+				},
+			},
+			expected: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "custom-predictor:0.1.0",
+							Resources: corev1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+						{
+							Name:  constants.TransformerContainerName,
+							Image: "transformer:0.1.0",
+						},
+					},
+				},
+			},
+		},
+		"KServeContainerNotFirstKeepsNames": {
+			spec: PredictorSpec{PodSpec: PodSpec{Containers: []corev1.Container{
+				{Name: "sidecar", Image: "sidecar:0.1.0"},
+				{Name: constants.InferenceServiceContainerName, Image: "custom-predictor:0.1.0"},
+			}}},
+			expected: PredictorSpec{PodSpec: PodSpec{Containers: []corev1.Container{
+				{Name: "sidecar", Image: "sidecar:0.1.0", Resources: corev1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}},
+				{Name: constants.InferenceServiceContainerName, Image: "custom-predictor:0.1.0"},
+			}}},
+		},
+		"LeadingTransformerIsNotRenamed": {
+			spec: PredictorSpec{PodSpec: PodSpec{Containers: []corev1.Container{
+				{Name: constants.TransformerContainerName, Image: "transformer:0.1.0"},
+				{Name: "my-predictor", Image: "custom-predictor:0.1.0"},
+			}}},
+			expected: PredictorSpec{PodSpec: PodSpec{Containers: []corev1.Container{
+				{Name: constants.TransformerContainerName, Image: "transformer:0.1.0", Resources: corev1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}},
+				{Name: "my-predictor", Image: "custom-predictor:0.1.0"},
+			}}},
+		},
+		"UnnamedFirstIsRenamedBesideKServeContainer": {
+			spec: PredictorSpec{PodSpec: PodSpec{Containers: []corev1.Container{
+				{Image: "first:0.1.0"},
+				{Name: constants.InferenceServiceContainerName, Image: "custom-predictor:0.1.0"},
+			}}},
+			expected: PredictorSpec{PodSpec: PodSpec{Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName, Image: "first:0.1.0", Resources: corev1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}},
+				{Name: constants.InferenceServiceContainerName, Image: "custom-predictor:0.1.0"},
+			}}},
+		},
+		"MultipleContainersFirstAlreadyNamedKServeContainer": {
+			// When the first container is already named "kserve-container",
+			// the defaulter must not touch any container name (collocation
+			// pattern).
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "custom-predictor:0.1.0",
+						},
+						{
+							Name:  constants.TransformerContainerName,
+							Image: "transformer:0.1.0",
+						},
+					},
+				},
+			},
+			expected: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "custom-predictor:0.1.0",
+							Resources: corev1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+						{
+							Name:  constants.TransformerContainerName,
+							Image: "transformer:0.1.0",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {
