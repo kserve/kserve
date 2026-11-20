@@ -33,6 +33,7 @@ override-dependencies = [
     "sentencepiece>=0.2.1", # CVE-2026-26209, CVE-2026-1260
     "jaraco.context>=6.1.0", # CVE-2026-23949
     "black>=26.3.1", # CVE-2026-32274
+    "cuda-tile>=1.4.0; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
 ]
 
 [dependency-groups]
