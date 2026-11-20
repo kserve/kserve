@@ -267,7 +267,9 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 	}
 	if currentNode.RouterType == v1alpha1.Ensemble {
 		ensembleRes := make([]chan EnsembleStepOutput, len(currentNode.Steps))
-		errChan := make(chan error)
+		// The channels are buffered so that steps still running when this node
+		// returns early can deliver their result and exit instead of blocking forever.
+		errChan := make(chan error, len(currentNode.Steps))
 		for i := range currentNode.Steps {
 			step := &currentNode.Steps[i]
 			stepType := "serviceUrl"
@@ -275,7 +277,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				stepType = "node"
 			}
 			log.Info("Starting execution of step", "type", stepType, "stepName", step.StepName)
-			resultChan := make(chan EnsembleStepOutput)
+			resultChan := make(chan EnsembleStepOutput, 1)
 			ensembleRes[i] = resultChan
 			go func() {
 				output, statusCode, err := executeStep(step, graph, input, headers)
