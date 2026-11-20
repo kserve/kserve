@@ -89,6 +89,8 @@ _OCI_PREFIX = "oci://"
 _GIT_RE = r"https://.+\.git"
 _SHARED_ADDRESS_SPACE = ipaddress.ip_network("100.64.0.0/10")
 _SENSITIVE_REDIRECT_HEADERS = {"authorization", "cookie", "proxy-authorization"}
+# Address of a Dragonfly dfdaemon HTTP proxy, e.g. http://$(HOST_IP):4001.
+_DRAGONFLY_PROXY_ENV = "DRAGONFLY_PROXY"
 
 
 def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
@@ -180,6 +182,62 @@ class _PinnedHTTPAdapter(requests.adapters.HTTPAdapter):
             pool_kwargs["server_hostname"] = self._original_host
             pool_kwargs["assert_hostname"] = self._original_host
         return host_params, pool_kwargs
+
+
+class _DragonflyHFAdapter(requests.adapters.HTTPAdapter):
+    """Route Hugging Face file downloads through a Dragonfly dfdaemon proxy.
+
+    The Hub answers file requests with a redirect to a CDN, which is where the
+    bytes come from. Requests to any host other than the Hub endpoint are sent
+    to the dfdaemon proxy as plain HTTP, so dfdaemon can fetch them over TLS
+    (proxy rule ``useTLS: true``) and share the pieces with its peers. Hub API
+    calls keep going directly over HTTPS.
+    """
+
+    def __init__(self, proxy: str, hub_host: Optional[str]):
+        self._proxy = proxy
+        self._hub_host = hub_host
+        super().__init__()
+
+    def send(self, request, *args, **kwargs):
+        parsed = urlparse(request.url)
+        if parsed.scheme == "https" and parsed.hostname != self._hub_host:
+            request.url = parsed._replace(scheme="http").geturl()
+            # The leg to dfdaemon is plain HTTP: never send credentials on it.
+            for header in _SENSITIVE_REDIRECT_HEADERS:
+                request.headers.pop(header, None)
+            kwargs["proxies"] = {"http": self._proxy}
+        return super().send(request, *args, **kwargs)
+
+
+def _configure_hf_dragonfly() -> None:
+    """Send Hugging Face downloads through Dragonfly when DRAGONFLY_PROXY is set."""
+    proxy = os.getenv(_DRAGONFLY_PROXY_ENV, "").strip()
+    if not proxy:
+        return
+    if urlparse(proxy).scheme != "http" or not urlparse(proxy).hostname:
+        raise ValueError(
+            f"{_DRAGONFLY_PROXY_ENV} must be an http:// URL, got '{proxy}'"
+        )
+
+    from huggingface_hub import configure_http_backend, constants
+
+    # hf_xet and hf_transfer download outside of the requests session and
+    # would bypass the proxy. huggingface_hub reads the xet switch from the
+    # environment on every download and the hf_transfer one at import time.
+    os.environ["HF_HUB_DISABLE_XET"] = "1"
+    constants.HF_HUB_ENABLE_HF_TRANSFER = False
+
+    adapter = _DragonflyHFAdapter(proxy, urlparse(constants.ENDPOINT).hostname)
+
+    def backend_factory() -> requests.Session:
+        session = requests.Session()
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        return session
+
+    configure_http_backend(backend_factory=backend_factory)
+    logger.info("Downloading Hugging Face files through Dragonfly proxy %s", proxy)
 
 
 def _pinned_http_get(uri: str, **kwargs):
@@ -1112,6 +1170,8 @@ class Storage(object):
 
         revision = hash_value if hash_value else None
         repo_id = f"{repo}/{model}"
+
+        _configure_hf_dragonfly()
 
         try:
             kwargs = dict(repo_id=repo_id, revision=revision, local_dir=temp_dir)
