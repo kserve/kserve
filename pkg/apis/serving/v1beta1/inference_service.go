@@ -22,6 +22,19 @@ import (
 
 // InferenceServiceSpec is the top level type for this resource
 type InferenceServiceSpec struct {
+	// Suspend controls whether KServe creates serving workloads for this InferenceService.
+	// When true, the controller does not create child workloads and removes any that already
+	// exist. When false or unset, the InferenceService reconciles normally.
+	//
+	// This field is the suspension point used by external queueing systems (for example Kueue)
+	// that admit an InferenceService against a quota. Suspension is all-or-nothing: a single
+	// value covers every workload the service manages, including the transformer, explainer
+	// and any canaries.
+	//
+	// Note: this field is not yet honored by the KServe controller; the reconciliation behavior
+	// lands in a follow-up change.
+	// +optional
+	Suspend *bool `json:"suspend,omitempty"`
 	// Tracing configures distributed tracing across InferenceService components.
 	// When present, even as an empty object, tracing is enabled with defaults.
 	// When omitted, tracing is disabled.
