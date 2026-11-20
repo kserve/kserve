@@ -8743,6 +8743,23 @@ spec:
                 - type: string
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
+              tolerations:
+                items:
+                  properties:
+                    effect:
+                      type: string
+                    key:
+                      type: string
+                    operator:
+                      type: string
+                    tolerationSeconds:
+                      format: int64
+                      type: integer
+                    value:
+                      type: string
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
             required:
             - persistentVolumeClaimSpec
             - persistentVolumeSpec
@@ -9138,6 +9155,16 @@ rules:
   verbs:
   - get
   - list
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - authentication.k8s.io
   resources:
