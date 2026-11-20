@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from socket import socket
 from typing import List, Optional
 
@@ -85,12 +87,21 @@ REST_TRACE_EXCLUDED_URLS = (
 class _RefreshingServer(uvicorn.Server):
     """Uvicorn server that refreshes its SSL context when certificates change."""
 
-    def __init__(self, config: uvicorn.Config):
+    def __init__(
+        self, config: uvicorn.Config, max_asyncio_workers: Optional[int] = None
+    ):
         super().__init__(config)
+        self._max_asyncio_workers = max_asyncio_workers
         self._ssl_cert_refresher: Optional[SSLCertRefresher] = None
         self._tls_profile_provider: Optional[TLSProfileProvider] = None
 
     async def serve(self, sockets: Optional[List[socket]] = None) -> None:
+        if self._max_asyncio_workers is not None:
+            # Uvicorn creates the child loop in run(); configure that loop, not
+            # the parent loop or an executor that would need to be pickled.
+            asyncio.get_running_loop().set_default_executor(
+                ThreadPoolExecutor(max_workers=self._max_asyncio_workers)
+            )
         if not self.config.loaded:
             self.config.load()
 
@@ -142,6 +153,7 @@ class RESTServer:
         timeout_keep_alive: int = 65,
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
+        max_asyncio_workers: Optional[int] = None,
     ):
         if bool(ssl_certfile) != bool(ssl_keyfile):
             raise ValueError("ssl_certfile and ssl_keyfile must be configured together")
@@ -169,7 +181,7 @@ class RESTServer:
             ssl_certfile=ssl_certfile,
             ssl_keyfile=ssl_keyfile,
         )
-        self._server = _RefreshingServer(self.config)
+        self._server = _RefreshingServer(self.config, max_asyncio_workers)
 
     def _register_endpoints(self, app: fastapi.FastAPI):
         root_router = APIRouter()
