@@ -19,7 +19,8 @@ import pytest
 from orjson import orjson
 
 from kserve import InferRequest, InferInput, InferResponse, InferOutput
-from kserve.errors import InvalidInput
+from kserve.errors import InferenceError, InvalidInput
+from kserve.utils.numpy_codec import from_np_dtype
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
     ModelInferRequest,
     InferParameter,
@@ -35,6 +36,75 @@ from kserve.protocol.rest.v2_datamodels import (
     RequestInput,
     RequestOutput,
 )
+
+
+@pytest.mark.parametrize("message_type", [InferRequest, InferResponse])
+@pytest.mark.parametrize(
+    "values,shape",
+    [
+        ([b"\xff\xd8\xff\xe0\x00JFIF"], [1]),
+        ([b"text", b"\xff\x00", b"", b"\x00"], [2, 2]),
+        ([bytes(range(256))], [1]),
+    ],
+)
+def test_from_bytes_preserves_non_utf8_binary_bytes(message_type, values, shape):
+    tensor_type = InferInput if message_type is InferRequest else InferOutput
+    data = np.array(values, dtype=np.object_).reshape(shape)
+    binary_tensor = tensor_type(
+        name="bytes", shape=shape, datatype="BYTES", parameters={"custom": "value"}
+    )
+    binary_tensor.set_data_from_numpy(data, binary_data=True)
+    numeric_tensor = tensor_type(name="numeric", shape=[2], datatype="INT32")
+    numeric_tensor.set_data_from_numpy(np.array([12, 34], dtype=np.int32))
+    tensors = [
+        tensor_type(name="json", shape=[1], datatype="INT32", data=[56]),
+        binary_tensor,
+        numeric_tensor,
+    ]
+
+    def decode(payload, json_length):
+        if message_type is InferRequest:
+            return InferRequest.from_bytes(payload, json_length, "test_model")
+        return InferResponse.from_bytes(payload, json_length)
+
+    if message_type is InferRequest:
+        message = InferRequest(model_name="test_model", infer_inputs=tensors)
+    else:
+        message = InferResponse(
+            response_id="test",
+            model_name="test_model",
+            infer_outputs=tensors,
+            requested_outputs=[
+                RequestedOutput(name="json", parameters={"binary_data": False}),
+                RequestedOutput(name="bytes", parameters={"binary_data": True}),
+                RequestedOutput(name="numeric", parameters={"binary_data": True}),
+            ],
+        )
+    restored = decode(*message.to_rest())
+    if message_type is InferResponse:
+        restored.outputs[1]._name = "renamed_bytes"
+        restored.outputs.append(
+            InferOutput(name="extra", shape=[1], datatype="INT32", data=[78])
+        )
+    for _ in range(2):
+        restored_tensors = (
+            restored.inputs if message_type is InferRequest else restored.outputs
+        )
+        assert restored_tensors[0].data == [56]
+        assert restored_tensors[1].data is None
+        assert restored_tensors[1]._raw_data == binary_tensor._raw_data
+        assert restored_tensors[1].parameters == binary_tensor.parameters
+        np.testing.assert_array_equal(restored_tensors[1].as_numpy(), data)
+        assert restored_tensors[2].data == [12, 34]
+        payload, json_length = restored.to_rest()
+        tensor_key = "inputs" if message_type is InferRequest else "outputs"
+        wire_tensors = orjson.loads(payload[:json_length])[tensor_key]
+        assert wire_tensors[0]["data"] == [56]
+        assert wire_tensors[2]["data"] == [12, 34]
+        if message_type is InferResponse:
+            assert wire_tensors[1]["name"] == "renamed_bytes"
+            assert wire_tensors[3]["data"] == [78]
+        restored = decode(payload, json_length)
 
 
 class TestInferRequest:
@@ -119,6 +189,78 @@ class TestInferRequest:
         )
         res = infer_req.to_grpc()
         assert res == expected
+
+    @pytest.mark.parametrize("raw_first", [False, True])
+    @pytest.mark.parametrize(
+        "typed_data,raw_data",
+        [
+            (
+                np.array([1, 2], dtype=np.int32),
+                np.array([1.25, 2.5], dtype=np.float16),
+            ),
+            (
+                np.array([b"hello", b"world"], dtype=np.object_),
+                np.array([b"\xff\x00", b"\x80"], dtype=np.object_),
+            ),
+            (
+                np.array([1, 2], dtype=np.int32),
+                np.array([], dtype=np.int32),
+            ),
+        ],
+        ids=["fp16", "bytes", "empty"],
+    )
+    def test_to_grpc_with_mixed_raw_and_typed_inputs(
+        self, raw_first, typed_data, raw_data
+    ):
+        typed_input = InferInput(
+            name="typed",
+            datatype=from_np_dtype(typed_data.dtype),
+            shape=list(typed_data.shape),
+            data=typed_data.tolist(),
+        )
+        raw_input = InferInput(
+            name="raw",
+            datatype=from_np_dtype(raw_data.dtype),
+            shape=list(raw_data.shape),
+        )
+        raw_input.set_data_from_numpy(raw_data)
+        inputs = [raw_input, typed_input] if raw_first else [typed_input, raw_input]
+        expected = [raw_data, typed_data] if raw_first else [typed_data, raw_data]
+        request = InferRequest(model_name="test_model", infer_inputs=inputs)
+
+        grpc_request = request.to_grpc()
+
+        decoded = InferRequest.from_grpc(
+            ModelInferRequest.FromString(grpc_request.SerializeToString())
+        )
+        for tensor, data in zip(decoded.inputs, expected, strict=True):
+            np.testing.assert_array_equal(tensor.as_numpy(), data)
+        assert len(grpc_request.raw_input_contents) == len(inputs)
+        assert all(not tensor.HasField("contents") for tensor in grpc_request.inputs)
+
+    def test_to_grpc_with_mixed_numpy_and_list_inputs(self):
+        request = InferRequest(
+            model_name="test_model",
+            infer_inputs=[
+                InferInput(name="list", datatype="INT32", shape=[2], data=[1, 2]),
+                InferInput(
+                    name="numpy",
+                    datatype="FP32",
+                    shape=[2],
+                    data=np.array([1.5, 2.5], dtype=np.float32),
+                ),
+            ],
+        )
+
+        grpc_request = request.to_grpc()
+
+        decoded = InferRequest.from_grpc(
+            ModelInferRequest.FromString(grpc_request.SerializeToString())
+        )
+        np.testing.assert_array_equal(decoded.inputs[0].as_numpy(), [1, 2])
+        np.testing.assert_array_equal(decoded.inputs[1].as_numpy(), [1.5, 2.5])
+        assert len(grpc_request.raw_input_contents) == 2
+        assert all(not tensor.HasField("contents") for tensor in grpc_request.inputs)
 
     def test_from_grpc(self):
         infer_req = ModelInferRequest(
@@ -623,6 +765,122 @@ class TestInferRequest:
 
 
 class TestInferResponse:
+    @pytest.mark.parametrize("binary_data", [None, True, False])
+    def test_empty_bytes_with_requested_output(self, binary_data):
+        response = InferResponse(
+            response_id="test",
+            model_name="test_model",
+            infer_outputs=[
+                InferOutput(name="empty", datatype="BYTES", shape=[0], data=[])
+            ],
+            requested_outputs=[
+                RequestedOutput(
+                    name="empty",
+                    parameters={"binary_data": binary_data}
+                    if binary_data is not None
+                    else None,
+                )
+            ],
+            use_binary_outputs=True,
+        )
+
+        payload, json_length = response.to_rest()
+        decoded = (
+            InferResponse.from_rest(payload)
+            if json_length is None
+            else InferResponse.from_bytes(payload, json_length)
+        )
+
+        assert (json_length is not None) == (binary_data is not False)
+        assert decoded.outputs[0].name == "empty"
+        assert decoded.outputs[0].shape == [0]
+        assert decoded.outputs[0].as_numpy().size == 0
+
+    @pytest.mark.parametrize(
+        "values",
+        [np.array([1.5], dtype=np.float32), np.array([[1]], dtype=np.int32)],
+        ids=["datatype", "shape"],
+    )
+    def test_to_grpc_rejects_mismatched_numpy_output(self, values):
+        response = InferResponse(
+            response_id="test",
+            model_name="test_model",
+            infer_outputs=[
+                InferOutput(name="output", datatype="INT32", shape=[1], data=values)
+            ],
+        )
+        with pytest.raises(InferenceError):
+            response.to_grpc()
+
+    @pytest.mark.parametrize("use_binary_outputs", [False, True])
+    def test_non_utf8_bytes_with_name_only_requested_output(self, use_binary_outputs):
+        values = np.array([b"\xff\x00\xfe"], dtype=np.object_)
+        output = InferOutput(name="bytes", shape=[1], datatype="BYTES")
+        output.set_data_from_numpy(values)
+        response = InferResponse(
+            response_id="test",
+            model_name="test_model",
+            infer_outputs=[output],
+            requested_outputs=[RequestedOutput(name="bytes")],
+            use_binary_outputs=use_binary_outputs,
+        )
+
+        payload, json_length = response.to_rest()
+        decoded = InferResponse.from_bytes(payload, json_length)
+
+        assert decoded.outputs[0].name == "bytes"
+        np.testing.assert_array_equal(decoded.outputs[0].as_numpy(), values)
+
+    @pytest.mark.parametrize("raw_first", [False, True])
+    @pytest.mark.parametrize("numbers", [[1, 2], []])
+    def test_rest_mixed_outputs_roundtrip_through_grpc(self, raw_first, numbers):
+        values = np.array([b"\xff\x00\xfe"], dtype=np.object_)
+        raw_output = InferOutput(name="bytes", shape=[1], datatype="BYTES")
+        raw_output.set_data_from_numpy(values)
+        numeric_output = InferOutput(
+            name="numbers", shape=[len(numbers)], datatype="INT32", data=numbers
+        )
+        outputs = (
+            [raw_output, numeric_output] if raw_first else [numeric_output, raw_output]
+        )
+        response = InferResponse(
+            response_id="test", model_name="test_model", infer_outputs=outputs
+        )
+        payload, json_length = response.to_rest()
+        forwarded = InferResponse.from_bytes(payload, json_length)
+
+        grpc_response = forwarded.to_grpc()
+        assert len(grpc_response.raw_output_contents) == len(grpc_response.outputs)
+        assert all(not output.HasField("contents") for output in grpc_response.outputs)
+        decoded = InferResponse.from_grpc(
+            ModelInferResponse.FromString(grpc_response.SerializeToString())
+        )
+        payload, json_length = decoded.to_rest()
+        decoded = InferResponse.from_bytes(payload, json_length)
+
+        assert [output.name for output in decoded.outputs] == [
+            output.name for output in outputs
+        ]
+        for original, actual in zip(outputs, decoded.outputs, strict=True):
+            assert actual.shape == original.shape
+            np.testing.assert_array_equal(actual.as_numpy(), original.as_numpy())
+
+    @pytest.mark.parametrize("use_binary_outputs", [False, True])
+    def test_non_utf8_bytes_with_explicit_json_output(self, use_binary_outputs):
+        output = InferOutput(name="bytes", shape=[1], datatype="BYTES")
+        output.set_data_from_numpy(np.array([b"\xff"], dtype=np.object_))
+        response = InferResponse(
+            response_id="test",
+            model_name="test_model",
+            infer_outputs=[output],
+            requested_outputs=[
+                RequestedOutput(name="bytes", parameters={"binary_data": False})
+            ],
+            use_binary_outputs=use_binary_outputs,
+        )
+        with pytest.raises(InferenceError, match="Please use binary_data=True"):
+            response.to_rest()
+
     def test_to_grpc(self):
         infer_res = InferResponse(
             model_name="TestModel",
@@ -709,9 +967,9 @@ class TestInferResponse:
                     shape=[1, 2],
                     data=[1, 2],
                     parameters={
-                        "test-str": InferParameter(string_param="dummy"),
-                        "test-bool": InferParameter(bool_param=True),
-                        "test-int": InferParameter(int64_param=100),
+                        "test-str": "dummy",
+                        "test-bool": True,
+                        "test-int": 100,
                     },
                 )
             ],
