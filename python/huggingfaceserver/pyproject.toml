@@ -3,7 +3,7 @@ authors = [
     {name = "Dan Sun", email = "dsun20@bloomberg.net"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "kserve[llm] @ file:///${PROJECT_ROOT}/../kserve",
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
