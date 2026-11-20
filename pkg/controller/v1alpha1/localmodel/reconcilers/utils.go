@@ -250,25 +250,8 @@ func DeleteModelFromNodes(
 	}
 	log.Info("deleting model", "name", params.Name, "namespace", params.Namespace)
 
-	// Sweep every LocalModelNode for an entry of this model: entries can exist
-	// on nodes that no longer match the node group selector, and the node
-	// groups themselves may already be deleted.
-	localModelNodes := &v1alpha1.LocalModelNodeList{}
-	if err := reader.List(ctx, localModelNodes); err != nil {
-		log.Error(err, "failed to list localmodelnodes")
+	if err := sweepLocalModelNodes(ctx, c, reader, log, params.Name, params.Namespace); err != nil {
 		return ctrl.Result{}, err
-	}
-	for i := range localModelNodes.Items {
-		node := &localModelNodes.Items[i]
-		if !slices.ContainsFunc(node.Spec.LocalModels, func(info v1alpha1.LocalModelInfo) bool {
-			return info.ModelName == params.Name && info.Namespace == params.Namespace
-		}) {
-			continue
-		}
-		if err := DeleteModelFromNode(ctx, reader, c, log, node.Name, params.Name, params.Namespace); err != nil {
-			log.Error(err, "failed to delete model from localModelNode", "localModelNode", node.Name)
-			return ctrl.Result{}, err
-		}
 	}
 
 	// For namespace-scoped LocalModelNamespaceCache, PVs cannot have owner references
@@ -317,6 +300,34 @@ func DeleteModelFromNodes(
 
 	// Stop reconciliation as the item is being deleted
 	return ctrl.Result{}, nil
+}
+
+// sweepLocalModelNodes uses an authoritative, paginated snapshot. Only nodes
+// that contained this model need a fresh read before their optimistic patch.
+func sweepLocalModelNodes(ctx context.Context, writer client.Client, reader client.Reader, log logr.Logger, modelName, namespace string) error {
+	const pageSize = 500
+	options := &client.ListOptions{Limit: pageSize}
+	for {
+		nodes := &v1alpha1.LocalModelNodeList{}
+		if err := reader.List(ctx, nodes, options); err != nil {
+			return fmt.Errorf("list LocalModelNodes: %w", err)
+		}
+		for i := range nodes.Items {
+			node := &nodes.Items[i]
+			if !slices.ContainsFunc(node.Spec.LocalModels, func(info v1alpha1.LocalModelInfo) bool {
+				return info.ModelName == modelName && info.Namespace == namespace
+			}) {
+				continue
+			}
+			if err := DeleteModelFromNode(ctx, reader, writer, log, node.Name, modelName, namespace); err != nil {
+				return fmt.Errorf("remove model from LocalModelNode %s: %w", node.Name, err)
+			}
+		}
+		if nodes.Continue == "" {
+			return nil
+		}
+		options.Continue = nodes.Continue
+	}
 }
 
 // DeleteModelFromNode deletes every entry of (modelName, namespace) from the

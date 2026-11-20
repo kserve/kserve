@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -128,15 +129,15 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	var reconcileErrs []error
 	previousNamespaces := consumerNamespaces(localModel.Status)
 
 	// Step 2 - Adds this model to LocalModelNode resources in the node group.
 	// The error is kept and returned at the end so the work queue retries the
 	// node update, while the volume reconciliation below still runs.
-	var nodeErr error
 	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, consumers); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
-		nodeErr = err
+		reconcileErrs = append(reconcileErrs, err)
 	}
 
 	// Step 3 - Creates PV & PVC for model download (in jobNamespace, same as cluster-scoped)
@@ -162,16 +163,13 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		}
 	}
 
-	if localModelConfig.DisableVolumeManagement {
-		return ctrl.Result{}, nodeErr
+	// Step 4 - Provision serving volumes independently of earlier errors.
+	if !localModelConfig.DisableVolumeManagement {
+		if err := ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces); err != nil {
+			reconcileErrs = append(reconcileErrs, err)
+		}
 	}
-
-	// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nodeErr
+	return ctrl.Result{}, errors.Join(reconcileErrs...)
 }
 
 // Reconciles corresponding namespace model cache CR when we found an update on an isvc
