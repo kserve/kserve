@@ -611,11 +611,33 @@ class InferRequest:
             infer_req_dict = orjson.loads(json_bytes)
         except orjson.JSONDecodeError as e:
             raise InvalidInput(f"Unrecognized request format: {e}")
+        if not isinstance(infer_req_dict, dict) or not isinstance(
+            infer_req_dict.get("inputs"), list
+        ):
+            raise InvalidInput(
+                "Unrecognized request format: expected a JSON object with an 'inputs' list"
+            )
         infer_inputs = []
         # Read the raw binary inputs appended after json
         start_index = json_length
         for input_ in infer_req_dict["inputs"]:
+            if not isinstance(input_, dict) or any(
+                key not in input_ for key in ("name", "shape", "datatype")
+            ):
+                raise InvalidInput(
+                    f"Each input for model '{model_name}' must be an object with 'name', 'shape' and 'datatype'"
+                )
             parameters = input_.get("parameters", None)
+            if (
+                not isinstance(input_["shape"], list)
+                or not all(type(dim) is int for dim in input_["shape"])
+                or not isinstance(input_["datatype"], str)
+                or not (parameters is None or isinstance(parameters, dict))
+            ):
+                raise InvalidInput(
+                    f"Input '{input_['name']}' for model '{model_name}' must have a 'shape' that is a list of "
+                    "integers, a 'datatype' that is a string, and 'parameters' that is an object if given"
+                )
             infer_input = InferInput(
                 name=input_["name"],
                 shape=input_["shape"],
@@ -636,11 +658,30 @@ class InferRequest:
                     raise InvalidInput(
                         f"'binary_data_size' is not specified for input '{infer_input.name}' for model '{model_name}'"
                     )
+                if (
+                    isinstance(binary_data_size, bool)
+                    or not isinstance(binary_data_size, int)
+                    or binary_data_size < 0
+                ):
+                    raise InvalidInput(
+                        f"'binary_data_size' for input '{infer_input.name}' for model '{model_name}' "
+                        f"must be a non-negative integer, got {binary_data_size!r}"
+                    )
                 end_index = start_index + binary_data_size
+                if end_index > len(req_bytes):
+                    raise InvalidInput(
+                        f"input '{infer_input.name}' for model '{model_name}' has a 'binary_data_size' of "
+                        f"{binary_data_size}, but only {len(req_bytes) - start_index} bytes of binary data are left"
+                    )
                 infer_input._raw_data = req_bytes[start_index:end_index]
-                infer_input.set_data_from_numpy(
-                    infer_input.as_numpy(), binary_data=False
-                )
+                try:
+                    infer_input.set_data_from_numpy(
+                        infer_input.as_numpy(), binary_data=False
+                    )
+                except (ValueError, struct.error) as e:
+                    raise InvalidInput(
+                        f"Failed to read the binary data of input '{infer_input.name}' for model '{model_name}': {e}"
+                    )
                 start_index = end_index
             else:
                 raise InvalidInput(

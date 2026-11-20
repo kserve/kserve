@@ -394,13 +394,22 @@ class DataPlane:
         self, body: Union[bytes, InferenceRequest], headers: Dict, model_name: str
     ) -> InferRequest:
         if isinstance(body, bytes):
-            json_length = headers.get(INFERENCE_CONTENT_LENGTH_HEADER, None)
-            if json_length is None:
+            header_value = headers.get(INFERENCE_CONTENT_LENGTH_HEADER, None)
+            if header_value is None:
                 raise InvalidInput(
                     f"received byte inputs, but the"
                     f"'{INFERENCE_CONTENT_LENGTH_HEADER}' header is missing."
                 )
-            return InferRequest.from_bytes(body, int(json_length), model_name)
+            try:
+                json_length = int(header_value)
+            except ValueError:
+                json_length = -1
+            if json_length < 0:
+                raise InvalidInput(
+                    f"'{INFERENCE_CONTENT_LENGTH_HEADER}' header must be a non-negative integer, "
+                    f"got '{header_value}'."
+                )
+            return InferRequest.from_bytes(body, json_length, model_name)
         else:
             return InferRequest.from_inference_request(body, model_name)
 
