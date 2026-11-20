@@ -780,4 +780,61 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout).Should(BeTrue())
 		})
 	})
+
+	Context("When creating a new TrainedModel with a custom predictor that has no kserve-container", func() {
+		It("Should set MemoryResourceAvailable to false", func() {
+			modelName := "model1-no-kserve-container"
+			parentInferenceService := modelName + "-parent"
+			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
+			ctx := context.Background()
+
+			// The predictor container is found by the name kserve-container, so a leading transformer-container leaves none.
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      parentInferenceService,
+					Namespace: namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: constants.TransformerContainerName, Image: "transformer:latest"},
+								{Name: "predictor", Image: "predictor:latest", Resources: defaultResource},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			tmInstance := &v1alpha1.TrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      modelName,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1.TrainedModelSpec{
+					InferenceService: parentInferenceService,
+					Model: v1alpha1.ModelSpec{
+						StorageURI: storageUri,
+						Framework:  framework,
+						Memory:     memory,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, tmInstance)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, tmInstance)
+
+			var condition *apis.Condition
+			Eventually(func() bool {
+				tmInstanceUpdate := &v1alpha1.TrainedModel{}
+				if err := k8sClient.Get(ctx, tmKey, tmInstanceUpdate); err != nil {
+					return false
+				}
+				condition = tmInstanceUpdate.Status.GetCondition(v1alpha1.MemoryResourceAvailable)
+				return condition != nil && condition.Status == corev1.ConditionFalse
+			}, timeout, interval).Should(BeTrue())
+			GinkgoWriter.Printf("%s=%s reason=%s\n", condition.Type, condition.Status, condition.Reason)
+		})
+	})
 })
