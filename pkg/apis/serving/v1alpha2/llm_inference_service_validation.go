@@ -99,6 +99,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
 	allErrs = append(allErrs, l.validateRouteRuleNamingAnnotation(llmSvc)...)
 	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
+	allErrs = append(allErrs, ValidateConfigRendererAnnotation(llmSvc.GetAnnotations(), field.NewPath("metadata", "annotations"))...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
@@ -1021,5 +1022,22 @@ func ValidateRouteRuleNamingAnnotation(annotations map[string]string, path *fiel
 		path.Key(constants.RouteRuleNamingAnnotationKey),
 		raw,
 		[]string{constants.RouteRuleNamingPreset, constants.RouteRuleNamingUnique},
+	)}
+}
+
+// ValidateConfigRendererAnnotation is exported for the v1alpha1 validator.
+func ValidateConfigRendererAnnotation(annotations map[string]string, path *field.Path) field.ErrorList {
+	raw, ok := annotations[constants.ConfigRendererAnnotationKey]
+	if !ok {
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", constants.ConfigRendererRecursive, constants.ConfigRendererJSON:
+		return nil
+	}
+	return field.ErrorList{field.NotSupported(
+		path.Key(constants.ConfigRendererAnnotationKey),
+		raw,
+		[]string{constants.ConfigRendererRecursive, constants.ConfigRendererJSON},
 	)}
 }

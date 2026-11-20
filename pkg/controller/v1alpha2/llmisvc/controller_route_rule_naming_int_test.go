@@ -67,6 +67,21 @@ func uniqueRuleNames(presetNames []string, svc *v1alpha2.LLMInferenceService) []
 	return names
 }
 
+// reconcileTotal returns how many reconciles every controller has finished.
+func reconcileTotal(g Gomega) float64 {
+	families, err := ctrlmetrics.Registry.Gather()
+	g.Expect(err).NotTo(HaveOccurred())
+	var total float64
+	for _, family := range families {
+		if family.GetName() == "controller_runtime_reconcile_total" {
+			for _, metric := range family.GetMetric() {
+				total += metric.GetCounter().GetValue()
+			}
+		}
+	}
+	return total
+}
+
 // waitForReconcilesToSettle waits until no controller has finished a reconcile
 // for one polling interval. A ConfigMap change made afterwards reaches a service
 // only through the ConfigMap watch, not through the tail of an earlier burst.
@@ -74,16 +89,7 @@ func waitForReconcilesToSettle(ctx context.Context) {
 	GinkgoHelper()
 	previous := -1.0
 	Eventually(func(g Gomega) {
-		families, err := ctrlmetrics.Registry.Gather()
-		g.Expect(err).NotTo(HaveOccurred())
-		var total float64
-		for _, family := range families {
-			if family.GetName() == "controller_runtime_reconcile_total" {
-				for _, metric := range family.GetMetric() {
-					total += metric.GetCounter().GetValue()
-				}
-			}
-		}
+		total := reconcileTotal(g)
 		g.Expect(total).To(BeNumerically(">", 0), "no reconcile counted, so nothing can be judged settled")
 		settled := total == previous
 		previous = total
