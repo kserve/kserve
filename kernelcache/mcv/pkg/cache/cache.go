@@ -115,7 +115,7 @@ func CopyDir(srcDir, dstDir string) error {
 			return os.MkdirAll(target, info.Mode())
 		}
 
-		srcFile, err := os.Open(filepath.Clean(path))
+		srcFile, err := os.Open(filepath.Clean(path)) //nolint:gosec // G122: new check; os.Root file handling is a repo-wide change
 		if err != nil {
 			return err
 		}

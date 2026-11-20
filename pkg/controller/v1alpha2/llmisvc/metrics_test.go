@@ -392,7 +392,7 @@ func TestWorkloadMetricsCollector_CardinalityControl(t *testing.T) {
 			Status: v1alpha2.LLMInferenceServiceStatus{
 				Workloads: &v1alpha2.WorkloadStatus{
 					Primary: &v1alpha2.ObservedWorkloadStatus{
-						ReadyReplicas: ptr.To(int32(i % 5)), //nolint:gosec // Test data, no overflow risk
+						ReadyReplicas: ptr.To(int32(i % 5)),
 					},
 				},
 				Status: duckv1.Status{

@@ -77,7 +77,7 @@ func RemoteOptions(ctx context.Context, targetRegistry string) ([]remote.Option,
 		if err := ValidateRegistryScope(targetRegistry); err != nil {
 			return nil, err
 		}
-		data, err := os.ReadFile(filepath.Clean(accessFile))
+		data, err := os.ReadFile(filepath.Clean(accessFile)) // #nosec G703 -- MCV_REGISTRY_ACCESS_FILE is set by the controller to a mounted secret path
 		if err != nil {
 			return nil, fmt.Errorf("read registry access: %w", err)
 		}
@@ -137,7 +137,7 @@ func normalizeRegistry(value string) (string, error) {
 }
 
 func registryTransport(caFile string) (http.RoundTripper, error) {
-	caPEM, err := os.ReadFile(filepath.Clean(caFile))
+	caPEM, err := os.ReadFile(filepath.Clean(caFile)) // #nosec G703 -- MCV_REGISTRY_CA_FILE is set by the controller to a mounted secret path
 	if err != nil {
 		return nil, fmt.Errorf("read registry CA: %w", err)
 	}

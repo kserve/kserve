@@ -5,4 +5,4 @@
 // be a dependency. See https://github.com/kserve/kserve/issues/6302.
 module github.com/kserve/kserve/install
 
-go 1.26.8
+go 1.27.4

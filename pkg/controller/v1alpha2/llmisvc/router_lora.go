@@ -179,10 +179,10 @@ func applyLoRARegexMatches(rules []gwapiv1.HTTPRouteRule, namespace, baseModel s
 	var recognized []*gwapiv1.HTTPHeaderMatch
 	for i := range rules {
 		for j := range rules[i].Matches {
-			header, err := recognizeBaseModelHeader(&rules[i].Matches[j], headerName, baseValue)
+			header, err := recognizeBaseModelHeader(&rules[i].Matches[j], headerName, baseValue) //nolint:gosec // G602: i and j range over rules and their Matches
 			if err != nil {
 				return fmt.Errorf("LoRA routing strategy %q cannot be applied: rule %q match %d %w",
-					LoRAModelRoutingStrategyRegex, ptr.Deref(rules[i].Name, ""), j, err)
+					LoRAModelRoutingStrategyRegex, ptr.Deref(rules[i].Name, ""), j, err) //nolint:gosec // G602: i and j range over rules and their Matches
 			}
 			if header != nil {
 				recognized = append(recognized, header)

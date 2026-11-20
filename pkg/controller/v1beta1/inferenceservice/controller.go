@@ -270,7 +270,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
 				r.Log.Error(err, "Error updating status when Knative mode rejected")
 			}
-			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Knative, but Knative Serving is not available", isvc.Name))
+			return reconcile.Result{}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Knative, but Knative Serving is not available", isvc.Name))
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.

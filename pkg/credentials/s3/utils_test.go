@@ -31,7 +31,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 		expected    []corev1.EnvVar
 	}{
 		"S3Endpoint": {
-			annotations: map[string]string{
+			annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 				InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 			},
 			expected: []corev1.EnvVar{
@@ -46,7 +46,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 			},
 		},
 		"AllAnnotations": {
-			annotations: map[string]string{
+			annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 				InferenceServiceS3SecretEndpointAnnotation:    "s3.aws.com",
 				InferenceServiceS3SecretRegionAnnotation:      "us-east-2",
 				InferenceServiceS3SecretSSLAnnotation:         "0",
@@ -211,7 +211,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 			},
 		},
 		"AnnotationsSecretAndS3Config": {
-			annotations: map[string]string{
+			annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 				InferenceServiceS3SecretEndpointAnnotation:    "s3.aws.com-annotation",
 				InferenceServiceS3SecretRegionAnnotation:      "us-east-2-annotation",
 				InferenceServiceS3SecretSSLAnnotation:         "0",
@@ -341,7 +341,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 			},
 		},
 		"EndpointWithHttpsProtocol": {
-			annotations: map[string]string{
+			annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 				InferenceServiceS3SecretEndpointAnnotation: "https://s3.aws.com",
 				InferenceServiceS3SecretSSLAnnotation:      "1",
 				InferenceServiceS3SecretHttpsAnnotation:    "0",
@@ -366,7 +366,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 			},
 		},
 		"EndpointWithHttpProtocol": {
-			annotations: map[string]string{
+			annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 				InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
 				InferenceServiceS3SecretSSLAnnotation:      "0",
 				InferenceServiceS3SecretHttpsAnnotation:    "1",

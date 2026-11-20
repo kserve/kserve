@@ -73,7 +73,7 @@ func TestSecretBoundAccessLifecycle(t *testing.T) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "runtime", Namespace: "team", UID: types.UID("pod-uid"),
-			Annotations: map[string]string{AccessSecretAnnotation: "mcv-registry-test"},
+			Annotations: map[string]string{AccessSecretAnnotation: "mcv-registry-test"}, //nolint:gosec // G101: fake test credential
 		},
 		Spec: corev1.PodSpec{ServiceAccountName: "default"},
 	}

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -1461,7 +1462,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// The deployment should be reconciled
 			deployed2 := &appsv1.Deployment{}
-			appendedEnvs := append(defaultEnvs, newEnvs...)
+			appendedEnvs := slices.Concat(defaultEnvs, newEnvs)
 			Eventually(func() []corev1.EnvVar {
 				_ = k8sClient.Get(context.TODO(), predictorDeploymentKey, deployed2)
 				return deployed2.Spec.Template.Spec.Containers[0].Env

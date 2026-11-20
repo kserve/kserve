@@ -198,7 +198,7 @@ func TestResolve(t *testing.T) {
 			if len(result) != 1 {
 				t.Fatalf("Resolve() returned %d TLSOpts, want 1", len(result))
 			}
-			cfg := &tls.Config{} //nolint:gosec // intentionally empty to test TLS opts
+			cfg := &tls.Config{}
 			result[0](cfg)
 			if cfg.MinVersion != tt.wantMinVersion {
 				t.Errorf("MinVersion = %d, want %d", cfg.MinVersion, tt.wantMinVersion)

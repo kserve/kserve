@@ -3392,7 +3392,7 @@ func TestSchedulerReconcileErrorUnsupportedPluginIsTerminal(t *testing.T) {
 	r := &LLMISVCReconciler{EventRecorder: record.NewFakeRecorder(1)}
 	cause := &unsupportedSchedulerPluginError{errors.New("unsupported scheduler plugin")}
 
-	err := r.schedulerReconcileError(llmSvc, fmt.Errorf("wrapped: %w", cause))
+	err := r.schedulerReconcileError(llmSvc, fmt.Errorf("wrapped: %w", error(cause)))
 
 	require.ErrorIs(t, err, reconcile.TerminalError(nil))
 	condition := llmSvc.Status.GetCondition(v1alpha2.SchedulerWorkloadReady)

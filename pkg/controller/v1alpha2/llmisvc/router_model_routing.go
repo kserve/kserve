@@ -226,7 +226,7 @@ func normalizePublisherPathMatches(rules []gwapiv1.HTTPRouteRule, llmSvc *v1alph
 	prefix := "/" + fullyQualifiedModelName(llmSvc.GetNamespace(), modelPath)
 	for i := range rules {
 		for j := range rules[i].Matches {
-			match := &rules[i].Matches[j]
+			match := &rules[i].Matches[j] //nolint:gosec // G602: i and j range over rules and their Matches
 			if !isPerModelPathMatch(*match, renderedPrefix, "") {
 				continue
 			}

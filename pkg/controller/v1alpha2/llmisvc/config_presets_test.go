@@ -98,7 +98,7 @@ func TestPresetFiles(t *testing.T) {
 								},
 								{
 									Name:         "tls-certs",
-									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
+									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}}, //nolint:gosec // G101: fake test credential
 								},
 							},
 							InitContainers: []corev1.Container{
@@ -336,7 +336,7 @@ func TestPresetFiles(t *testing.T) {
 								},
 								{
 									Name:         "tls-certs",
-									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
+									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}}, //nolint:gosec // G101: fake test credential
 								},
 							},
 							TerminationGracePeriodSeconds: ptr.To(int64(60)),
@@ -476,7 +476,7 @@ func TestPresetFiles(t *testing.T) {
 								},
 								{
 									Name:         "tls-certs",
-									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
+									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}}, //nolint:gosec // G101: fake test credential
 								},
 							},
 							Containers: []corev1.Container{

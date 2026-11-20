@@ -34,7 +34,7 @@ func TestS3Secret(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 					},
 				},
@@ -120,7 +120,7 @@ func TestS3Secret(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 						InferenceServiceS3SecretHttpsAnnotation:    "0",
 						InferenceServiceS3SecretSSLAnnotation:      "0",
@@ -228,7 +228,7 @@ func TestS3Secret(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "https://s3.aws.com",
 						InferenceServiceS3SecretHttpsAnnotation:    "0",
 						InferenceServiceS3SecretSSLAnnotation:      "1",
@@ -336,7 +336,7 @@ func TestS3Secret(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
-					Annotations: map[string]string{
+					Annotations: map[string]string{ //nolint:gosec // G101: fake test credential
 						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 						InferenceServiceS3UseAnonymousCredential:   "true",
 					},

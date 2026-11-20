@@ -477,7 +477,7 @@ func testInferenceServiceConfigMap() *corev1.ConfigMap {
 			Name:      constants.InferenceServiceConfigMapName,
 			Namespace: constants.KServeNamespace,
 		},
-		Data: map[string]string{
+		Data: map[string]string{ //nolint:gosec // G101: fake test credential
 			"ingress": `{
 				"enableGatewayApi": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",

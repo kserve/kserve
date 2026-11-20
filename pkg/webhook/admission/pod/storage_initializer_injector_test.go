@@ -1573,7 +1573,7 @@ func TestCredentialInjection(t *testing.T) {
 						{
 							Name: gcs.GCSCredentialVolumeName,
 							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
+								Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 									SecretName: "user-gcp-sa",
 								},
 							},
@@ -1783,7 +1783,7 @@ func TestCredentialInjection(t *testing.T) {
 	}
 
 	configMap := &corev1.ConfigMap{
-		Data: map[string]string{
+		Data: map[string]string{ //nolint:gosec // G101: fake test credential
 			"credentials": `{
 				"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
 				"s3" : {
@@ -2142,7 +2142,7 @@ func TestParsePvcURI(t *testing.T) {
 func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	configMap := &corev1.ConfigMap{
-		Data: map[string]string{
+		Data: map[string]string{ //nolint:gosec // G101: fake test credential
 			"credentials": `{
 				"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
 				"s3" : {

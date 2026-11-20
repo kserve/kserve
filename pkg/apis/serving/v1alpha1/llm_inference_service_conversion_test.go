@@ -798,7 +798,7 @@ func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha2ToV1Alpha1(t *tes
 		Spec:       v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{URI: *apis.HTTPS("example.com")}},
 		Status: v1alpha2.LLMInferenceServiceStatus{
 			URL:     apis.HTTPS("example.com"),
-			Address: addressSingular,
+			Address: addressSingular, //nolint:staticcheck // SA1019: covers conversion of the deprecated field
 			Addresses: []v1alpha2.SourcedAddress{
 				{
 					Addressable: duckv1.Addressable{

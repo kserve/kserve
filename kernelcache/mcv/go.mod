@@ -1,6 +1,6 @@
 module github.com/kserve/kserve/kernelcache/mcv
 
-go 1.26.8
+go 1.27.4
 
 require (
 	github.com/NVIDIA/go-nvml v0.13.0-1

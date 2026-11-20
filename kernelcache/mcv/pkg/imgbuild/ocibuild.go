@@ -413,7 +413,7 @@ func writeOCITree(ctx context.Context, tw *tar.Writer, directory, prefix string)
 		if info.IsDir() {
 			return nil
 		}
-		file, err := os.Open(filepath.Clean(filename))
+		file, err := os.Open(filepath.Clean(filename)) //nolint:gosec // G122: new check; os.Root file handling is a repo-wide change
 		if err != nil {
 			return err
 		}

@@ -26,7 +26,7 @@ import (
 type obj = map[string]interface{}
 
 func removeCRDValidation(filename string) {
-	data, err := os.ReadFile(filepath.Clean(filename))
+	data, err := os.ReadFile(filepath.Clean(filename)) //nolint:gosec // G703: path is a CLI argument to this build-time tool
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +48,7 @@ func removeCRDValidation(filename string) {
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile(filename, data, 0o600)
+	err = os.WriteFile(filename, data, 0o600) //nolint:gosec // G703: path is a CLI argument to this build-time tool
 	if err != nil {
 		panic(err)
 	}

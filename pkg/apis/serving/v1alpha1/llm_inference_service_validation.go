@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"k8s.io/utils/ptr"
 
@@ -69,27 +70,28 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	logger := log.FromContext(ctx)
 	logger.Info("Validating LLMInferenceService v1alpha1", "name", llmSvc.Name, "namespace", llmSvc.Namespace)
 
-	var allErrs field.ErrorList
-	var warnings admission.Warnings
-
-	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
-	allErrs = append(allErrs, l.validateTrafficFields(llmSvc)...)
-	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
-	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
-	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
-	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
-	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
-	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
-	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
-	allErrs = append(allErrs, kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())...)
-	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+	warnings := make(admission.Warnings, 0, len(confidentialWarnings))
 	warnings = append(warnings, confidentialWarnings...)
-	allErrs = append(allErrs, confidentialErrs...)
-	allErrs = append(allErrs, v1alpha2.ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
-	allErrs = append(allErrs, v1alpha2.ValidateRouteRuleNamingAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
-	allErrs = append(allErrs, kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
-	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+
+	allErrs := slices.Concat(
+		l.validateRouterCrossFieldConstraints(llmSvc),
+		l.validateTrafficFields(llmSvc),
+		l.validateParallelismConstraints(llmSvc),
+		l.validateSchedulerConfig(llmSvc),
+		l.validateWVAConfig(prev, llmSvc),
+		l.validateScaling(llmSvc),
+		l.validateKVCacheOffloading(llmSvc),
+		l.validateRolloutStrategy(llmSvc),
+		l.validateLoRAAdapters(llmSvc),
+		kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations()),
+		l.validateModelExpress(llmSvc),
+		confidentialErrs,
+		v1alpha2.ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations")),
+		v1alpha2.ValidateRouteRuleNamingAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations")),
+		kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations")),
+		l.validateImmutable(prev, llmSvc),
+	)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha1 is valid", "llmisvc", llmSvc)
