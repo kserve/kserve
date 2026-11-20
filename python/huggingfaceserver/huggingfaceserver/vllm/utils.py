@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from argparse import ArgumentParser
+import sys
 from typing import Any, AsyncIterator, Optional, Union
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -59,6 +60,32 @@ def maybe_add_vllm_cli_parser(parser: ArgumentParser) -> ArgumentParser:
     if not _vllm:
         return parser
     return make_arg_parser(parser)
+
+
+def cli_flag_given(names, argv=None) -> bool:
+    """Return True if any of the CLI flags in ``names`` appears in ``argv``.
+
+    ``-`` and ``_`` are treated alike, as vLLM's parser accepts both spellings.
+    """
+    argv = sys.argv[1:] if argv is None else argv
+    wanted = {name.replace("_", "-") for name in names}
+    for arg in argv:
+        flag = arg.split("=", 1)[0].replace("_", "-")
+        if flag in wanted:
+            return True
+    return False
+
+
+def resolve_tensor_parallel_size(
+    tensor_parallel_size: int,
+    pipeline_parallel_size: int,
+    device_count: int,
+    argv=None,
+) -> int:
+    """Keep an explicit --tensor-parallel-size; otherwise use the GPUs left per pipeline stage."""
+    if cli_flag_given(("--tensor-parallel-size", "-tp"), argv):
+        return tensor_parallel_size
+    return max(1, device_count // max(1, pipeline_parallel_size))
 
 
 def build_vllm_engine_args(args) -> "AsyncEngineArgs":
