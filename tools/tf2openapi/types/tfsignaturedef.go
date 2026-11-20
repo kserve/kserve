@@ -116,51 +116,51 @@ func canHaveRowSchema(t []TFTensor) bool {
 func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
 	return &openapi3.Schema{
-			Type: &openapi3.Types{openapi3.TypeObject},
-			Properties: map[string]*openapi3.SchemaRef{
-				"instances": rowSchema(t.Inputs).NewRef(),
-			},
-			Required: []string{"instances"},
-			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    ptr.To(false),
-				Schema: nil,
-			},
-		}, &openapi3.Schema{
-			Type: &openapi3.Types{openapi3.TypeObject},
-			Properties: map[string]*openapi3.SchemaRef{
-				"predictions": rowSchema(t.Outputs).NewRef(),
-			},
-			Required: []string{"predictions"},
-			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    ptr.To(false),
-				Schema: nil,
-			},
-		}
+		Type: &openapi3.Types{openapi3.TypeObject},
+		Properties: map[string]*openapi3.SchemaRef{
+			"instances": rowSchema(t.Inputs).NewRef(),
+		},
+		Required: []string{"instances"},
+		AdditionalProperties: openapi3.AdditionalProperties{
+			Has:    ptr.To(false),
+			Schema: nil,
+		},
+	}, &openapi3.Schema{
+		Type: &openapi3.Types{openapi3.TypeObject},
+		Properties: map[string]*openapi3.SchemaRef{
+			"predictions": rowSchema(t.Outputs).NewRef(),
+		},
+		Required: []string{"predictions"},
+		AdditionalProperties: openapi3.AdditionalProperties{
+			Has:    ptr.To(false),
+			Schema: nil,
+		},
+	}
 }
 
 func (t *TFSignatureDef) colFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
 	return &openapi3.Schema{
-			Type: &openapi3.Types{openapi3.TypeObject},
-			Properties: map[string]*openapi3.SchemaRef{
-				"inputs": colSchema(t.Inputs).NewRef(),
-			},
-			Required: []string{"inputs"},
-			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    ptr.To(false),
-				Schema: nil,
-			},
-		}, &openapi3.Schema{
-			Type: &openapi3.Types{openapi3.TypeObject},
-			Properties: map[string]*openapi3.SchemaRef{
-				"outputs": colSchema(t.Outputs).NewRef(),
-			},
-			Required: []string{"outputs"},
-			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    ptr.To(false),
-				Schema: nil,
-			},
-		}
+		Type: &openapi3.Types{openapi3.TypeObject},
+		Properties: map[string]*openapi3.SchemaRef{
+			"inputs": colSchema(t.Inputs).NewRef(),
+		},
+		Required: []string{"inputs"},
+		AdditionalProperties: openapi3.AdditionalProperties{
+			Has:    ptr.To(false),
+			Schema: nil,
+		},
+	}, &openapi3.Schema{
+		Type: &openapi3.Types{openapi3.TypeObject},
+		Properties: map[string]*openapi3.SchemaRef{
+			"outputs": colSchema(t.Outputs).NewRef(),
+		},
+		Required: []string{"outputs"},
+		AdditionalProperties: openapi3.AdditionalProperties{
+			Has:    ptr.To(false),
+			Schema: nil,
+		},
+	}
 }
 
 func rowSchema(t []TFTensor) *openapi3.Schema {

@@ -28,7 +28,7 @@ A Model/GPU kernel cache container packaging utility inspired by
 
 ### Requirements
 
-- Go 1.25.0 or later
+- Go 1.27.4 or later
 - GCC, if on OSx, make sure to install GNU GCC: `brew install gcc`. Plus it requires `CGO_ENABLED=1`
 
 ### Install dependencies
