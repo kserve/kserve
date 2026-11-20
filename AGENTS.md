@@ -75,6 +75,16 @@ envtest runs a real API server and etcd but NOT built-in controllers (Deployment
 
 ## Pull requests
 
+Before you open a PR, check that nobody else is already working on the same fix or feature. GitHub issues have no "in progress" state, so look for these signals:
+
+- Open PRs for the same change: `gh pr list --state open --search "<keywords>"`, plus `gh pr list --state open --search "<issue-number>"` for PRs that reference the issue
+- Assignees on the issue: `gh issue view <number> --json assignees`
+- Linked PRs and branches in the issue's "Development" section: `gh issue develop --list <number>`
+- Recent comments that claim the issue, for example "I'm working on this" or `/assign`: `gh issue view <number> --comments`
+- Other open issues that report the same problem: `gh issue list --state open --search "<keywords>"`
+
+If any of these show related work in progress, do not open a PR. Report what you found and let the user decide.
+
 Before you write a PR title or description, read `.github/PULL_REQUEST_TEMPLATE.md`. Its comments are the rules: follow them, then delete every one. `.github/PR_DESCRIPTION_EXAMPLES.md` shows the right size.
 
 ## Controller-Runtime Patterns
