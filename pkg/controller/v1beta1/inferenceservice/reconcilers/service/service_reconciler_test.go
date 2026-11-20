@@ -461,3 +461,47 @@ func TestCleanupOrphansWithMultiNode(t *testing.T) {
 	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-workers-1", Namespace: "default"}, &corev1.Service{})
 	assert.NoError(t, err)
 }
+
+func TestCreateDefaultSvcSelectsContainerPortByName(t *testing.T) {
+	targetPort := func(containers []corev1.Container) int32 {
+		podSpec := &corev1.PodSpec{Containers: containers}
+		svc := createDefaultSvc(metav1.ObjectMeta{Name: "isvc", Namespace: "default"},
+			&v1beta1.ComponentExtensionSpec{}, podSpec, emptyServiceConfig)
+		if len(svc.Spec.Ports) == 0 {
+			return -1
+		}
+		return svc.Spec.Ports[0].TargetPort.IntVal
+	}
+
+	predictor := corev1.Container{
+		Name:  constants.InferenceServiceContainerName,
+		Image: "predictor:0.1.0",
+		Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 8080, Protocol: corev1.ProtocolTCP}},
+	}
+	sidecar := corev1.Container{
+		Name:  "sidecar",
+		Image: "sidecar:0.1.0",
+		Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 9999, Protocol: corev1.ProtocolTCP}},
+	}
+	transformer := corev1.Container{
+		Name:  constants.TransformerContainerName,
+		Image: "transformer:0.1.0",
+		Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: 9090, Protocol: corev1.ProtocolTCP}},
+	}
+	runtimeContainer := corev1.Container{
+		Name:  "custom-runtime",
+		Image: "runtime:0.1.0",
+		Ports: []corev1.ContainerPort{{Name: "http1", ContainerPort: 7000, Protocol: corev1.ProtocolTCP}},
+	}
+
+	assert.Equal(t, int32(8080), targetPort([]corev1.Container{sidecar, predictor}),
+		"[sidecar, kserve-container]: Service must target the predictor port, not Containers[0]")
+	assert.Equal(t, int32(8080), targetPort([]corev1.Container{predictor, sidecar}),
+		"[kserve-container, sidecar]: unchanged")
+	assert.Equal(t, int32(9090), targetPort([]corev1.Container{predictor, transformer}),
+		"collocation: transformer-container keeps priority")
+	assert.Equal(t, int32(9090), targetPort([]corev1.Container{sidecar, predictor, transformer}),
+		"collocation with sidecar: transformer-container keeps priority")
+	assert.Equal(t, int32(7000), targetPort([]corev1.Container{runtimeContainer, sidecar}),
+		"no kserve-container in pod spec: index 0 fallback preserved")
+}

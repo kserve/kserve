@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -235,4 +237,40 @@ func TestAdjustStableMinReplicasForCanaries(t *testing.T) {
 			assert.Equal(t, tt.expectedStable, *componentExt.MinReplicas)
 		})
 	}
+}
+
+func TestBuildPredictorResourcesPreservesCustomPredictorSidecar(t *testing.T) {
+	scheme := runtime.NewScheme()
+	assert.NoError(t, v1beta1.AddToScheme(scheme))
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	p := NewPredictor(cl, nil, scheme, &v1beta1.InferenceServicesConfig{}, constants.Standard)
+
+	// Custom predictor whose kserve-container is not at index 0: the predictor
+	// container must be replaced by name, not forced over Containers[0].
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default"},
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{
+				PodSpec: v1beta1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar", Image: "sidecar:0.1.0"},
+						{Name: constants.InferenceServiceContainerName, Image: "predictor:0.1.0"},
+					},
+				},
+			},
+		},
+	}
+
+	res, err := p.(*Predictor).buildPredictorResources(context.Background(), isvc, false)
+	assert.NoError(t, err)
+
+	names := []string{}
+	images := []string{}
+	for _, c := range res.podSpec.Containers {
+		names = append(names, c.Name)
+		images = append(images, c.Image)
+	}
+	assert.Equal(t, []string{"sidecar", constants.InferenceServiceContainerName}, names,
+		"user sidecar must survive reconciliation; predictor replaced in place, not at index 0")
+	assert.Equal(t, []string{"sidecar:0.1.0", "predictor:0.1.0"}, images)
 }

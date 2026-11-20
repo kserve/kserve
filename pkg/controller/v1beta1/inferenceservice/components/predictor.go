@@ -142,7 +142,17 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 		if len(podSpec.Containers) == 0 {
 			podSpec.Containers = []corev1.Container{*predContainer}
 		} else {
-			podSpec.Containers[0] = *predContainer
+			replaced := false
+			for i := range podSpec.Containers {
+				if podSpec.Containers[i].Name == predContainer.Name {
+					podSpec.Containers[i] = *predContainer
+					replaced = true
+					break
+				}
+			}
+			if !replaced {
+				podSpec.Containers[0] = *predContainer
+			}
 		}
 	}
 
