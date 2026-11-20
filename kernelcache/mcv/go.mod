@@ -143,7 +143,7 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260414002931-afd174a4e478 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
-	google.golang.org/grpc v1.82.1 // indirect
+	google.golang.org/grpc v1.82.2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -152,3 +152,6 @@ require (
 	tags.cncf.io/container-device-interface v1.0.1 // indirect
 	tags.cncf.io/container-device-interface/specs-go v1.0.0 // indirect
 )
+
+// GHSA-2v4p-qf9q-27wj / CVE-2026-84445: pin grpc to a patched version
+replace google.golang.org/grpc => google.golang.org/grpc v1.82.2
