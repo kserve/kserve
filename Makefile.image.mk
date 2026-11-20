@@ -1,7 +1,8 @@
 # Container image build and push (engine set by ENGINE, default docker).
 
-# Build the docker image
-docker-build:
+##@ Images
+
+docker-build: ## Build $KO_DOCKER_REPO/kserve-controller:$TAG. Other images: docker-{build,push}-<name>.
 	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
 	@echo "updating kustomize image patch file for manager resource"
 

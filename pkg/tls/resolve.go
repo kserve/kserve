@@ -38,6 +38,13 @@ func Resolve(tlsMinVersion, tlsCipherSuites string) ([]func(*tls.Config), error)
 	if minVersion >= tls.VersionTLS13 && len(ciphers) > 0 {
 		return nil, errors.New("cipher suites cannot be configured with TLS 1.3 (Go manages TLS 1.3 ciphers internally)")
 	}
+	if minVersion < tls.VersionTLS13 {
+		for _, id := range ciphers {
+			if isTLS13CipherSuite(id) {
+				return nil, errors.New("cipher suites cannot include TLS 1.3 suites when the minimum version is below TLS 1.3 (Go applies CipherSuites only to TLS 1.2 and below)")
+			}
+		}
+	}
 
 	return []func(*tls.Config){
 		func(c *tls.Config) {
@@ -48,4 +55,11 @@ func Resolve(tlsMinVersion, tlsCipherSuites string) ([]func(*tls.Config), error)
 			c.NextProtos = []string{"h2", "http/1.1"}
 		},
 	}, nil
+}
+
+// isTLS13CipherSuite reports whether the cipher suite ID is one of the three
+// TLS 1.3 suites. Go ignores Config.CipherSuites for TLS 1.3 connections, so
+// those names are no-ops for a listener whose floor is below TLS 1.3.
+func isTLS13CipherSuite(id uint16) bool {
+	return id >= tls.TLS_AES_128_GCM_SHA256 && id <= tls.TLS_CHACHA20_POLY1305_SHA256
 }

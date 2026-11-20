@@ -20,8 +20,10 @@ import threading
 from socket import socket
 from typing import Any, Callable, List, Optional, Union
 
+from kserve import context as kserve_context
 from kserve import logging
 from kserve.logging import logger
+from kserve.predictor_config import PredictorConfig
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.protocol.rest.server import RESTServer
@@ -36,6 +38,7 @@ class RESTServerProcess:
         sockets: list[socket],
         target: Callable[[list[socket]], None],
         log_config_file: Optional[str] = None,
+        predictor_config: Optional[PredictorConfig] = None,
     ) -> None:
         self._real_target = target
         # Pipe is used to identify if the process is responsive.
@@ -44,6 +47,7 @@ class RESTServerProcess:
         self._parent_conn, self._child_conn = mp.Pipe()
         self._process = spawn.Process(target=self.target, args=[sockets])
         self._log_config_file = log_config_file
+        self._predictor_config = predictor_config
 
     def ping(self, timeout: float = 5) -> bool:
         self._parent_conn.send(b"ping")
@@ -71,6 +75,10 @@ class RESTServerProcess:
             )
         # Configure logging for every child
         logging.configure_logging(self._log_config_file)
+        # The predictor config is held in a context variable, which a spawned
+        # process does not inherit from the parent, so set it again here.
+        if self._predictor_config is not None:
+            kserve_context.set_predictor_config(self._predictor_config)
         threading.Thread(target=self.always_pong, daemon=True).start()
         try:
             return self._real_target(sockets=sockets)
@@ -151,16 +159,21 @@ class RESTServerMultiProcess:
             ssl_certfile=ssl_certfile,
             ssl_keyfile=ssl_keyfile,
         )
+        self.predictor_config = kserve_context.get_predictor_config()
         self._processes: List[RESTServerProcess] = []
         self.should_exit = asyncio.Event()
 
+    def _new_process(self, sockets: List[socket]) -> RESTServerProcess:
+        return RESTServerProcess(
+            sockets,
+            self._rest_server.run,
+            log_config_file=self.log_config_file,
+            predictor_config=self.predictor_config,
+        )
+
     def init_processes(self, sockets: List[socket]) -> None:
         for _ in range(self._rest_server.config.workers):
-            p = RESTServerProcess(
-                sockets,
-                self._rest_server.run,
-                log_config_file=self.log_config_file,
-            )
+            p = self._new_process(sockets)
             self._processes.append(p)
             p.start()
             logger.info("Started child process [%s]", p.pid)
@@ -191,10 +204,7 @@ class RESTServerMultiProcess:
                     return
 
                 logger.info("Child process [%s] died", process.pid)
-                process = RESTServerProcess(
-                    sockets,
-                    self._rest_server.run,
-                )
+                process = self._new_process(sockets)
                 process.start()
                 self._processes[idx] = process
                 logger.info("Started new child process [%s]", process.pid)

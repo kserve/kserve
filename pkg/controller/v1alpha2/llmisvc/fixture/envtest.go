@@ -18,7 +18,10 @@ package fixture
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -28,6 +31,7 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -39,11 +43,18 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// certificateKey is shared by every workload certificate the suite issues. RSA 4096
+// generation otherwise dominates the test process's CPU time, and no spec depends on
+// certificates having distinct keys.
+var certificateKey = sync.OnceValues(func() (*rsa.PrivateKey, error) {
+	return rsa.GenerateKey(rand.Reader, 4096)
+})
+
 func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	duration, err := time.ParseDuration(constants.GetEnvOrDefault("ENVTEST_DEFAULT_TIMEOUT", "30s"))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.SetDefaultEventuallyTimeout(duration)
-	gomega.SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+	gomega.SetDefaultEventuallyPollingInterval(50 * time.Millisecond)
 	gomega.EnforceDefaultTimeoutsWhenUsingContexts()
 
 	ginkgo.By("Setting up the test environment")
@@ -61,6 +72,11 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 			Config:        cfg,
 			Clientset:     clientSet,
 			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceController"}),
+
+			GenerateCertificateKey: certificateKey,
+			// Group members deleted together finalize after their peers release them;
+			// the default requeue would make every such spec wait it out.
+			FinalizationRequeueAfter: ptr.To(250 * time.Millisecond),
 		}
 		return llmCtrl.SetupWithManager(mgr)
 	}

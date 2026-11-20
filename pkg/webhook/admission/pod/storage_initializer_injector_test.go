@@ -594,6 +594,662 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 	}
 }
 
+func TestStorageInitializerCopiesIRSAConfiguration(t *testing.T) {
+	const serviceAccountName = "storage-initializer-irsa-test"
+
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountName,
+			Namespace: "default",
+			Annotations: map[string]string{
+				credentials.AwsIrsaAnnotationKey: "arn:aws:iam::123456789012:role/kserve-test",
+			},
+		},
+	}
+	_, err := clientset.CoreV1().ServiceAccounts("default").Create(t.Context(), serviceAccount, metav1.CreateOptions{})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = clientset.CoreV1().ServiceAccounts("default").Delete(t.Context(), serviceAccountName, metav1.DeleteOptions{})
+	})
+
+	// Simulate a pod that the AWS pod identity webhook already mutated:
+	// the serving container carries the IRSA env vars and the projected
+	// token mount, but the storage-initializer is added afterwards.
+	const tokenFile = "/var/run/secrets/eks.amazonaws.com/serviceaccount/token" // #nosec G101 -- test fixture path, not a credential.
+	const tokenMountPath = "/var/run/secrets/eks.amazonaws.com/serviceaccount"  // #nosec G101 -- test fixture path, not a credential.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://bucket/model",
+			},
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName: serviceAccountName,
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+					Env: []corev1.EnvVar{
+						{Name: irsaRoleArnEnv, Value: "arn:aws:iam::123456789012:role/kserve-test"},
+						{Name: irsaWebIdentityTokenFileEnv, Value: tokenFile},
+						{Name: irsaRegionEnv, Value: "us-west-2"},
+						{Name: irsaDefaultRegionEnv, Value: "us-west-2"},
+						{Name: irsaSTSRegionalEndpointsEnv, Value: "regional"},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{Name: "aws-iam-token", MountPath: tokenMountPath, ReadOnly: true},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "aws-iam-token",
+					VolumeSource: corev1.VolumeSource{
+						Projected: &corev1.ProjectedVolumeSource{
+							Sources: []corev1.VolumeProjection{{
+								ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+									Audience: "sts.amazonaws.com",
+									Path:     "token",
+								},
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+		config:            storageInitializerConfig,
+		client:            c,
+	}
+	require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod))
+	require.Len(t, pod.Spec.InitContainers, 1)
+
+	initContainer := pod.Spec.InitContainers[0]
+	for _, expected := range []corev1.EnvVar{
+		{Name: irsaRoleArnEnv, Value: "arn:aws:iam::123456789012:role/kserve-test"},
+		{Name: irsaWebIdentityTokenFileEnv, Value: tokenFile},
+		{Name: irsaRegionEnv, Value: "us-west-2"},
+		{Name: irsaDefaultRegionEnv, Value: "us-west-2"},
+		{Name: irsaSTSRegionalEndpointsEnv, Value: "regional"},
+	} {
+		assert.Contains(t, initContainer.Env, expected)
+	}
+	assert.Contains(t, initContainer.VolumeMounts, corev1.VolumeMount{
+		Name:      "aws-iam-token",
+		MountPath: tokenMountPath,
+		ReadOnly:  true,
+	})
+}
+
+func TestStorageInitializerIRSAConfigHonorsSkipContainers(t *testing.T) {
+	const tokenFile = "/var/run/secrets/eks.amazonaws.com/serviceaccount/token" // #nosec G101 -- test fixture path, not a credential.
+	const tokenMountPath = "/var/run/secrets/eks.amazonaws.com/serviceaccount"  // #nosec G101 -- test fixture path, not a credential.
+
+	scenarios := map[string]struct {
+		skipContainersAnnotation string
+		expectPropagation        bool
+	}{
+		"InitContainerListed": {
+			skipContainersAnnotation: "storage-initializer",
+			expectPropagation:        false,
+		},
+		"InitContainerListedAmongOthers": {
+			skipContainersAnnotation: "other-container,storage-initializer,transformer",
+			expectPropagation:        false,
+		},
+		"OtherContainersOnly": {
+			skipContainersAnnotation: "other-container",
+			expectPropagation:        true,
+		},
+		// The AWS pod identity webhook does not trim CSV fields, so a value
+		// with a space before the container name does not match and the
+		// webhook does not skip the container.
+		"NameWithLeadingSpaceDoesNotMatch": {
+			skipContainersAnnotation: "other-container, storage-initializer",
+			expectPropagation:        true,
+		},
+		// The AWS pod identity webhook treats an unparseable value as "skip
+		// no containers". KServe mirrors that behavior.
+		"MalformedValueSkipsNothing": {
+			skipContainersAnnotation: `"unclosed-quote`,
+			expectPropagation:        true,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://bucket/model",
+						awsSkipContainersAnnotation:                                scenario.skipContainersAnnotation,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: irsaRoleArnEnv, Value: "arn:aws:iam::123456789012:role/kserve-test"},
+								{Name: irsaWebIdentityTokenFileEnv, Value: tokenFile},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "aws-iam-token", MountPath: tokenMountPath, ReadOnly: true},
+							},
+						},
+					},
+				},
+			}
+
+			injector := &StorageInitializerInjector{
+				credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+				config:            storageInitializerConfig,
+				client:            c,
+			}
+			require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod))
+			require.Len(t, pod.Spec.InitContainers, 1)
+
+			initContainer := pod.Spec.InitContainers[0]
+			hasRoleArn := false
+			hasTokenMount := false
+			for _, env := range initContainer.Env {
+				if env.Name == irsaRoleArnEnv {
+					hasRoleArn = true
+				}
+			}
+			for _, mount := range initContainer.VolumeMounts {
+				if mount.Name == "aws-iam-token" {
+					hasTokenMount = true
+				}
+			}
+
+			assert.Equal(t, scenario.expectPropagation, hasRoleArn,
+				"IRSA env propagation must match the skip-containers expectation")
+			assert.Equal(t, scenario.expectPropagation, hasTokenMount,
+				"token mount propagation must match the skip-containers expectation")
+		})
+	}
+}
+
+// irsaTestTokenFile and irsaTestTokenMountPath are the canonical AWS web
+// identity token locations used by the direct propagateIRSAConfig tests.
+const irsaTestTokenFile = "/var/run/secrets/eks.amazonaws.com/serviceaccount/token" // #nosec G101 -- test fixture path, not a credential.
+
+func irsaTestSourceContainer() corev1.Container {
+	return corev1.Container{
+		Name: constants.InferenceServiceContainerName,
+		Env: []corev1.EnvVar{
+			{Name: irsaRoleArnEnv, Value: "arn:aws:iam::123456789012:role/kserve-test"},
+			{Name: irsaWebIdentityTokenFileEnv, Value: irsaTestTokenFile},
+			{Name: irsaRegionEnv, Value: "us-east-2"},
+			{Name: irsaDefaultRegionEnv, Value: "us-east-2"},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "aws-iam-token", MountPath: "/var/run/secrets/eks.amazonaws.com/serviceaccount", ReadOnly: true},
+		},
+	}
+}
+
+const (
+	podIdentityTestTokenMountPath = "/var/run/secrets/pods.eks.amazonaws.com/serviceaccount"  // #nosec G101 -- test fixture path, not a credential.
+	podIdentityTestTokenFile      = podIdentityTestTokenMountPath + "/eks-pod-identity-token" // #nosec G101 -- test fixture path, not a credential.
+	podIdentityTestCredentialsURI = "http://169.254.170.23/v1/credentials"                    // #nosec G101 -- test fixture value, not a credential.
+)
+
+func podIdentityTestSourceContainer() corev1.Container {
+	return corev1.Container{
+		Name: constants.InferenceServiceContainerName,
+		Env: []corev1.EnvVar{
+			{Name: podIdentityCredentialsFullURIEnv, Value: podIdentityTestCredentialsURI},
+			{Name: podIdentityAuthorizationTokenFileEnv, Value: podIdentityTestTokenFile},
+			{Name: irsaRegionEnv, Value: "us-east-2"},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "eks-pod-identity-token", MountPath: podIdentityTestTokenMountPath, ReadOnly: true},
+		},
+	}
+}
+
+func envValue(container *corev1.Container, name string) (string, bool) {
+	for i := range container.Env {
+		if container.Env[i].Name == name {
+			return container.Env[i].Value, true
+		}
+	}
+	return "", false
+}
+
+func mountAtPath(container *corev1.Container, mountPath string) bool {
+	for i := range container.VolumeMounts {
+		if container.VolumeMounts[i].MountPath == mountPath {
+			return true
+		}
+	}
+	return false
+}
+
+func TestPropagateIRSAConfigRegionPairIsAtomic(t *testing.T) {
+	// The storage configuration already set AWS_DEFAULT_REGION on the init
+	// container from the storage region annotation. The AWS pod identity
+	// webhook leaves both region variables alone when either is set, and the
+	// AWS SDKs give AWS_REGION precedence, so copying only AWS_REGION would
+	// set the region from two different sources.
+	initContainer := &corev1.Container{
+		Name: constants.StorageInitializerContainerName,
+		Env:  []corev1.EnvVar{{Name: irsaDefaultRegionEnv, Value: "eu-central-1"}},
+	}
+	podSpec := &corev1.PodSpec{Containers: []corev1.Container{irsaTestSourceContainer()}}
+
+	propagateIRSAConfig(podSpec, initContainer, nil)
+
+	if _, ok := envValue(initContainer, irsaRoleArnEnv); !ok {
+		t.Error("expected the role ARN to be copied")
+	}
+	if _, ok := envValue(initContainer, irsaWebIdentityTokenFileEnv); !ok {
+		t.Error("expected the token file env to be copied")
+	}
+	if value, ok := envValue(initContainer, irsaRegionEnv); ok {
+		t.Errorf("expected no AWS_REGION to be copied when the init container already defines a region, got %q", value)
+	}
+	if value, ok := envValue(initContainer, irsaDefaultRegionEnv); !ok || value != "eu-central-1" {
+		t.Errorf("expected the existing AWS_DEFAULT_REGION to be kept, got %q", value)
+	}
+
+	// Without a pre-existing region variable, both region variables are copied.
+	initContainer = &corev1.Container{Name: constants.StorageInitializerContainerName}
+	propagateIRSAConfig(podSpec, initContainer, nil)
+	if _, ok := envValue(initContainer, irsaRegionEnv); !ok {
+		t.Error("expected AWS_REGION to be copied when the init container defines no region")
+	}
+	if _, ok := envValue(initContainer, irsaDefaultRegionEnv); !ok {
+		t.Error("expected AWS_DEFAULT_REGION to be copied when the init container defines no region")
+	}
+}
+
+func TestPropagateIRSAConfigSelectsMostSpecificTokenMount(t *testing.T) {
+	tokenMountPath := "/var/run/secrets/eks.amazonaws.com/serviceaccount" // #nosec G101 -- test fixture path, not a credential.
+
+	// A serving container can carry other mounts at ancestor paths, for
+	// example a secret mounted at /var/run/secrets. The projected token
+	// mount at the token file's directory is the more specific mount and
+	// must be the one copied.
+	source := irsaTestSourceContainer()
+	source.VolumeMounts = []corev1.VolumeMount{
+		{Name: "other-secret", MountPath: "/var/run/secrets", ReadOnly: true},
+		{Name: "aws-iam-token", MountPath: tokenMountPath, ReadOnly: true},
+	}
+	initContainer := &corev1.Container{Name: constants.StorageInitializerContainerName}
+
+	propagateIRSAConfig(&corev1.PodSpec{Containers: []corev1.Container{source}}, initContainer, nil)
+
+	if !mountAtPath(initContainer, tokenMountPath) {
+		t.Error("expected the token mount at the token file's directory to be copied")
+	}
+	if mountAtPath(initContainer, "/var/run/secrets") {
+		t.Error("expected the ancestor mount not to be copied when the exact token mount exists")
+	}
+
+	// When only an ancestor mount covers the token file, for example a
+	// user-managed volume, that mount is the one copied.
+	source = irsaTestSourceContainer()
+	source.VolumeMounts = []corev1.VolumeMount{
+		{Name: "user-volume", MountPath: "/var/run/secrets", ReadOnly: true},
+	}
+	initContainer = &corev1.Container{Name: constants.StorageInitializerContainerName}
+
+	propagateIRSAConfig(&corev1.PodSpec{Containers: []corev1.Container{source}}, initContainer, nil)
+
+	if !mountAtPath(initContainer, "/var/run/secrets") {
+		t.Error("expected the covering ancestor mount to be copied when no exact token mount exists")
+	}
+}
+
+func TestPropagateIRSAConfigAddsCanonicalMountOnNameCollision(t *testing.T) {
+	tokenMountPath := "/var/run/secrets/eks.amazonaws.com/serviceaccount" // #nosec G101 -- test fixture path, not a credential.
+
+	// The init container already mounts a volume named aws-iam-token at a
+	// different path. Deduplication is by path, not by volume name: the same
+	// volume may be mounted twice, and the environment still points at the
+	// canonical token path.
+	initContainer := &corev1.Container{
+		Name: constants.StorageInitializerContainerName,
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "aws-iam-token", MountPath: "/custom/token-dir", ReadOnly: true},
+		},
+	}
+	podSpec := &corev1.PodSpec{Containers: []corev1.Container{irsaTestSourceContainer()}}
+
+	propagateIRSAConfig(podSpec, initContainer, nil)
+
+	if !mountAtPath(initContainer, tokenMountPath) {
+		t.Error("expected the canonical token mount to be added despite the name collision at another path")
+	}
+	if !mountAtPath(initContainer, "/custom/token-dir") {
+		t.Error("expected the pre-existing mount to be kept")
+	}
+}
+
+func TestPropagateIRSAConfigReusesPreexistingTokenMount(t *testing.T) {
+	tokenMountPath := "/var/run/secrets/eks.amazonaws.com/serviceaccount" // #nosec G101 -- test fixture path, not a credential.
+
+	// A custom storage-initializer patch can pre-mount the token volume at
+	// the canonical path without the IRSA environment variables. That mount
+	// already exposes the token file exactly as on the source container, so
+	// the environment must be copied and the mount must not be appended a
+	// second time.
+	initContainer := &corev1.Container{
+		Name: constants.StorageInitializerContainerName,
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "aws-iam-token", MountPath: tokenMountPath, ReadOnly: true},
+		},
+	}
+	podSpec := &corev1.PodSpec{Containers: []corev1.Container{irsaTestSourceContainer()}}
+
+	propagateIRSAConfig(podSpec, initContainer, nil)
+
+	if _, ok := envValue(initContainer, irsaRoleArnEnv); !ok {
+		t.Error("expected the role ARN to be copied when the init container already mounts the token volume")
+	}
+	if value, ok := envValue(initContainer, irsaWebIdentityTokenFileEnv); !ok || value != irsaTestTokenFile {
+		t.Errorf("expected the token file env to be copied when the init container already mounts the token volume, got %q", value)
+	}
+	if _, ok := envValue(initContainer, irsaRegionEnv); !ok {
+		t.Error("expected AWS_REGION to be copied when the init container already mounts the token volume")
+	}
+	if _, ok := envValue(initContainer, irsaDefaultRegionEnv); !ok {
+		t.Error("expected AWS_DEFAULT_REGION to be copied when the init container already mounts the token volume")
+	}
+
+	mountsAtTokenPath := 0
+	for i := range initContainer.VolumeMounts {
+		if initContainer.VolumeMounts[i].MountPath == tokenMountPath {
+			mountsAtTokenPath++
+		}
+	}
+	if mountsAtTokenPath != 1 {
+		t.Errorf("expected the pre-existing token mount to be reused without a duplicate, got %d mounts at %s", mountsAtTokenPath, tokenMountPath)
+	}
+}
+
+func TestPropagateIRSAConfigSkipsEnvWithoutReadableToken(t *testing.T) {
+	tokenMountPath := "/var/run/secrets/eks.amazonaws.com/serviceaccount" // #nosec G101 -- test fixture path, not a credential.
+
+	// The source container carries the IRSA environment, but the init
+	// container cannot receive a mount that exposes the token file: no
+	// source mount covers the token file, another volume already occupies
+	// the mount path, or the token volume is mounted under a different sub
+	// path. Copying the environment alone would name a token file the SDK
+	// cannot read.
+	sourceWithoutMount := irsaTestSourceContainer()
+	sourceWithoutMount.VolumeMounts = nil
+
+	scenarios := map[string]struct {
+		source        corev1.Container
+		initContainer *corev1.Container
+	}{
+		"NoSourceMountCoversTheTokenFile": {
+			source: sourceWithoutMount,
+			initContainer: &corev1.Container{
+				Name: constants.StorageInitializerContainerName,
+			},
+		},
+		"TokenMountPathAlreadyOccupied": {
+			source: irsaTestSourceContainer(),
+			initContainer: &corev1.Container{
+				Name: constants.StorageInitializerContainerName,
+				VolumeMounts: []corev1.VolumeMount{
+					{Name: "other-volume", MountPath: tokenMountPath, ReadOnly: true},
+				},
+			},
+		},
+		// The same token volume mounted at the same path but under a
+		// different sub path exposes a different part of the volume, so the
+		// token file is not at the path the environment names.
+		"SameVolumeMountedWithDifferentSubPath": {
+			source: irsaTestSourceContainer(),
+			initContainer: &corev1.Container{
+				Name: constants.StorageInitializerContainerName,
+				VolumeMounts: []corev1.VolumeMount{
+					{Name: "aws-iam-token", MountPath: tokenMountPath, SubPath: "other", ReadOnly: true},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			originalMountCount := len(scenario.initContainer.VolumeMounts)
+			propagateIRSAConfig(&corev1.PodSpec{Containers: []corev1.Container{scenario.source}}, scenario.initContainer, nil)
+
+			for _, env := range scenario.initContainer.Env {
+				assert.NotContains(t, irsaEnvNames, env.Name)
+			}
+			assert.Len(t, scenario.initContainer.VolumeMounts, originalMountCount,
+				"no mount must be added when the token file cannot be exposed")
+		})
+	}
+}
+
+func TestPropagateIRSAConfigEKSPodIdentity(t *testing.T) {
+	// Clusters that use EKS Pod Identity instead of IRSA have the same
+	// admission-ordering gap: the EKS Pod Identity webhook sets the container
+	// credentials pair on the serving container, and the init container
+	// added afterwards would have no credentials. The pair and the mount of
+	// its authorization token file must be copied like the web identity pair.
+	initContainer := &corev1.Container{Name: constants.StorageInitializerContainerName}
+	podSpec := &corev1.PodSpec{Containers: []corev1.Container{podIdentityTestSourceContainer()}}
+
+	propagateIRSAConfig(podSpec, initContainer, nil)
+
+	if value, ok := envValue(initContainer, podIdentityCredentialsFullURIEnv); !ok || value != podIdentityTestCredentialsURI {
+		t.Errorf("expected the EKS Pod Identity credentials URI to be copied, got %q", value)
+	}
+	if value, ok := envValue(initContainer, podIdentityAuthorizationTokenFileEnv); !ok || value != podIdentityTestTokenFile {
+		t.Errorf("expected the EKS Pod Identity authorization token file to be copied, got %q", value)
+	}
+	if !mountAtPath(initContainer, podIdentityTestTokenMountPath) {
+		t.Error("expected the EKS Pod Identity token mount to be copied")
+	}
+	for _, env := range initContainer.Env {
+		if env.Name == irsaRoleArnEnv || env.Name == irsaWebIdentityTokenFileEnv {
+			t.Errorf("expected no web identity variables to be copied when the source carries none, got %s", env.Name)
+		}
+	}
+}
+
+func TestPropagateIRSAConfigWebIdentityMountPreferred(t *testing.T) {
+	// When a container carries both credential mechanisms, the AWS SDK
+	// credential chain resolves the web identity pair first (boto3 checks
+	// assume-role-with-web-identity before container credentials), so the
+	// mount that must be copied is the one that exposes the web identity
+	// token file. Copying the EKS Pod Identity mount instead would leave the
+	// mechanism in use without its token.
+	source := irsaTestSourceContainer()
+	source.Env = append(source.Env,
+		corev1.EnvVar{Name: podIdentityCredentialsFullURIEnv, Value: podIdentityTestCredentialsURI},
+		corev1.EnvVar{Name: podIdentityAuthorizationTokenFileEnv, Value: podIdentityTestTokenFile},
+	)
+	source.VolumeMounts = append(source.VolumeMounts, corev1.VolumeMount{
+		Name: "eks-pod-identity-token", MountPath: podIdentityTestTokenMountPath, ReadOnly: true,
+	})
+	initContainer := &corev1.Container{Name: constants.StorageInitializerContainerName}
+
+	propagateIRSAConfig(&corev1.PodSpec{Containers: []corev1.Container{source}}, initContainer, nil)
+
+	if !mountAtPath(initContainer, "/var/run/secrets/eks.amazonaws.com/serviceaccount") {
+		t.Error("expected the web identity token mount to be copied when both mechanisms are configured")
+	}
+	if mountAtPath(initContainer, podIdentityTestTokenMountPath) {
+		t.Error("expected the EKS Pod Identity token mount not to be copied when both mechanisms are configured")
+	}
+	assert.Len(t, initContainer.VolumeMounts, 1,
+		"only the mount of the token file of the credentials mechanism in use must be copied")
+}
+
+func TestPropagateIRSAConfigCopiesEndpointOverrides(t *testing.T) {
+	// The AWS_ENDPOINT_URL* overrides are user-set on the serving container,
+	// for example to route S3 and STS traffic through VPC endpoints. The
+	// storage-initializer's SDK clients must resolve the same endpoints, or
+	// the model download fails on clusters whose only path to AWS is the
+	// override.
+	source := irsaTestSourceContainer()
+	source.Env = append(source.Env,
+		corev1.EnvVar{Name: awsEndpointURLEnv, Value: "https://aws-endpoint.example.com"},
+		corev1.EnvVar{Name: awsEndpointURLSTSEnv, Value: "https://sts-endpoint.example.com"},
+		corev1.EnvVar{Name: awsEndpointURLS3Env, Value: "https://s3-endpoint.example.com"},
+	)
+	initContainer := &corev1.Container{Name: constants.StorageInitializerContainerName}
+
+	propagateIRSAConfig(&corev1.PodSpec{Containers: []corev1.Container{source}}, initContainer, nil)
+
+	for name, want := range map[string]string{
+		awsEndpointURLEnv:    "https://aws-endpoint.example.com",
+		awsEndpointURLSTSEnv: "https://sts-endpoint.example.com",
+		awsEndpointURLS3Env:  "https://s3-endpoint.example.com",
+	} {
+		if value, ok := envValue(initContainer, name); !ok || value != want {
+			t.Errorf("expected %s to be copied with value %q, got %q (present: %t)", name, want, value, ok)
+		}
+	}
+}
+
+func TestPropagateIRSAConfigCopiesFIPSEndpointSetting(t *testing.T) {
+	// AWS_USE_FIPS_ENDPOINT is a user-set compliance flag that makes AWS SDK
+	// clients use FIPS endpoints. It must reach the storage-initializer so
+	// the model download follows the same compliance posture as the serving
+	// container instead of silently using standard endpoints. Where AWS
+	// offers no FIPS endpoints for a service, the SDK fails to connect
+	// rather than falls back, and the AWS_ENDPOINT_URL* overrides give
+	// workloads a per-service opt-out.
+	source := irsaTestSourceContainer()
+	source.Env = append(source.Env,
+		corev1.EnvVar{Name: awsUseFIPSEndpointEnv, Value: "true"},
+	)
+	initContainer := &corev1.Container{Name: constants.StorageInitializerContainerName}
+
+	propagateIRSAConfig(&corev1.PodSpec{Containers: []corev1.Container{source}}, initContainer, nil)
+
+	if value, ok := envValue(initContainer, awsUseFIPSEndpointEnv); !ok || value != "true" {
+		t.Errorf("expected %s to be copied with value %q, got %q (present: %t)", awsUseFIPSEndpointEnv, "true", value, ok)
+	}
+}
+
+func TestPropagateIRSAConfigPreservesProjectedTokenVolume(t *testing.T) {
+	tokenMountPath := "/var/run/secrets/eks.amazonaws.com/serviceaccount" // #nosec G101 -- test fixture path, not a credential.
+
+	// The token volume is a projected service-account-token volume whose
+	// audience the identity webhook derives from the ServiceAccount
+	// annotation, so it can be any non-default audience. The propagation
+	// copies the mount reference onto the init container; it must never
+	// rewrite the pod-level volume, whose projected sources carry the
+	// audience the cluster's identity webhook chose.
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{irsaTestSourceContainer()},
+		Volumes: []corev1.Volume{
+			{
+				Name: "aws-iam-token",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: []corev1.VolumeProjection{
+							{
+								ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+									Path:     "token",
+									Audience: "custom-audience",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	initContainer := &corev1.Container{
+		Name: constants.StorageInitializerContainerName,
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "aws-iam-token", MountPath: tokenMountPath, ReadOnly: true},
+		},
+	}
+
+	propagateIRSAConfig(podSpec, initContainer, nil)
+
+	if _, ok := envValue(initContainer, irsaRoleArnEnv); !ok {
+		t.Error("expected the role ARN to be copied when the init container already mounts the token volume")
+	}
+	mountsAtTokenPath := 0
+	for i := range initContainer.VolumeMounts {
+		if initContainer.VolumeMounts[i].MountPath == tokenMountPath {
+			mountsAtTokenPath++
+		}
+	}
+	if mountsAtTokenPath != 1 {
+		t.Errorf("expected the pre-existing token mount to be reused without a duplicate, got %d mounts at %s", mountsAtTokenPath, tokenMountPath)
+	}
+
+	// The pod-level volume keeps its projected source with the original
+	// audience: recreating the volume from a template would drop the
+	// audience the cluster's identity webhook requested.
+	if len(podSpec.Volumes) != 1 {
+		t.Fatalf("expected the pod to keep exactly one volume, got %d", len(podSpec.Volumes))
+	}
+	volume := podSpec.Volumes[0]
+	if volume.Name != "aws-iam-token" {
+		t.Errorf("expected the token volume to keep its name, got %q", volume.Name)
+	}
+	if volume.Projected == nil || len(volume.Projected.Sources) != 1 || volume.Projected.Sources[0].ServiceAccountToken == nil {
+		t.Fatalf("expected the token volume to keep its projected service-account-token source")
+	}
+	projection := volume.Projected.Sources[0].ServiceAccountToken
+	if projection.Audience != "custom-audience" {
+		t.Errorf("expected the projected token audience to be preserved, got %q", projection.Audience)
+	}
+	if projection.Path != "token" {
+		t.Errorf("expected the projected token path to be preserved, got %q", projection.Path)
+	}
+}
+
+func TestStorageInitializerIRSAConfigNoOpWithoutSource(t *testing.T) {
+	// No serving container carries the IRSA environment, so KServe must not
+	// add IRSA credentials or the token mount to the init container.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://bucket/model",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+					Env: []corev1.EnvVar{
+						{Name: "CUSTOM_ENV", Value: "custom-value"},
+					},
+				},
+			},
+		},
+	}
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+		config:            storageInitializerConfig,
+		client:            c,
+	}
+	require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod))
+	require.Len(t, pod.Spec.InitContainers, 1)
+
+	initContainer := pod.Spec.InitContainers[0]
+	for _, env := range initContainer.Env {
+		assert.NotContains(t, irsaEnvNames, env.Name)
+	}
+	for _, mount := range initContainer.VolumeMounts {
+		assert.NotEqual(t, "aws-iam-token", mount.Name)
+	}
+}
+
 func TestCustomSpecStorageUriInjection(t *testing.T) {
 	scenarios := map[string]struct {
 		original                      *corev1.Pod

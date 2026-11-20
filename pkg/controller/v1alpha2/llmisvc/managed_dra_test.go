@@ -226,6 +226,24 @@ func TestTargetContainerForDRA(t *testing.T) {
 			expected:   0,
 		},
 		{
+			name: "no annotation skips the reserved PVC evictor",
+			containers: []corev1.Container{
+				{Name: pvcEvictorTemplateName},
+				{Name: "main"},
+			},
+			annotation: nil,
+			expected:   1,
+		},
+		{
+			name: "empty annotation skips the reserved PVC evictor",
+			containers: []corev1.Container{
+				{Name: pvcEvictorTemplateName},
+				{Name: "main"},
+			},
+			annotation: ptr.To(""),
+			expected:   1,
+		},
+		{
 			name:       "empty annotation value falls back to first container",
 			containers: []corev1.Container{{Name: "main"}, {Name: "sidecar"}},
 			annotation: ptr.To(""),
@@ -265,6 +283,15 @@ func TestTargetContainerForDRA(t *testing.T) {
 			name:       "annotation names a container that does not exist -> -1",
 			containers: []corev1.Container{{Name: "main"}, {Name: "sidecar"}},
 			annotation: ptr.To("ghost"),
+			expected:   -1,
+		},
+		{
+			name: "annotation names the reserved PVC evictor -> -1",
+			containers: []corev1.Container{
+				{Name: pvcEvictorTemplateName},
+				{Name: "main"},
+			},
+			annotation: ptr.To(pvcEvictorTemplateName),
 			expected:   -1,
 		},
 		{

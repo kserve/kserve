@@ -103,6 +103,9 @@ kserve:
     mcvTag: ''
     prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
     prefetchTag: ''
+    runtimeImagePrefetch:
+      enabled: false
+      jobTTLSecondsAfterFinished: 86400
     registry:
       endpoint: ''
       caConfigMapRef:

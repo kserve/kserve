@@ -29,6 +29,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.containerSecurityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.controller.deploymentMode | string | `"Knative"` |  |
+| kserve.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
 | kserve.controller.gateway.disableHTTPRouteTimeout | bool | `false` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
@@ -45,6 +46,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
 | kserve.controller.gateway.loraModelRoutingStrategy | string | `"exact"` |  |
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
+| kserve.controller.gateway.routeRuleNaming | string | `"preset"` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
 | kserve.controller.imagePullPolicy | string | `"Always"` |  |
@@ -111,6 +113,8 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.kernelcache.registry.caConfigMapRef.key | string | `""` |  |
 | kserve.kernelcache.registry.caConfigMapRef.name | string | `""` |  |
 | kserve.kernelcache.registry.endpoint | string | `""` |  |
+| kserve.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
+| kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |

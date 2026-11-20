@@ -82,7 +82,7 @@ KServe's python client interacts with KServe control plane APIs for executing op
 
 ### Documentation for Client API
 
-Please review [KServe Client API](https://github.com/kserve/website/blob/main/docs/sdk_docs/docs/KServeClient.md) docs.
+Please review [KServe Client API](https://github.com/kserve/website/blob/main/docs/reference/python-runtime-sdk/python-runtime-sdk-api.md) docs.
 
 ## Documentation For Models
 

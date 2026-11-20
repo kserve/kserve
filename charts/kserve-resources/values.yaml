@@ -103,6 +103,9 @@ kserve:
     mcvTag: ''
     prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
     prefetchTag: ''
+    runtimeImagePrefetch:
+      enabled: false
+      jobTTLSecondsAfterFinished: 86400
     registry:
       endpoint: ''
       caConfigMapRef:
@@ -190,6 +193,8 @@ kserve:
       runAsNonRoot: true
     metricsBindAddress: 127.0.0.1
     metricsBindPort: '8080'
+    # -- Additional container arguments. Example: ["--log-format=otel-json"].
+    extraArgs: []
     gateway:
       domain: example.com
       additionalIngressDomains: []
@@ -200,6 +205,7 @@ kserve:
       disableIngressCreation: false
       disableHTTPRouteTimeout: false
       loraModelRoutingStrategy: exact
+      routeRuleNaming: preset
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local

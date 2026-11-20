@@ -46,11 +46,11 @@ import (
 // InferencePool. Non-omni services must have the modality rules stripped so
 // they keep the Gateway API rule and match headroom LoRA expansion needs.
 func createOmniTestService(ctx SpecContext, svcName string, testNs *TestNamespace) *v1alpha2.LLMInferenceService {
-	// Scheduler template at llm-d-router >= 0.11.0 so the controller injects
+	// Scheduler template at llm-d-router >= 1.0.0 so the controller injects
 	// the EPPConfig preset instead of the legacy hardcoded config text.
 	schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
 		InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-		WithConfigSchedulerTemplate("0.11.0"),
+		WithConfigSchedulerTemplate("1.0.0"),
 	)
 	Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
 
@@ -63,7 +63,7 @@ func createOmniTestService(ctx SpecContext, svcName string, testNs *TestNamespac
 	)
 	llmSvc.Spec.Runtime = ptr.To(llmisvc.OmniServingRuntimeName)
 
-	// The 0.11.0 scheduler-template override above shadows the shared
+	// The 1.0.0 scheduler-template override above shadows the shared
 	// kserve-config-llm-scheduler preset, which normally contributes the pool
 	// spec. Carry an equivalent pool spec on the service (highest precedence)
 	// so the managed InferencePool validates; pool content is incidental to
@@ -134,6 +134,7 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected preset config in scheduler deployment")
+				g.Expect(configText).To(MatchRegexp(`(?m)^apiVersion: llm-d\.ai/v1$`))
 
 				pluginTypes, err := pluginTypesFromConfig(configText)
 				g.Expect(err).NotTo(HaveOccurred())

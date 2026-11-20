@@ -60,6 +60,10 @@ jobs:
           # source .venv/bin/activate
           # pip install --upgrade pip
         
+      # Only the root venv is cached. The per-package venvs below are rebuilt
+      # every run: one run of this matrix saved ~57GB of them against the
+      # repo's 10GB Actions cache quota, so they evicted each other (1 hit in
+      # 175 lookups) along with every other cache in the repo.
       - name: Load uv cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cached-uv
@@ -76,16 +80,7 @@ jobs:
           fi
 
       # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
-      # load cached kserve venv if cache exists
-      - name: Load cached kserve venv
-        id: cached-kserve-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: python/kserve/.venv
-          key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock') }}
-      # install kserve dependencies if cache does not exist
       - name: Install kserve dependencies
-        if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/kserve
           make install_dependencies
@@ -116,16 +111,8 @@ jobs:
           cd python/kserve-numpy-1-x
           # update the lock file without installing dependencies
           uv pip install "numpy<2.0"
-      - name: Load cached kserve numpy 1-x venv
-        id: cached-kserve-numpy-1-x-dependencies
-        if: matrix.python-version != '3.13'
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: python/kserve-numpy-1-x/.venv
-          key: kserve-numpy-1-x-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-numpy-1-x/uv.lock') }}
-      # install kserve numpy 1-x dependencies if cache does not exist
       - name: Install kserve numpy 1-x dependencies
-        if: ${{ matrix.python-version != '3.13' && steps.cached-kserve-numpy-1-x-dependencies.outputs.cache-hit != 'true' }}
+        if: matrix.python-version != '3.13'
         run: |
           cd python/kserve-numpy-1-x
           make install_dependencies
@@ -147,16 +134,7 @@ jobs:
           pytest --cov=kserve --junitxml=/tmp/junit_unit_kserve-numpy-1-x.xml ./kserve-numpy-1-x
 
       # ----------------------------------------Sklearn Server Unit Tests------------------------------------------------
-      # load cached sklearn venv if cache exists
-      - name: Load cached sklearn venv
-        id: cached-sklearn-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: python/sklearnserver/.venv
-          key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/sklearnserver/uv.lock') }}
-        # install sklearn server dependencies if cache does not exist
       - name: Install sklearn dependencies
-        if: steps.cached-sklearn-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/sklearnserver
           make install_dependencies
@@ -171,16 +149,7 @@ jobs:
           pytest --cov=sklearnserver --junitxml=/tmp/junit_unit_sklearnserver.xml ./sklearnserver
 
       # ----------------------------------------Xgb Server Unit Tests------------------------------------------------
-      # load cached xgb venv if cache exists
-      - name: Load cached xgb venv
-        id: cached-xgb-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: python/xgbserver/.venv
-          key: xgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/xgbserver/uv.lock') }}
-        # install xgb server dependencies if cache does not exist
       - name: Install xgb dependencies
-        if: steps.cached-xgb-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/xgbserver
           make install_dependencies
@@ -195,14 +164,7 @@ jobs:
           pytest --cov=xgbserver --junitxml=/tmp/junit_unit_xgbserver.xml ./xgbserver
 
       # ----------------------------------------AutoGluon Server Unit Tests---------------------------------------------
-      - name: Load cached autogluon venv
-        id: cached-autogluon-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: python/autogluonserver/.venv
-          key: autogluon-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/autogluonserver/uv.lock', '**/autogluonserver/pyproject.toml') }}
       - name: Install autogluon dependencies
-        if: steps.cached-autogluon-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/autogluonserver
           make install_dependencies
@@ -217,16 +179,7 @@ jobs:
           pytest --cov=autogluonserver ./autogluonserver
 
       # ----------------------------------------Pmml Server Unit Tests------------------------------------------------
-      # load cached pmml venv if cache exists
-      - name: Load cached pmml venv
-        id: cached-pmml-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: python/pmmlserver/.venv
-          key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/pmmlserver/uv.lock') }}
-        # install pmml server dependencies if cache does not exist
       - name: Install pmml dependencies
-        if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/pmmlserver
           make install_dependencies
@@ -241,16 +194,7 @@ jobs:
           pytest --cov=pmmlserver --junitxml=/tmp/junit_unit_pmmlserver.xml ./pmmlserver
 
       # ----------------------------------------Lgb Server Unit Tests------------------------------------------------
-      # load cached lgb venv if cache exists
-      - name: Load cached lgb venv
-        id: cached-lgb-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: python/lgbserver/.venv
-          key: lgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/lgbserver/uv.lock') }}
-        # install lgb server dependencies if cache does not exist
       - name: Install lgb dependencies
-        if: steps.cached-lgb-dependencies.outputs.cache-hit != 'true'
         run: |
           cd python/lgbserver
           make install_dependencies
@@ -265,16 +209,7 @@ jobs:
           pytest --cov=lgbserver --junitxml=/tmp/junit_unit_lgbserver.xml ./lgbserver
 
       # ----------------------------------------Paddle Server Unit Tests------------------------------------------------
-      # load cached paddle venv if cache exists
-      - name: Load cached paddle venv
-        id: cached-paddle-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: python/paddleserver/.venv
-          key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/paddleserver/uv.lock') }}
-
       - name: Install paddle dependencies
-        if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
           echo "python version ${{ steps.setup-python.outputs.python-version }}"
           cd python/paddleserver
@@ -290,14 +225,6 @@ jobs:
           pytest --cov=paddleserver --junitxml=/tmp/junit_unit_paddleserver.xml ./paddleserver
 
       # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------
-      # load cached huggingface cpu venv if cache exists
-      - name: Load cached huggingface cpu venv
-        id: huggingface-cpu-dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: /mnt/python/huggingfaceserver-cpu-venv
-          key: huggingface-cpu-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/huggingfaceserver/uv.lock') }}
-      
       - name: Setup Python environment
         run: |
           sudo mkdir -p /mnt/python/huggingfaceserver-cpu-venv

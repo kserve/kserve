@@ -45,7 +45,9 @@ _LLMISVC_CORE_EXCLUDED = {
     "test_llm_lora_regex_routing.py",
     "test_llm_inference_service_config_deletion.py",
     "test_llm_canary_lifecycle.py",
+    "test_llm_shared_gateway_epp.py",
     "test_llm_modelexpress.py",
+    "test_llm_disaggregated_set.py",
 }
 
 
@@ -80,6 +82,9 @@ def _auto_assign_group_markers(items):
     * ``test_llm_lora_regex_routing.py`` -> skipped from ``llmisvc_core`` (has
       its own ``lora_routing`` marker and CI job; three vLLM cold starts do not
       fit in what the core job has left).
+    * ``test_llm_disaggregated_set.py`` -> skipped from ``llmisvc_core`` (has
+      its own ``llmisvc_disaggregated_set`` marker and CI job, which enables
+      the cluster-wide ``disaggregatedSet`` feature gate).
     * Everything else -> ``llmisvc_core``.
     """
     for item in items:
@@ -121,7 +126,7 @@ def pytest_configure(config):
         )
     config.addinivalue_line(
         "markers",
-        "traffic: continuous traffic test (uses TrafficDriver)",
+        "traffic: traffic routing test, selected by the Istio e2e job",
     )
     config.addinivalue_line(
         "markers",

@@ -1,6 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
+  # Prometheus scrape target for llmisvc-controller metrics. Webhooks use
+  # llmisvc-webhook-server-service instead.
+  annotations:
+    prometheus.io/port: "8443"
+    prometheus.io/scheme: https
+    prometheus.io/scrape: "true"
   name: llmisvc-controller-manager-service
   namespace: kserve
   labels:

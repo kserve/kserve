@@ -67,7 +67,10 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcache.registry.caConfigMapRef.key | string | `""` |  |
 | kserve.kernelcache.registry.caConfigMapRef.name | string | `""` |  |
 | kserve.kernelcache.registry.endpoint | string | `""` |  |
+| kserve.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
+| kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
 | kserve.kernelcachenode.controller.affinity | object | `{}` |  |
+| kserve.kernelcachenode.controller.extraArgs | list | `[]` | Additional container arguments. |
 | kserve.kernelcachenode.controller.image | string | `"kserve/kserve-kernelcachenode-agent"` |  |
 | kserve.kernelcachenode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.kernelcachenode.controller.resources.limits.cpu | string | `"100m"` |  |
@@ -85,6 +88,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
 | kserve.localmodel.agent.tag | string | `""` |  |
 | kserve.localmodel.agent.tolerations | list | `[]` |  |
+| kserve.localmodel.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.localmodel.controller.resources.limits.cpu | string | `"100m"` |  |
@@ -101,6 +105,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
 | kserve.localmodel.sharedPVCImportFSGroup | int | `1000` | fsGroup for shared-PVC import Jobs, which run in the cache's namespace. Independent of securityContext.fsGroup (per-node download Jobs). Set to null to omit it and let namespace admission (e.g. an OpenShift SCC) assign the group. |
 | kserve.localmodelnode.controller.affinity | object | `{}` |  |
+| kserve.localmodelnode.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | kserve.localmodelnode.controller.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.localmodelnode.controller.nodeSelector.kserve/localmodel | string | `"worker"` |  |
