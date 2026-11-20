@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gzip
 import io
 import json
 import os
@@ -568,6 +569,42 @@ def test_http_uri_paths(uri, response, expected_error):
                 assert os.path.exists(os.path.join(out_dir, "model.pth"))
 
     mock.patch("requests.Session.get", return_value=response)(test)()
+
+
+@pytest.mark.parametrize(
+    "uri,expected_file",
+    [
+        ("https://foo.bar/model.joblib.gz", "model.joblib"),
+        ("https://foo.bar/weights.bin.gz", "weights.bin"),
+        ("https://foo.bar/download?file=model.joblib.gz", "download"),
+    ],
+)
+def test_http_uri_gzipped_single_file(uri, expected_file):
+    payload = b"model bytes"
+    response = MockHttpResponse(200, gzip.compress(payload), "application/octet-stream")
+    with mock.patch("requests.Session.get", return_value=response):
+        with tempfile.TemporaryDirectory() as out_dir:
+            assert Storage.download(uri, out_dir=out_dir) == out_dir
+            assert os.listdir(out_dir) == [expected_file]
+            with open(os.path.join(out_dir, expected_file), "rb") as f:
+                assert f.read() == payload
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "https://foo.bar/model.tar.gz",
+        "https://foo.bar/model.tgz",
+        "https://foo.bar/download?file=model.tar.gz",
+    ],
+)
+def test_http_uri_gzipped_tarball(uri):
+    response = MockHttpResponse(200, FILE_TAR_GZ_RAW, "application/x-tar")
+    with mock.patch("requests.Session.get", return_value=response):
+        with tempfile.TemporaryDirectory() as out_dir:
+            assert Storage.download(uri, out_dir=out_dir) == out_dir
+            # The archive is unpacked and the intermediate .tar is removed.
+            assert os.listdir(out_dir) == ["model.pth"]
 
 
 def test_storage_blob_exception():
