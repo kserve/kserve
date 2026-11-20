@@ -17,6 +17,7 @@ import unittest.mock as mock
 from pathlib import Path
 
 import pytest
+import requests
 
 from kserve_storage import Storage
 
@@ -190,3 +191,100 @@ def test_invalid_uri(mock_snapshot_download, invalid_uri, error_message):
 
     # Ensure that snapshot_download was never called
     mock_snapshot_download.assert_not_called()
+
+
+@pytest.fixture
+def dragonfly_proxy(monkeypatch):
+    """Fake dfdaemon proxy recording the requests it receives."""
+    import http.server
+    import threading
+
+    import huggingface_hub
+    from huggingface_hub.utils import _http
+
+    received = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            received.append((self.path, dict(self.headers)))
+            self.send_response(200)
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setenv("DRAGONFLY_PROXY", f"http://127.0.0.1:{server.server_port}")
+    # The code under test changes these globals: let monkeypatch restore them.
+    monkeypatch.setenv("HF_HUB_DISABLE_XET", "0")
+    monkeypatch.setattr(
+        huggingface_hub.constants,
+        "HF_HUB_ENABLE_HF_TRANSFER",
+        huggingface_hub.constants.HF_HUB_ENABLE_HF_TRANSFER,
+    )
+    yield received
+    server.shutdown()
+    huggingface_hub.configure_http_backend(_http._default_backend_factory)
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_through_dragonfly(mock_snapshot_download, dragonfly_proxy):
+    from huggingface_hub import constants
+    from huggingface_hub.utils import get_session
+
+    Storage.download("hf://example.com/model")
+
+    mock_snapshot_download.assert_called_once()
+    assert os.environ["HF_HUB_DISABLE_XET"] == "1"
+    assert constants.HF_HUB_ENABLE_HF_TRANSFER is False
+
+    cdn_url = "https://cdn-lfs.hf.co/repos/ab/cd/blob?Expires=1&Signature=x"
+    response = get_session().get(cdn_url, headers={"authorization": "Bearer hf_x"})
+    assert response.content == b"ok"
+    path, headers = dragonfly_proxy[0]
+    assert path == cdn_url.replace("https://", "http://", 1)
+    assert "authorization" not in {k.lower() for k in headers}
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_dragonfly_skips_hub_api(
+    mock_snapshot_download, dragonfly_proxy
+):
+    from huggingface_hub import constants
+    from huggingface_hub.utils import get_session
+
+    Storage.download("hf://example.com/model")
+
+    hub_url = f"{constants.ENDPOINT}/api/models/example.com/model"
+    response = requests.Response()
+    response.status_code = 200
+    with mock.patch(
+        "requests.adapters.HTTPAdapter.send", return_value=response
+    ) as send:
+        get_session().get(hub_url, headers={"authorization": "Bearer hf_x"})
+    request = send.call_args.args[0]
+    assert request.url == hub_url
+    assert request.headers["authorization"] == "Bearer hf_x"
+    assert dragonfly_proxy == []
+
+
+@pytest.mark.parametrize("proxy", ["https://127.0.0.1:4001", "127.0.0.1:4001"])
+def test_download_model_dragonfly_rejects_invalid_proxy(monkeypatch, proxy):
+    monkeypatch.setenv("DRAGONFLY_PROXY", proxy)
+    with mock.patch("huggingface_hub.snapshot_download") as mock_snapshot_download:
+        with pytest.raises(ValueError, match="DRAGONFLY_PROXY"):
+            Storage._download_hf("hf://example.com/model", "/tmp/out")
+    mock_snapshot_download.assert_not_called()
+
+
+@mock.patch("huggingface_hub.configure_http_backend")
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_without_dragonfly(
+    mock_snapshot_download, mock_configure_http_backend, monkeypatch
+):
+    monkeypatch.delenv("DRAGONFLY_PROXY", raising=False)
+    Storage._download_hf("hf://example.com/model", "/tmp/out")
+    mock_configure_http_backend.assert_not_called()

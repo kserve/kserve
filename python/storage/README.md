@@ -105,6 +105,36 @@ model_dir = Storage.download("hf://org-name/model-name:revision")
 
 These are all handled by the `huggingface_hub` package, you can see all the available environment variables [here](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables).
 
+#### P2P downloads with Dragonfly
+
+- `DRAGONFLY_PROXY`: `http://` address of a [Dragonfly](https://d7y.io/) dfdaemon proxy. When set, Hugging Face file
+  downloads (the CDN redirect targets) go through dfdaemon, so each file is fetched from the Hub once and shared between
+  nodes. Hub API calls still go directly to `HF_ENDPOINT`. `hf_xet` and `hf_transfer` are disabled, because they bypass
+  the proxy.
+
+dfdaemon must fetch proxied requests over TLS (`proxy.rules: [{regex: ".*", useTLS: true}]`). Credentials are never
+sent to the proxy. With dfdaemon running as a host-network DaemonSet, point the storage initializer at its node:
+
+```yaml
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterStorageContainer
+metadata:
+  name: hf-dragonfly
+spec:
+  container:
+    name: storage-initializer
+    image: kserve/storage-initializer:latest
+    env:
+      - name: HOST_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.hostIP
+      - name: DRAGONFLY_PROXY
+        value: http://$(HOST_IP):4001
+  supportedUriFormats:
+    - prefix: hf://
+```
+
 ### AWS/S3 Configuration / Environments variables
 
 - `AWS_ENDPOINT_URL`: Custom endpoint URL for S3-compatible storage
