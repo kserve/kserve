@@ -29,6 +29,7 @@ import requests
 from kserve_storage import Storage
 from kserve_storage.kserve_storage import (
     _assert_http_storage_uri_allowed,
+    _is_under_prefix,
     _parse_patterns_from_env,
     _pinned_http_get,
     _should_download,
@@ -772,6 +773,23 @@ def test_git_repo_download_public_repo_no_auth(mock_clone):
     # redirected request is rejected before urllib3 opens a connection.
     with pytest.raises(RuntimeError, match="blocked host or IP"):
         kwargs["pool_manager"].urlopen("GET", "http://169.254.169.254/latest/meta-data")
+
+
+@pytest.mark.parametrize(
+    "key,prefix,expected",
+    [
+        ("models/bert/config.json", "models/bert", True),
+        ("models/bert/a/b/model.pt", "models/bert", True),
+        ("models/bert-v2/weights", "models/bert", False),
+        ("models/bert/config.json", "models/bert/", True),
+        ("models/bert-v2/weights", "models/bert/", False),
+        ("models/model.pt", "models/model.pt", True),
+        ("models/model.pt.bak", "models/model.pt", False),
+        ("models/bert/config.json", "", True),
+    ],
+)
+def test_is_under_prefix(key, prefix, expected):
+    assert _is_under_prefix(key, prefix) is expected
 
 
 # Tests for _should_download and _parse_patterns_from_env
