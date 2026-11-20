@@ -24,11 +24,21 @@ on:
     types: [ checks_requested ]
   workflow_dispatch:
 
+# Read-only token for every job: e2e jobs run third-party code (dependencies,
+# actions, test scripts), and the repository default would let them write.
+permissions:
+  contents: read
+  pull-requests: read # dorny/paths-filter lists the PR's files
+  actions: read # load-docker-images re-downloads corrupted artifacts
+  attestations: read # image-cache.sh verifies cached images
+
 env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   TAG: ${{ github.sha }}
   DOCKER_IMAGES_PATH: "/mnt/docker-images"
   KO_DOCKER_REPO: "kserve"
+  # Images published from master under the same content key are pulled, not
+  # rebuilt. See test/scripts/gh-actions/image-cache.sh.
+  E2E_IMAGE_CACHE: ghcr.io/${{ github.repository_owner }}/kserve-e2e-images
   PREDICTOR_ARTIFACT_PREFIX: "pred"
   BASE_ARTIFACT_PREFIX: "base"
 
@@ -76,7 +86,8 @@ jobs:
 
   kserve-image-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # A cold build plus one cache pull that times out (image-cache.sh).
+    timeout-minutes: 30
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -102,6 +113,8 @@ jobs:
           cache-binary: true
 
       - name: Build KServe images
+        env:
+          GH_TOKEN: ${{ github.token }} # image-cache.sh verifies cached images
         run: |
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
           sudo chown -R $USER ${DOCKER_IMAGES_PATH}
@@ -193,6 +206,8 @@ jobs:
           cache-binary: true
 
       - name: Build LLMISvc image
+        env:
+          GH_TOKEN: ${{ github.token }} # image-cache.sh verifies cached images
         run: |
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
           sudo chown -R $USER ${DOCKER_IMAGES_PATH}
@@ -236,6 +251,8 @@ jobs:
           cache-binary: true
 
       - name: Build runtime server images
+        env:
+          GH_TOKEN: ${{ github.token }} # image-cache.sh verifies cached images
         run: |
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
           sudo chown -R $USER ${DOCKER_IMAGES_PATH}

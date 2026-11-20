@@ -26,6 +26,7 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 source "${PROJECT_ROOT}/kserve-images.sh"
+source "${SCRIPT_DIR}/image-cache.sh"
 
 if [ -d "${DOCKER_IMAGES_PATH}" ]; then
   mkdir -p "${DOCKER_IMAGES_PATH}"  
@@ -47,48 +48,37 @@ types=("${1:-kserve}")
 
 if [[ " ${types[*]} " =~ "llmisvc" ]]; then
   echo "Building LLMISvc controller image: ${LLMISVC_CONTROLLER_IMG_TAG}"
-  docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${TAG}",compression-level=0
+  build_image llmisvc-controller "${LLMISVC_CONTROLLER_IMG_TAG}" "${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${TAG}"
   echo "Disk usage after Building LLMIsvc controller image:"
       df -hT
 else
   echo "Building Kserve controller image"
-  docker buildx build . -t "${CONTROLLER_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${TAG}",compression-level=0
+  build_image kserve-controller "${CONTROLLER_IMG_TAG}" "${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${TAG}"
 
   echo "Building localmodel controller image"
-  docker buildx build -f localmodel.Dockerfile . -t "${LOCALMODEL_CONTROLLER_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_CONTROLLER_IMG}-${TAG}",compression-level=0
+  build_image kserve-localmodel-controller "${LOCALMODEL_CONTROLLER_IMG_TAG}" "${DOCKER_IMAGES_PATH}/${LOCALMODEL_CONTROLLER_IMG}-${TAG}"
 
   echo "Building localmodel agent image"
-  docker buildx build -f localmodel-agent.Dockerfile . -t "${LOCALMODEL_AGENT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_AGENT_IMG}-${TAG}",compression-level=0
+  build_image kserve-localmodelnode-agent "${LOCALMODEL_AGENT_IMG_TAG}" "${DOCKER_IMAGES_PATH}/${LOCALMODEL_AGENT_IMG}-${TAG}"
 
   echo "Building kernelcache agent image"
-  docker buildx build -f kernelcache-agent.Dockerfile . -t "${KERNELCACHE_AGENT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${KERNELCACHE_AGENT_IMG}-${TAG}",compression-level=0
+  build_image kserve-kernelcachenode-agent "${KERNELCACHE_AGENT_IMG_TAG}" "${DOCKER_IMAGES_PATH}/${KERNELCACHE_AGENT_IMG}-${TAG}"
 
   echo "Building mcv minimal image"
-  docker buildx build -f kernelcache/mcv/mcv.Dockerfile . --target mcv-minimal -t "${MCV_IMG_TAG}-minimal" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${MCV_IMG}-${TAG}-minimal",compression-level=0
+  build_image kserve-mcv-minimal "${MCV_IMG_TAG}-minimal" "${DOCKER_IMAGES_PATH}/${MCV_IMG}-${TAG}-minimal"
 
   echo "Building agent image"
-  docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${AGENT_IMG}-${TAG}",compression-level=0
+  build_image agent "${AGENT_IMG_TAG}" "${DOCKER_IMAGES_PATH}/${AGENT_IMG}-${TAG}"
 
   echo "Building router image"
-  docker buildx build -f router.Dockerfile . -t "${ROUTER_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${TAG}",compression-level=0
+  build_image router "${ROUTER_IMG_TAG}" "${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${TAG}"
 
   echo "Disk usage before Building storage initializer:"
           df -hT
 fi
 
 
-pushd python >/dev/null
-  echo "Building storage initializer"
-  docker buildx build -f storage-initializer.Dockerfile . -t "${STORAGE_INIT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${STORAGE_INIT_IMG}-${TAG}",compression-level=0
-popd
+echo "Building storage initializer"
+build_image storage-initializer "${STORAGE_INIT_IMG_TAG}" "${DOCKER_IMAGES_PATH}/${STORAGE_INIT_IMG}-${TAG}"
 
 echo "Done building images"
