@@ -497,7 +497,7 @@ class DataPlane:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         # call model locally or remote model workers
-        response_headers = headers if headers else {}
+        response_headers = {}
         model = await self.get_model(model_name)
         if not isinstance(model, InferenceModel):
             raise ValueError(
