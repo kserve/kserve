@@ -50,6 +50,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.autogluonserver.image | string | `"kserve/autogluonserver"` |  |
 | kserve.servingruntime.autogluonserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.autogluonserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.autogluonserver.resources | object | `{}` |  |
 | kserve.servingruntime.autogluonserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.autogluonserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.autogluonserver.securityContext.privileged | bool | `false` |  |
@@ -64,6 +65,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.huggingfaceserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.huggingfaceserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.huggingfaceserver.lmcacheUseExperimental | string | `"True"` |  |
+| kserve.servingruntime.huggingfaceserver.resources | object | `{}` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.privileged | bool | `false` |  |
@@ -71,16 +73,19 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.huggingfaceserver.tag | string | `""` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.disabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.resources | object | `{}` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.shm.enabled | bool | `true` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.shm.sizeLimit | string | `"3Gi"` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.workerSpec.resources | object | `{}` |  |
 | kserve.servingruntime.lgbserver.disabled | bool | `false` |  |
 | kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |
 | kserve.servingruntime.lgbserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.lgbserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.lgbserver.resources | object | `{}` |  |
 | kserve.servingruntime.lgbserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.lgbserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.lgbserver.securityContext.privileged | bool | `false` |  |
@@ -91,6 +96,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.mlserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.mlserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.mlserver.modelClassPlaceholder | string | `"{{.Labels.modelClass}}"` |  |
+| kserve.servingruntime.mlserver.resources | object | `{}` |  |
 | kserve.servingruntime.mlserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.mlserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.mlserver.securityContext.privileged | bool | `false` |  |
@@ -101,6 +107,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.paddleserver.image | string | `"kserve/paddleserver"` |  |
 | kserve.servingruntime.paddleserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.paddleserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.paddleserver.resources | object | `{}` |  |
 | kserve.servingruntime.paddleserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.paddleserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.paddleserver.securityContext.privileged | bool | `false` |  |
@@ -110,6 +117,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.pmmlserver.image | string | `"kserve/pmmlserver"` |  |
 | kserve.servingruntime.pmmlserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.pmmlserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.pmmlserver.resources | object | `{}` |  |
 | kserve.servingruntime.pmmlserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.pmmlserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.pmmlserver.securityContext.privileged | bool | `false` |  |
@@ -119,6 +127,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.predictiveserver.image | string | `"kserve/predictiveserver"` |  |
 | kserve.servingruntime.predictiveserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.predictiveserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.predictiveserver.resources | object | `{}` |  |
 | kserve.servingruntime.predictiveserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.predictiveserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.predictiveserver.securityContext.privileged | bool | `false` |  |
@@ -128,6 +137,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.sklearnserver.image | string | `"kserve/sklearnserver"` |  |
 | kserve.servingruntime.sklearnserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.sklearnserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.sklearnserver.resources | object | `{}` |  |
 | kserve.servingruntime.sklearnserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.sklearnserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.sklearnserver.securityContext.privileged | bool | `false` |  |
@@ -137,6 +147,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.tensorflow.image | string | `"tensorflow/serving"` |  |
 | kserve.servingruntime.tensorflow.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.tensorflow.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.tensorflow.resources | object | `{}` |  |
 | kserve.servingruntime.tensorflow.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.tensorflow.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.tensorflow.securityContext.privileged | bool | `false` |  |
@@ -147,6 +158,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.torchserve.image | string | `"pytorch/torchserve-kfs"` |  |
 | kserve.servingruntime.torchserve.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.torchserve.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.torchserve.resources | object | `{}` |  |
 | kserve.servingruntime.torchserve.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.torchserve.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.torchserve.securityContext.privileged | bool | `false` |  |
@@ -158,6 +170,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.tritonserver.image | string | `"nvcr.io/nvidia/tritonserver"` |  |
 | kserve.servingruntime.tritonserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.tritonserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.tritonserver.resources | object | `{}` |  |
 | kserve.servingruntime.tritonserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.tritonserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.tritonserver.securityContext.privileged | bool | `false` |  |
@@ -172,6 +185,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.vllmserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.vllmserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.vllmserver.lmcacheUseExperimental | string | `"True"` |  |
+| kserve.servingruntime.vllmserver.resources | object | `{}` |  |
 | kserve.servingruntime.vllmserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.vllmserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.vllmserver.securityContext.privileged | bool | `false` |  |
@@ -180,6 +194,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.xgbserver.image | string | `"kserve/xgbserver"` |  |
 | kserve.servingruntime.xgbserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.xgbserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.xgbserver.resources | object | `{}` |  |
 | kserve.servingruntime.xgbserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.xgbserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.xgbserver.securityContext.privileged | bool | `false` |  |

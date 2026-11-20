@@ -20,13 +20,10 @@ spec:
           {{- with .Values.kserve.servingruntime.lgbserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.lgbserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.lgbserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -53,13 +50,10 @@ spec:
           {{- with .Values.kserve.servingruntime.predictiveserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.predictiveserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.predictiveserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -91,13 +85,10 @@ spec:
           {{- with .Values.kserve.servingruntime.mlserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.mlserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.mlserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -124,13 +115,10 @@ spec:
           {{- with .Values.kserve.servingruntime.paddleserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.paddleserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.paddleserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -157,13 +145,10 @@ spec:
           {{- with .Values.kserve.servingruntime.pmmlserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.pmmlserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.pmmlserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -190,13 +175,10 @@ spec:
           {{- with .Values.kserve.servingruntime.sklearnserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.sklearnserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.sklearnserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -223,13 +205,10 @@ spec:
           {{- with .Values.kserve.servingruntime.autogluonserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.autogluonserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.autogluonserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -259,13 +238,10 @@ spec:
           {{- with .Values.kserve.servingruntime.tensorflow.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.tensorflow.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.tensorflow.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -296,13 +272,10 @@ spec:
           {{- with .Values.kserve.servingruntime.torchserve.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.torchserve.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.torchserve.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -332,13 +305,10 @@ spec:
           {{- with .Values.kserve.servingruntime.tritonserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.tritonserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.tritonserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -366,13 +336,10 @@ spec:
           {{- with .Values.kserve.servingruntime.xgbserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.xgbserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
   {{- with .Values.kserve.servingruntime.xgbserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -399,13 +366,10 @@ spec:
           {{- with .Values.kserve.servingruntime.huggingfaceserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.huggingfaceserver.resources }}
       resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.kserve.servingruntime.huggingfaceserver.devShm.enabled }}
       volumeMounts:
         - name: devshm
@@ -473,16 +437,13 @@ spec:
             fieldRef:
               fieldPath: status.podIP  
         - name: VLLM_CONFIG_ROOT
-          value: /tmp      
+          value: /tmp
         - name: HF_HUB_CACHE
-          value: /tmp          
+          value: /tmp
+      {{- with .Values.kserve.servingruntime.huggingfaceserver_multinode.resources }}
       resources:
-        requests:
-          cpu: "2"
-          memory: 6Gi
-        limits:
-          cpu: "4"
-          memory: 12Gi
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       livenessProbe:
         failureThreshold: 2
         periodSeconds: 5
@@ -582,13 +543,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+        {{- with .Values.kserve.servingruntime.huggingfaceserver_multinode.workerSpec.resources }}
         resources:
-          requests:
-            cpu: "2"
-            memory: 6Gi
-          limits:
-            cpu: "4"
-            memory: 12Gi
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- if .Values.kserve.servingruntime.huggingfaceserver_multinode.shm.enabled }}
         volumeMounts:
           - name: shm
@@ -655,6 +613,10 @@ spec:
           {{- with .Values.kserve.servingruntime.vllmserver.securityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+      {{- with .Values.kserve.servingruntime.vllmserver.resources }}
+      resources:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.kserve.servingruntime.vllmserver.devShm.enabled }}
       volumeMounts:
         - name: devshm
