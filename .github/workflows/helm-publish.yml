@@ -37,6 +37,25 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check chart versions match the release tag
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mismatch=0
+          for chart in ./*/Chart.yaml; do
+            [[ $(basename "$(dirname "$chart")") == _* ]] && continue
+            for field in version appVersion; do
+              value=$(sed -n "s/^${field}: *//p" "$chart")
+              if [[ "$value" != "$RELEASE_TAG" ]]; then
+                echo "::error::${chart#./} has ${field} ${value}, expected ${RELEASE_TAG}"
+                mismatch=1
+              fi
+            done
+          done
+          exit $mismatch
+        working-directory: ${{ env.HELM_CHARTS_PATH }}
+
       - name: Package helm charts
         run: |
           for dir in ./*/; do
