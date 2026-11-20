@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
+	netheader "knative.dev/networking/pkg/http/header"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -385,11 +386,24 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		}
 	} else {
 		// Adjust USER_PORT when queueProxy is available
+		userPort := ""
 		for i, envVar := range queueProxyEnvs {
 			if envVar.Name == "USER_PORT" {
 				klog.Infof("Adjusting USER_PORT to %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
+				userPort = envVar.Value
 				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
 				queueProxyEnvs[i] = envVar // Update the environment variable in the list
+			}
+		}
+		// Probe the agent as well, so queue-proxy is not ready before the port it forwards to is.
+		// The agent keeps the original probe (copied above) and checks the user container itself.
+		for i, envVar := range queueProxyEnvs {
+			if envVar.Name == "SERVING_READINESS_PROBE" && userPort != "" {
+				if probeJSON, ok := retargetReadinessProbe(envVar.Value, userPort); ok {
+					klog.Infof("Adjusting SERVING_READINESS_PROBE port to %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
+					envVar.Value = probeJSON
+					queueProxyEnvs[i] = envVar
+				}
 			}
 		}
 	}
@@ -509,6 +523,84 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	}
 
 	return nil
+}
+
+// queueProbeValue is the K-Network-Probe value the agent's health handler accepts
+// (knative.dev/serving/pkg/queue.Name). The activator probes queue-proxy with the same header.
+const queueProbeValue = "queue"
+
+// retargetReadinessProbe points the httpGet/tcpSocket probes on userPort at the agent port.
+// value is a single probe or, with multi-container probes enabled, a list of probes.
+// A tcpSocket probe becomes an httpGet probe: the agent answers kubelet-style probes from its
+// health handler by running the original probe against the user container, whereas a TCP check
+// on the agent port would only show that the agent is listening. That handler only accepts
+// requests carrying "K-Network-Probe: queue" (it answers 400 otherwise), so the rewritten probe
+// always sends that header. The agent serves plain HTTP, so the rewritten probe always uses the
+// HTTP scheme; the agent's own copy of the probe keeps the original scheme for the user container.
+func retargetReadinessProbe(value string, userPort string) (string, bool) {
+	var probes []*corev1.Probe
+	multi := strings.HasPrefix(strings.TrimSpace(value), "[")
+	if multi {
+		if err := json.Unmarshal([]byte(value), &probes); err != nil {
+			return "", false
+		}
+	} else {
+		probe := &corev1.Probe{}
+		if err := json.Unmarshal([]byte(value), probe); err != nil {
+			return "", false
+		}
+		probes = append(probes, probe)
+	}
+
+	agentPort := intstr.FromInt(constants.InferenceServiceDefaultAgentPort)
+	changed := false
+	for _, probe := range probes {
+		switch {
+		case probe == nil:
+		case probe.HTTPGet != nil && probe.HTTPGet.Port.String() == userPort:
+			probe.HTTPGet.Port = agentPort
+			probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+			probe.HTTPGet.HTTPHeaders = withQueueProbeHeader(probe.HTTPGet.HTTPHeaders)
+			changed = true
+		case probe.TCPSocket != nil && probe.TCPSocket.Port.String() == userPort:
+			probe.HTTPGet = &corev1.HTTPGetAction{
+				Path:        "/",
+				Port:        agentPort,
+				Host:        probe.TCPSocket.Host,
+				Scheme:      corev1.URISchemeHTTP,
+				HTTPHeaders: withQueueProbeHeader(nil),
+			}
+			probe.TCPSocket = nil
+			changed = true
+		}
+	}
+	if !changed {
+		return "", false
+	}
+
+	var out []byte
+	var err error
+	if multi {
+		out, err = json.Marshal(probes)
+	} else {
+		out, err = json.Marshal(probes[0])
+	}
+	if err != nil {
+		return "", false
+	}
+	return string(out), true
+}
+
+// withQueueProbeHeader returns headers with a single "K-Network-Probe: queue" entry appended,
+// which makes the agent's health handler run its probe against the user container.
+func withQueueProbeHeader(headers []corev1.HTTPHeader) []corev1.HTTPHeader {
+	out := make([]corev1.HTTPHeader, 0, len(headers)+1)
+	for _, header := range headers {
+		if !strings.EqualFold(header.Name, netheader.ProbeKey) {
+			out = append(out, header)
+		}
+	}
+	return append(out, corev1.HTTPHeader{Name: netheader.ProbeKey, Value: queueProbeValue})
 }
 
 func mountModelDir(pod *corev1.Pod) error {
