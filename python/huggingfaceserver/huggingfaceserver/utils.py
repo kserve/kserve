@@ -197,3 +197,14 @@ def _mean_pooling(outputs, attention_mask: "torch.Tensor|None") -> "torch.Tensor
     sum_embeddings = (token_embeddings * input_mask_expanded).sum(dim=1)
     sum_mask = attention_mask.sum(dim=1).clamp(min=1e-9).unsqueeze(-1)
     return sum_embeddings / sum_mask
+
+
+def register_served_model_aliases(
+    model_server: Any, model: Any, served_model_names: Optional[List[str]]
+) -> None:
+    """Serve every --served-model-name after the first as an alias of model, as vLLM does.
+
+    The first name is the model's own name, registered when the server starts.
+    """
+    for name in (served_model_names or [])[1:]:
+        model_server.register_model(model, name)
