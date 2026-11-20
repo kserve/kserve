@@ -855,10 +855,14 @@ class InferRequest:
         dfs = []
         for input in self.inputs:
             input_data = input.data
+            if input._raw_data is not None:
+                # Raw tensor data (e.g. gRPC raw_input_contents) is not in
+                # input.data, so decode it.
+                input_data = input.as_numpy().flatten()
             if input.datatype == "BYTES":
                 input_data = [
                     str(val, "utf-8") if isinstance(val, bytes) else val
-                    for val in input.data
+                    for val in input_data
                 ]
             dfs.append(pd.DataFrame(input_data, columns=[input.name]))
         return pd.concat(dfs, axis=1)
