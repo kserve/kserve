@@ -205,7 +205,7 @@ func SharedConfigPresets(ns string) []*v1alpha2.LLMInferenceServiceConfig {
 			return nil
 		}
 
-		data, err := os.ReadFile(filepath.Clean(path))
+		data, err := os.ReadFile(filepath.Clean(path)) //nolint:gosec // G122: new check; test fixture reads the repo's own config files
 		if err != nil {
 			return err
 		}

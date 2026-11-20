@@ -214,7 +214,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 			if !igAvailable {
 				// If Deployment resource not yet available, IG is not available as well. Reconcile again.
-				return reconcile.Result{Requeue: true}, errors.Wrapf(err,
+				return reconcile.Result{Requeue: true}, errors.Wrapf(err, //nolint:staticcheck // SA1019: requeue until the router Deployment is Available
 					"Failed to find inference graph deployment  %s", graph.Name)
 			}
 		}

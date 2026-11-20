@@ -95,42 +95,42 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, isvc *In
 }
 
 func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {
-	var allWarnings admission.Warnings
 	annotations := isvc.Annotations
 
 	if err := validateInferenceServiceName(isvc); err != nil {
-		return allWarnings, err
+		return nil, err
 	}
 
 	if err := validateTracing(isvc.Spec.Tracing); err != nil {
-		return allWarnings, err
+		return nil, err
 	}
 
 	if err := validateInferenceServiceAutoscaler(isvc); err != nil {
-		return allWarnings, err
+		return nil, err
 	}
 
 	if err := validateBlockedEnvVars(isvc); err != nil {
-		return allWarnings, err
+		return nil, err
 	}
 
 	if err := validateMultiNodeVariables(isvc); err != nil {
-		return allWarnings, err
+		return nil, err
 	}
 
 	if err := validateCollocationStorageURI(isvc.Spec.Predictor); err != nil {
-		return allWarnings, err
+		return nil, err
 	}
 
 	if err := validatePredictor(isvc); err != nil {
-		return allWarnings, err
+		return nil, err
 	}
 
 	if err := validateMultipleStorageURIs(isvc); err != nil {
-		return allWarnings, err
+		return nil, err
 	}
 
 	confidentialWarnings, err := validateConfidential(isvc)
+	allWarnings := make(admission.Warnings, 0, len(confidentialWarnings))
 	allWarnings = append(allWarnings, confidentialWarnings...)
 	if err != nil {
 		return allWarnings, err
@@ -910,22 +910,20 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 
 // validateConfidential validates the confidential spec on the predictor's implementation.
 func validateConfidential(isvc *InferenceService) (admission.Warnings, error) {
-	var warnings admission.Warnings
-
 	// Find the confidential spec from whichever predictor implementation is set
 	confidential := GetConfidentialSpecFromPredictor(&isvc.Spec.Predictor)
 	if confidential == nil || !confidential.Enabled {
-		return warnings, nil
+		return nil, nil
 	}
 
 	// Confidential requires a storageUri to be set
 	implementations := isvc.Spec.Predictor.GetImplementations()
 	if len(implementations) == 0 {
-		return warnings, errors.New("confidential model serving requires storageUri to be set")
+		return nil, errors.New("confidential model serving requires storageUri to be set")
 	}
 	storageUri := implementations[0].GetStorageUri()
 	if storageUri == nil || *storageUri == "" {
-		return warnings, errors.New("confidential model serving requires storageUri to be set")
+		return nil, errors.New("confidential model serving requires storageUri to be set")
 	}
 
 	// Delegate OCI warning and resourceId validation to the shared helper
@@ -935,6 +933,7 @@ func validateConfidential(isvc *InferenceService) (admission.Warnings, error) {
 		*storageUri,
 		field.NewPath("spec", "predictor"),
 	)
+	warnings := make(admission.Warnings, 0, len(w))
 	warnings = append(warnings, w...)
 	if len(errs) > 0 {
 		return warnings, errs.ToAggregate()

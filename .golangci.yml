@@ -225,6 +225,17 @@ linters:
           alias: "runtime"
         - pkg: "sigs.k8s.io/gateway-api/apis/v1"
           alias: "gwapiv1"
+    recvcheck:
+      # recvcheck v0.3 swapped its built-in exclusions from Marshal* to
+      # Unmarshal* methods. Keep the Marshal* exclusions of v0.2 so value
+      # receivers on marshalers stay allowed, as with the previous linter.
+      exclusions:
+        - "*.MarshalText"
+        - "*.MarshalJSON"
+        - "*.MarshalYAML"
+        - "*.MarshalXML"
+        - "*.MarshalBinary"
+        - "*.GobEncode"
 
   exclusions:
     generated: lax
