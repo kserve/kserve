@@ -74,6 +74,7 @@ const (
 var (
 	errPVCEvictorCleanupUnsafe         = errors.New("PVC evictor cleanup is unsafe")
 	errPVCEvictorUnsupportedAccessMode = errors.New("unsupported PVC access mode")
+	errPVCEvictorWriteConflict         = errors.New("PVC evictor write conflict")
 )
 
 func pvcEvictorContainerSecurityContext() *corev1.SecurityContext {
@@ -828,6 +829,12 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 			llmSvc.MarkPVCEvictorNotReady(reason, "%s", err.Error())
 		}
 		llmSvc.DetermineWorkloadReadiness()
+		// Every write in this pass goes to the shared evictor ServiceAccount or Deployments, so
+		// a conflict is a lost race with another writer. Reconcile requeues on it without a
+		// Warning event.
+		if apierrors.IsConflict(err) {
+			err = fmt.Errorf("%w: %w", errPVCEvictorWriteConflict, err)
+		}
 	}()
 
 	expected, err = r.expectedPVCEvictorDeployments(ctx, llmSvc)
