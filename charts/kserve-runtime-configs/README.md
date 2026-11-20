@@ -34,6 +34,14 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.inferenceservice.resources.limits.memory | string | `"2Gi"` |  |
 | kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
+| kserve.llmd.llmdCuda.image | string | `"ghcr.io/llm-d/llm-d-cuda"` |  |
+| kserve.llmd.llmdCuda.tag | string | `"v0.9.0"` |  |
+| kserve.llmd.llmdRouterDisaggSidecar.image | string | `"ghcr.io/llm-d/llm-d-router-disagg-sidecar"` |  |
+| kserve.llmd.llmdRouterDisaggSidecar.tag | string | `"v0.10.0"` |  |
+| kserve.llmd.llmdRouterEndpointPicker.image | string | `"ghcr.io/llm-d/llm-d-router-endpoint-picker"` |  |
+| kserve.llmd.llmdRouterEndpointPicker.tag | string | `"v0.10.0"` |  |
+| kserve.llmd.llmdTokenizer.image | string | `"docker.io/vllm/vllm-openai-cpu"` |  |
+| kserve.llmd.llmdTokenizer.tag | string | `"v0.23.0@sha256:89e1fbe829038b1a560601990c8ec89625c622a969fcbc8f10ce48b6139795be"` |  |
 | kserve.llmisvcConfigs.enabled | bool | `false` |  |
 | kserve.opentelemetryCollector.metricReceiverEndpoint | string | `"keda-otel-scaler.keda.svc:4317"` |  |
 | kserve.opentelemetryCollector.metricScalerEndpoint | string | `"keda-otel-scaler.keda.svc:4318"` |  |
