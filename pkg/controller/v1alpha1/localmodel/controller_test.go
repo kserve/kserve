@@ -122,6 +122,11 @@ var _ = Describe("CachedModel controller", func() {
 		}
 	)
 
+	DescribeTable("download volume creation retries", func(ctx SpecContext, namespaced, rejectPV bool) {
+		checkDownloadVolumeRetry(ctx, localModelNodeGroupSpec1, namespaced, rejectPV)
+	}, Entry("cluster cache PV", false, true), Entry("cluster cache PVC", false, false),
+		Entry("namespace cache PV", true, true), Entry("namespace cache PVC", true, false))
+
 	Context("When creating a local model", func() {
 		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
 			ctx, cancel := context.WithCancel(context.Background())
