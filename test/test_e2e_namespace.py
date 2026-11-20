@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Namespace provisioning checks without a cluster: python -m unittest test.test_e2e_namespace."""
+"""Namespace provisioning checks without a cluster: python -m pytest test/test_e2e_namespace.py.
+
+Fixture checks use the run_e2e harness from test/conftest.py.
+"""
 
 import copy
 import unittest
@@ -21,46 +24,43 @@ from uuid import UUID
 
 from kubernetes import client
 
-from test.e2e.common import namespace
-from test.e2e import conftest
+from e2e.common import namespace
+from e2e import conftest
+
+PASSING_TEST = """
+def test_passes(test_namespace):
+    pass
+"""
+
+
+def test_namespace_creation_timeout_still_deletes_namespace(
+    run_e2e, e2e_calls, monkeypatch
+):
+    def timeout(api, ns):
+        raise TimeoutError
+
+    monkeypatch.setattr(conftest, "create_namespace", timeout)
+    run_e2e(PASSING_TEST).assert_outcomes(errors=1)
+    assert e2e_calls == [("delete_namespace", "worker")]
+
+
+def test_each_test_waits_for_pods_after_deleting_isvcs(run_e2e, e2e_calls):
+    run_e2e(PASSING_TEST).assert_outcomes(passed=1)
+    assert e2e_calls == [
+        ("create_namespace", "worker"),
+        ("delete", "worker"),
+        ("wait", "worker"),
+        ("delete_namespace", "worker"),
+    ]
+
+
+def test_preserve_resources_skips_cleanup(run_e2e, e2e_calls, monkeypatch):
+    monkeypatch.setattr(conftest, "skip_resource_deletion", lambda: True)
+    run_e2e(PASSING_TEST).assert_outcomes(passed=1)
+    assert e2e_calls == [("create_namespace", "worker")]
 
 
 class NamespaceProvisioningTest(unittest.TestCase):
-    def test_namespace_creation_timeout_still_deletes_namespace(self):
-        core = Mock()
-        with (
-            patch.object(conftest, "get_core_api", return_value=core),
-            patch.object(conftest, "worker_namespace_name", return_value="worker"),
-            patch.object(conftest, "create_namespace", side_effect=TimeoutError),
-            patch.object(conftest, "skip_resource_deletion", return_value=False),
-        ):
-            fixture = conftest.test_namespace_session.__wrapped__("gw0")
-            with self.assertRaises(TimeoutError):
-                next(fixture)
-        core.delete_namespace.assert_called_once_with("worker")
-
-    def test_each_test_waits_for_pods_after_deleting_isvcs(self):
-        calls = []
-        with (
-            patch.object(conftest, "skip_resource_deletion", return_value=False),
-            patch.object(conftest, "get_core_api"),
-            patch.object(
-                conftest,
-                "cleanup_isvcs",
-                side_effect=lambda ns: calls.append(("delete", ns)),
-            ),
-            patch.object(
-                conftest,
-                "wait_pods_terminated",
-                side_effect=lambda api, ns: calls.append(("wait", ns)),
-            ),
-        ):
-            fixture = conftest.test_namespace.__wrapped__("worker")
-            self.assertEqual(next(fixture), "worker")
-            with self.assertRaises(StopIteration):
-                next(fixture)
-        self.assertEqual(calls, [("delete", "worker"), ("wait", "worker")])
-
     def test_pod_wait_includes_garbage_collection_propagation(self):
         core = Mock()
         core.list_namespaced_pod.side_effect = [
@@ -106,19 +106,6 @@ class NamespaceProvisioningTest(unittest.TestCase):
         ):
             namespace.wait_pods_terminated(core, "worker")
         self.assertEqual(core.list_namespaced_pod.call_count, 3)
-
-    def test_preserve_resources_skips_per_test_cleanup(self):
-        with (
-            patch.object(conftest, "skip_resource_deletion", return_value=True),
-            patch.object(conftest, "cleanup_isvcs") as cleanup,
-            patch.object(conftest, "wait_pods_terminated") as wait,
-        ):
-            fixture = conftest.test_namespace.__wrapped__("worker")
-            next(fixture)
-            with self.assertRaises(StopIteration):
-                next(fixture)
-        cleanup.assert_not_called()
-        wait.assert_not_called()
 
     def test_consecutive_sessions_do_not_reuse_a_terminating_namespace(self):
         with patch.object(

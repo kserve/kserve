@@ -103,14 +103,6 @@ def _auto_assign_group_markers(items):
             item.add_marker(pytest.mark.llmisvc_core)
 
 
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    """Stash test outcome on the node so fixtures can check it at teardown."""
-    outcome = yield
-    rep = outcome.get_result()
-    setattr(item, f"rep_{rep.when}", rep)
-
-
 def pytest_configure(config):
     """Register dynamic autoscaling variant markers derived from filenames.
 
