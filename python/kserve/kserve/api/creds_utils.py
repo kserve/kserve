@@ -112,7 +112,7 @@ def set_s3_credentials(
             s3_annotations.update({value: arg})
 
     secret_name = create_secret(
-        namespace=namespace, annotations=s3_annotations, data=data
+        namespace=namespace, annotations=s3_annotations, string_data=data
     )
 
     set_service_account(
