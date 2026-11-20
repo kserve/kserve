@@ -45,13 +45,15 @@ manifests: controller-gen kustomize yq ## After API type or RBAC marker changes:
 	# Assembled in a temp file and installed only once both downloads succeed: curl writes the
 	# HTTP error body to its output stream, so a transient failure would otherwise leave an
 	# unparseable manifest in the tree and break every kustomize build that reads it.
-	@set -e; tmp=$$(mktemp); trap 'rm -f "$$tmp"' EXIT; \
+	# Workaround to update main-dev version from llm-d-router release as annotation: the
+	# rewrite runs on the staged temp file, so the -i backup suffix (required by BSD sed)
+	# never creates or removes a file inside the repo; the trap cleans the backup.
+	@set -e; tmp=$$(mktemp); trap 'rm -f "$$tmp" "$$tmp.bak"' EXIT; \
 		$(CURL) https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GIE_VERSION)/v1-manifests.yaml > "$$tmp"; \
 		echo "---" >> "$$tmp"; \
 		$(CURL) https://github.com/llm-d/llm-d-router/releases/download/$(LLMD_ROUTER_VERSION)/manifests.yaml >> "$$tmp"; \
+		sed -i'.bak' -e 's|llm-d.ai/bundle-version: main-dev|llm-d.ai/bundle-version: $(LLMD_ROUTER_VERSION)|' "$$tmp"; \
 		install -m 0644 "$$tmp" config/llmisvc/gateway-inference-extension.yaml
-	# Workaround to update main-dev version from llm-d-router release as annotation
-	sed -i 's|llm-d.ai/bundle-version: main-dev|llm-d.ai/bundle-version: $(LLMD_ROUTER_VERSION)|' config/llmisvc/gateway-inference-extension.yaml
 	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> config/llmisvc/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> test/crds/gateway-inference-extension.yaml
