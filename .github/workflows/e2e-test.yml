@@ -937,6 +937,14 @@ jobs:
           kubectl patch knativeserving knative-serving -n knative-serving --type=merge \
             --patch '{"spec":{"config":{"deployment":{"queue-sidecar-image":"kserve/qpext:${{ env.TAG }}"},"observability":{"request-metrics-protocol":"prometheus"}}}}'
           kubectl wait --for=condition=Ready -n knative-serving knativeserving knative-serving --timeout=120s
+          deployments=$(kubectl get deployments -n knative-serving -o name)
+          if [[ -z "$deployments" ]]; then
+            echo "No Knative Serving deployments found"
+            exit 1
+          fi
+          while IFS= read -r deployment; do
+            kubectl rollout status -n knative-serving "$deployment" --timeout=300s
+          done <<< "$deployments"
           kubectl get configmap config-deployment -n knative-serving -o jsonpath='{.data.queue-sidecar-image}'
           echo
       - name: Run queue proxy extension E2E tests

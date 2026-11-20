@@ -13,6 +13,10 @@ spec:
       containers:
       - name: manager
         image: "{{ .Values.kserve.kernelcachenode.controller.image }}:{{ .Values.kserve.kernelcachenode.controller.tag | default .Values.kserve.version }}"
+        {{- with .Values.kserve.kernelcachenode.controller.extraArgs }}
+        args:
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         imagePullPolicy: {{ .Values.kserve.kernelcachenode.controller.imagePullPolicy }}
         resources:
           {{- toYaml .Values.kserve.kernelcachenode.controller.resources | nindent 10 }}

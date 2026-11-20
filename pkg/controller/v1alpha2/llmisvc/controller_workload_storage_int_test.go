@@ -1614,7 +1614,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
 			defer func() {
 				testNs.DeleteAndWait(ctx, sharedCache)
-				envTest.Delete(ctx, claim)
+				Expect(envTest.Delete(ctx, claim)).To(Succeed())
 			}()
 			Eventually(func(ctx context.Context) error {
 				current := &v1alpha1.LocalModelNamespaceCache{}

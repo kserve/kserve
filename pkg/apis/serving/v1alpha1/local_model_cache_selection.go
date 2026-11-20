@@ -55,28 +55,24 @@ type LocalModelCacheSelection struct {
 // Selection is deterministic and independent of the Kubernetes API list order:
 //
 //  1. A cache the workload is already bound to keeps winning while it still
-//     matches the storage URI (and node group for node-local caches). For the
-//     default (FallbackToSource) workload a bound shared-PVC cache keeps the
-//     binding only while its import record still attests that usable data is
-//     on the current claim (#6280): once the record is gone the claim holds
-//     no usable data (it was recreated and a fresh import is underway), so the
-//     binding is released and the workload falls back to its original source
-//     URI. For a CacheRequired workload the binding is kept instead, and the
-//     serving gates key on the import record (the workload waits, fail
-//     closed, through ReimportBlocked and fresh imports alike).
-//  2. Otherwise, ready shared-PVC caches win over node-local caches, which win
-//     over not-ready shared-PVC caches. Within both classes the oldest cache
-//     wins (creation timestamp, then name), mirroring the reconciler's
-//     first-writer destination ownership.
+//     matches the storage URI (and node group for node-local caches) and,
+//     for shared-PVC caches, its import record still attests that usable data
+//     is on the current claim: dropping the binding on an unrelated update
+//     would roll the workload's pods back to downloading from source. Once the
+//     record is gone the claim holds no usable data (it was recreated and a
+//     fresh import is underway), so the binding is released like any other
+//     not-ready match. A CacheRequired workload keeps the binding instead and
+//     fails closed, waiting on the cache's import record.
+//  2. Otherwise, ready shared-PVC caches win over node-local caches. Within
+//     both classes the oldest cache wins (creation timestamp, then name),
+//     mirroring the reconciler's first-writer destination ownership.
 //
-// A not-ready shared-PVC cache is never selected for a default (FallbackToSource)
-// workload. For a CacheRequired workload it is selected only as a fail-closed
-// wait intent, reported by the waitIntent return value: the binding records
-// the intent to serve from that cache, and admission and reconciliation gate
-// on the cache's import record for the current claim instead of falling back
-// to the workload's original source URI. Callers should still prefer any
-// servable cluster-scoped LocalModelCache over a wait intent (see
-// MatchCacheForURI).
+// A not-ready shared-PVC cache is never selected for a default
+// (FallbackToSource) workload. For a CacheRequired workload it is selected only
+// as a fail-closed wait intent, reported by the waitIntent return value: the
+// binding records the intent to serve from that cache, and admission and
+// reconciliation gate on the cache's import record for the current claim
+// instead of falling back to the workload's original source URI.
 func SelectLocalModelNamespaceCache(sel LocalModelCacheSelection, nsModels *LocalModelNamespaceCacheList) (selected *LocalModelNamespaceCache, waitIntent bool) {
 	if nsModels == nil || sel.StorageURI == "" {
 		return nil, false
@@ -96,12 +92,11 @@ func SelectLocalModelNamespaceCache(sel LocalModelCacheSelection, nsModels *Loca
 					// the serving gates decide on the import record instead.
 					return candidate, false
 				}
-				// #6280 rule (default policy): a bound shared-PVC cache keeps
-				// the binding while its import record still attests that the
-				// data is on the current claim (not-ready with a record means
-				// a spec-generation bump or a blocked re-import). Once the
-				// record is cleared the claim holds no usable data yet, so the
-				// binding is released.
+				// #6280 rule: a bound shared-PVC cache keeps the binding while
+				// its import record still attests that the data is on the current
+				// claim (not-ready with a record means a spec-generation bump or a
+				// blocked re-import). Once the record is cleared the claim holds no
+				// usable data yet, so the binding is released.
 				if candidate.IsReady() || candidate.Status.SharedPVCImport != nil {
 					return candidate, false
 				}
@@ -151,8 +146,9 @@ func isBoundLocalModelCache(sel LocalModelCacheSelection, candidate *LocalModelN
 }
 
 // OlderLocalModelCache returns whichever of a and b is older by creation
-// timestamp, then by name, so selection does not depend on list order. It works
-// for both LocalModelCache and LocalModelNamespaceCache.
+// timestamp, then by name, so selection does not depend on list order. It
+// applies to both LocalModelCache and LocalModelNamespaceCache pointers (and
+// tolerates nil arguments of either kind).
 func OlderLocalModelCache[T any, PT interface {
 	metav1.Object
 	*T
@@ -163,35 +159,13 @@ func OlderLocalModelCache[T any, PT interface {
 	if b == nil {
 		return a
 	}
-	at, bt := a.GetCreationTimestamp(), b.GetCreationTimestamp()
-	if !at.Equal(&bt) {
-		if at.Time.Before(bt.Time) {
+	if a.GetCreationTimestamp().Compare(b.GetCreationTimestamp().Time) != 0 {
+		if a.GetCreationTimestamp().Time.Before(b.GetCreationTimestamp().Time) {
 			return a
 		}
 		return b
 	}
 	if a.GetName() < b.GetName() {
-		return a
-	}
-	return b
-}
-
-// olderLocalModelCache returns whichever of a and b is older by creation
-// timestamp, then by name, so selection does not depend on list order.
-func olderLocalModelCache(a, b *LocalModelNamespaceCache) *LocalModelNamespaceCache {
-	if a == nil {
-		return b
-	}
-	if b == nil {
-		return a
-	}
-	if !a.CreationTimestamp.Equal(&b.CreationTimestamp) {
-		if a.CreationTimestamp.Time.Before(b.CreationTimestamp.Time) {
-			return a
-		}
-		return b
-	}
-	if a.Name < b.Name {
 		return a
 	}
 	return b

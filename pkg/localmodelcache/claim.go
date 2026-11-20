@@ -49,5 +49,11 @@ func ClaimHoldsImportedModel(ctx context.Context, c client.Client, nsCache *v1al
 		}
 		return false, fmt.Errorf("get PVC %s/%s for cache %s: %w", nsCache.GetNamespace(), *nsCache.Spec.PVCRef, nsCache.GetName(), err)
 	}
+	if pvc.DeletionTimestamp != nil {
+		// Kubernetes refuses to schedule new pods onto a claim being deleted, so
+		// a match here would wedge the workload behind the gate while the claim
+		// drains. Existing pods keep reading the claim until it is gone.
+		return false, nil
+	}
 	return nsCache.ImportedOntoClaim(pvc.UID), nil
 }

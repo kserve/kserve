@@ -73,6 +73,8 @@ kserve:
     controller:
       image: kserve/kserve-localmodel-controller
       tag: ''
+      # -- Additional container arguments. Example: ["--log-format=otel-json"].
+      extraArgs: []
       imagePullPolicy: IfNotPresent
       resources:
         limits:
@@ -165,6 +167,8 @@ kserve:
   localmodelnode:
     controller:
       image: kserve/kserve-localmodelnode-agent
+      # -- Additional container arguments. Example: ["--log-format=otel-json"].
+      extraArgs: []
       tag: ''
       imagePullPolicy: IfNotPresent
       resources:
@@ -181,6 +185,8 @@ kserve:
   kernelcachenode:
     controller:
       image: kserve/kserve-kernelcachenode-agent
+      # -- Additional container arguments.
+      extraArgs: []
       tag: ''
       imagePullPolicy: IfNotPresent
       resources:

@@ -122,7 +122,7 @@ func resolveBaseModelCachePVC(ctx context.Context, c client.Client, llmSvc *v1al
 		// import record for CacheRequired workloads.
 		if nsCache.Spec.SharedPVCMode() {
 			return resolveSharedPVCCacheBinding(ctx, c, nsCache, cacheRequired,
-				fmt.Sprintf("waiting for the import instead of serving the model from %s", llmSvc.Spec.Model.URI.String()))
+				"waiting for the import instead of serving the model from "+llmSvc.Spec.Model.URI.String())
 		}
 		pvc, ok := localmodelcache.PVCNameForNodeGroup(nsCache.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsCache.Name)
 		if !ok {
@@ -234,7 +234,14 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 
 	var resolvedLoRAAdapters []resolvedLoRAAdapter
 	var loraPairs []storageDownloadPair
-	if attachLoRA {
+	// Resolve the adapter bindings in every call, even for callers that attach
+	// without the adapters (tokenizer / scheduler deployments): the degradation
+	// is a property of the shared-PVC caches, not of the container, so the
+	// combined base-model + adapter result drives the workload-wide
+	// LocalModelCacheReady condition below. Only the adapter downloads are
+	// gated on attachLoRA so non-main containers do not pull adapter weights.
+	hasLoRAAdapters := len(config.ResolvedLoRAAdapters) > 0
+	if hasLoRAAdapters {
 		var loraDegraded string
 		var err error
 		resolvedLoRAAdapters, loraDegraded, err = rewriteLoRAAdaptersFromLocalModelCache(ctx, r.Client, llmSvc, config.ResolvedLoRAAdapters, cacheRequired)
@@ -251,14 +258,19 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		if loraDegraded != "" {
 			degradedCacheMsg = loraDegraded
 		}
-		loraPairs = collectLoRADownloadPairs(resolvedLoRAAdapters)
+		if attachLoRA {
+			loraPairs = collectLoRADownloadPairs(resolvedLoRAAdapters)
+		}
 	}
 
 	// Report the state of the workload's cache binding. The condition is
 	// independent of the Ready rollup and only set for CacheRequired workloads:
 	// a workload serving from an import record that a not-Ready cache still
 	// attests stays Ready, with the agent-side propagation failure surfaced as
-	// the condition's reason instead of a reconcile error.
+	// the condition's reason instead of a reconcile error. Every
+	// attachModelArtifacts call sets it from the combined base-model + adapter
+	// binding state, so the tokenizer / scheduler calls cannot hide a degraded
+	// adapter cache behind an all-clear.
 	if cacheRequired {
 		if degradedCacheMsg != "" {
 			llmSvc.MarkLocalModelCacheNotReady(v1alpha2.SharedPVCServingFromImportRecordReason, "%s", degradedCacheMsg)
@@ -518,7 +530,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		}
 
 		currentInitContainer := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-		if addsDefaultHFEnv(currentInitContainer, initContainer.Args) {
+		if addsDefaultHFEnv(currentInitContainer, initContainer) {
 			utils.AddDefaultHuggingFaceEnvVars(initContainer)
 		}
 
@@ -530,19 +542,19 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 	return nil
 }
 
-// addsDefaultHFEnv reports whether the storage-initializer gets the default Hugging
-// Face download environment variables. It returns true when there is no live init
-// container, when the live container downloads a different set of arguments, or when
-// the live container already carries an HF_ variable. A live container that runs the
-// same downloads without any HF_ variable keeps that environment, so a controller
-// upgrade does not restart its pod.
-func addsDefaultHFEnv(current *corev1.Container, args []string) bool {
-	if current == nil || !slices.Equal(current.Args, args) {
+// addsDefaultHFEnv reports whether the desired storage-initializer gets the default
+// Hugging Face download environment variables. It returns true when there is no live
+// init container, when the live container downloads a different set of arguments, or
+// when the live container carries one of those variables that the desired container
+// does not set itself. A live container that runs the same downloads without any of
+// them keeps that environment, so a controller upgrade does not restart its pod. Other
+// HF_ variables, such as an HF_TOKEN injected from a service account secret, do not
+// count, and neither do default variables the user sets on the storage-initializer.
+func addsDefaultHFEnv(current, desired *corev1.Container) bool {
+	if current == nil || !slices.Equal(current.Args, desired.Args) {
 		return true
 	}
-	return slices.ContainsFunc(current.Env, func(e corev1.EnvVar) bool {
-		return strings.HasPrefix(e.Name, "HF_")
-	})
+	return utils.HasDefaultHuggingFaceEnvVar(current, desired.Env)
 }
 
 // attachStorageInitializer configures a PodSpec to use KServe storage-initializer for
@@ -727,7 +739,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 		return strings.HasPrefix(p.uri, constants.HfURIPrefix)
 	})
 	currentInit := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-	if needHF && addsDefaultHFEnv(currentInit, initPtr.Args) {
+	if needHF && addsDefaultHFEnv(currentInit, initPtr) {
 		utils.AddDefaultHuggingFaceEnvVars(initPtr)
 	}
 
