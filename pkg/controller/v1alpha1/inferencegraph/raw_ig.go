@@ -171,6 +171,10 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 	return deployment[0], reconciler.URL, nil
 }
 
+// deploymentNotAvailableReason is set on an InferenceGraph whose Deployment has no
+// Available condition yet.
+const deploymentNotAvailableReason = "DeploymentNotAvailable"
+
 /*
 PropagateRawStatus Propagates deployment status onto Inference graph status.
 In raw deployment mode, deployment available denotes the ready status for IG
@@ -178,20 +182,54 @@ In raw deployment mode, deployment available denotes the ready status for IG
 func PropagateRawStatus(graphStatus *v1alpha1.InferenceGraphStatus, deployment *appsv1.Deployment,
 	url *apis.URL,
 ) {
-	for _, con := range deployment.Status.Conditions {
-		if con.Type == appsv1.DeploymentAvailable {
-			graphStatus.URL = url
-
-			conditions := []apis.Condition{
-				{
-					Type:   apis.ConditionReady,
-					Status: corev1.ConditionTrue,
-				},
-			}
-			graphStatus.SetConditions(conditions)
-			logger.Info("status propagated:")
-			break
-		}
+	if isDeploymentAvailable(deployment) {
+		graphStatus.URL = url
+	} else {
+		// The router cannot serve while the Deployment is unavailable, so a URL
+		// computed from the raw resources would point at nothing.
+		graphStatus.URL = nil
 	}
 	graphStatus.ObservedGeneration = deployment.Status.ObservedGeneration
+
+	// The Deployment controller writes Available as False until enough replicas are
+	// ready, so the graph is ready only when that condition says so. Copying its
+	// reason and message keeps MinimumReplicasUnavailable visible on the graph.
+	readyCondition := apis.Condition{
+		Type:   apis.ConditionReady,
+		Status: corev1.ConditionFalse,
+		Reason: deploymentNotAvailableReason,
+	}
+	if available := deploymentCondition(deployment, appsv1.DeploymentAvailable); available != nil {
+		readyCondition.Status = available.Status
+		readyCondition.Reason = available.Reason
+		readyCondition.Message = available.Message
+	}
+	// Keep the other conditions, such as Stopped, instead of replacing them with
+	// Ready alone. The controller reads Stopped after this call, and recreating it
+	// with a fresh transition time would rewrite the status on every reconcile and
+	// keep requeueing a graph whose Deployment cannot start.
+	conditions := make([]apis.Condition, 0, len(graphStatus.Conditions)+1)
+	conditions = append(conditions, readyCondition)
+	for _, existing := range graphStatus.Conditions {
+		if existing.Type != apis.ConditionReady {
+			conditions = append(conditions, existing)
+		}
+	}
+	graphStatus.SetConditions(conditions)
+	logger.Info("status propagated", "ready", readyCondition.Status, "reason", readyCondition.Reason)
+}
+
+// isDeploymentAvailable reports whether the Deployment's Available condition is True.
+func isDeploymentAvailable(deployment *appsv1.Deployment) bool {
+	available := deploymentCondition(deployment, appsv1.DeploymentAvailable)
+	return available != nil && available.Status == corev1.ConditionTrue
+}
+
+func deploymentCondition(deployment *appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
+	for i := range deployment.Status.Conditions {
+		if deployment.Status.Conditions[i].Type == conditionType {
+			return &deployment.Status.Conditions[i]
+		}
+	}
+	return nil
 }
