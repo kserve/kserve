@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -218,17 +219,28 @@ func NodeStatusFromLocalModelStatus(modelStatus v1alpha1.ModelStatus) v1alpha1.N
 	return v1alpha1.NodeDownloadPending
 }
 
-// DeleteModelFromNodes deletes the model from all nodes in the node groups
-// Only one of localModelCache or localModelNamespaceCache should be non-nil
-// For namespace-scoped models, also explicitly deletes PVs since they cannot have owner references
+// DeleteModelFromNodes deletes the model entry from every LocalModelNode that
+// still carries it and, for namespace-scoped models, the PVs and the download
+// PVC by name. Only one of localModelCache or localModelNamespaceCache should
+// be non-nil.
+// nodeGroupNames only supplies the names from the cache spec: the node groups
+// may already be deleted by the time the cache is, and neither the node sweep
+// nor the volume cleanup needs the group objects. Any cleanup failure is
+// returned so the reconcile is retried; the finalizer is removed last, only
+// after every cleanup step succeeded.
+// reader must bypass the informer cache (the manager's APIReader). A stale
+// list could miss a node entry and drop the finalizer too early. Matching
+// nodes are read again before patching.
 func DeleteModelFromNodes(
 	ctx context.Context,
 	c client.Client,
+	reader client.Reader,
 	clientset *kubernetes.Clientset,
 	log logr.Logger,
 	localModelCache *v1alpha1.LocalModelCache,
 	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
+	nodeGroupNames []string,
+	localModelConfig *v1beta1.LocalModelConfig,
 ) (ctrl.Result, error) {
 	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
 
@@ -238,57 +250,33 @@ func DeleteModelFromNodes(
 	}
 	log.Info("deleting model", "name", params.Name, "namespace", params.Namespace)
 
-	for nodeGroupName, nodeGroup := range nodeGroups {
-		readyNodes, notReadyNodes, err := GetNodesFromNodeGroup(ctx, nodeGroup, c)
-		if err != nil {
-			log.Error(err, "getNodesFromNodeGroup node error")
-			return ctrl.Result{}, err
-		}
-		for _, node := range append(readyNodes.Items, notReadyNodes.Items...) {
-			localModelNode := &v1alpha1.LocalModelNode{}
-			err := c.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
-			if err != nil {
-				if apierr.IsNotFound(err) {
-					log.Info("localmodelNode not found", "node", node.Name)
-					continue
-				} else {
-					log.Error(err, "Failed to get localmodelnode", "name", node.Name)
-					return ctrl.Result{}, err
-				}
-			}
+	if err := sweepLocalModelNodes(ctx, c, reader, log, params.Name, params.Namespace); err != nil {
+		return ctrl.Result{}, err
+	}
 
-			if err := DeleteModelFromNode(ctx, c, log, localModelNode, params.Name, params.Namespace); err != nil {
-				log.Error(err, "failed to delete model from localModelNode", "localModelNode", localModelNode.Name)
-				return ctrl.Result{}, err
-			}
-		}
-
-		// For namespace-scoped LocalModelNamespaceCache, PVs cannot have owner references
-		// (Kubernetes limitation: cluster-scoped resources cannot be owned by namespace-scoped resources)
-		// So we must explicitly delete them here
-		if params.IsNamespaceScoped {
+	// For namespace-scoped LocalModelNamespaceCache, PVs cannot have owner references
+	// (Kubernetes limitation: cluster-scoped resources cannot be owned by namespace-scoped resources)
+	// So we must explicitly delete them here
+	if params.IsNamespaceScoped {
+		for _, nodeGroupName := range nodeGroupNames {
 			// Delete download PV: {modelName}-{nodeGroup}-{namespace}-download
 			downloadPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace + "-download"
 			if err := DeletePV(ctx, clientset, log, downloadPVName); err != nil {
 				log.Error(err, "failed to delete download PV", "name", downloadPVName)
+				return ctrl.Result{}, err
 			}
 
 			// Delete download PVC from jobNamespace (where download jobs run)
-			downloadPVCName := downloadPVName
-			isvcConfigMap, cfgErr := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
-			if cfgErr == nil {
-				localModelConfig, cfgErr := v1beta1.NewLocalModelConfig(isvcConfigMap)
-				if cfgErr == nil {
-					if err := DeletePVC(ctx, clientset, log, downloadPVCName, localModelConfig.JobNamespace); err != nil {
-						log.Error(err, "failed to delete download PVC from jobNamespace", "name", downloadPVCName, "namespace", localModelConfig.JobNamespace)
-					}
-				}
+			if err := DeletePVC(ctx, clientset, log, downloadPVName, localModelConfig.JobNamespace); err != nil {
+				log.Error(err, "failed to delete download PVC from jobNamespace", "name", downloadPVName, "namespace", localModelConfig.JobNamespace)
+				return ctrl.Result{}, err
 			}
 
 			// Delete serving PV: {modelName}-{nodeGroup}-{namespace}
 			servingPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace
 			if err := DeletePV(ctx, clientset, log, servingPVName); err != nil {
 				log.Error(err, "failed to delete serving PV", "name", servingPVName)
+				return ctrl.Result{}, err
 			}
 		}
 	}
@@ -314,21 +302,75 @@ func DeleteModelFromNodes(
 	return ctrl.Result{}, nil
 }
 
-// DeleteModelFromNode deletes a model entry from a LocalModelNode
-func DeleteModelFromNode(ctx context.Context, c client.Client, log logr.Logger, localModelNode *v1alpha1.LocalModelNode, modelName, namespace string) error {
-	var patch client.Patch
-	for i, modelInfo := range localModelNode.Spec.LocalModels {
-		if modelInfo.ModelName == modelName && modelInfo.Namespace == namespace {
-			patch = client.MergeFrom(localModelNode.DeepCopy())
-			localModelNode.Spec.LocalModels = append(localModelNode.Spec.LocalModels[:i], localModelNode.Spec.LocalModels[i+1:]...)
-			if err := c.Patch(ctx, localModelNode, patch); err != nil {
-				log.Error(err, "Update localmodelnode", "name", localModelNode.Name)
-				return err
-			}
-			break
+// sweepLocalModelNodes uses an authoritative, paginated snapshot. Only nodes
+// that contained this model need a fresh read before their optimistic patch.
+func sweepLocalModelNodes(ctx context.Context, writer client.Client, reader client.Reader, log logr.Logger, modelName, namespace string) error {
+	const pageSize = 500
+	options := &client.ListOptions{Limit: pageSize}
+	for {
+		nodes := &v1alpha1.LocalModelNodeList{}
+		if err := reader.List(ctx, nodes, options); err != nil {
+			return fmt.Errorf("list LocalModelNodes: %w", err)
 		}
+		for i := range nodes.Items {
+			node := &nodes.Items[i]
+			if !slices.ContainsFunc(node.Spec.LocalModels, func(info v1alpha1.LocalModelInfo) bool {
+				return info.ModelName == modelName && info.Namespace == namespace
+			}) {
+				continue
+			}
+			if err := DeleteModelFromNode(ctx, reader, writer, log, node.Name, modelName, namespace); err != nil {
+				return fmt.Errorf("remove model from LocalModelNode %s: %w", node.Name, err)
+			}
+		}
+		if nodes.Continue == "" {
+			return nil
+		}
+		options.Continue = nodes.Continue
 	}
-	return nil
+}
+
+// DeleteModelFromNode deletes every entry of (modelName, namespace) from the
+// LocalModelNode. The patch carries the node's resourceVersion, so a write
+// racing with another cache's update to the same node is retried instead of
+// silently overwriting it; a node that no longer exists counts as cleaned.
+func DeleteModelFromNode(ctx context.Context, reader client.Reader, c client.Client, log logr.Logger, nodeName, modelName, namespace string) error {
+	const maxAttempts = 3
+	for range maxAttempts {
+		localModelNode := &v1alpha1.LocalModelNode{}
+		if err := reader.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode); err != nil {
+			if apierr.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		kept := make([]v1alpha1.LocalModelInfo, 0, len(localModelNode.Spec.LocalModels))
+		removed := false
+		for _, modelInfo := range localModelNode.Spec.LocalModels {
+			if modelInfo.ModelName == modelName && modelInfo.Namespace == namespace {
+				removed = true
+				continue
+			}
+			kept = append(kept, modelInfo)
+		}
+		if !removed {
+			return nil
+		}
+		patch := client.MergeFromWithOptions(localModelNode.DeepCopy(), client.MergeFromWithOptimisticLock{})
+		localModelNode.Spec.LocalModels = kept
+		if err := c.Patch(ctx, localModelNode, patch); err != nil {
+			if apierr.IsConflict(err) {
+				continue
+			}
+			if apierr.IsNotFound(err) {
+				return nil
+			}
+			log.Error(err, "Update localmodelnode", "name", nodeName)
+			return err
+		}
+		return nil
+	}
+	return fmt.Errorf("failed to remove %s/%s from LocalModelNode %s: too many conflicts", namespace, modelName, nodeName)
 }
 
 // DeletePV deletes a PersistentVolume by name
@@ -685,13 +727,13 @@ func UpdateLocalModelNode(
 			}
 			log.Info("Updating localModelInfo", "node", localModelNode.Name, "model", params.Name, "namespace", params.Namespace)
 			updated = true
-			patch = client.MergeFrom(localModelNode.DeepCopy())
+			patch = client.MergeFromWithOptions(localModelNode.DeepCopy(), client.MergeFromWithOptimisticLock{})
 			localModelNode.Spec.LocalModels[i] = newModelInfo
 			break
 		}
 	}
 	if !updated {
-		patch = client.MergeFrom(localModelNode.DeepCopy())
+		patch = client.MergeFromWithOptions(localModelNode.DeepCopy(), client.MergeFromWithOptimisticLock{})
 		localModelNode.Spec.LocalModels = append(localModelNode.Spec.LocalModels, newModelInfo)
 	}
 	if err := c.Patch(ctx, localModelNode, patch); err != nil {

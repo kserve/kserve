@@ -18,6 +18,7 @@ package localmodel
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -42,6 +43,7 @@ import (
 var (
 	cfg        *rest.Config
 	k8sClient  client.Client
+	mgrClient  client.Client
 	testScheme *runtime.Scheme
 )
 
@@ -53,7 +55,14 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
-		clientset, err := kubernetes.NewForConfig(restCfg)
+		// The reconcilers' clientset goes through faultInjectorTransport so
+		// tests can deny selected API calls (see controller_test.go).
+		faultCfg := rest.CopyConfig(restCfg)
+		faultCfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return faultInjectorTransport{rt: rt}
+		}
+		mgrClient = mgr.GetClient()
+		clientset, err := kubernetes.NewForConfig(faultCfg)
 		if err != nil {
 			return err
 		}
