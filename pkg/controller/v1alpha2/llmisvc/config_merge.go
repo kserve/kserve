@@ -648,7 +648,13 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			if cfg.Annotations[configReplacesPresetAnnotation] != "" {
 				baseRefPresets.Insert(ref.Name)
 			}
-			baseRefSpecs = append(baseRefSpecs, cfg.Spec)
+			// Treat an empty model name as unset, as the webhook defaulter does for
+			// the service. Otherwise "" replaces the service's name in the merge below.
+			spec := cfg.Spec
+			if ptr.Deref(spec.Model.Name, "") == "" {
+				spec.Model.Name = nil
+			}
+			baseRefSpecs = append(baseRefSpecs, spec)
 		}
 	}
 

@@ -153,5 +153,57 @@ var _ = Describe("Validating config configs", func() {
 				return apierrors.IsNotFound(err)
 			}).Should(BeTrue(), "invalid rendered config must not leave partial child resources")
 		})
+
+		It("should ignore an empty model name from a baseRef in publisher paths", func(ctx SpecContext) {
+			// given
+			testNs := fixture.NewTestNamespace(ctx, envTest)
+			const svcName = "empty-baseref-model-name"
+			modelConfig := fixture.LLMInferenceServiceConfig("model-empty-name",
+				fixture.InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				fixture.WithConfigModelName(""),
+			)
+			routerConfig := fixture.LLMInferenceServiceConfig("router-managed",
+				fixture.InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				fixture.WithConfigManagedRouter(),
+			)
+			Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Create(ctx, routerConfig)).To(Succeed())
+
+			llmSvc := fixture.LLMInferenceService(svcName,
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithBaseRefs(
+					corev1.LocalObjectReference{Name: modelConfig.Name},
+					corev1.LocalObjectReference{Name: routerConfig.Name},
+				),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			// then: the publisher paths use the name the service was defaulted to
+			Eventually(func(g Gomega) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				condition := current.Status.GetCondition(v1alpha2.PresetsCombined)
+				g.Expect(condition).NotTo(BeNil())
+				g.Expect(condition.Reason).NotTo(Equal("InvalidRenderedConfig"), condition.Message)
+				g.Expect(condition.IsTrue()).To(BeTrue())
+
+				routes, err := managedRoutes(ctx, llmSvc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				var paths []string
+				for _, rule := range routes[0].Spec.Rules {
+					for _, match := range rule.Matches {
+						if match.Path != nil && match.Path.Value != nil {
+							paths = append(paths, *match.Path.Value)
+						}
+					}
+				}
+				g.Expect(paths).To(ContainElement("/publishers/" + testNs.Name + "/models/" + svcName + "/v1/completions"))
+			}).Should(Succeed())
+		})
 	})
 })
