@@ -32,8 +32,10 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials/s3"
 )
 
 var _ = Describe("Canary deployment controller", func() {
@@ -107,6 +109,53 @@ var _ = Describe("Canary deployment controller", func() {
 	}
 
 	Context("When creating an InferenceService with a canary", func() {
+		It("Should mount each predictor's own PVC from storageUris", func(ctx SpecContext) {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
+			defer k8sClient.Delete(ctx, configMap)
+
+			namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "canary-storage-"}}
+			Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+			defer k8sClient.Delete(ctx, namespace)
+
+			servingRuntime := getServingRuntime("tf-canary-storage", namespace.Name)
+			Expect(k8sClient.Create(ctx, &servingRuntime)).To(Succeed())
+			defer k8sClient.Delete(ctx, &servingRuntime)
+
+			isvc := makeCanaryISVC("canary-storage-test", namespace.Name, "", 5,
+				[]v1beta1.CanarySpec{makeCanary("v2", 20, "")})
+			isvc.Spec.Predictor.Model.StorageURI = nil
+			isvc.Spec.Predictor.StorageUris = []v1beta1.StorageUri{{Uri: "pvc://iris-models-v1", MountPath: "/mnt/models"}}
+			isvc.Spec.Canary[0].Predictor.Model.StorageURI = nil
+			isvc.Spec.Canary[0].Predictor.StorageUris = []v1beta1.StorageUri{{Uri: "pvc://iris-models-v2", MountPath: "/mnt/models"}}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).To(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			for _, predictor := range []struct {
+				name  string
+				claim string
+			}{
+				{name: "", claim: "iris-models-v1"},
+				{name: "v2", claim: "iris-models-v2"},
+			} {
+				key := types.NamespacedName{Name: constants.PredictorServiceName(isvc.Name, predictor.name), Namespace: namespace.Name}
+				deployment := &appsv1.Deployment{}
+				Eventually(func() error {
+					return k8sClient.Get(ctx, key, deployment)
+				}, timeout, interval).Should(Succeed())
+				podSpec := deployment.Spec.Template.Spec
+				Expect(podSpec.Volumes).To(HaveLen(1), "predictor %q should mount %s", predictor.name, predictor.claim)
+				Expect(podSpec.Volumes[0].PersistentVolumeClaim).To(Equal(&corev1.PersistentVolumeClaimVolumeSource{ClaimName: predictor.claim}))
+				Expect(podSpec.Containers).To(HaveLen(1))
+				Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+					Name:      podSpec.Volumes[0].Name,
+					MountPath: "/mnt/models",
+					ReadOnly:  true,
+				}))
+			}
+		})
+
 		It("Should create separate Deployments for stable and canary", func() {
 			configMap := createInferenceServiceConfigMap(configs)
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
@@ -160,6 +209,96 @@ var _ = Describe("Canary deployment controller", func() {
 			stableDeploy := &appsv1.Deployment{}
 			Expect(k8sClient.Get(ctx, stableKey, stableDeploy)).Should(Succeed())
 			Expect(stableDeploy.Spec.Template.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]).To(Equal("s3://test/model-v1"))
+		})
+
+		It("Should initialize canary storageUris with its own downloader and credentials", func(ctx SpecContext) {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
+			defer k8sClient.Delete(ctx, configMap)
+
+			namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "canary-cloud-"}}
+			Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+			defer k8sClient.Delete(ctx, namespace)
+
+			servingRuntime := getServingRuntime("tf-canary-cloud-storage", namespace.Name)
+			Expect(k8sClient.Create(ctx, &servingRuntime)).To(Succeed())
+			defer k8sClient.Delete(ctx, &servingRuntime)
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "canary-storage-secret", Namespace: namespace.Name},
+				Data: map[string][]byte{
+					s3.AWSAccessKeyIdName:     []byte("unused"),
+					s3.AWSSecretAccessKeyName: []byte("unused"),
+				},
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+			defer k8sClient.Delete(ctx, secret)
+
+			serviceAccount := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{Name: "canary-storage", Namespace: namespace.Name},
+				Secrets:    []corev1.ObjectReference{{Name: secret.Name}},
+			}
+			Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
+			defer k8sClient.Delete(ctx, serviceAccount)
+
+			storageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{Name: "canary-cloud-downloader"},
+				Spec: v1alpha1.StorageContainerSpec{
+					Container:                  corev1.Container{Name: constants.StorageInitializerContainerName, Image: "example.com/model-downloader:canary"},
+					SupportedUriFormats:        []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},
+					WorkloadType:               v1alpha1.InitContainer,
+					SupportsMultiModelDownload: ptr.To(true),
+				},
+			}
+			Expect(k8sClient.Create(ctx, storageContainer)).To(Succeed())
+			defer k8sClient.Delete(ctx, storageContainer)
+
+			isvc := makeCanaryISVC("cloud-storage", namespace.Name, "", 5,
+				[]v1beta1.CanarySpec{makeCanary("v2", 20, "")})
+			isvc.Spec.Predictor.Model.StorageURI = nil
+			isvc.Spec.Predictor.StorageUris = []v1beta1.StorageUri{{Uri: "pvc://iris-models-v1", MountPath: "/mnt/models"}}
+			canary := &isvc.Spec.Canary[0].Predictor
+			canary.Model.StorageURI = nil
+			canary.StorageUris = []v1beta1.StorageUri{
+				{Uri: "s3://models/canary", MountPath: "/mnt/models"},
+				{Uri: "s3://adapters/canary", MountPath: "/mnt/adapters"},
+			}
+			canary.StorageContainerName = &storageContainer.Name
+			canary.ServiceAccountName = serviceAccount.Name
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).To(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			deployment := &appsv1.Deployment{}
+			key := types.NamespacedName{Name: constants.PredictorServiceName(isvc.Name, "v2"), Namespace: namespace.Name}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, key, deployment)
+			}, timeout, interval).Should(Succeed())
+			podSpec := deployment.Spec.Template.Spec
+			Expect(podSpec.ServiceAccountName).To(Equal(serviceAccount.Name))
+			Expect(podSpec.InitContainers).To(HaveLen(1))
+			initializer := podSpec.InitContainers[0]
+			Expect(initializer.Image).To(Equal("example.com/model-downloader:canary"))
+			Expect(initializer.Args).To(Equal([]string{"s3://models/canary", "/mnt/models", "s3://adapters/canary", "/mnt/adapters"}))
+			Expect(initializer.Env).To(ContainElement(corev1.EnvVar{
+				Name: s3.AWSAccessKeyId,
+				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+					Key:                  s3.AWSAccessKeyIdName,
+				}},
+			}))
+			Expect(podSpec.Volumes).To(HaveLen(1))
+			Expect(podSpec.Volumes[0].EmptyDir).NotTo(BeNil())
+			Expect(initializer.VolumeMounts).To(ContainElement(corev1.VolumeMount{
+				Name:      podSpec.Volumes[0].Name,
+				MountPath: "/mnt",
+			}))
+			Expect(podSpec.Containers).To(HaveLen(1))
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+				Name:      podSpec.Volumes[0].Name,
+				MountPath: "/mnt",
+				ReadOnly:  true,
+			}))
 		})
 	})
 
