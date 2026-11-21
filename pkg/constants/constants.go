@@ -937,6 +937,16 @@ func PathBasedExplainPrefix() string {
 	return "(/v1/models/[\\w-]+:explain)$"
 }
 
+// PathBasedExplainPath returns the explain endpoint path served by the explainer for the given model name.
+func PathBasedExplainPath(modelName string) string {
+	return "/v1/models/" + modelName + ":explain"
+}
+
+// PathBasedHTTPRouteName returns the name of the HTTPRoute holding the path based routing rules for the shared ingress domain.
+func PathBasedHTTPRouteName(name string) string {
+	return name + "-path"
+}
+
 func VirtualServiceHostname(name string, predictorHostName string) string {
 	index := strings.Index(predictorHostName, ".")
 	return name + predictorHostName[index:]
