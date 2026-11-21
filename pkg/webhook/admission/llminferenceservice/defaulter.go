@@ -163,14 +163,29 @@ func applyDefaults(
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
 // LoRA adapter URIs are matched independently and recorded in the LoRA JSON annotation.
 //
-// Selection is deterministic and binding-aware (see
-// v1alpha1.SelectLocalModelNamespaceCache): a cache the LLMInferenceService is
-// already bound to keeps winning while it still matches and its import record
-// still attests usable data, so a transient cache readiness change never
-// reverts the workload to its original source URI. An unbound workload is
-// never routed to a not-ready shared-PVC cache.
+// Selection is deterministic and binding-aware: a cache the LLMInferenceService is
+// already bound to keeps winning while it still matches, so a transient cache
+// readiness change never reverts the workload to its original source URI.
+//
+// The per-workload policy (serving.kserve.io/local-model-cache-policy) decides
+// how a not-ready shared-PVC cache is treated. With the default
+// FallbackToSource the workload keeps the #6590 semantics: it is never bound
+// to a not-ready shared-PVC cache and is released from a bound cache once its
+// import record for the current claim is gone. With CacheRequired (a
+// per-workload opt-in, since only the workload owner knows whether it can
+// afford downloading its own copy) a not-ready shared-PVC cache may be
+// selected for an unbound workload: the binding records the intent to serve
+// from that cache, and workload reconciliation fails closed, gating on the
+// cache's import record for the current claim instead of downloading from the
+// original source URI. The resolved policy is mirrored onto the internal
+// policy annotation so it propagates to the serving pod template.
 func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
 	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
+
+	// A malformed non-empty value is already rejected by admission validation;
+	// reading it as CacheRequired here keeps the defaulter fail-closed instead
+	// of silently falling back to a source download.
+	cacheRequired, _ := kservevalidation.LocalModelCachePolicyRequired(llmSvc.Annotations)
 
 	modelUri := llmSvc.Spec.Model.URI.String()
 	mode, _ := llmSvc.ModelExpressMode()
@@ -180,7 +195,9 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 		NodeGroupExists: isvcNodeGroupExists,
 		BoundCache:      llmSvc.Labels[constants.LocalModelLabel],
 		BoundNamespace:  llmSvc.Labels[constants.LocalModelNamespaceLabel],
+		CacheRequired:   cacheRequired,
 	}
+	setLocalModelCachePolicyInternalAnnotation(llmSvc, cacheRequired)
 	if mode == kservevalidation.ModelExpressModeNative {
 		clearBaseLocalModelMetadata(llmSvc)
 	} else if match := localmodelcache.MatchCacheForURI(baseSelection, models, nsModels); match != nil {
@@ -189,7 +206,7 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 		clearBaseLocalModelMetadata(llmSvc)
 	}
 
-	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists)
+	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists, cacheRequired)
 }
 
 func applyBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, match *localmodelcache.CacheEntry) {
@@ -218,6 +235,7 @@ func setLoRALocalModelMetadata(
 	nsModels *v1alpha1.LocalModelNamespaceCacheList,
 	nodeGroup string,
 	nodeGroupExists bool,
+	cacheRequired bool,
 ) {
 	if llmSvc.Spec.Model.LoRA == nil || len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
 		clearLoRALocalModelMetadata(llmSvc)
@@ -242,6 +260,7 @@ func setLoRALocalModelMetadata(
 			StorageURI:      adapterURI,
 			NodeGroup:       nodeGroup,
 			NodeGroupExists: nodeGroupExists,
+			CacheRequired:   cacheRequired,
 		}
 		if bound, ok := boundEntries[*adapter.Name]; ok {
 			adapterSelection.BoundCache = bound.Cache
@@ -283,6 +302,22 @@ func clearBaseLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
 	}
 }
 
+// setLocalModelCachePolicyInternalAnnotation mirrors the resolved
+// local-model-cache-policy onto the internal annotation that the deployment
+// reconcilers propagate to the serving pod template (and the pod mutator gates
+// on). Setting it unconditionally makes the propagated value authoritative for
+// the pod even if the public annotation is later edited without defaulting.
+func setLocalModelCachePolicyInternalAnnotation(llmSvc *v1alpha2.LLMInferenceService, cacheRequired bool) {
+	if llmSvc.Annotations == nil {
+		llmSvc.Annotations = make(map[string]string)
+	}
+	if cacheRequired {
+		llmSvc.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyCacheRequired
+	} else {
+		llmSvc.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyFallbackToSource
+	}
+}
+
 func clearLoRALocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
 	if llmSvc.Annotations != nil {
 		delete(llmSvc.Annotations, constants.LocalModelLoRAAnnotationKey)
@@ -293,4 +328,7 @@ func clearLoRALocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
 func DeleteLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
 	clearBaseLocalModelMetadata(llmSvc)
 	clearLoRALocalModelMetadata(llmSvc)
+	if llmSvc.Annotations != nil {
+		delete(llmSvc.Annotations, constants.LocalModelCachePolicyInternalAnnotationKey)
+	}
 }

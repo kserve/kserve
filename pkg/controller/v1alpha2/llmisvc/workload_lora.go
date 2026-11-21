@@ -155,30 +155,34 @@ func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoR
 
 // rewriteLoRAAdaptersFromLocalModelCache rewrites cached adapter URIs to pvc:// paths
 // using the slim localmodel-lora annotation (cache + optional namespace). Source URI and PVC
-// name are resolved at reconcile time via Get on the referenced cache.
+// name are resolved at reconcile time via Get on the referenced cache. The second
+// return value is non-empty when an adapter is served from a not-Ready shared-PVC
+// cache whose import record attests the current claim (degraded serving).
 func rewriteLoRAAdaptersFromLocalModelCache(
 	ctx context.Context,
 	c client.Client,
 	llmSvc *v1alpha2.LLMInferenceService,
 	adapters []resolvedLoRAAdapter,
-) ([]resolvedLoRAAdapter, error) {
+	cacheRequired bool,
+) ([]resolvedLoRAAdapter, string, error) {
 	if len(adapters) == 0 {
-		return adapters, nil
+		return adapters, "", nil
 	}
 	raw := llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey]
 	if raw == "" {
-		return adapters, nil
+		return adapters, "", nil
 	}
 	entries, err := localmodelcache.ParseLoRACacheAnnotation(raw)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if len(entries) == 0 {
-		return adapters, nil
+		return adapters, "", nil
 	}
 
 	nodeGroup, nodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
 
+	degradedMsg := ""
 	out := make([]resolvedLoRAAdapter, len(adapters))
 	copy(out, adapters)
 	for i := range out {
@@ -186,54 +190,71 @@ func rewriteLoRAAdaptersFromLocalModelCache(
 		if !ok || entry.Cache == "" {
 			continue
 		}
-		sourceURI, pvcName, err := resolveLoRACachePVC(ctx, c, entry, nodeGroup, nodeGroupExists)
+		var sourceURI, pvcName, adapterDegraded string
+		var err error
+		sourceURI, pvcName, adapterDegraded, err = resolveLoRACachePVC(ctx, c, entry, nodeGroup, nodeGroupExists, cacheRequired)
 		if err != nil {
-			return nil, fmt.Errorf("LoRA adapter %q: %w", out[i].name, err)
+			return nil, "", fmt.Errorf("LoRA adapter %q: %w", out[i].name, err)
+		}
+		if adapterDegraded != "" {
+			degradedMsg = fmt.Sprintf("LoRA adapter %q: %s", out[i].name, adapterDegraded)
 		}
 		out[i].uri = localmodelcache.BuildCachedPVCURI(sourceURI, pvcName, out[i].uri)
 		out[i].scheme = constants.PvcURIPrefix
 	}
-	return out, nil
+	return out, degradedMsg, nil
 }
 
 // resolveLoRACachePVC Gets the referenced LocalModelCache / LocalModelNamespaceCache and
 // derives source URI + serving PVC name for the LLMInferenceService node group.
+// Like resolveBaseModelCachePVC, it only gates under the local-model-cache-policy:
+// CacheRequired policy, keyed on the cache's import record for the current claim:
+// a workload already bound to the claim the record attests keeps mounting the
+// adapter (non-empty degradedMsg), while a binding whose claim carries no
+// attested copy waits for the import to complete. Defaulting binds adapters to
+// not-Ready caches as a wait intent, and an import still in progress may not
+// have written a complete copy of the adapter onto the claim yet.
 func resolveLoRACachePVC(
 	ctx context.Context,
 	c client.Client,
 	entry localmodelcache.CacheEntry,
 	nodeGroup string,
 	nodeGroupExists bool,
-) (sourceURI, pvcName string, err error) {
+	cacheRequired bool,
+) (sourceURI, pvcName, degradedMsg string, err error) {
 	if entry.Namespace != "" {
 		nsCache := &v1alpha1.LocalModelNamespaceCache{}
 		if err := c.Get(ctx, types.NamespacedName{Name: entry.Cache, Namespace: entry.Namespace}, nsCache); err != nil {
-			return "", "", fmt.Errorf("get LocalModelNamespaceCache %s/%s: %w", entry.Namespace, entry.Cache, err)
+			return "", "", "", fmt.Errorf("get LocalModelNamespaceCache %s/%s: %w", entry.Namespace, entry.Cache, err)
 		}
-		// Shared-PVC mode: the serving PVC is the referenced claim. Readiness is gated at
-		// bind time by the webhook, not here: an adapter already bound to the cache keeps
-		// resolving while the cache reports NotReady, since the data stays on the claim.
+		// Shared-PVC mode: the serving PVC is the referenced claim, gated on the
+		// import record for CacheRequired workloads.
 		if nsCache.Spec.SharedPVCMode() {
-			return nsCache.Spec.SourceModelUri, *nsCache.Spec.PVCRef, nil
+			binding, err := resolveSharedPVCCacheBinding(ctx, c, nsCache, cacheRequired,
+				"waiting for the cache instead of mounting an incomplete LoRA adapter")
+			if err != nil {
+				return "", "", "", err
+			}
+			return binding.sourceURI, binding.pvcName, binding.degradedMsg, nil
 		}
 		pvc, ok := localmodelcache.PVCNameForNodeGroup(nsCache.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsCache.Name)
 		if !ok {
-			return "", "", fmt.Errorf("LocalModelNamespaceCache %s/%s has no matching node group for annotation %q=%q",
+			return "", "", "", fmt.Errorf("LocalModelNamespaceCache %s/%s has no matching node group for annotation %q=%q",
 				entry.Namespace, entry.Cache, constants.NodeGroupAnnotationKey, nodeGroup)
 		}
-		return nsCache.Spec.SourceModelUri, pvc, nil
+		return nsCache.Spec.SourceModelUri, pvc, "", nil
 	}
 
 	cache := &v1alpha1.LocalModelCache{}
 	if err := c.Get(ctx, types.NamespacedName{Name: entry.Cache}, cache); err != nil {
-		return "", "", fmt.Errorf("get LocalModelCache %s: %w", entry.Cache, err)
+		return "", "", "", fmt.Errorf("get LocalModelCache %s: %w", entry.Cache, err)
 	}
 	pvc, ok := localmodelcache.PVCNameForNodeGroup(cache.Spec.NodeGroups, nodeGroup, nodeGroupExists, cache.Name)
 	if !ok {
-		return "", "", fmt.Errorf("LocalModelCache %s has no matching node group for annotation %q=%q",
+		return "", "", "", fmt.Errorf("LocalModelCache %s has no matching node group for annotation %q=%q",
 			entry.Cache, constants.NodeGroupAnnotationKey, nodeGroup)
 	}
-	return cache.Spec.SourceModelUri, pvc, nil
+	return cache.Spec.SourceModelUri, pvc, "", nil
 }
 
 // loraMountSegments returns the mount path segment for each adapter, positionally.

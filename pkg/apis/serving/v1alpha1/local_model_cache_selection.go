@@ -39,10 +39,18 @@ type LocalModelCacheSelection struct {
 	// empty when the binding points at a cluster-scoped LocalModelCache.
 	BoundCache     string
 	BoundNamespace string
+	// CacheRequired marks the workload as having opted into the
+	// serving.kserve.io/local-model-cache-policy: CacheRequired policy (fail
+	// closed). It is false for the default FallbackToSource workloads, which
+	// never get routed to a not-ready shared-PVC cache and get released from a
+	// bound cache as soon as its import record for the current claim is gone.
+	CacheRequired bool
 }
 
 // SelectLocalModelNamespaceCache returns the namespace-scoped cache that should
-// serve sel.StorageURI, or nil when no cache in nsModels matches.
+// serve sel.StorageURI, or nil when no cache in nsModels matches. The boolean
+// waitIntent return reports that the selected cache is a not-ready shared-PVC
+// cache, which only happens for CacheRequired workloads (see below).
 //
 // Selection is deterministic and independent of the Kubernetes API list order:
 //
@@ -53,18 +61,24 @@ type LocalModelCacheSelection struct {
 //     would roll the workload's pods back to downloading from source. Once the
 //     record is gone the claim holds no usable data (it was recreated and a
 //     fresh import is underway), so the binding is released like any other
-//     not-ready match.
+//     not-ready match. A CacheRequired workload keeps the binding instead and
+//     fails closed, waiting on the cache's import record.
 //  2. Otherwise, ready shared-PVC caches win over node-local caches. Within
 //     both classes the oldest cache wins (creation timestamp, then name),
 //     mirroring the reconciler's first-writer destination ownership.
 //
-// An unbound workload is never routed to a not-ready shared-PVC cache.
-func SelectLocalModelNamespaceCache(sel LocalModelCacheSelection, nsModels *LocalModelNamespaceCacheList) *LocalModelNamespaceCache {
+// A not-ready shared-PVC cache is never selected for a default
+// (FallbackToSource) workload. For a CacheRequired workload it is selected only
+// as a fail-closed wait intent, reported by the waitIntent return value: the
+// binding records the intent to serve from that cache, and admission and
+// reconciliation gate on the cache's import record for the current claim
+// instead of falling back to the workload's original source URI.
+func SelectLocalModelNamespaceCache(sel LocalModelCacheSelection, nsModels *LocalModelNamespaceCacheList) (selected *LocalModelNamespaceCache, waitIntent bool) {
 	if nsModels == nil || sel.StorageURI == "" {
-		return nil
+		return nil, false
 	}
 
-	var sharedReady, nodeLocal *LocalModelNamespaceCache
+	var sharedReady, nodeLocal, sharedNotReady *LocalModelNamespaceCache
 	for i := range nsModels.Items {
 		candidate := &nsModels.Items[i]
 		if !candidate.Spec.MatchStorageURI(sel.StorageURI) {
@@ -72,24 +86,32 @@ func SelectLocalModelNamespaceCache(sel LocalModelCacheSelection, nsModels *Loca
 		}
 		if isBoundLocalModelCache(sel, candidate) {
 			if candidate.Spec.SharedPVCMode() {
+				if sel.CacheRequired {
+					// Fail closed: the binding is kept while it still matches,
+					// including through a fresh import onto a recreated claim;
+					// the serving gates decide on the import record instead.
+					return candidate, false
+				}
 				// #6280 rule: a bound shared-PVC cache keeps the binding while
 				// its import record still attests that the data is on the current
 				// claim (not-ready with a record means a spec-generation bump or a
 				// blocked re-import). Once the record is cleared the claim holds no
 				// usable data yet, so the binding is released.
 				if candidate.IsReady() || candidate.Status.SharedPVCImport != nil {
-					return candidate
+					return candidate, false
 				}
 				continue
 			}
 			if NodeLocalCacheServesNodeGroup(candidate.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists) {
-				return candidate
+				return candidate, false
 			}
 			continue
 		}
 		if candidate.Spec.SharedPVCMode() {
 			if candidate.IsReady() {
 				sharedReady = OlderLocalModelCache(sharedReady, candidate)
+			} else if sel.CacheRequired {
+				sharedNotReady = OlderLocalModelCache(sharedNotReady, candidate)
 			}
 			continue
 		}
@@ -99,9 +121,12 @@ func SelectLocalModelNamespaceCache(sel LocalModelCacheSelection, nsModels *Loca
 		nodeLocal = OlderLocalModelCache(nodeLocal, candidate)
 	}
 	if sharedReady != nil {
-		return sharedReady
+		return sharedReady, false
 	}
-	return nodeLocal
+	if nodeLocal != nil {
+		return nodeLocal, false
+	}
+	return sharedNotReady, sharedNotReady != nil
 }
 
 // NodeLocalCacheServesNodeGroup reports whether a node-local cache with the

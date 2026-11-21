@@ -128,25 +128,47 @@ var (
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
 	KnativeOpenshiftEnablePassthroughKey        = "serving.knative.openshift.io/enablePassthrough"
 	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
-	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
-	KserveContainerPrometheusPortKey            = "prometheus.kserve.io/port"
-	KServeContainerPrometheusPathKey            = "prometheus.kserve.io/path"
-	PrometheusPortAnnotationKey                 = "prometheus.io/port"
-	PrometheusPathAnnotationKey                 = "prometheus.io/path"
-	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
-	DefaultPrometheusPath                       = "/metrics"
-	QueueProxyAggregatePrometheusMetricsPort    = "9088"
-	DefaultPodPrometheusPort                    = "9091"
-	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
-	LoggerSecretNameKey                         = KServeAPIGroupName + "/logger-secret-name"
-	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
-	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
-	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
-	KernelCacheSupportedAnnotationKey           = KServeAPIGroupName + "/kernelcache-supported"
-	KernelCacheSidecarInjectionAnnotationKey    = KServeAPIGroupName + "/kernelcache-sidecar-injection"
-	KernelCacheNodeGroupAnnotationKey           = KServeAPIGroupName + "/kernelcache-nodegroup"
-	ModelFormatAnnotationKey                    = "modelFormat"
-	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
+	// LocalModelCachePolicyAnnotationKey is the per-workload policy for a
+	// shared-PVC LocalModelNamespaceCache matching the workload's storage URI.
+	//
+	// Unset (or empty) means FallbackToSource, the default: the workload is bound
+	// to a matching cache only once the cache is Ready (its import completed and
+	// the node agents propagated it); before that, and while a bound cache's
+	// import record for the current claim is gone, the workload downloads its
+	// own copy from the original storage URI.
+	//
+	// CacheRequired opts into fail-closed serving: a matching shared-PVC cache is
+	// selected even while it is not Ready, and serving gates on the cache's
+	// import record for the current claim instead of its Ready condition: pods
+	// are only admitted onto the claim after an import completed onto it, and an
+	// already-bound workload keeps serving from the claim while the record holds
+	// (through ReimportBlocked or node-agent propagation failures), with the
+	// degraded cache reported on the workload's LocalModelCacheReady condition.
+	//
+	// Comparison is case-insensitive after trimming, matching StopAnnotationKey;
+	// any other non-empty value is rejected at admission. When reading it at
+	// runtime, a malformed non-empty value fails closed (treated as
+	// CacheRequired) rather than silently falling back to a source download.
+	LocalModelCachePolicyAnnotationKey       = KServeAPIGroupName + "/local-model-cache-policy"
+	SetPrometheusAnnotation                  = KServeAPIGroupName + "/enable-prometheus-scraping"
+	KserveContainerPrometheusPortKey         = "prometheus.kserve.io/port"
+	KServeContainerPrometheusPathKey         = "prometheus.kserve.io/path"
+	PrometheusPortAnnotationKey              = "prometheus.io/port"
+	PrometheusPathAnnotationKey              = "prometheus.io/path"
+	StorageReadonlyAnnotationKey             = "storage.kserve.io/readonly"
+	DefaultPrometheusPath                    = "/metrics"
+	QueueProxyAggregatePrometheusMetricsPort = "9088"
+	DefaultPodPrometheusPort                 = "9091"
+	NodeGroupAnnotationKey                   = KServeAPIGroupName + "/nodegroup"
+	LoggerSecretNameKey                      = KServeAPIGroupName + "/logger-secret-name"
+	LoggerCredentialPathKey                  = KServeAPIGroupName + "/logger-secret-path"
+	LoggerCredentialFileKey                  = KServeAPIGroupName + "/logger-secret-file"
+	DisableAutoUpdateAnnotationKey           = KServeAPIGroupName + "/disable-auto-update"
+	KernelCacheSupportedAnnotationKey        = KServeAPIGroupName + "/kernelcache-supported"
+	KernelCacheSidecarInjectionAnnotationKey = KServeAPIGroupName + "/kernelcache-sidecar-injection"
+	KernelCacheNodeGroupAnnotationKey        = KServeAPIGroupName + "/kernelcache-nodegroup"
+	ModelFormatAnnotationKey                 = "modelFormat"
+	InferencePoolMigratedAnnotationKey       = KServeAPIGroupName + "/inferencepool-migrated"
 	// Managed DRA Experimental Annotations
 	// These annotations provide an intentionally limited-scope convenience feature for basic DRA use cases.
 	// Complex DRA topologies should use native Kubernetes ResourceClaimTemplate objects directly.
@@ -162,6 +184,13 @@ var (
 	ModelExpressAddressAnnotationKey       = KServeAPIGroupName + "/exp-modelexpress-address"
 	ModelExpressTokenAudienceAnnotationKey = KServeAPIGroupName + "/exp-modelexpress-token-audience"
 	ModelExpressRevisionAnnotationKey      = KServeAPIGroupName + "/exp-modelexpress-revision"
+)
+
+// Values of the LocalModelCachePolicyAnnotationKey
+// (serving.kserve.io/local-model-cache-policy).
+const (
+	LocalModelCachePolicyFallbackToSource = "FallbackToSource"
+	LocalModelCachePolicyCacheRequired    = "CacheRequired"
 )
 
 // ServingRuntime Server Type Annotations
@@ -201,6 +230,13 @@ var (
 	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
+	// LocalModelCachePolicyInternalAnnotationKey mirrors the user-facing
+	// LocalModelCachePolicyAnnotationKey onto the internal localmodel prefix so
+	// it propagates to serving pod templates (see the approved annotation
+	// prefixes in the workload reconcilers) and reaches the pod mutator, which
+	// reads it to enforce the policy for pods bound to a shared-PVC cache.
+	// It is recorded by the defaulting webhooks, never set by users directly.
+	LocalModelCachePolicyInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/localmodel-cache-policy"
 )
 
 // kserve networking constants

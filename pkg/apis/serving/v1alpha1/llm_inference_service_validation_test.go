@@ -648,3 +648,30 @@ func TestValidateCreateConfidential_V1Alpha1(t *testing.T) {
 		})
 	}
 }
+
+// The v1alpha1 validator keeps its own checklist, so the shared cache policy
+// check must be wired here explicitly - the python SDK creates v1alpha1 objects.
+func TestValidateCreateRejectsUnsupportedLocalModelCachePolicyAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "CacheRequired is admitted", value: "CacheRequired"},
+		{name: "typo is rejected", value: "CacheRequire", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Annotations = map[string]string{constants.LocalModelCachePolicyAnnotationKey: tt.value}
+
+			_, err := validator.ValidateCreate(t.Context(), svc)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, constants.LocalModelCachePolicyAnnotationKey)
+		})
+	}
+}
