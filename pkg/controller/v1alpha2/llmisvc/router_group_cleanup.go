@@ -45,10 +45,10 @@ func (r *LLMISVCReconciler) reconcileTerminatingGroupBackends(ctx context.Contex
 	route := &gwapiv1.HTTPRoute{}
 	key := client.ObjectKey{Namespace: llmSvc.Namespace, Name: kmeta.ChildName(llmSvc.Name, "-kserve-route")}
 	if err := r.Get(ctx, key, route); err != nil {
-		if meta.IsNoMatchError(err) {
+		if ignoreMissing(r.Client, err) {
 			return nil
 		}
-		return client.IgnoreNotFound(err)
+		return err
 	}
 
 	group := route.Labels[constants.LLMRoutingGroupLabelKey]
