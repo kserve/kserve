@@ -1411,6 +1411,16 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			pvcRef := "shared-model-pvc"
+			claim := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: pvcRef, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, claim)).To(Succeed())
 			// The fail-closed wait requires opting into the CacheRequired policy;
 			// the default (FallbackToSource) policy is not gated.
 			annotations := map[string]string{
@@ -1429,6 +1439,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
 			defer func() {
 				testNs.DeleteAndWait(ctx, sharedCache)
+				Expect(envTest.Delete(ctx, claim)).To(Succeed())
 			}()
 
 			llmSvc := &v1alpha2.LLMInferenceService{
@@ -1479,13 +1490,19 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				}, &appsv1.Deployment{}))
 			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(BeTrue())
 
-			// when - the cache import completes
+			// when - the cache import completes: the controller both reports
+			// Ready and records that the import landed on the current claim
 			Eventually(func(ctx context.Context) error {
 				current := &v1alpha1.LocalModelNamespaceCache{}
 				if err := envTest.Get(ctx, client.ObjectKeyFromObject(sharedCache), current); err != nil {
 					return err
 				}
+				live := &corev1.PersistentVolumeClaim{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(claim), live); err != nil {
+					return err
+				}
 				current.Status.MarkReady(current.Generation)
+				current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: live.UID}
 				return envTest.Status().Update(ctx, current)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1802,6 +1819,16 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			adapterStorageKey := v1alpha1.GetStorageKey(adapterUri)
 
 			pvcRef := "shared-adapter-pvc"
+			claim := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: pvcRef, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, claim)).To(Succeed())
 			// The defaulting webhook binds the adapter to the matching shared-PVC cache
 			// even though it is not Ready yet (fail-closed intent). The base model has no
 			// matching cache and keeps downloading from its original source URI. The
@@ -1817,6 +1844,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
 			defer func() {
 				testNs.DeleteAndWait(ctx, sharedCache)
+				Expect(envTest.Delete(ctx, claim)).To(Succeed())
 			}()
 
 			llmSvc := &v1alpha2.LLMInferenceService{
@@ -1892,7 +1920,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				if err := envTest.Get(ctx, client.ObjectKeyFromObject(sharedCache), current); err != nil {
 					return err
 				}
+				live := &corev1.PersistentVolumeClaim{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(claim), live); err != nil {
+					return err
+				}
 				current.Status.MarkReady(current.Generation)
+				current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: live.UID}
 				return envTest.Status().Update(ctx, current)
 			}).WithContext(ctx).Should(Succeed())
 

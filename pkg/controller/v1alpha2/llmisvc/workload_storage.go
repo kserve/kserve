@@ -78,9 +78,25 @@ type sharedPVCBinding struct {
 // folds in node-agent propagation: a new binding waits for a completed import,
 // while a workload already bound to the claim named by the import record keeps
 // serving and reports degradedMsg instead of failing reconciliation.
+//
+// The record is checked even when the cache reports Ready: a claim recreated
+// under the same name has a new UID while the cached Ready condition still
+// attests the old claim, so trusting Ready alone would let a CacheRequired
+// workload mount an empty claim until the cache reconciler catches up.
 func resolveSharedPVCCacheBinding(ctx context.Context, c client.Client, nsCache *v1alpha1.LocalModelNamespaceCache, cacheRequired bool, waitMsg string) (sharedPVCBinding, error) {
-	if nsCache.IsReady() || !cacheRequired {
+	if !cacheRequired {
 		return sharedPVCBinding{sourceURI: nsCache.Spec.SourceModelUri, pvcName: *nsCache.Spec.PVCRef}, nil
+	}
+	if nsCache.IsReady() {
+		imported, err := localmodelcache.ClaimHoldsImportedModel(ctx, c, nsCache)
+		if err != nil {
+			return sharedPVCBinding{}, err
+		}
+		if imported {
+			return sharedPVCBinding{sourceURI: nsCache.Spec.SourceModelUri, pvcName: *nsCache.Spec.PVCRef}, nil
+		}
+		return sharedPVCBinding{}, fmt.Errorf("%w: LocalModelNamespaceCache %s/%s reports Ready, but its import record does not attest the current claim %q; %s",
+			errLocalModelCacheNotReady, nsCache.Namespace, nsCache.Name, *nsCache.Spec.PVCRef, waitMsg)
 	}
 	imported, err := localmodelcache.ClaimHoldsImportedModel(ctx, c, nsCache)
 	if err != nil {

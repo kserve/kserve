@@ -27,8 +27,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/ptr"
 
@@ -5105,6 +5107,33 @@ func createLocalModelGateCache(t *testing.T, cache *v1alpha1.LocalModelNamespace
 	})
 }
 
+// getOrCreateLocalModelGatePVC returns the shared claim used by the gate
+// tests, creating it on first use. Subtests share the live client c, so a
+// second creation of the same-named claim must reuse the existing object
+// (with its real UID) instead of failing with AlreadyExists.
+func getOrCreateLocalModelGatePVC(t *testing.T) *corev1.PersistentVolumeClaim {
+	t.Helper()
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "default"},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+			Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")}},
+		},
+	}
+	err := c.Create(t.Context(), pvc)
+	if apierrs.IsAlreadyExists(err) {
+		if err := c.Get(t.Context(), k8stypes.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc); err != nil {
+			t.Fatalf("failed to get PVC: %v", err)
+		}
+		return pvc
+	}
+	if err != nil {
+		t.Fatalf("failed to create PVC: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Delete(t.Context(), pvc) })
+	return pvc
+}
+
 // A CacheRequired pod bound to a shared-PVC cache must only be admitted once
 // the cache's import record attests a completed import onto the current claim:
 // admission fails closed instead of letting the pod download from its original
@@ -5149,7 +5178,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		err := injector.InjectStorageInitializer(t.Context(), pod)
 		if err == nil {
 			t.Error("expected an error while the shared-PVC cache is not ready")
-		} else if !strings.Contains(err.Error(), "no model imported onto its current claim") || !strings.Contains(err.Error(), "ImportRunning") {
+		} else if !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") || !strings.Contains(err.Error(), "ImportRunning") {
 			t.Errorf("expected an actionable not-ready error, got: %v", err)
 		}
 		if len(pod.Spec.Volumes) != 0 {
@@ -5157,18 +5186,23 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		}
 	})
 
-	t.Run("ready shared-PVC cache admits and rewrites the pod", func(t *testing.T) {
-		createLocalModelGateCache(t, newCache("gate-cache-ready", true))
+	t.Run("ready shared-PVC cache without import record rejects the pod until the record lands", func(t *testing.T) {
+		// MarkReady sets the condition, but no import record exists for the
+		// claim: a pod created in that window (or served from a webhook replica
+		// whose cache lags the controller) must fail closed rather than mount a
+		// claim of unknown contents.
+		ready := newCache("gate-cache-ready-no-record", true)
+		createLocalModelGateCache(t, ready)
 		injector := &StorageInitializerInjector{config: storageConfig, client: c}
 
 		pod := cacheRequiredPod("default")
-		pod.Labels[constants.LocalModelLabel] = "gate-cache-ready"
-		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
-			t.Errorf("unexpected error: %v", err)
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-ready-no-record"
+		err := injector.InjectStorageInitializer(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") {
+			t.Errorf("expected an import-record error, got: %v", err)
 		}
-		if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].PersistentVolumeClaim == nil ||
-			pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName != "shared-pvc" {
-			t.Errorf("expected the pod to mount the cache PVC, got: %+v", pod.Spec.Volumes)
+		if len(pod.Spec.Volumes) != 0 {
+			t.Error("the pod must not be rewritten while no import record attests the claim")
 		}
 	})
 
@@ -5209,11 +5243,50 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-stale-record"
 		err := injector.InjectStorageInitializer(t.Context(), pod)
-		if err == nil || !strings.Contains(err.Error(), "no model imported onto its current claim") {
+		if err == nil || !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") {
 			t.Errorf("expected an import-record error, got: %v", err)
 		}
 		if len(pod.Spec.Volumes) != 0 {
 			t.Error("the pod must not be rewritten while the claim holds no imported data")
+		}
+	})
+
+	t.Run("ready cache with import record for a recreated claim rejects the pod", func(t *testing.T) {
+		// The Ready condition is stale (it still attests the import that landed
+		// on the old claim); the recreated PVC is empty, so the gate must fail
+		// closed instead of mounting it until the cache reconciler catches up.
+		staleReady := newCache("gate-cache-ready-stale-record", true)
+		getOrCreateLocalModelGatePVC(t)
+		staleReady.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "uid-of-the-old-claim"}
+		createLocalModelGateCache(t, staleReady)
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-ready-stale-record"
+		err := injector.InjectStorageInitializer(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") {
+			t.Errorf("expected an import-record error despite the Ready condition, got: %v", err)
+		}
+		if len(pod.Spec.Volumes) != 0 {
+			t.Error("the pod must not be rewritten while the claim holds no imported data")
+		}
+	})
+
+	t.Run("ready cache with import record for the live claim admits the pod", func(t *testing.T) {
+		ready := newCache("gate-cache-ready-record", true)
+		pvc := getOrCreateLocalModelGatePVC(t)
+		ready.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: pvc.UID}
+		createLocalModelGateCache(t, ready)
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-ready-record"
+		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].PersistentVolumeClaim == nil ||
+			pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName != "shared-pvc" {
+			t.Errorf("expected the pod to mount the cache PVC, got: %+v", pod.Spec.Volumes)
 		}
 	})
 

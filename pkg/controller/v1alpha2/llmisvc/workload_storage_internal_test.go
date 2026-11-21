@@ -386,6 +386,14 @@ func TestResolveBaseModelCachePVC(t *testing.T) {
 	sharedNotReady.Name = "shared-not-ready"
 	sharedNotReady.Status.MarkNotReady(v1alpha1.ReasonImportRunning, "Import Job is running", 1)
 
+	// A Ready cache whose import record attests a different (recreated) claim:
+	// the Ready condition is stale until the cache reconciler catches up, so a
+	// CacheRequired workload must still fail closed rather than mount the
+	// empty replacement claim.
+	sharedReadyRecreated := sharedReady.DeepCopy()
+	sharedReadyRecreated.Name = "shared-ready-recreated"
+	sharedReadyRecreated.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-old"}
+
 	// A not-Ready cache whose import record attests the claim that currently
 	// backs the cache (same UID): an already-bound CacheRequired workload keeps
 	// serving from it while node agents catch up.
@@ -408,6 +416,14 @@ func TestResolveBaseModelCachePVC(t *testing.T) {
 	sharedNotReadyReimported := sharedNotReadyImported.DeepCopy()
 	sharedNotReadyReimported.Name = "shared-not-ready-reimported"
 	sharedNotReadyReimported.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-old"}
+
+	// A Ready cache whose import record attests the live claim: the normal
+	// steady state, admitted without degradation.
+	sharedReadyImported := sharedNotReadyImported.DeepCopy()
+	sharedReadyImported.Name = "shared-ready-imported"
+	sharedReadyImported.Status = v1alpha1.LocalModelCacheStatus{}
+	sharedReadyImported.Status.MarkReady(1)
+	sharedReadyImported.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-1"}
 
 	nodeLocalNS := &v1alpha1.LocalModelNamespaceCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "node-cache", Namespace: "default"},
@@ -438,13 +454,23 @@ func TestResolveBaseModelCachePVC(t *testing.T) {
 	}{
 		"shared-PVC cache ready resolves the claim": {
 			labels: map[string]string{
-				constants.LocalModelLabel:          "shared-cache",
+				constants.LocalModelLabel:          "shared-ready-imported",
 				constants.LocalModelNamespaceLabel: "default",
 			},
 			cacheRequired:  true,
-			objects:        []client.Object{sharedReady},
+			objects:        []client.Object{sharedReadyImported, importedPVC},
 			expectedSource: "hf://org/model",
-			expectedPVC:    "shared-pvc",
+			expectedPVC:    "imported-pvc",
+		},
+		"recreated claim not attested by the import record fails closed even while Ready": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-ready-recreated",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired: true,
+			objects:       []client.Object{sharedReadyRecreated, importedPVC},
+			expectedErr:   "does not attest the current claim",
+			errIsNotReady: true,
 		},
 		"shared-PVC cache not ready fails closed for CacheRequired workloads": {
 			labels: map[string]string{

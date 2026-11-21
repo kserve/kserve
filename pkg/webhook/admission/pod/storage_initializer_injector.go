@@ -1203,9 +1203,16 @@ func (mi *StorageInitializerInjector) gateLocalModelCacheWaiting(ctx context.Con
 		return fmt.Errorf("get LocalModelNamespaceCache %s/%s referenced by pod %s/%s: %w",
 			cacheNamespace, cacheName, pod.Namespace, pod.Name, err)
 	}
-	if !nsCache.Spec.SharedPVCMode() || nsCache.IsReady() {
+	if !nsCache.Spec.SharedPVCMode() {
+		// Node-local namespace cache: no import gate.
 		return nil
 	}
+	// The import record is checked even when the cache reports Ready: a claim
+	// recreated under the same name has a new UID while the cached Ready
+	// condition still attests the old claim, so trusting Ready alone would let
+	// a CacheRequired pod mount an empty claim until the cache reconciler
+	// catches up. Failing closed here only holds the pod at (re)creation;
+	// already-running pods keep serving until the reconciler re-enqueues them.
 	holdsImport, err := localmodelcache.ClaimHoldsImportedModel(ctx, mi.client, nsCache)
 	if err != nil {
 		return fmt.Errorf("check import record of LocalModelNamespaceCache %s/%s referenced by pod %s/%s: %w",
@@ -1217,7 +1224,7 @@ func (mi *StorageInitializerInjector) gateLocalModelCacheWaiting(ctx context.Con
 		// agent propagation lag, spec-generation bump).
 		return nil
 	}
-	return fmt.Errorf("LocalModelNamespaceCache %s/%s is not ready and has no model imported onto its current claim (%s); pod %s/%s is admitted once the model import completes",
+	return fmt.Errorf("LocalModelNamespaceCache %s/%s does not attest the model as imported onto its current claim (%s); pod %s/%s is admitted once the model import completes",
 		cacheNamespace, cacheName, nsCache.NotReadySummary(), pod.Namespace, pod.Name)
 }
 
