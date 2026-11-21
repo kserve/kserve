@@ -619,6 +619,56 @@ func TestCheckHPAExist(t *testing.T) {
 			expectedResult: constants.CheckResultDelete,
 		},
 		{
+			name: "hpa exists with external autoscaler and is not owned by kserve",
+			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: 5,
+				},
+			},
+			desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-hpa",
+					Namespace:   "default",
+					Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 3,
+				},
+			},
+			expectedResult: constants.CheckResultSkipped,
+		},
+		{
+			name: "hpa exists with hpa autoscaler and is not owned by kserve",
+			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: 5,
+				},
+			},
+			desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-hpa",
+					Namespace:   "default",
+					Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassHPA)},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 3,
+				},
+			},
+			expectedResult: constants.CheckResultUpdate,
+		},
+		{
 			name: "hpa with different autoscaler class",
 			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1108,7 +1158,7 @@ func TestReconcile(t *testing.T) {
 				MaxReplicas: 3,
 			},
 			expectedResult: nil,
-			expectedAction: "update",
+			expectedAction: "skip",
 		},
 		{
 			name: "skip when hpa exists and is equivalent",
@@ -1212,6 +1262,65 @@ func TestReconcile(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReconcileKeepsUnownedHPAWithExternalAutoscaler(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = autoscalingv2.AddToScheme(scheme)
+
+	// The HPA a user created for the predictor, for example with kubectl autoscale.
+	userHPA := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-hpa",
+			Namespace: "default",
+		},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			MinReplicas: ptr.To(int32(2)),
+			MaxReplicas: 5,
+		},
+	}
+	// The desired HPA always has the InferenceService as controller, as SetControllerReferences sets it.
+	desiredHPA := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-hpa",
+			Namespace:   "default",
+			Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "serving.kserve.io/v1beta1",
+					Kind:       "InferenceService",
+					Name:       "my-inferenceservice",
+					UID:        "12345",
+					Controller: ptr.To(true),
+				},
+			},
+		},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			MinReplicas: ptr.To(int32(1)),
+			MaxReplicas: 3,
+		},
+	}
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(userHPA).Build()
+	key := types.NamespacedName{Namespace: "default", Name: "test-hpa"}
+	before := &autoscalingv2.HorizontalPodAutoscaler{}
+	require.NoError(t, client.Get(t.Context(), key, before))
+
+	reconciler := &HPAReconciler{
+		client: client,
+		scheme: scheme,
+		HPA:    desiredHPA,
+	}
+	// An update on the first pass would make the HPA the InferenceService's, and the second pass would delete it.
+	for range 2 {
+		require.NoError(t, reconciler.Reconcile(t.Context()))
+	}
+
+	after := &autoscalingv2.HorizontalPodAutoscaler{}
+	require.NoError(t, client.Get(t.Context(), key, after))
+	assert.Equal(t, before.ResourceVersion, after.ResourceVersion)
+	assert.Equal(t, ptr.To(int32(2)), after.Spec.MinReplicas)
+	assert.Equal(t, int32(5), after.Spec.MaxReplicas)
+	assert.Empty(t, after.OwnerReferences)
 }
 
 func TestSetControllerReferences(t *testing.T) {

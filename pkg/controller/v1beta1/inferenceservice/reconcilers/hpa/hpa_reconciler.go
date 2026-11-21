@@ -202,6 +202,14 @@ func (r *HPAReconciler) checkHPAExist(ctx context.Context, client client.Client)
 		return constants.CheckResultUnknown, nil, err
 	}
 
+	// With autoscalerClass external, autoscaling is managed outside KServe, so an HPA that
+	// no InferenceService owns is left as it is.
+	if constants.AutoscalerClassType(r.HPA.Annotations[constants.AutoscalerClass]) == constants.AutoscalerClassExternal &&
+		!isOwnedByInferenceService(existingHPA) {
+		log.V(1).Info("Skipping HPA not owned by an InferenceService", "namespace", existingHPA.Namespace, "name", existingHPA.Name)
+		return constants.CheckResultSkipped, existingHPA, nil
+	}
+
 	// existed, check equivalent
 	if shouldDeleteHPA(existingHPA, r.HPA) {
 		return constants.CheckResultDelete, existingHPA, nil
@@ -224,18 +232,19 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) && !autoscalerClassChanged
 }
 
-func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *autoscalingv2.HorizontalPodAutoscaler) bool {
-	// Check if the HPA is owned by an InferenceService
-	isOwnedByKServe := false
-	for _, ownerRef := range existing.OwnerReferences {
+// isOwnedByInferenceService reports whether an InferenceService is among the HPA's owners.
+func isOwnedByInferenceService(hpa *autoscalingv2.HorizontalPodAutoscaler) bool {
+	for _, ownerRef := range hpa.OwnerReferences {
 		if strings.HasPrefix(ownerRef.APIVersion, "serving.kserve.io") && ownerRef.Kind == "InferenceService" {
-			isOwnedByKServe = true
-			break
+			return true
 		}
 	}
+	return false
+}
 
+func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 	// If not owned by an InferenceService, do not delete
-	if !isOwnedByKServe {
+	if !isOwnedByInferenceService(existing) {
 		return false
 	}
 
