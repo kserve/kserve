@@ -1208,7 +1208,9 @@ class Storage(object):
         try:
             bucket = storage_client.bucket(bucket_name)
             prefix = bucket_path
-            if not prefix.endswith("/"):
+            # An empty path (gs://bucket or gs://bucket/) means the whole bucket;
+            # a "/" prefix would match no objects.
+            if prefix and not prefix.endswith("/"):
                 prefix = prefix + "/"
             blobs = bucket.list_blobs(prefix=prefix)
             file_count = 0
@@ -1217,7 +1219,11 @@ class Storage(object):
             shallow_blobs = copy.copy(blobs)
             blob = bucket.blob(bucket_path)
             # checks if the blob is a file or a directory
-            if blob.name == bucket_path and len(list(shallow_blobs)) == 0:
+            if (
+                bucket_path
+                and blob.name == bucket_path
+                and len(list(shallow_blobs)) == 0
+            ):
                 dest_path = os.path.join(temp_dir, os.path.basename(bucket_path))
                 logger.info("Downloading single file to: %s", dest_path)
                 blob.download_to_filename(dest_path)
