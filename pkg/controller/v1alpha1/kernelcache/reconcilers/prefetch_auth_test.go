@@ -187,6 +187,44 @@ func TestReconcilePrefetchServiceAccountAccessKeepsBindingWhileJobIsActive(t *te
 	}
 }
 
+func TestReconcilePrefetchServiceAccountAccessIgnoresActiveJobWhenBindingIsCurrent(t *testing.T) {
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		corev1.AddToScheme,
+		rbacv1.AddToScheme,
+		batchv1.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	pullRoleRef := &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"}
+	binding := buildPrefetchImagePullRoleBinding("source", "jobs", pullRoleRef)
+	jobMetadata := kernelcachelabels.ObjectMeta("other-cache", "source", "node")
+	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{
+		Name: "prefetch-job", Namespace: "jobs", Labels: jobMetadata.Labels,
+	}}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(binding, job).Build()
+	reconciler := &KernelCacheReconciler{Client: k8sClient}
+	kernelCache := &v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "source"}}
+	config := &v1beta1.KernelCacheConfig{
+		JobNamespace: "jobs",
+		Registry: v1beta1.KernelCacheRegistryConfig{Auth: v1beta1.KernelCacheRegistryAuth{
+			Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
+			PullRoleRef: pullRoleRef,
+		}},
+	}
+
+	ready, err := reconciler.reconcilePrefetchServiceAccountAccess(t.Context(), kernelCache, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ready {
+		t.Fatal("expected an unchanged binding to be ready while another prefetch Job is active")
+	}
+}
+
 func boolPointer(value bool) *bool {
 	return &value
 }
