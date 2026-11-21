@@ -570,3 +570,77 @@ class TestOpenAIProxyModelCompletion:
         async with mocked_openai_proxy_model(handler) as model:
             result = await model.healthy()
             assert result is False
+
+
+def _reframe(stream: bytes, framing: str) -> bytes:
+    """Rewrite an OpenAI SSE fixture the way other OpenAI-compatible servers frame it."""
+    text = stream.decode()
+    if framing == "keepalive_comment":
+        # axum's default SSE keep-alive (used by TGI) is an empty comment line.
+        return (":\n\n" + text.replace("\n\n", "\n\n:\n\n", 1)).encode()
+    if framing == "named_comment":
+        return (": ping\n\n" + text).encode()
+    if framing == "no_space":
+        return text.replace("data: ", "data:").encode()
+    if framing == "event_field":
+        return text.replace("data: ", "event: message\ndata: ").encode()
+    return stream
+
+
+SSE_FRAMINGS = [
+    "plain",
+    "keepalive_comment",
+    "named_comment",
+    "no_space",
+    "event_field",
+]
+
+
+async def _proxied_chunks(stream: bytes, call) -> list:
+    def handler(request):
+        return httpx.Response(
+            200, headers={"Content-type": "text/event-stream"}, content=stream
+        )
+
+    async with mocked_openai_proxy_model(handler) as model:
+        return [chunk async for chunk in await call(model) if chunk is not None]
+
+
+class TestOpenAIProxyModelSSEFraming:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("framing", SSE_FRAMINGS)
+    async def test_completion_stream_framing(
+        self,
+        completion_request: CompletionRequest,
+        completion_chunk_stream: bytes,
+        framing: str,
+    ):
+        completion_request.stream = True
+
+        def call(model):
+            return model.create_completion(completion_request)
+
+        want = await _proxied_chunks(completion_chunk_stream, call)
+        got = await _proxied_chunks(_reframe(completion_chunk_stream, framing), call)
+        assert want
+        assert got == want
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("framing", SSE_FRAMINGS)
+    async def test_chat_completion_stream_framing(
+        self,
+        chat_completion_request: ChatCompletionRequest,
+        chat_completion_chunk_stream: bytes,
+        framing: str,
+    ):
+        chat_completion_request.stream = True
+
+        def call(model):
+            return model.create_chat_completion(chat_completion_request)
+
+        want = await _proxied_chunks(chat_completion_chunk_stream, call)
+        got = await _proxied_chunks(
+            _reframe(chat_completion_chunk_stream, framing), call
+        )
+        assert want
+        assert got == want
