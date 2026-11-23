@@ -57,8 +57,8 @@ def _is_truthy(value: Optional[str]) -> bool:
     }
 
 
-def _configured_exporter_names() -> tuple[str, ...]:
-    """Return the configured trace exporters.
+def _configured_exporter_names() -> Optional[tuple[str, ...]]:
+    """Return configured trace exporters, or None when tracing is not configured.
 
     KServe deliberately does not create an implicit OTLP exporter. This keeps a
     model server with no tracing configuration from trying to connect to the
@@ -72,7 +72,7 @@ def _configured_exporter_names() -> tuple[str, ...]:
             OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
         ):
             return ("otlp",)
-        return ()
+        return None
 
     exporters = tuple(
         exporter.strip().lower() for exporter in configured_exporters.split(",")
@@ -86,6 +86,8 @@ def _configured_exporter_names() -> tuple[str, ...]:
         raise ValueError(
             f"Unsupported OpenTelemetry trace exporter(s): {', '.join(sorted(unsupported))}"
         )
+    # An empty tuple keeps instrumentation without exporting; None above means
+    # tracing was not configured and no provider should be initialized.
     return () if exporters == ("none",) else exporters
 
 
@@ -130,6 +132,11 @@ def get_tracer_provider() -> Optional[TracerProvider]:
         return None
     try:
         configured_exporters = _configured_exporter_names()
+        if configured_exporters is None:
+            logger.info(
+                "OpenTelemetry tracing disabled because no exporter is configured"
+            )
+            return None
         span_processors = [
             BatchSpanProcessor(_create_otlp_exporter())
             if name == "otlp"

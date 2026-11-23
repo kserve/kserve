@@ -44,6 +44,9 @@ import (
 const (
 	HTTPRouteNotReady                 = "HttpRouteNotReady"
 	HTTPRouteParentStatusNotAvailable = "ParentStatusNotAvailable"
+	// HTTPRouteConflict is the IngressReady reason set when an HTTPRoute the InferenceService needs already exists
+	// and is controlled by another resource.
+	HTTPRouteConflict = "HTTPRouteConflict"
 )
 
 var DefaultTimeout = toGatewayAPIDuration(60)
@@ -114,6 +117,28 @@ func createHTTPRouteMatch(prefix string) gwapiv1.HTTPRouteMatch {
 		Path: &gwapiv1.HTTPPathMatch{
 			Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 			Value: ptr.To(prefix),
+		},
+	}
+}
+
+func createHTTPRoutePathPrefixMatch(prefix string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+			Value: ptr.To(prefix),
+		},
+	}
+}
+
+// createPrefixRewriteFilter strips the matched path prefix before forwarding the request to the backend.
+func createPrefixRewriteFilter() gwapiv1.HTTPRouteFilter {
+	return gwapiv1.HTTPRouteFilter{
+		Type: gwapiv1.HTTPRouteFilterURLRewrite,
+		URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
+			Path: &gwapiv1.HTTPPathModifier{
+				Type:               gwapiv1.PrefixMatchHTTPPathModifier,
+				ReplacePrefixMatch: ptr.To("/"),
+			},
 		},
 	}
 }
@@ -612,40 +637,6 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 		}
 	}
 
-	// Add path based routing rules
-	if ingressConfig.PathTemplate != "" {
-		path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, ingressConfig)
-		if err != nil {
-			log.Error(err, "Failed to generate URL from pathTemplate")
-			return nil, fmt.Errorf("failed to generate URL from pathTemplate: %w", err)
-		}
-		path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
-		// Include ingressDomain to the allowed hosts
-		allowedHosts = append(allowedHosts, gwapiv1.Hostname(ingressConfig.IngressDomain))
-
-		if isvc.Spec.Explainer != nil {
-			timeout := resolveTimeout(ingressConfig.DisableHTTPRouteTimeout, isvc.Spec.Explainer.TimeoutSeconds)
-			// Add path based routing rule for :explain endpoint
-			explainerPathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + constants.PathBasedExplainPrefix())}
-			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainerPathRouteMatch, filters, explainerName, isvc.Namespace,
-				constants.CommonDefaultHttpPort, timeout))
-		}
-		// Add path based routing rule for :predict endpoint
-		if isvc.Spec.Transformer != nil {
-			timeout := resolveTimeout(ingressConfig.DisableHTTPRouteTimeout, isvc.Spec.Transformer.TimeoutSeconds)
-			// :predict routes to the transformer when there are both predictor and transformer
-			pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + "/")}
-			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(pathRouteMatch, filters, transformerName, isvc.Namespace,
-				constants.CommonDefaultHttpPort, timeout))
-		} else {
-			timeout := resolveTimeout(ingressConfig.DisableHTTPRouteTimeout, isvc.Spec.Predictor.TimeoutSeconds)
-			// :predict routes to the predictor when there is only predictor
-			pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + "/")}
-			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(pathRouteMatch, filters, predictorName, isvc.Namespace,
-				constants.CommonDefaultHttpPort, timeout))
-		}
-	}
-
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
 	})
@@ -746,19 +737,190 @@ func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPR
 	}
 }
 
+// getExplainerModelName returns the model name served by the explainer. It reads the --model_name argument from the
+// ART or custom explainer container args (last occurrence wins, matching argparse) and falls back to the
+// InferenceService name, which KServe passes by default. Returns an empty string if the InferenceService has no explainer.
+// Model names set via command, env or image defaults are not visible.
+func getExplainerModelName(isvc *v1beta1.InferenceService) string {
+	explainer := isvc.Spec.Explainer
+	if explainer == nil {
+		return ""
+	}
+	var args []string
+	if explainer.ART != nil {
+		args = explainer.ART.Args
+	} else if len(explainer.Containers) > 0 {
+		args = explainer.PodSpec.Containers[0].Args
+	}
+	modelName := isvc.Name
+	for i, arg := range args {
+		if arg == constants.ArgumentModelName && i+1 < len(args) {
+			modelName = args[i+1]
+		} else if value, found := strings.CutPrefix(arg, constants.ArgumentModelName+"="); found {
+			modelName = value
+		}
+	}
+	return modelName
+}
+
+// createRawPathHTTPRoute creates the HTTPRoute holding the path based routing rules for the shared ingress domain.
+// These rules are kept in a separate HTTPRoute so that the host based catch-all rule of the top level HTTPRoute
+// is not attached to the shared ingress domain, which would otherwise route unmatched paths to an arbitrary model.
+func createRawPathHTTPRoute(ctx context.Context, client client.Client, isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
+	isvcConfig *v1beta1.InferenceServicesConfig,
+) (*gwapiv1.HTTPRoute, error) {
+	// Return early if no path template is specified in the ingress configuration.
+	if ingressConfig.PathTemplate == "" {
+		return nil, nil
+	}
+	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) ||
+		(isvc.Spec.Transformer != nil && !isvc.Status.IsConditionReady(v1beta1.TransformerReady)) ||
+		(isvc.Spec.Explainer != nil && !isvc.Status.IsConditionReady(v1beta1.ExplainerReady)) {
+		return nil, nil
+	}
+	path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, ingressConfig)
+	if err != nil {
+		log.Error(err, "Failed to generate URL from pathTemplate")
+		return nil, fmt.Errorf("failed to generate URL from pathTemplate: %w", err)
+	}
+	renderedPath := path
+	path = strings.TrimRight(path, "/") // remove trailing "/" if present
+	// A root path would claim every request on the shared ingress domain and is not a valid PathPrefix value.
+	if path == "" {
+		return nil, fmt.Errorf("pathTemplate %q must render a non-root path, got %q", ingressConfig.PathTemplate, renderedPath)
+	}
+
+	httpRouteRules := make([]gwapiv1.HTTPRouteRule, 0, 2)
+	headerFilter := addIsvcHeaders(isvc.Name, isvc.Namespace)
+
+	if isvc.Spec.Explainer != nil {
+		timeout := resolveTimeout(ingressConfig.DisableHTTPRouteTimeout, isvc.Spec.Explainer.TimeoutSeconds)
+		// Gateway API cannot rewrite regex matches (https://gateway-api.sigs.k8s.io/geps/gep-4360/), so match the explain path for the explainer's
+		// model name exactly and replace the full path with the one the model server expects.
+		explainPath := constants.PathBasedExplainPath(getExplainerModelName(isvc))
+		explainerPathRouteMatch := []gwapiv1.HTTPRouteMatch{{
+			Path: &gwapiv1.HTTPPathMatch{
+				Type:  ptr.To(gwapiv1.PathMatchExact),
+				Value: ptr.To(path + explainPath),
+			},
+		}}
+		explainRewriteFilter := gwapiv1.HTTPRouteFilter{
+			Type: gwapiv1.HTTPRouteFilterURLRewrite,
+			URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
+				Path: &gwapiv1.HTTPPathModifier{
+					Type:            gwapiv1.FullPathHTTPPathModifier,
+					ReplaceFullPath: ptr.To(explainPath),
+				},
+			},
+		}
+		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainerPathRouteMatch,
+			[]gwapiv1.HTTPRouteFilter{headerFilter, explainRewriteFilter}, constants.ExplainerServiceName(isvc.Name), isvc.Namespace,
+			constants.CommonDefaultHttpPort, timeout))
+	}
+
+	// Requests route to the transformer when there are both predictor and transformer
+	backend := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
+	timeout := resolveTimeout(ingressConfig.DisableHTTPRouteTimeout, isvc.Spec.Predictor.TimeoutSeconds)
+	if isvc.Spec.Transformer != nil {
+		backend = constants.TransformerServiceName(isvc.Name)
+		timeout = resolveTimeout(ingressConfig.DisableHTTPRouteTimeout, isvc.Spec.Transformer.TimeoutSeconds)
+	}
+	// Path based routing is HTTP only, so forward to the REST port when the service exposes both REST and gRPC.
+	port := int32(constants.CommonDefaultHttpPort)
+	restPort, grpcPort, err := detectServiceProtocolPorts(ctx, client, backend, isvc.Namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect protocol ports for %s service: %w", backend, err)
+	}
+	if grpcPort != 0 && restPort != 0 {
+		port = restPort
+	}
+	pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRoutePathPrefixMatch(path)}
+	httpRouteRules = append(httpRouteRules, createHTTPRouteRule(pathRouteMatch,
+		[]gwapiv1.HTTPRouteFilter{headerFilter, createPrefixRewriteFilter()}, backend, isvc.Namespace,
+		port, timeout))
+
+	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+	})
+	labels := utils.Filter(isvc.Labels, func(key string) bool {
+		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
+	})
+	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
+	httpRoute := gwapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        constants.PathBasedHTTPRouteName(isvc.Name),
+			Namespace:   isvc.Namespace,
+			Annotations: annotations,
+			Labels:      labels,
+		},
+		Spec: gwapiv1.HTTPRouteSpec{
+			Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(ingressConfig.IngressDomain)},
+			Rules:     httpRouteRules,
+			CommonRouteSpec: gwapiv1.CommonRouteSpec{
+				ParentRefs: []gwapiv1.ParentReference{
+					{
+						Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+						Kind:      (*gwapiv1.Kind)(ptr.To(constants.GatewayKind)),
+						Namespace: (*gwapiv1.Namespace)(&gatewaySlice[0]),
+						Name:      gwapiv1.ObjectName(gatewaySlice[1]),
+					},
+				},
+			},
+		},
+	}
+	if len(isvc.Spec.Canary) > 0 {
+		applyCanaryWeights(isvc, &httpRoute)
+	}
+	return &httpRoute, nil
+}
+
+// semanticHttpRouteEquals reports whether the existing HTTPRoute already matches the desired state. DeepDerivative
+// ignores fields defaulted by the API server, but it also treats missing or extra trailing slice elements in the
+// existing route as matching, so list lengths are compared explicitly to detect removed hostnames, rules, matches,
+// filters and backends (including canary backend addition/removal).
+// httpRouteConflictError reports that an HTTPRoute is controlled by a resource other than the InferenceService.
+type httpRouteConflictError struct {
+	route string
+	owner metav1.OwnerReference
+}
+
+func (e *httpRouteConflictError) Error() string {
+	return fmt.Sprintf("HTTPRoute %s is owned by another %s %s", e.route, e.owner.Kind, e.owner.Name)
+}
+
+// ensureHTTPRouteOwnership returns an error, and marks IngressReady false, when the existing HTTPRoute is controlled by
+// a resource other than the InferenceService. Route names are derived from InferenceService names, so two
+// InferenceServices can map to the same route (e.g. the path route of "foo" and the top level route of "foo-path").
+// Without this check they would overwrite each other's route on every reconcile; instead the first owner keeps it.
+// Routes without a controller are adopted, as before.
+func ensureHTTPRouteOwnership(isvc *v1beta1.InferenceService, existing *gwapiv1.HTTPRoute) error {
+	owner := metav1.GetControllerOf(existing)
+	if owner == nil || owner.UID == isvc.UID {
+		return nil
+	}
+	conflict := &httpRouteConflictError{route: existing.Name, owner: *owner}
+	isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
+		Type:    v1beta1.IngressReady,
+		Status:  corev1.ConditionFalse,
+		Reason:  HTTPRouteConflict,
+		Message: conflict.Error(),
+	})
+	return conflict
+}
+
 func semanticHttpRouteEquals(desired, existing *gwapiv1.HTTPRoute) bool {
 	if !equality.Semantic.DeepDerivative(desired.Labels, existing.Labels) ||
 		!equality.Semantic.DeepDerivative(desired.Annotations, existing.Annotations) {
 		return false
 	}
-	// DeepDerivative treats missing fields as matching, so a single unweighted
-	// backend is seen as a subset of two weighted backends. Compare backend ref
-	// counts explicitly to detect canary addition/removal.
-	if len(desired.Spec.Rules) != len(existing.Spec.Rules) {
+	if len(desired.Spec.Hostnames) != len(existing.Spec.Hostnames) ||
+		len(desired.Spec.ParentRefs) != len(existing.Spec.ParentRefs) ||
+		len(desired.Spec.Rules) != len(existing.Spec.Rules) {
 		return false
 	}
 	for i := range desired.Spec.Rules {
-		if len(desired.Spec.Rules[i].BackendRefs) != len(existing.Spec.Rules[i].BackendRefs) {
+		d, e := desired.Spec.Rules[i], existing.Spec.Rules[i]
+		if len(d.Matches) != len(e.Matches) || len(d.Filters) != len(e.Filters) || len(d.BackendRefs) != len(e.BackendRefs) {
 			return false
 		}
 	}
@@ -832,6 +994,9 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 		return nil
 	}
 
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
+	}
 	// Set ResourceVersion which is required for update operation.
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
 	if !semanticHttpRouteEquals(desired, existingHttpRoute) {
@@ -891,6 +1056,9 @@ func (r *RawHTTPRouteReconciler) reconcileTransformerHTTPRoute(ctx context.Conte
 			return err
 		}
 		return nil
+	}
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
 	}
 	// Set ResourceVersion which is required for update operation.
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
@@ -952,6 +1120,9 @@ func (r *RawHTTPRouteReconciler) reconcileExplainerHTTPRoute(ctx context.Context
 		return nil
 	}
 
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
+	}
 	// Set ResourceVersion which is required for update operation.
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
 	if !semanticHttpRouteEquals(desired, existingHttpRoute) {
@@ -1014,6 +1185,9 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 		return nil
 	}
 
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
+	}
 	// Set ResourceVersion which is required for update operation.
 	desired.ResourceVersion = existingHttpRoute.ResourceVersion
 	if !semanticHttpRouteEquals(desired, existingHttpRoute) {
@@ -1033,6 +1207,63 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 // If any HTTPRoute is missing or not ready, it updates the InferenceService status with a
 // condition indicating why ingress is not ready and requeues the request.
 // If all HTTPRoutes are ready, it marks the InferenceService's IngressReady condition as true.
+func (r *RawHTTPRouteReconciler) reconcilePathHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceService) error {
+	desired, err := createRawPathHTTPRoute(ctx, r.client, isvc, r.ingressConfig, r.isvcConfig)
+	if err != nil {
+		return err
+	}
+
+	httpRouteName := constants.PathBasedHTTPRouteName(isvc.Name)
+	existingHttpRoute := &gwapiv1.HTTPRoute{}
+	getExistingErr := r.client.Get(ctx, types.NamespacedName{
+		Name: httpRouteName, Namespace: isvc.Namespace,
+	}, existingHttpRoute)
+	httpRouteIsNotFound := apierr.IsNotFound(getExistingErr)
+	if getExistingErr != nil && !httpRouteIsNotFound {
+		return fmt.Errorf("failed to get existing http route: %w", getExistingErr)
+	}
+
+	// Delete the path based httproute if the ISVC is stopped or path based routing is disabled
+	if utils.GetForceStopRuntime(isvc) || r.ingressConfig.PathTemplate == "" {
+		if httpRouteIsNotFound {
+			return nil
+		}
+		if ctrl := metav1.GetControllerOf(existingHttpRoute); ctrl != nil && ctrl.UID == isvc.UID {
+			log.Info("Deleting path based http route", "name", httpRouteName)
+			if err := r.client.Delete(ctx, existingHttpRoute); err != nil && !apierr.IsNotFound(err) {
+				return fmt.Errorf("failed to delete HTTPRoute %s/%s: %w", isvc.Namespace, httpRouteName, err)
+			}
+		}
+		return nil
+	}
+
+	if desired == nil {
+		return nil
+	}
+	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference for path based HttpRoute: %w", err)
+	}
+
+	if httpRouteIsNotFound {
+		log.Info("Creating path based HttpRoute resource", "name", httpRouteName)
+		if err := r.client.Create(ctx, desired); err != nil {
+			return fmt.Errorf("failed to create path based HttpRoute: %w", err)
+		}
+		return nil
+	}
+
+	if err := ensureHTTPRouteOwnership(isvc, existingHttpRoute); err != nil {
+		return err
+	}
+	desired.ResourceVersion = existingHttpRoute.ResourceVersion
+	if !semanticHttpRouteEquals(desired, existingHttpRoute) {
+		if err := r.client.Update(ctx, desired); err != nil {
+			return fmt.Errorf("failed to update path based HttpRoute: %w", err)
+		}
+	}
+	return nil
+}
+
 func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	// Check HTTPRoute statuses for all components
 	type httpRouteCheck struct {
@@ -1063,6 +1294,12 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 		name:      isvc.Name,
 		component: "InferenceService",
 	})
+	if r.ingressConfig.PathTemplate != "" {
+		checks = append(checks, httpRouteCheck{
+			name:      constants.PathBasedHTTPRouteName(isvc.Name),
+			component: "Path based",
+		})
+	}
 
 	for _, check := range checks {
 		httpRoute := &gwapiv1.HTTPRoute{}
@@ -1132,6 +1369,9 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			}
 		}
 		if err := r.reconcileTopLevelHTTPRoute(ctx, isvc); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.reconcilePathHTTPRoute(ctx, isvc); err != nil {
 			return ctrl.Result{}, err
 		}
 

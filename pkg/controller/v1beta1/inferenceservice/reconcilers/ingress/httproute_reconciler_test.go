@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -283,6 +284,66 @@ func TestSemanticHttpRouteEquals(t *testing.T) {
 				},
 			},
 			expectedEqual: false,
+		},
+		"existing has extra hostname": {
+			desired: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{"isvc-default.example.com"},
+				},
+			},
+			existing: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{"isvc-default.example.com", "example.com"},
+				},
+			},
+			expectedEqual: false,
+		},
+		"existing has extra rule": {
+			desired: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{{Matches: []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch("^/.*$")}}},
+				},
+			},
+			existing: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{Matches: []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch("^/.*$")}},
+						{Matches: []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch("/serving/default/isvc/")}},
+					},
+				},
+			},
+			expectedEqual: false,
+		},
+		"existing rule has extra filter": {
+			desired: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{{Filters: []gwapiv1.HTTPRouteFilter{addIsvcHeaders("isvc", "default")}}},
+				},
+			},
+			existing: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{{Filters: []gwapiv1.HTTPRouteFilter{addIsvcHeaders("isvc", "default"), createPrefixRewriteFilter()}}},
+				},
+			},
+			expectedEqual: false,
+		},
+		"existing has defaulted fields": {
+			desired: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{
+						BackendObjectReference: gwapiv1.BackendObjectReference{Name: "isvc-predictor"},
+					}}}}},
+				},
+			},
+			existing: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{
+						BackendObjectReference: gwapiv1.BackendObjectReference{Name: "isvc-predictor", Group: ptr.To(gwapiv1.Group(""))},
+						Weight:                 ptr.To(int32(1)),
+					}}}}},
+				},
+			},
+			expectedEqual: true,
 		},
 	}
 
@@ -940,7 +1001,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				Spec: gwapiv1.HTTPRouteSpec{
-					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com", "example.com"},
+					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com"},
 					Rules: []gwapiv1.HTTPRouteRule{
 						{
 							Matches: []gwapiv1.HTTPRouteMatch{
@@ -990,90 +1051,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									Path: &gwapiv1.HTTPPathMatch{
 										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To("^/.*$"),
-									},
-								},
-							},
-							Filters: []gwapiv1.HTTPRouteFilter{
-								{
-									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
-										Set: []gwapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: "test-isvc",
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: "default",
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gwapiv1.HTTPBackendRef{
-								{
-									BackendRef: gwapiv1.BackendRef{
-										BackendObjectReference: gwapiv1.BackendObjectReference{
-											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
-											Name:      "test-isvc-predictor",
-											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
-											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
-										},
-									},
-								},
-							},
-							Timeouts: &gwapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gwapiv1.Duration("60s")),
-							},
-						},
-						{
-							Matches: []gwapiv1.HTTPRouteMatch{
-								{
-									Path: &gwapiv1.HTTPPathMatch{
-										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
-										Value: ptr.To("/serving/default/test-isvc" + constants.PathBasedExplainPrefix()),
-									},
-								},
-							},
-							Filters: []gwapiv1.HTTPRouteFilter{
-								{
-									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
-										Set: []gwapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: "test-isvc",
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: "default",
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gwapiv1.HTTPBackendRef{
-								{
-									BackendRef: gwapiv1.BackendRef{
-										BackendObjectReference: gwapiv1.BackendObjectReference{
-											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
-											Name:      "test-isvc-explainer",
-											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
-											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
-										},
-									},
-								},
-							},
-							Timeouts: &gwapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gwapiv1.Duration("60s")),
-							},
-						},
-						{
-							Matches: []gwapiv1.HTTPRouteMatch{
-								{
-									Path: &gwapiv1.HTTPPathMatch{
-										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
-										Value: ptr.To("/serving/default/test-isvc/"),
 									},
 								},
 							},
@@ -1166,7 +1143,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				Spec: gwapiv1.HTTPRouteSpec{
-					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com", "example.com"},
+					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com"},
 					Rules: []gwapiv1.HTTPRouteRule{
 						{
 							Matches: []gwapiv1.HTTPRouteMatch{
@@ -1174,48 +1151,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									Path: &gwapiv1.HTTPPathMatch{
 										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To("^/.*$"),
-									},
-								},
-							},
-							Filters: []gwapiv1.HTTPRouteFilter{
-								{
-									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
-										Set: []gwapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: "test-isvc",
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: "default",
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gwapiv1.HTTPBackendRef{
-								{
-									BackendRef: gwapiv1.BackendRef{
-										BackendObjectReference: gwapiv1.BackendObjectReference{
-											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
-											Name:      "test-isvc-transformer",
-											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
-											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
-										},
-									},
-								},
-							},
-							Timeouts: &gwapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gwapiv1.Duration("60s")),
-							},
-						},
-						{
-							Matches: []gwapiv1.HTTPRouteMatch{
-								{
-									Path: &gwapiv1.HTTPPathMatch{
-										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
-										Value: ptr.To("/serving/default/test-isvc/"),
 									},
 								},
 							},
@@ -3364,6 +3299,217 @@ func TestResolveTimeout(t *testing.T) {
 	}
 }
 
+func newPathTestIsvc(transformer, explainer bool) *v1beta1.InferenceService {
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default", UID: "test-uid"},
+		Spec:       v1beta1.InferenceServiceSpec{Predictor: v1beta1.PredictorSpec{}},
+	}
+	isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{Type: v1beta1.PredictorReady, Status: corev1.ConditionTrue})
+	if transformer {
+		isvc.Spec.Transformer = &v1beta1.TransformerSpec{}
+		isvc.Status.SetCondition(v1beta1.TransformerReady, &apis.Condition{Type: v1beta1.TransformerReady, Status: corev1.ConditionTrue})
+	}
+	if explainer {
+		isvc.Spec.Explainer = &v1beta1.ExplainerSpec{}
+		isvc.Status.SetCondition(v1beta1.ExplainerReady, &apis.Condition{Type: v1beta1.ExplainerReady, Status: corev1.ConditionTrue})
+	}
+	return isvc
+}
+
+func newPathTestIngressConfig(pathTemplate string) *v1beta1.IngressConfig {
+	return &v1beta1.IngressConfig{
+		IngressDomain:        "example.com",
+		UrlScheme:            "http",
+		DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+		KserveIngressGateway: "kserve/kserve-gateway",
+		PathTemplate:         pathTemplate,
+		EnableGatewayAPI:     true,
+	}
+}
+
+func TestCreateRawPathHTTPRoute(t *testing.T) {
+	g := NewGomegaWithT(t)
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+	headerFilter := addIsvcHeaders("test-isvc", "default")
+	rewriteFilter := gwapiv1.HTTPRouteFilter{
+		Type: gwapiv1.HTTPRouteFilterURLRewrite,
+		URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
+			Path: &gwapiv1.HTTPPathModifier{
+				Type:               gwapiv1.PrefixMatchHTTPPathModifier,
+				ReplacePrefixMatch: ptr.To("/"),
+			},
+		},
+	}
+	prefixMatch := gwapiv1.HTTPRouteMatch{Path: &gwapiv1.HTTPPathMatch{
+		Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+		Value: ptr.To("/serving/default/test-isvc"),
+	}}
+
+	t.Run("returns nil when pathTemplate is not set", func(t *testing.T) {
+		route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), newPathTestIsvc(false, false), newPathTestIngressConfig(""), isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route).To(BeNil())
+	})
+
+	t.Run("returns nil when predictor is not ready", func(t *testing.T) {
+		isvc := newPathTestIsvc(false, false)
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{Type: v1beta1.PredictorReady, Status: corev1.ConditionFalse})
+		route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), isvc, newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}"), isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route).To(BeNil())
+	})
+
+	t.Run("predictor only uses PathPrefix with prefix rewrite on the shared ingress domain", func(t *testing.T) {
+		route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), newPathTestIsvc(false, false),
+			newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}/"), isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Name).To(Equal("test-isvc-path"))
+		g.Expect(route.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"example.com"}))
+		g.Expect(route.Spec.ParentRefs[0].Name).To(Equal(gwapiv1.ObjectName("kserve-gateway")))
+		g.Expect(route.Spec.Rules).To(HaveLen(1))
+		rule := route.Spec.Rules[0]
+		g.Expect(rule.Matches).To(Equal([]gwapiv1.HTTPRouteMatch{prefixMatch}))
+		g.Expect(rule.Filters).To(Equal([]gwapiv1.HTTPRouteFilter{headerFilter, rewriteFilter}))
+		g.Expect(string(rule.BackendRefs[0].Name)).To(Equal("test-isvc-predictor"))
+		for _, r := range route.Spec.Rules {
+			g.Expect(*r.Matches[0].Path.Value).ToNot(Equal(constants.FallbackPrefix()))
+		}
+	})
+
+	t.Run("routes to transformer when present", func(t *testing.T) {
+		isvc := newPathTestIsvc(true, false)
+		isvc.Spec.Transformer.TimeoutSeconds = ptr.To(int64(30))
+		route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), isvc, newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}"), isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Rules).To(HaveLen(1))
+		g.Expect(string(route.Spec.Rules[0].BackendRefs[0].Name)).To(Equal("test-isvc-transformer"))
+		g.Expect(*route.Spec.Rules[0].Timeouts.Request).To(Equal(gwapiv1.Duration("30s")))
+	})
+
+	t.Run("adds exact explain rule with full path rewrite when explainer present", func(t *testing.T) {
+		route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), newPathTestIsvc(false, true),
+			newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}"), isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Rules).To(HaveLen(2))
+		explain := route.Spec.Rules[0]
+		g.Expect(*explain.Matches[0].Path.Type).To(Equal(gwapiv1.PathMatchExact))
+		g.Expect(*explain.Matches[0].Path.Value).To(Equal("/serving/default/test-isvc/v1/models/test-isvc:explain"))
+		g.Expect(explain.Filters).To(Equal([]gwapiv1.HTTPRouteFilter{headerFilter, {
+			Type: gwapiv1.HTTPRouteFilterURLRewrite,
+			URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
+				Path: &gwapiv1.HTTPPathModifier{
+					Type:            gwapiv1.FullPathHTTPPathModifier,
+					ReplaceFullPath: ptr.To("/v1/models/test-isvc:explain"),
+				},
+			},
+		}}))
+		g.Expect(string(explain.BackendRefs[0].Name)).To(Equal("test-isvc-explainer"))
+		g.Expect(route.Spec.Rules[1].Matches).To(Equal([]gwapiv1.HTTPRouteMatch{prefixMatch}))
+	})
+}
+
+func TestCreateRawTopLevelHTTPRouteExcludesIngressDomainWithPathTemplate(t *testing.T) {
+	g := NewGomegaWithT(t)
+	route, err := createRawTopLevelHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), newPathTestIsvc(false, false),
+		newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}"), &v1beta1.InferenceServicesConfig{})
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(route.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"test-isvc-default.example.com"}))
+	g.Expect(route.Spec.Rules).To(HaveLen(1))
+}
+
+func TestRawHTTPRouteReconciler_reconcilePathHTTPRoute(t *testing.T) {
+	g := NewGomegaWithT(t)
+	s := scheme.Scheme
+	_ = gwapiv1.Install(s)
+	_ = v1beta1.AddToScheme(s)
+	key := types.NamespacedName{Name: "test-isvc-path", Namespace: "default"}
+
+	t.Run("creates path HTTPRoute and deletes it when pathTemplate is removed", func(t *testing.T) {
+		isvc := newPathTestIsvc(false, false)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := &RawHTTPRouteReconciler{
+			client: c, scheme: s,
+			ingressConfig: newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}"),
+			isvcConfig:    &v1beta1.InferenceServicesConfig{},
+		}
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), isvc)).To(Succeed())
+		route := &gwapiv1.HTTPRoute{}
+		g.Expect(c.Get(t.Context(), key, route)).To(Succeed())
+		g.Expect(route.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"example.com"}))
+		g.Expect(metav1.GetControllerOf(route).UID).To(Equal(isvc.UID))
+
+		// reconciling again is a no-op
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), isvc)).To(Succeed())
+
+		r.ingressConfig = newPathTestIngressConfig("")
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), isvc)).To(Succeed())
+		err := c.Get(t.Context(), key, &gwapiv1.HTTPRoute{})
+		g.Expect(apierr.IsNotFound(err)).To(BeTrue())
+	})
+
+	t.Run("does nothing when pathTemplate is not set and route is absent", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := &RawHTTPRouteReconciler{
+			client: c, scheme: s,
+			ingressConfig: newPathTestIngressConfig(""),
+			isvcConfig:    &v1beta1.InferenceServicesConfig{},
+		}
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), newPathTestIsvc(false, false))).To(Succeed())
+		err := c.Get(t.Context(), key, &gwapiv1.HTTPRoute{})
+		g.Expect(apierr.IsNotFound(err)).To(BeTrue())
+	})
+
+	t.Run("deletes path HTTPRoute when isvc is stopped", func(t *testing.T) {
+		isvc := newPathTestIsvc(false, false)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := &RawHTTPRouteReconciler{
+			client: c, scheme: s,
+			ingressConfig: newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}"),
+			isvcConfig:    &v1beta1.InferenceServicesConfig{},
+		}
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), isvc)).To(Succeed())
+		isvc.Annotations = map[string]string{constants.StopAnnotationKey: "true"}
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), isvc)).To(Succeed())
+		err := c.Get(t.Context(), key, &gwapiv1.HTTPRoute{})
+		g.Expect(apierr.IsNotFound(err)).To(BeTrue())
+	})
+}
+
+func TestGetExplainerModelName(t *testing.T) {
+	g := NewGomegaWithT(t)
+	custom := func(args ...string) *v1beta1.ExplainerSpec {
+		return &v1beta1.ExplainerSpec{PodSpec: v1beta1.PodSpec{Containers: []corev1.Container{{Args: args}}}}
+	}
+	art := func(args ...string) *v1beta1.ExplainerSpec {
+		return &v1beta1.ExplainerSpec{ART: &v1beta1.ARTExplainerSpec{
+			ExplainerExtensionSpec: v1beta1.ExplainerExtensionSpec{Container: corev1.Container{Args: args}},
+		}}
+	}
+	tests := map[string]struct {
+		explainer *v1beta1.ExplainerSpec
+		expected  string
+	}{
+		"no explainer":          {nil, ""},
+		"custom without arg":    {custom("--http_port", "8080"), "test-isvc"},
+		"custom space form":     {custom("--model_name", "my-model"), "my-model"},
+		"custom equals form":    {custom("--model_name=my-model"), "my-model"},
+		"multiple uses last":    {custom("--model_name", "first", "--model_name=second"), "second"},
+		"dangling flag":         {custom("--model_name"), "test-isvc"},
+		"art override":          {art("--model_name", "art-model"), "art-model"},
+		"art without override":  {art(), "test-isvc"},
+		"empty custom pod spec": {&v1beta1.ExplainerSpec{}, "test-isvc"},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default"},
+				Spec:       v1beta1.InferenceServiceSpec{Explainer: tc.explainer},
+			}
+			g.Expect(getExplainerModelName(isvc)).To(Equal(tc.expected))
+		})
+	}
+}
+
 func TestCreateHTTPRouteRuleNilTimeout(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -3853,4 +3999,177 @@ func TestSemanticHttpRouteEquals_BackendRefCount(t *testing.T) {
 	t.Run("same backend count is equal", func(t *testing.T) {
 		g.Expect(semanticHttpRouteEquals(makeRoute(2), makeRoute(2))).To(BeTrue())
 	})
+}
+
+func TestCreateRawPathHTTPRouteCustomExplainerModelName(t *testing.T) {
+	g := NewGomegaWithT(t)
+	isvc := newPathTestIsvc(false, true)
+	isvc.Spec.Explainer.PodSpec = v1beta1.PodSpec{Containers: []corev1.Container{{Args: []string{"--model_name", "my-model"}}}}
+	route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), isvc, newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}"), &v1beta1.InferenceServicesConfig{})
+	g.Expect(err).ToNot(HaveOccurred())
+	explain := route.Spec.Rules[0]
+	g.Expect(*explain.Matches[0].Path.Value).To(Equal("/serving/default/test-isvc/v1/models/my-model:explain"))
+	g.Expect(*explain.Filters[1].URLRewrite.Path.ReplaceFullPath).To(Equal("/v1/models/my-model:explain"))
+}
+
+func TestCreateRawPathHTTPRouteCanaryAndDualProtocol(t *testing.T) {
+	g := NewGomegaWithT(t)
+	ingressConfig := newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}")
+
+	t.Run("applies canary weights to the path rule", func(t *testing.T) {
+		isvc := newPathTestIsvc(false, false)
+		isvc.Spec.Canary = []v1beta1.CanarySpec{{TrafficPercent: 20, Predictor: v1beta1.PredictorSpec{Name: "v2"}}}
+		isvc.Status.CanaryStatuses = []v1beta1.CanaryStatus{{Name: "v2", Ready: true, TrafficPercent: 20}}
+		route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), isvc, ingressConfig, &v1beta1.InferenceServicesConfig{})
+		g.Expect(err).ToNot(HaveOccurred())
+		backends := route.Spec.Rules[0].BackendRefs
+		g.Expect(backends).To(HaveLen(2))
+		g.Expect(string(backends[0].Name)).To(Equal("test-isvc-predictor"))
+		g.Expect(*backends[0].Weight).To(Equal(int32(80)))
+		g.Expect(string(backends[1].Name)).To(Equal("test-isvc-v2-predictor"))
+		g.Expect(*backends[1].Weight).To(Equal(int32(20)))
+	})
+
+	t.Run("uses the REST port when the service exposes REST and gRPC", func(t *testing.T) {
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-isvc-predictor", Namespace: "default"},
+			Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{
+				{Name: "http", Port: 8080},
+				{Name: "grpc", Port: 8081},
+			}},
+		}
+		c := fake.NewClientBuilder().WithObjects(svc).Build()
+		route, err := createRawPathHTTPRoute(t.Context(), c, newPathTestIsvc(false, false), ingressConfig, &v1beta1.InferenceServicesConfig{})
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(*route.Spec.Rules[0].BackendRefs[0].Port).To(Equal(gwapiv1.PortNumber(8080)))
+	})
+
+	t.Run("omits timeouts when disableHTTPRouteTimeout is set", func(t *testing.T) {
+		cfg := newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}")
+		cfg.DisableHTTPRouteTimeout = true
+		route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), newPathTestIsvc(false, true), cfg, &v1beta1.InferenceServicesConfig{})
+		g.Expect(err).ToNot(HaveOccurred())
+		for _, rule := range route.Spec.Rules {
+			g.Expect(rule.Timeouts).To(BeNil())
+		}
+	})
+}
+
+// newConflictTestIsvc returns a ready predictor-only InferenceService with a unique UID.
+func newConflictTestIsvc(name string) *v1beta1.InferenceService {
+	isvc := &v1beta1.InferenceService{
+		TypeMeta:   metav1.TypeMeta{APIVersion: v1beta1.SchemeGroupVersion.String(), Kind: "InferenceService"},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", UID: types.UID(name + "-uid")},
+		Spec:       v1beta1.InferenceServiceSpec{Predictor: v1beta1.PredictorSpec{}},
+	}
+	isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{Type: v1beta1.PredictorReady, Status: corev1.ConditionTrue})
+	return isvc
+}
+
+func TestRawHTTPRouteReconciler_RouteNameConflict(t *testing.T) {
+	s := scheme.Scheme
+	_ = gwapiv1.Install(s)
+	_ = v1beta1.AddToScheme(s)
+	ingressConfig := newPathTestIngressConfig("/serving/{{ .Namespace }}/{{ .Name }}")
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+	sharedKey := types.NamespacedName{Name: "foo-path", Namespace: "default"}
+
+	expectConflict := func(g *WithT, err error, isvc *v1beta1.InferenceService, route string) {
+		g.Expect(err).To(HaveOccurred())
+		var conflict *httpRouteConflictError
+		g.Expect(errors.As(err, &conflict)).To(BeTrue())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(Equal(HTTPRouteConflict))
+		g.Expect(cond.Message).To(ContainSubstring("HTTPRoute " + route + " is owned by another InferenceService"))
+	}
+	expectOwnedBy := func(g *WithT, c client.Client, key types.NamespacedName, owner *v1beta1.InferenceService) *gwapiv1.HTTPRoute {
+		route := &gwapiv1.HTTPRoute{}
+		g.Expect(c.Get(t.Context(), key, route)).To(Succeed())
+		ctrlRef := metav1.GetControllerOf(route)
+		g.Expect(ctrlRef).NotTo(BeNil())
+		g.Expect(ctrlRef.UID).To(Equal(owner.UID))
+		return route
+	}
+
+	t.Run("foo-path cannot take the path route of foo", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := NewRawHTTPRouteReconciler(c, s, ingressConfig, isvcConfig)
+		foo, fooPath := newConflictTestIsvc("foo"), newConflictTestIsvc("foo-path")
+
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), foo)).To(Succeed())
+		before := expectOwnedBy(g, c, sharedKey, foo)
+
+		expectConflict(g, r.reconcileTopLevelHTTPRoute(t.Context(), fooPath), fooPath, "foo-path")
+
+		// The first owner's route is left untouched and keeps working.
+		after := expectOwnedBy(g, c, sharedKey, foo)
+		g.Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
+		g.Expect(after.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"example.com"}))
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), foo)).To(Succeed())
+	})
+
+	t.Run("foo cannot take the top level route of foo-path", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := NewRawHTTPRouteReconciler(c, s, ingressConfig, isvcConfig)
+		foo, fooPath := newConflictTestIsvc("foo"), newConflictTestIsvc("foo-path")
+
+		g.Expect(r.reconcileTopLevelHTTPRoute(t.Context(), fooPath)).To(Succeed())
+		before := expectOwnedBy(g, c, sharedKey, fooPath)
+
+		expectConflict(g, r.reconcilePathHTTPRoute(t.Context(), foo), foo, "foo-path")
+
+		after := expectOwnedBy(g, c, sharedKey, fooPath)
+		g.Expect(after.ResourceVersion).To(Equal(before.ResourceVersion))
+		g.Expect(after.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"foo-path-default.example.com"}))
+	})
+
+	t.Run("Reconcile surfaces the conflict on the InferenceService", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := NewRawHTTPRouteReconciler(c, s, ingressConfig, isvcConfig)
+		foo, fooPath := newConflictTestIsvc("foo"), newConflictTestIsvc("foo-path")
+
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), foo)).To(Succeed())
+		_, err := r.Reconcile(t.Context(), fooPath)
+		expectConflict(g, err, fooPath, "foo-path")
+	})
+
+	t.Run("older -predictor name collision is detected", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+		r := NewRawHTTPRouteReconciler(c, s, newPathTestIngressConfig(""), isvcConfig)
+		foo, fooPredictor := newConflictTestIsvc("foo"), newConflictTestIsvc("foo-predictor")
+
+		g.Expect(r.reconcilePredictorHTTPRoute(t.Context(), foo)).To(Succeed())
+		expectConflict(g, r.reconcileTopLevelHTTPRoute(t.Context(), fooPredictor), fooPredictor, "foo-predictor")
+		expectOwnedBy(g, c, types.NamespacedName{Name: "foo-predictor", Namespace: "default"}, foo)
+	})
+
+	t.Run("an existing route without a controller is still adopted", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		unowned := &gwapiv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "foo-path", Namespace: "default"}}
+		c := fake.NewClientBuilder().WithScheme(s).WithObjects(unowned).Build()
+		r := NewRawHTTPRouteReconciler(c, s, ingressConfig, isvcConfig)
+		foo := newConflictTestIsvc("foo")
+
+		g.Expect(r.reconcilePathHTTPRoute(t.Context(), foo)).To(Succeed())
+		route := expectOwnedBy(g, c, sharedKey, foo)
+		g.Expect(route.Spec.Hostnames).To(Equal([]gwapiv1.Hostname{"example.com"}))
+	})
+}
+
+func TestCreateRawPathHTTPRouteRootPathTemplate(t *testing.T) {
+	for _, pathTemplate := range []string{"/", "//"} {
+		t.Run(pathTemplate, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			route, err := createRawPathHTTPRoute(t.Context(), fake.NewClientBuilder().Build(), newPathTestIsvc(false, false),
+				newPathTestIngressConfig(pathTemplate), &v1beta1.InferenceServicesConfig{})
+			g.Expect(err).To(MatchError(ContainSubstring("must render a non-root path")))
+			g.Expect(route).To(BeNil())
+		})
+	}
 }

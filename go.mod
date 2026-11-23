@@ -70,6 +70,11 @@ require (
 )
 
 require (
+	github.com/go-openapi/swag/pools v0.27.1 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
+)
+
+require (
 	cel.dev/expr v0.25.2 // indirect
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/auth v0.20.0 // indirect
@@ -145,7 +150,6 @@ require (
 	github.com/go-openapi/swag/loading v0.27.1 // indirect
 	github.com/go-openapi/swag/mangling v0.27.1 // indirect
 	github.com/go-openapi/swag/netutils v0.27.1 // indirect
-	github.com/go-openapi/swag/pools v0.27.1 // indirect
 	github.com/go-openapi/swag/stringutils v0.27.1 // indirect
 	github.com/go-openapi/swag/typeutils v0.27.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.27.1 // indirect
