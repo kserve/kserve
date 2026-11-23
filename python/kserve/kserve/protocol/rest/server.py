@@ -74,11 +74,14 @@ class PrintTimings(TimingClient):
 
 
 VALID_UVICORN_LOOPS = {"auto", "asyncio", "uvloop"}
+# OpenTelemetry matches excluded URLs against the full request URL, such as
+# "http://10.0.0.5:8080/metrics", so each pattern skips the scheme and host.
+_SCHEME_AND_HOST = r"^\w+://[^/]+"
 REST_TRACE_EXCLUDED_URLS = (
-    r"^/$",
-    r"^/metrics$",
-    r"^/v2/health/live$",
-    r"^/v2/health/ready$",
+    _SCHEME_AND_HOST + r"/$",
+    _SCHEME_AND_HOST + r"/metrics$",
+    _SCHEME_AND_HOST + r"/v2/health/live$",
+    _SCHEME_AND_HOST + r"/v2/health/ready$",
 )
 
 
