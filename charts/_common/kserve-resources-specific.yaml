@@ -38,6 +38,8 @@ kserve:
       runAsNonRoot: true
     metricsBindAddress: 127.0.0.1
     metricsBindPort: '8080'
+    # -- Additional container arguments. Example: ["--log-format=otel-json"].
+    extraArgs: []
     gateway:
       domain: example.com
       additionalIngressDomains: []

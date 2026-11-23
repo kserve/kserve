@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -57,16 +58,17 @@ var _ = Describe("Validating config configs", func() {
 			)
 			Expect(envTest.Client.Create(ctx, preset)).To(Succeed())
 
-			// Wait for the controller to add the finalizer so the
-			// resourceVersion is stable before we attempt the update.
-			Eventually(func(g Gomega) {
-				g.Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: preset.Name, Namespace: preset.Namespace}, preset)).To(Succeed())
-				g.Expect(preset.Finalizers).NotTo(BeEmpty())
-			}).Should(Succeed())
-
 			// when
-			preset.Spec.Model.Name = ptr.To("{{ ChildName .ObjectMeta.Name \"-inference-pool\" }}")
-			admissionError := envTest.Update(ctx, preset)
+			// The controller adds its finalizer and then writes status, so an update built
+			// from an earlier read can conflict before it reaches the webhook.
+			admissionError := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceServiceConfig{}
+				if err := envTest.Get(ctx, types.NamespacedName{Name: preset.Name, Namespace: preset.Namespace}, current); err != nil {
+					return err
+				}
+				current.Spec.Model.Name = ptr.To("{{ ChildName .ObjectMeta.Name \"-inference-pool\" }}")
+				return envTest.Update(ctx, current)
+			})
 
 			// then
 			Expect(admissionError).To(HaveOccurred())
