@@ -442,6 +442,7 @@ func TestLoggerCloudEventTimestamps(t *testing.T) {
 }
 
 func TestLoggerResponseContentType(t *testing.T) {
+	const eventTimeout = 5 * time.Second
 	cases := map[string]struct {
 		responseContentType string
 		expected            string
@@ -499,8 +500,8 @@ func TestLoggerResponseContentType(t *testing.T) {
 
 			oh.ServeHTTP(&unsniffedResponseWriter{header: http.Header{}}, r)
 
-			g.Expect(<-requestContentType).To(gomega.Equal("application/json"))
-			g.Expect(<-responseContentType).To(gomega.Equal(tc.expected))
+			g.Eventually(requestContentType, eventTimeout).Should(gomega.Receive(gomega.Equal("application/json")), "request event")
+			g.Eventually(responseContentType, eventTimeout).Should(gomega.Receive(gomega.Equal(tc.expected)), "response event")
 		})
 	}
 }
