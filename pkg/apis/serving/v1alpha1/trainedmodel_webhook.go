@@ -26,7 +26,7 @@ import (
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -45,7 +45,7 @@ var (
 	// regular expressions for validation of tm name
 	TmRegexp = regexp.MustCompile("^" + TmNameFmt + "$")
 	// protocols that are accepted by storage uri
-	StorageUriProtocols = strings.Join(storage.GetAllProtocol(), CommaSpaceSeparator)
+	StorageUriProtocols = strings.Join(types.GetAllStorageProtocols(), CommaSpaceSeparator)
 )
 
 // +kubebuilder:object:generate=false
@@ -116,7 +116,7 @@ func (tm *TrainedModel) validateTrainedModelName() error {
 
 // Validates TrainModel's storageURI
 func (tm *TrainedModel) validateStorageURI() error {
-	if !utils.IsPrefixSupported(tm.Spec.Model.StorageURI, storage.GetAllProtocol()) {
+	if !utils.IsPrefixSupported(tm.Spec.Model.StorageURI, types.GetAllStorageProtocols()) {
 		return fmt.Errorf(InvalidStorageUriFormatError, tm.Name, StorageUriProtocols, tm.Spec.Model.StorageURI)
 	}
 	return nil

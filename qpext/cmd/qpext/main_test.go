@@ -29,6 +29,8 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"knative.dev/pkg/observability/semconv"
 
 	logger "github.com/kserve/kserve/qpext"
 )
@@ -447,4 +449,13 @@ func TestHandleStatsErr(t *testing.T) {
 			assert.Equal(t, 200, rec.Code)
 		})
 	}
+}
+
+// The queue-proxy started by sharedmain.Main merges the OTel SDK default resource
+// with one built on knative.dev/pkg/observability/semconv and exits when their
+// schema URLs differ. Bump knative.dev/pkg together with the go.opentelemetry.io/otel
+// modules so both point at the same semconv version.
+func TestOTelSchemaURLsMerge(t *testing.T) {
+	_, err := resource.Merge(resource.Default(), resource.NewWithAttributes(semconv.SchemaURL))
+	assert.NoError(t, err)
 }

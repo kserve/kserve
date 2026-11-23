@@ -37,6 +37,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
@@ -2451,7 +2452,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should not emit a readiness Event when status is unchanged", func(ctx SpecContext) {
+		It("should not emit a readiness Event when readiness is unchanged", func(ctx SpecContext) {
 			svcName := "test-llm-event-noop"
 			testNs := NewTestNamespace(ctx, envTest)
 
@@ -2475,34 +2476,34 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
 			}).WithContext(ctx).Should(Succeed())
 
+			readyEvents := func(ctx context.Context) int32 {
+				return eventCount(ctx, envTest.Client, llmSvc, string(llmisvc.LLMInferenceServiceReadyState), "")
+			}
+			notReadyEvents := func(ctx context.Context) int32 {
+				return eventCount(ctx, envTest.Client, llmSvc, string(llmisvc.LLMInferenceServiceNotReadyState), "")
+			}
+
 			// The K8s event recorder writes events asynchronously, so the
 			// LLMInferenceServiceReady event may not exist yet even though the
 			// status already shows Ready=True. Wait for it before capturing
-			// the baseline to avoid a racy comparison in the Consistently
-			// block below.
-			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(countReadinessEvents(ctx, envTest.Client, llmSvc)).To(BeNumerically(">=", 1),
-					"Expected initial LLMInferenceServiceReady event to be recorded")
-			}).WithContext(ctx).Should(Succeed())
+			// the baseline to avoid a racy comparison below.
+			Eventually(readyEvents).WithContext(ctx).Should(BeNumerically(">=", 1),
+				"Expected initial LLMInferenceServiceReady event to be recorded")
+			baselineCount := readyEvents(ctx)
 
-			baselineCount := countReadinessEvents(ctx, envTest.Client, llmSvc)
+			// when - a pass writes status, here only observedGeneration, and readiness stays
+			forceObservedPass(ctx, llmSvc, HaveCondition("Ready", "True"))
 
-			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
-					if llmSvc.Annotations == nil {
-						llmSvc.Annotations = map[string]string{}
-					}
-					llmSvc.Annotations["test-noop-trigger"] = time.Now().String()
-					return nil
-				})
-				return errUpdate
-			})
-			Expect(errRetry).ToNot(HaveOccurred())
+			// then - the recorder delivers in order and this later pass runs after that one,
+			// so the NotReady Event of this transition landing means that pass's Events did too.
+			setWorkloadDeploymentNotReady(ctx, envTest.Client, llmSvc)
+			Eventually(func(ctx context.Context) int32 {
+				return eventCount(ctx, envTest.Client, llmSvc, string(llmisvc.LLMInferenceServiceNotReadyState), string(v1alpha2.MainWorkloadReady))
+			}).WithContext(ctx).Should(BeNumerically(">=", 1))
 
-			Consistently(func(g Gomega, ctx context.Context) {
-				g.Expect(countReadinessEvents(ctx, envTest.Client, llmSvc)).To(Equal(baselineCount),
-					"No new readiness Events should be emitted when status is unchanged")
-			}, 5*time.Second, 500*time.Millisecond).WithContext(ctx).Should(Succeed())
+			describeEvents := func() string { return serviceEvents(ctx, envTest.Client, llmSvc) }
+			Expect(readyEvents(ctx)).To(Equal(baselineCount), describeEvents)
+			Expect(notReadyEvents(ctx)).To(Equal(int32(1)), describeEvents)
 		})
 	})
 })
@@ -2973,21 +2974,85 @@ func findEvent(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferen
 	return nil
 }
 
-func countReadinessEvents(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) int {
+// eventCount sums Count over the service's Events with this reason and a message
+// containing messageSubstr. The recorder merges repeats of an identical Event into one
+// object, so the number of objects does not change when an Event fires again.
+func eventCount(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService, reason, messageSubstr string) int32 {
 	events := &corev1.EventList{}
 	if err := c.List(ctx, events, client.InNamespace(llmSvc.GetNamespace())); err != nil {
 		return 0
 	}
-	count := 0
+	var count int32
 	for _, ev := range events.Items {
 		if ev.InvolvedObject.Kind == "LLMInferenceService" &&
 			ev.InvolvedObject.Name == llmSvc.GetName() &&
-			(ev.Reason == string(llmisvc.LLMInferenceServiceReadyState) ||
-				ev.Reason == string(llmisvc.LLMInferenceServiceNotReadyState)) {
-			count++
+			ev.Reason == reason &&
+			strings.Contains(ev.Message, messageSubstr) {
+			count += ev.Count
 		}
 	}
 	return count
+}
+
+// serviceEvents lists the service's Events for failure messages.
+func serviceEvents(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) string {
+	events := &corev1.EventList{}
+	if err := c.List(ctx, events, client.InNamespace(llmSvc.GetNamespace())); err != nil {
+		return err.Error()
+	}
+	var lines []string
+	for _, ev := range events.Items {
+		if ev.InvolvedObject.Kind == "LLMInferenceService" && ev.InvolvedObject.Name == llmSvc.GetName() {
+			lines = append(lines, fmt.Sprintf("%s %s x%d: %s", ev.Type, ev.Reason, ev.Count, ev.Message))
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// forceObservedPass changes a spec field that no child resource reads, then waits for a
+// pass that observed the new generation. A service without LoRA adapters ignores this
+// annotation. PostProcessReconcile writes observedGeneration even when a pass fails
+// early, so callers pass matchers for the status they rely on, checked in the same poll.
+func forceObservedPass(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, statusMatchers ...gomegatypes.GomegaMatcher) {
+	GinkgoHelper()
+	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &v1alpha2.LLMInferenceService{}
+		if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+			return err
+		}
+		before := current.Generation
+		if current.Spec.Annotations == nil {
+			current.Spec.Annotations = map[string]string{}
+		}
+		current.Spec.Annotations[llmisvc.AnnotationLoRAModelRoutingStrategy] = string(llmisvc.LoRAModelRoutingStrategyExact)
+		if err := envTest.Update(ctx, current); err != nil {
+			return err
+		}
+		Expect(current.Generation).To(BeNumerically(">", before), "the spec change must bump the generation")
+		return nil
+	})).To(Succeed())
+
+	expectGenerationObserved(ctx, llmSvc, statusMatchers...)
+}
+
+// expectGenerationObserved waits for status to report the service's current generation
+// and to match statusMatchers, in one poll.
+func expectGenerationObserved(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, statusMatchers ...gomegatypes.GomegaMatcher) {
+	GinkgoHelper()
+	Eventually(func(g Gomega, ctx context.Context) {
+		current := &v1alpha2.LLMInferenceService{}
+		g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+		g.Expect(current.Status.ObservedGeneration).To(Equal(current.Generation))
+		g.Expect(current.Status).To(SatisfyAll(statusMatchers...))
+	}).WithContext(ctx).Should(Succeed())
+}
+
+// llmSvcStatus reads the service's status, for polling it with status matchers:
+// Eventually(llmSvcStatus).WithContext(ctx).WithArguments(llmSvc).Should(...).
+func llmSvcStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (v1alpha2.LLMInferenceServiceStatus, error) {
+	current := &v1alpha2.LLMInferenceService{}
+	err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)
+	return current.Status, err
 }
 
 // volumeByName returns the named volume, or nil when the pod spec has none.

@@ -19,6 +19,7 @@ package utils
 import (
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -265,26 +266,50 @@ func GetVolumeNameFromPath(path string) string {
 	return SafeObjectName(strings.ReplaceAll(strings.Trim(path, "/"), "/", "-"))
 }
 
+// defaultHuggingFaceEnvVars are the download settings AddDefaultHuggingFaceEnvVars
+// puts on a storage-initializer.
+var defaultHuggingFaceEnvVars = []corev1.EnvVar{
+	{
+		Name:  "HF_HUB_ENABLE_HF_TRANSFER",
+		Value: "1",
+	},
+	{
+		Name:  "HF_XET_HIGH_PERFORMANCE",
+		Value: "1",
+	},
+	{
+		Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
+		Value: "8",
+	},
+}
+
 // AddDefaultHuggingFaceEnvVars adds default HuggingFace optimization environment variables
 // to the container if they are not already present. This prevents conflicts when merging
 // container specs where users may have defined these variables with different configurations.
 func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
-	defaultHFEnvVars := []corev1.EnvVar{
-		{
-			Name:  "HF_HUB_ENABLE_HF_TRANSFER",
-			Value: "1",
-		},
-		{
-			Name:  "HF_XET_HIGH_PERFORMANCE",
-			Value: "1",
-		},
-		{
-			Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
-			Value: "8",
-		},
-	}
+	AddEnvVars(container, defaultHuggingFaceEnvVars)
+}
 
-	AddEnvVars(container, defaultHFEnvVars)
+// HasDefaultHuggingFaceEnvVar reports whether the container carries any of the
+// environment variables that AddDefaultHuggingFaceEnvVars sets, under any value.
+// Names listed in ignore do not count.
+func HasDefaultHuggingFaceEnvVar(container *corev1.Container, ignore []corev1.EnvVar) bool {
+	if container == nil {
+		return false
+	}
+	for _, envVar := range container.Env {
+		if !isDefaultHuggingFaceEnvVar(envVar.Name) {
+			continue
+		}
+		if !slices.ContainsFunc(ignore, func(e corev1.EnvVar) bool { return e.Name == envVar.Name }) {
+			return true
+		}
+	}
+	return false
+}
+
+func isDefaultHuggingFaceEnvVar(name string) bool {
+	return slices.ContainsFunc(defaultHuggingFaceEnvVars, func(e corev1.EnvVar) bool { return e.Name == name })
 }
 
 func AddEnvVars(container *corev1.Container, vars []corev1.EnvVar) {
