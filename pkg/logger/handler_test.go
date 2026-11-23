@@ -440,3 +440,76 @@ func TestLoggerCloudEventTimestamps(t *testing.T) {
 	g.Expect(resTimestamps.ceTime.After(reqTimestamps.ceTime) ||
 		resTimestamps.ceTime.Equal(reqTimestamps.ceTime)).To(gomega.BeTrue())
 }
+
+func TestLoggerResponseContentType(t *testing.T) {
+	cases := map[string]struct {
+		responseContentType string
+		expected            string
+	}{
+		"response content type differs from request": {
+			responseContentType: "text/event-stream",
+			expected:            "text/event-stream",
+		},
+		"response has no content type": {
+			responseContentType: "",
+			expected:            "application/json",
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+
+			requestContentType := make(chan string, 1)
+			responseContentType := make(chan string, 1)
+			logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				_, err := io.ReadAll(req.Body)
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+				if req.Header.Get("Ce-Type") == CEInferenceRequest {
+					requestContentType <- req.Header.Get("Content-Type")
+				} else {
+					responseContentType <- req.Header.Get("Content-Type")
+				}
+				_, err = rw.Write([]byte(`ok`))
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			}))
+			defer logSvc.Close()
+
+			next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				if tc.responseContentType != "" {
+					rw.Header().Set("Content-Type", tc.responseContentType)
+				}
+				rw.WriteHeader(http.StatusOK)
+				_, err := rw.Write([]byte("data: {\"text\":\"hi\"}\n\n"))
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			})
+
+			r := httptest.NewRequest(http.MethodPost, "http://a", bytes.NewReader([]byte(`{"instances":[[0,0,0]]}`)))
+			r.Header.Set("Content-Type", "application/json")
+			logger, _ := pkglogging.NewLogger("", "INFO")
+			pkgtest.SetupTestLogger()
+			logSvcUrl, err := url.Parse(logSvc.URL)
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			sourceUri, err := url.Parse("http://localhost:9081/")
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+
+			StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
+			oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
+				"default", next, nil, "", nil, true)
+
+			oh.ServeHTTP(&unsniffedResponseWriter{header: http.Header{}}, r)
+
+			g.Expect(<-requestContentType).To(gomega.Equal("application/json"))
+			g.Expect(<-responseContentType).To(gomega.Equal(tc.expected))
+		})
+	}
+}
+
+// httptest.ResponseRecorder sniffs and sets Content-Type on Write, so it cannot leave the header empty.
+type unsniffedResponseWriter struct {
+	header http.Header
+}
+
+func (w *unsniffedResponseWriter) Header() http.Header         { return w.header }
+func (w *unsniffedResponseWriter) Write(b []byte) (int, error) { return len(b), nil }
+func (w *unsniffedResponseWriter) WriteHeader(int)             {}
