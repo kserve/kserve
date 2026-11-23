@@ -36,6 +36,15 @@ import (
 
 var _ = Describe("LLMInferenceService Controller", func() {
 	Context("BYO gateway InferencePool readiness", func() {
+		// Both specs stand in for the external controller by writing the pool
+		// status. On a real cluster no route attaches the pool, so nothing would
+		// accept it, and a real controller cannot be made to leave a stale parent.
+		BeforeEach(func() {
+			if envTest.UsingExistingCluster() {
+				Skip("simulates the external gateway controller's InferencePool status")
+			}
+		})
+
 		// Regression test: with a bring-your-own Gateway (spec.router.gateway.refs),
 		// a managed scheduler, and no managed route, there are no kserve-managed
 		// HTTPRoutes to resolve gateways from, so the pool-readiness gateway scope
