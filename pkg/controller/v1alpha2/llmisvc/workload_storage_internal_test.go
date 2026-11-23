@@ -389,10 +389,15 @@ func TestResolveBaseModelCachePVC(t *testing.T) {
 	// A Ready cache whose import record attests a different (recreated) claim:
 	// the Ready condition is stale until the cache reconciler catches up, so a
 	// CacheRequired workload must still fail closed rather than mount the
-	// empty replacement claim.
+	// empty replacement claim. The cache still references "shared-pvc", which a
+	// previous import recorded under a different UID, while the live claim carries
+	// a fresh one — the mismatch is what the gate must catch.
 	sharedReadyRecreated := sharedReady.DeepCopy()
 	sharedReadyRecreated.Name = "shared-ready-recreated"
 	sharedReadyRecreated.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-old"}
+	recreatedPVC := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: *sharedReady.Spec.PVCRef, Namespace: "default", UID: "pvc-uid-recreated"},
+	}
 
 	// A not-Ready cache whose import record attests the claim that currently
 	// backs the cache (same UID): an already-bound CacheRequired workload keeps
@@ -468,7 +473,7 @@ func TestResolveBaseModelCachePVC(t *testing.T) {
 				constants.LocalModelNamespaceLabel: "default",
 			},
 			cacheRequired: true,
-			objects:       []client.Object{sharedReadyRecreated, importedPVC},
+			objects:       []client.Object{sharedReadyRecreated, recreatedPVC},
 			expectedErr:   "does not attest the current claim",
 			errIsNotReady: true,
 		},
