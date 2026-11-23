@@ -17,7 +17,6 @@ limitations under the License.
 package llmisvc
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -123,11 +122,8 @@ func TestResolveSpecRefGateways(t *testing.T) {
 		t.Fatalf("install gwapi scheme: %v", err)
 	}
 
-	gateway := func(ns, name, class string) *gwapiv1.Gateway {
-		return &gwapiv1.Gateway{
-			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
-			Spec:       gwapiv1.GatewaySpec{GatewayClassName: gwapiv1.ObjectName(class)},
-		}
+	gateway := func(ns, name string) *gwapiv1.Gateway {
+		return &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}}
 	}
 	svc := func(refs ...v1alpha2.GatewayObjectReference) *v1alpha2.LLMInferenceService {
 		return &v1alpha2.LLMInferenceService{
@@ -145,22 +141,20 @@ func TestResolveSpecRefGateways(t *testing.T) {
 
 	t.Run("no refs resolves nothing without touching the API", func(t *testing.T) {
 		r := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).Build()}
-		got, err := r.resolveSpecRefGateways(context.Background(), svc())
+		got, err := r.resolveSpecRefGateways(t.Context(), svc())
 		if err != nil || len(got) != 0 {
 			t.Fatalf("got %v, %v; want empty, nil", got, err)
 		}
 	})
 
 	t.Run("synthesizes a parentRef carrying the ref's identity and sectionName", func(t *testing.T) {
-		c := fake.NewClientBuilder().WithScheme(scheme).
-			WithObjects(gateway("gw-ns", "byo-gw", "envoy"), &gwapiv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "envoy"}}).
-			Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gateway("gw-ns", "byo-gw")).Build()
 		r := &LLMISVCReconciler{Client: c}
 
 		pinned := ref("byo-gw", "gw-ns")
 		pinned.SectionName = ptr.To(gwapiv1.SectionName("https"))
 
-		got, err := r.resolveSpecRefGateways(context.Background(), svc(pinned))
+		got, err := r.resolveSpecRefGateways(t.Context(), svc(pinned))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -174,9 +168,6 @@ func TestResolveSpecRefGateways(t *testing.T) {
 		if ptr.Deref(pr.SectionName, "") != "https" {
 			t.Errorf("sectionName not carried through: %#v", pr.SectionName)
 		}
-		if got[0].GatewayClass == nil || got[0].GatewayClass.Name != "envoy" {
-			t.Errorf("GatewayClass not resolved: %#v", got[0].GatewayClass)
-		}
 		// The key must line up with how InferencePool parents are matched.
 		if keys := resolvedGatewayKeys(got); keys[0] != (types.NamespacedName{Name: "byo-gw", Namespace: "gw-ns"}) {
 			t.Errorf("resolved key = %v", keys[0])
@@ -184,10 +175,10 @@ func TestResolveSpecRefGateways(t *testing.T) {
 	})
 
 	t.Run("ref namespace defaults to the service namespace", func(t *testing.T) {
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gateway("svc-ns", "local-gw", "envoy")).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gateway("svc-ns", "local-gw")).Build()
 		r := &LLMISVCReconciler{Client: c}
 
-		got, err := r.resolveSpecRefGateways(context.Background(), svc(ref("local-gw", "")))
+		got, err := r.resolveSpecRefGateways(t.Context(), svc(ref("local-gw", "")))
 		if err != nil || len(got) != 1 {
 			t.Fatalf("got %v, %v; want one gateway", got, err)
 		}
@@ -199,28 +190,15 @@ func TestResolveSpecRefGateways(t *testing.T) {
 	t.Run("missing gateway is skipped, not an error", func(t *testing.T) {
 		// validateRouterReferences already reports missing refs as RefsInvalid;
 		// failing here would mask that clearer message.
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gateway("gw-ns", "present", "envoy")).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gateway("gw-ns", "present")).Build()
 		r := &LLMISVCReconciler{Client: c}
 
-		got, err := r.resolveSpecRefGateways(context.Background(), svc(ref("present", "gw-ns"), ref("absent", "gw-ns")))
+		got, err := r.resolveSpecRefGateways(t.Context(), svc(ref("present", "gw-ns"), ref("absent", "gw-ns")))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if len(got) != 1 || got[0].Gateway.Name != "present" {
 			t.Fatalf("got %v, want only the present gateway", got)
-		}
-	})
-
-	t.Run("missing GatewayClass is tolerated", func(t *testing.T) {
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(gateway("gw-ns", "byo-gw", "no-such-class")).Build()
-		r := &LLMISVCReconciler{Client: c}
-
-		got, err := r.resolveSpecRefGateways(context.Background(), svc(ref("byo-gw", "gw-ns")))
-		if err != nil || len(got) != 1 {
-			t.Fatalf("got %v, %v; want one gateway", got, err)
-		}
-		if got[0].GatewayClass != nil {
-			t.Errorf("expected nil GatewayClass for a missing class, got %#v", got[0].GatewayClass)
 		}
 	})
 }

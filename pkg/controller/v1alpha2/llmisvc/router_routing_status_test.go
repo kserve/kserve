@@ -70,7 +70,7 @@ func specRefRoutingFixture(g *WithT, refs ...v1alpha2.GatewayObjectReference) (*
 	g.Expect(corev1.AddToScheme(s)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(s)).To(Succeed())
 
-	objects := []client.Object{DefaultGatewayClass(), inferenceServiceConfigMap("")}
+	objects := []client.Object{inferenceServiceConfigMap("")}
 	seen := map[string]bool{}
 	for _, ref := range refs {
 		key := string(ref.Namespace) + "/" + string(ref.Name)

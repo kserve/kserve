@@ -848,6 +848,12 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	// the HTTPRoute parentRefs when a route exists, or from spec.router.gateway.refs when
 	// none does, so this scope is populated even in BYO-gateway deployments that have no
 	// managed HTTPRoute.
+	//
+	// Every gateway in scope has to accept the pool. Without a route that means every
+	// ref: with gateway.refs [a, b] and an external route that attaches the pool only to
+	// a, the service stays at WaitingForGateway until b accepts it too. This is intended,
+	// since the user declared both and KServe cannot see which one the external route
+	// uses. The route path avoids the same wait by leaving refs out of the scope.
 	gatewayKeys := resolvedGatewayKeys(resolvedGWs)
 
 	// For referenced pools (external), only check that pool

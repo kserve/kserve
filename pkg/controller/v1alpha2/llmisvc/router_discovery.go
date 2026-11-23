@@ -879,8 +879,8 @@ func uniqueResolvedGateways(resolved []ResolvedGateway) []ResolvedGateway {
 //
 // Gateways that no longer exist are skipped rather than failing resolution -
 // validateRouterReferences already reports missing refs via the RefsInvalid condition,
-// and failing here would mask that clearer message. The GatewayClass is best-effort for
-// the same reason: it is informational, so a missing class must not block readiness.
+// and failing here would mask that clearer message. GatewayClass is left unset because
+// nothing consumes it.
 func (r *LLMISVCReconciler) resolveSpecRefGateways(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]ResolvedGateway, error) {
 	if llmSvc.Spec.Router == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
 		return nil, nil
@@ -904,18 +904,8 @@ func (r *LLMISVCReconciler) resolveSpecRefGateways(ctx context.Context, llmSvc *
 			return nil, fmt.Errorf("failed to get Gateway %s/%s: %w", ns, string(ref.Name), err)
 		}
 
-		var gatewayClass *gwapiv1.GatewayClass
-		gc := &gwapiv1.GatewayClass{}
-		if err := r.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gc); err == nil {
-			gatewayClass = gc
-		} else if !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-			return nil, fmt.Errorf("failed to get GatewayClass %q for gateway %s/%s: %w",
-				string(gateway.Spec.GatewayClassName), ns, gateway.Name, err)
-		}
-
 		resolved = append(resolved, ResolvedGateway{
-			Gateway:      gateway,
-			GatewayClass: gatewayClass,
+			Gateway: gateway,
 			ParentRef: gwapiv1.ParentReference{
 				Group:       ptr.To(gwapiv1.Group(gwapiv1.GroupName)),
 				Kind:        ptr.To(gwapiv1.Kind("Gateway")),
