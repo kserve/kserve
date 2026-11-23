@@ -175,3 +175,18 @@ class OpenAIDataPlane(DataPlane):
             for model in self.model_registry.get_models().values()
             if isinstance(model, OpenAIModel)
         ]
+
+    async def model_names(self) -> List[str]:
+        """Retrieve the names OpenAI models are served under
+
+        A model registered under several names (aliases, LoRA adapters) is
+        listed once per name.
+
+        Returns:
+            response: A list of model names
+        """
+        return [
+            name
+            for name, model in self.model_registry.get_models().items()
+            if isinstance(model, OpenAIModel)
+        ]
