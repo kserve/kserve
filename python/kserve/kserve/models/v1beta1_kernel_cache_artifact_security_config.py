@@ -49,16 +49,18 @@ class V1beta1KernelCacheArtifactSecurityConfig(object):
     openapi_types = {
         'cert': 'V1beta1KernelCacheArtifactCertConfig',
         'failure_policy': 'str',
+        'keyless': 'V1beta1KernelCacheArtifactKeylessConfig',
         'mode': 'str'
     }
 
     attribute_map = {
         'cert': 'cert',
         'failure_policy': 'failurePolicy',
+        'keyless': 'keyless',
         'mode': 'mode'
     }
 
-    def __init__(self, cert=None, failure_policy=None, mode=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cert=None, failure_policy=None, keyless=None, mode=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1KernelCacheArtifactSecurityConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,6 +68,7 @@ class V1beta1KernelCacheArtifactSecurityConfig(object):
 
         self._cert = None
         self._failure_policy = None
+        self._keyless = None
         self._mode = None
         self.discriminator = None
 
@@ -73,6 +76,8 @@ class V1beta1KernelCacheArtifactSecurityConfig(object):
             self.cert = cert
         if failure_policy is not None:
             self.failure_policy = failure_policy
+        if keyless is not None:
+            self.keyless = keyless
         if mode is not None:
             self.mode = mode
 
@@ -117,6 +122,27 @@ class V1beta1KernelCacheArtifactSecurityConfig(object):
         """
 
         self._failure_policy = failure_policy
+
+    @property
+    def keyless(self):
+        """Gets the keyless of this V1beta1KernelCacheArtifactSecurityConfig.  # noqa: E501
+
+
+        :return: The keyless of this V1beta1KernelCacheArtifactSecurityConfig.  # noqa: E501
+        :rtype: V1beta1KernelCacheArtifactKeylessConfig
+        """
+        return self._keyless
+
+    @keyless.setter
+    def keyless(self, keyless):
+        """Sets the keyless of this V1beta1KernelCacheArtifactSecurityConfig.
+
+
+        :param keyless: The keyless of this V1beta1KernelCacheArtifactSecurityConfig.  # noqa: E501
+        :type: V1beta1KernelCacheArtifactKeylessConfig
+        """
+
+        self._keyless = keyless
 
     @property
     def mode(self):

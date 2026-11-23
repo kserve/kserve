@@ -1,0 +1,1 @@
+{"critical":{"identity":{"docker-reference":"172.30.23.138:5000/kernelcache/demo"},"image":{"docker-manifest-digest":"sha256:c755e8b849c0d5e33e88c4227bdd820603d8e62f68f7d9ac851efac774d36922"},"type":"cosign container image signature"},"optional":null}
