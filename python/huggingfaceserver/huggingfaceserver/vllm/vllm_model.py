@@ -49,7 +49,11 @@ from kserve.protocol.rest.openai.types import (
     RerankRequest,
     Rerank,
 )
-from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
+from .utils import (
+    build_async_engine_client_from_engine_args,
+    build_vllm_engine_args,
+    resolve_tensor_parallel_size,
+)
 
 
 class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-extension-no-member
@@ -104,7 +108,11 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             )
 
         if torch.cuda.is_available():
-            self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
+            self.vllm_engine_args.tensor_parallel_size = resolve_tensor_parallel_size(
+                self.vllm_engine_args.tensor_parallel_size,
+                self.vllm_engine_args.pipeline_parallel_size,
+                torch.cuda.device_count(),
+            )
 
         async with build_async_engine_client_from_engine_args(
             self.vllm_engine_args,
