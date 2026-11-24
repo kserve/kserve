@@ -16,8 +16,10 @@ import base64
 import io
 import json
 import os
+import ssl
 import tarfile
 import unittest.mock as mock
+from urllib.error import HTTPError
 
 import pytest
 import zstandard
@@ -28,7 +30,11 @@ from kserve_storage.kserve_storage import (
     _OCI_DOCKER_CONFIG_PATH_ENV,
     _OCI_INSECURE_REGISTRY_ENV,
     _detect_goarch,
+    _docker_config_auth_keys,
     _login_from_docker_config,
+    _oci_auth_backend_from_www_authenticate,
+    _oci_auth_backend_for_registry,
+    _oci_ssl_context_for_probe,
     _pick_platform,
     _rewrite_with_digest,
     _setup_oci_tls,
@@ -160,7 +166,7 @@ def test_oci_anonymous_pull_no_config(tmp_path):
     out = str(tmp_path / "out")
     client = _make_client(_IMAGE_MANIFEST)
     with (
-        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
             "kserve_storage.kserve_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
@@ -175,6 +181,7 @@ def test_oci_anonymous_pull_no_config(tmp_path):
     assert os.path.isfile(os.path.join(out, "model.joblib"))
     # No config file present -> _login_from_docker_config never invoked (anonymous pull).
     mock_login.assert_not_called()
+    ctor.assert_called_once_with(insecure=False, auth_backend="token")
     # get_manifest has no auth param in oras-py; it is called with the target only.
     assert client.get_manifest.call_args.args[0] == "registry.io/mymodel:v1"
     assert "config_path" not in client.get_manifest.call_args.kwargs
@@ -185,7 +192,7 @@ def test_oci_with_config(tmp_path):
     client = _make_client(_IMAGE_MANIFEST)
 
     with (
-        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
             "kserve_storage.kserve_storage.os.path.exists",
             side_effect=_fake_config_exists(True),
@@ -193,14 +200,145 @@ def test_oci_with_config(tmp_path):
         mock.patch(
             "kserve_storage.kserve_storage._login_from_docker_config"
         ) as mock_login,
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="basic",
+        ),
     ):
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    ctor.assert_called_once_with(insecure=False, auth_backend="basic")
 
     mock_login.assert_called_once_with(
         client, "registry.io/mymodel:v1", _OCI_DOCKER_CONFIG_PATH
     )
     # get_manifest takes no config_path; auth is pre-established via client.login().
     assert "config_path" not in client.get_manifest.call_args.kwargs
+
+
+def test_oci_www_authenticate_basic_realm():
+    assert (
+        _oci_auth_backend_from_www_authenticate('Basic realm="Registry Realm"')
+        == "basic"
+    )
+
+
+def test_oci_www_authenticate_bearer_realm():
+    assert (
+        _oci_auth_backend_from_www_authenticate(
+            'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"'
+        )
+        == "token"
+    )
+
+
+def test_oci_www_authenticate_prefers_bearer_when_both():
+    assert (
+        _oci_auth_backend_from_www_authenticate(
+            'Bearer realm="https://auth.example/token", Basic realm="Registry Realm"'
+        )
+        == "token"
+    )
+
+
+def test_oci_auth_backend_probe_basic_401():
+    err = HTTPError(
+        "http://registry.local/v2/",
+        401,
+        "Unauthorized",
+        {"Www-Authenticate": 'Basic realm="Registry Realm"'},
+        io.BytesIO(),
+    )
+    with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
+        assert _oci_auth_backend_for_registry("registry.local:5000", True) == "basic"
+
+
+def test_oci_auth_backend_probe_http_exception_falls_back():
+    import http.client
+
+    with mock.patch(
+        "kserve_storage.kserve_storage.urlopen",
+        side_effect=http.client.BadStatusLine("broken"),
+    ):
+        assert _oci_auth_backend_for_registry("registry.local:5000", True) == "token"
+
+
+def test_oci_auth_backend_probe_bearer_401():
+    err = HTTPError(
+        "https://ghcr.io/v2/",
+        401,
+        "Unauthorized",
+        {
+            "Www-Authenticate": (
+                'Bearer realm="https://ghcr.io/token",service="ghcr.io"'
+            )
+        },
+        io.BytesIO(),
+    )
+    with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
+        assert _oci_auth_backend_for_registry("ghcr.io", False) == "token"
+
+
+def test_oci_ssl_context_for_probe_uses_requests_ca_bundle(monkeypatch):
+    import certifi
+
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", certifi.where())
+
+    ctx = _oci_ssl_context_for_probe("https://registry.local:5000/v2/", insecure=False)
+    assert ctx is not None
+    assert ctx.check_hostname is True
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_oci_ssl_context_for_probe_insecure_skips_verify():
+    ctx = _oci_ssl_context_for_probe("https://registry.local:5000/v2/", insecure=True)
+    assert ctx is not None
+    assert ctx.verify_mode == ssl.CERT_NONE
+
+
+def test_oci_auth_backend_probe_passes_ca_context(monkeypatch):
+    """Custom CA must be wired into urlopen or Basic-only HTTPS registries
+    never surface Www-Authenticate and we fall back to token incorrectly."""
+    import certifi
+
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", certifi.where())
+
+    err = HTTPError(
+        "https://registry.local:5000/v2/",
+        401,
+        "Unauthorized",
+        {"Www-Authenticate": 'Basic realm="Registry Realm"'},
+        io.BytesIO(),
+    )
+    with mock.patch(
+        "kserve_storage.kserve_storage.urlopen", side_effect=err
+    ) as urlopen_mock:
+        assert _oci_auth_backend_for_registry("registry.local:5000", False) == "basic"
+
+    _, kwargs = urlopen_mock.call_args
+    ctx = kwargs.get("context")
+    assert ctx is not None
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_oci_with_config_uses_bearer_backend(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(True),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="token",
+        ),
+    ):
+        Storage._download_oci("oci://ghcr.io/org/model:v1", out)
+
+    ctor.assert_called_once_with(insecure=False, auth_backend="token")
 
 
 def test_oci_uncompressed_tar_layer_extracts(tmp_path):
@@ -531,6 +669,10 @@ def test_oci_honors_env_var_for_config_path(tmp_path):
         mock.patch(
             "kserve_storage.kserve_storage._login_from_docker_config"
         ) as mock_login,
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="token",
+        ),
     ):
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
@@ -614,6 +756,48 @@ def test_oci_login_from_docker_config(tmp_path):
 
     client.login.assert_called_once_with(
         username="alice", password="s3cret", hostname="registry.io"
+    )
+
+
+def test_oci_login_docker_hub_index_key(tmp_path):
+    """CLI-generated secrets key Hub creds as https://index.docker.io/v1/ while
+    oci:// URIs use docker.io — login must still succeed."""
+    cfg = tmp_path / "config.json"
+    token = base64.b64encode(b"alice:s3cret").decode("utf-8")
+    cfg.write_text(
+        json.dumps({"auths": {"https://index.docker.io/v1/": {"auth": token}}})
+    )
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "docker.io/ns/model:v1", str(cfg))
+
+    client.login.assert_called_once_with(
+        username="alice", password="s3cret", hostname="docker.io"
+    )
+
+
+def test_docker_config_auth_keys_hub_aliases():
+    keys = _docker_config_auth_keys("docker.io")
+    assert "https://index.docker.io/v1/" in keys
+    assert "https://index.docker.io/v2/" in keys
+    # Non-Hub registries must not pick up Hub-only aliases.
+    assert "https://index.docker.io/v1/" not in _docker_config_auth_keys("quay.io")
+
+
+def test_oci_login_insecure_skips_tls_verify(tmp_path, monkeypatch):
+    monkeypatch.setenv("KSERVE_OCI_INSECURE_REGISTRY", "true")
+    cfg = tmp_path / "config.json"
+    token = base64.b64encode(b"alice:s3cret").decode("utf-8")
+    cfg.write_text(json.dumps({"auths": {"registry.io": {"auth": token}}}))
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "registry.io/ns/model:v1", str(cfg))
+
+    client.login.assert_called_once_with(
+        username="alice",
+        password="s3cret",
+        hostname="registry.io",
+        tls_verify=False,
     )
 
 

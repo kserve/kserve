@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/utils/ptr"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,18 +49,15 @@ func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error 
 }
 
 func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, llmSvc *LLMInferenceService) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
-
-	return warnings, l.validate(ctx, nil, llmSvc)
+	return l.validate(ctx, nil, llmSvc)
 }
 
 func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, prev, llmSvc *LLMInferenceService) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
 	if llmSvc.GetDeletionTimestamp() != nil {
-		return warnings, nil
+		return admission.Warnings{}, nil
 	}
 
-	return warnings, l.validate(ctx, prev, llmSvc)
+	return l.validate(ctx, prev, llmSvc)
 }
 
 func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ *LLMInferenceService) (admission.Warnings, error) {
@@ -67,32 +65,83 @@ func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ *LLMI
 	return admission.Warnings{}, nil
 }
 
-func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) error {
+func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Validating LLMInferenceService v1alpha1", "name", llmSvc.Name, "namespace", llmSvc.Namespace)
 
 	var allErrs field.ErrorList
+	var warnings admission.Warnings
 
 	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateTrafficFields(llmSvc)...)
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
+	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
+	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())...)
+	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
+	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+	warnings = append(warnings, confidentialWarnings...)
+	allErrs = append(allErrs, confidentialErrs...)
 	allErrs = append(allErrs, v1alpha2.ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
-	allErrs = append(allErrs, kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.GetAnnotations())...)
+	allErrs = append(allErrs, v1alpha2.ValidateRouteRuleNamingAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
+	allErrs = append(allErrs, kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha1 is valid", "llmisvc", llmSvc)
-		return nil
+		return warnings, nil
 	}
 
-	return apierrors.NewInvalid(
+	return warnings, apierrors.NewInvalid(
 		LLMInferenceServiceGVK.GroupKind(),
 		llmSvc.Name, allErrs)
+}
+
+// validateWVAConfig keeps the WVA fields readable for upgrade compatibility.
+// Existing WVA configuration may remain unchanged or be removed, but adding or
+// modifying it is rejected because WVA is no longer reconciled.
+func (l *LLMInferenceServiceValidator) validateWVAConfig(prev, llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	validateWorkload := func(path *field.Path, oldWorkload, newWorkload *WorkloadSpec) {
+		var oldWVA, newWVA *WVASpec
+		if oldWorkload != nil && oldWorkload.Scaling != nil {
+			oldWVA = oldWorkload.Scaling.WVA
+		}
+		if newWorkload != nil && newWorkload.Scaling != nil {
+			newWVA = newWorkload.Scaling.WVA
+		}
+		if newWVA != nil && oldWVA == nil {
+			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
+				"WVA autoscaling is no longer supported; remove spec.scaling.wva and use direct KEDA scaling if needed"))
+		} else if newWVA != nil && !equality.Semantic.DeepEqual(oldWVA, newWVA) {
+			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
+				"WVA autoscaling is no longer supported; existing WVA configuration must remain unchanged or be removed"))
+		}
+	}
+
+	var oldSpec *LLMInferenceServiceSpec
+	if prev != nil {
+		oldSpec = &prev.Spec
+	}
+	validateWorkload(field.NewPath("spec"), workloadSpec(oldSpec), workloadSpec(&llmSvc.Spec))
+	var oldPrefill, newPrefill *WorkloadSpec
+	if oldSpec != nil {
+		oldPrefill = oldSpec.Prefill
+	}
+	newPrefill = llmSvc.Spec.Prefill
+	validateWorkload(field.NewPath("spec", "prefill"), oldPrefill, newPrefill)
+	return allErrs
+}
+
+func workloadSpec(spec *LLMInferenceServiceSpec) *WorkloadSpec {
+	if spec == nil {
+		return nil
+	}
+	return &spec.WorkloadSpec
 }
 
 func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) field.ErrorList {
@@ -365,6 +414,17 @@ func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.P
 	return v1alpha2.ValidateWorkloadScaling(basePath, &w)
 }
 
+func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	w := convertWorkloadSpecToV1Alpha2(&llmSvc.Spec.WorkloadSpec)
+	allErrs = append(allErrs, v1alpha2.ValidateKVCacheOffloadingSpec(w.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
+	if llmSvc.Spec.Prefill != nil {
+		prefill := convertWorkloadSpecToV1Alpha2(llmSvc.Spec.Prefill)
+		allErrs = append(allErrs, v1alpha2.ValidateKVCacheOffloadingSpec(prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
+	}
+	return allErrs
+}
+
 func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -379,6 +439,33 @@ func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInfere
 	}
 
 	return allErrs
+}
+
+// validateModelExpress validates the serving.kserve.io/exp-modelexpress-* annotations and,
+// when the model URI is set on the service itself, that the mode can load it.
+func (l *LLMInferenceServiceValidator) validateModelExpress(llmSvc *LLMInferenceService) field.ErrorList {
+	var loraURIs []string
+	if llmSvc.Spec.Model.LoRA != nil {
+		for _, a := range llmSvc.Spec.Model.LoRA.Adapters {
+			loraURIs = append(loraURIs, a.URI.String())
+		}
+	}
+	return kservevalidation.ValidateModelExpress(llmSvc.GetAnnotations(), llmSvc.Spec.Model.URI.String(), loraURIs)
+}
+
+// validateConfidential validates the confidential spec on the model with the same rules as v1alpha2.
+func (l *LLMInferenceServiceValidator) validateConfidential(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	confidential := llmSvc.Spec.Model.Confidential
+	if confidential == nil {
+		return nil, nil
+	}
+
+	return kservevalidation.ValidateConfidentialSpec(
+		confidential.Enabled,
+		confidential.ResourceId,
+		llmSvc.Spec.Model.URI.String(),
+		field.NewPath("spec", "model"),
+	)
 }
 
 func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInferenceService) field.ErrorList {

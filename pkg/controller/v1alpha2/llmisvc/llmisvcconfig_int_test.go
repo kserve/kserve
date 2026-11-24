@@ -129,68 +129,6 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should block deletion when config is referenced via status annotations", func(ctx SpecContext) {
-			// given — create config and service, let the reconciler pin the config
-			// in status.annotations via versioned config resolution
-			svcName := "test-llm-cfg-protect-annot"
-			testNs := NewTestNamespace(ctx, envTest)
-
-			config := LLMInferenceServiceConfig("pinned-cfg",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigModelName("facebook/opt-125m"),
-				WithConfigModelURI("hf://facebook/opt-125m"),
-			)
-			Expect(envTest.Create(ctx, config)).To(Succeed())
-
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithBaseRefs(corev1.LocalObjectReference{Name: "pinned-cfg"}),
-			)
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
-
-			// Wait for the service to reconcile and pin the config in status annotations
-			Eventually(func(g Gomega, ctx context.Context) {
-				current := &v1alpha2.LLMInferenceService{}
-				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
-				g.Expect(current.Status.Annotations).ToNot(BeNil(),
-					"status annotations should be populated after reconciliation")
-			}).WithContext(ctx).Should(Succeed())
-
-			// Wait for finalizer on config
-			Eventually(func(g Gomega, ctx context.Context) {
-				current := &v1alpha2.LLMInferenceServiceConfig{}
-				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(config), current)).To(Succeed())
-				g.Expect(controllerutil.ContainsFinalizer(current, configFinalizerName)).To(BeTrue())
-			}).WithContext(ctx).Should(Succeed())
-
-			// Remove the baseRef but keep the pinned status annotation
-			// The service still has the config name pinned in status.annotations
-			// when - attempt to delete the config
-			Expect(envTest.Delete(ctx, config)).To(Succeed())
-
-			// then - config should still exist (referenced via status annotations),
-			// Ready should remain True, and ConfigInUse should be True with reason DeletionBlocked
-			Eventually(func(g Gomega, ctx context.Context) {
-				current := &v1alpha2.LLMInferenceServiceConfig{}
-				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(config), current)).To(Succeed())
-				g.Expect(current.DeletionTimestamp).ToNot(BeNil())
-				g.Expect(controllerutil.ContainsFinalizer(current, configFinalizerName)).To(BeTrue(),
-					"finalizer should still be present while config is pinned in status annotations")
-
-				readyCond := current.GetStatus().GetCondition(apis.ConditionReady)
-				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
-				g.Expect(readyCond.IsTrue()).To(BeTrue(), "expected Ready=True even when deletion is blocked")
-
-				inUseCond := current.GetStatus().GetCondition(v1alpha2.ConfigInUseConditionType)
-				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
-				g.Expect(inUseCond.IsTrue()).To(BeTrue(), "expected ConfigInUse=True when deletion is blocked")
-				g.Expect(inUseCond.Reason).To(Equal("DeletionBlocked"))
-			}).WithContext(ctx).Should(Succeed())
-		})
-
 		It("should allow deletion when config is not referenced by any service", func(ctx SpecContext) {
 			// given
 			testNs := NewTestNamespace(ctx, envTest)

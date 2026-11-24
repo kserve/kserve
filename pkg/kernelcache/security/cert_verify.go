@@ -134,20 +134,29 @@ func loadTrustBundle(ctx context.Context, src SecretSource, ref, key string) ([]
 func (v *certVerifier) Verify(ctx context.Context, req types.VerifyRequest) (types.VerifyResult, error) {
 	res := types.VerifyResult{Mode: types.ModeCert}
 
-	ref, err := name.ParseReference(req.ImageRef)
+	parseOptions := []name.Option{}
+	if req.RegistryInsecure {
+		parseOptions = append(parseOptions, name.Insecure)
+	}
+	ref, err := name.ParseReference(req.ImageRef, parseOptions...)
 	if err != nil {
 		return res, fmt.Errorf("parse image reference %q: %w", req.ImageRef, err)
 	}
 
-	// Registry access uses the ambient keychain (the same options back both the
-	// digest resolve and the signature fetch). Per-InferenceService
-	// imagePullSecrets are not consulted here; the wiring will inject a keychain
-	// built from them.
-	keychain := authn.DefaultKeychain
-
 	// Resolve the digest first. Failure here means the image is unreachable
 	// (operational, retryable), not a verification failure.
-	desc, err := remote.Head(ref, remote.WithContext(ctx), remote.WithAuthFromKeychain(keychain))
+	remoteClientOpts := []remote.Option{
+		remote.WithContext(ctx),
+	}
+	if req.RegistryAuthenticator != nil {
+		remoteClientOpts = append(remoteClientOpts, remote.WithAuth(req.RegistryAuthenticator))
+	} else {
+		remoteClientOpts = append(remoteClientOpts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	}
+	if req.RegistryTransport != nil {
+		remoteClientOpts = append(remoteClientOpts, remote.WithTransport(req.RegistryTransport))
+	}
+	desc, err := remote.Head(ref, remoteClientOpts...)
 	if err != nil {
 		return res, fmt.Errorf("resolve image %q: %w", req.ImageRef, err)
 	}
@@ -155,14 +164,12 @@ func (v *certVerifier) Verify(ctx context.Context, req types.VerifyRequest) (typ
 	digestRef := ref.Context().Digest(res.Digest)
 
 	co := &cosign.CheckOpts{
-		RootCerts:     v.caPool,
-		IgnoreTlog:    true,
-		IgnoreSCT:     true,
-		Identities:    []cosign.Identity{{SubjectRegExp: v.subjectPattern}},
-		ClaimVerifier: cosign.SimpleClaimVerifier,
-		RegistryClientOpts: []ociremote.Option{
-			ociremote.WithRemoteOptions(remote.WithContext(ctx), remote.WithAuthFromKeychain(keychain)),
-		},
+		RootCerts:          v.caPool,
+		IgnoreTlog:         true,
+		IgnoreSCT:          true,
+		Identities:         []cosign.Identity{{SubjectRegExp: v.subjectPattern}},
+		ClaimVerifier:      cosign.SimpleClaimVerifier,
+		RegistryClientOpts: []ociremote.Option{ociremote.WithRemoteOptions(remoteClientOpts...)},
 	}
 
 	// The image exists (digest resolved), so a cosign error here means the

@@ -31,7 +31,7 @@ All tests collected from the `llmisvc/` directory automatically receive the
 
 | File pattern | Assigned markers | Example file |
 |---|---|---|
-| `test_llm_autoscaling_<variant>.py` | `llminferenceservice` + `llmisvc_autoscaling` + `autoscaling_<variant>` | `test_llm_autoscaling_wva.py` → `llminferenceservice`, `llmisvc_autoscaling`, `autoscaling_wva` |
+| `test_llm_autoscaling_<variant>.py` | `llminferenceservice` + `llmisvc_autoscaling` + `autoscaling_<variant>` | `test_llm_autoscaling_direct_keda.py` → `llminferenceservice`, `llmisvc_autoscaling`, `autoscaling_direct_keda` |
 | Files in `_LLMISVC_CORE_EXCLUDED` | `llminferenceservice` only (manually marked for sub-group) | `test_llm_tracing.py` has its own `tracing` marker, `test_llm_inference_service_config_deletion.py` and `test_llm_canary_lifecycle.py` carry `llmisvc_serial` |
 | Everything else | `llminferenceservice` + `llmisvc_core` | `test_llm_inference_service.py`, `test_pod_watch.py` |
 
@@ -59,6 +59,13 @@ When adding a new test file, decide which group it belongs to:
   the controller) or asserts on traffic through the shared ingress gateway → add
   the file to `_LLMISVC_CORE_EXCLUDED` and mark it `llmisvc_serial`. CI runs `llmisvc_core` on two xdist workers, then
   `llmisvc_serial` one test at a time.
+- Needs an llmisvc feature gate → keep it in its own CI job. Feature gates are
+  cluster-wide (the `llmisvc` key of the `inferenceservice-config` ConfigMap),
+  so tests must not flip them. `test_llm_disaggregated_set.py` carries
+  `llmisvc_disaggregated_set` and runs only in the
+  `test-llmisvc-disaggregated-set` job, which enables the gate with
+  `test/scripts/gh-actions/enable-llmisvc-feature-gates.sh disaggregatedSet`
+  before the tests. Each test fails fast if the gate is off.
 
 ### Cluster capability markers (explicit, per test param)
 
@@ -77,9 +84,6 @@ Examples:
 ```bash
 # Run all core LLMISVC tests
 pytest -m "llmisvc_core" test/e2e/llmisvc/
-
-# Run only WVA autoscaling tests
-pytest -m "autoscaling_wva" test/e2e/llmisvc/
 
 # Run all LLMISVC autoscaling variants
 pytest -m "llmisvc_autoscaling" test/e2e/llmisvc/

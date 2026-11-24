@@ -38,7 +38,7 @@ def show_ray_cluster_status(ray_address="auto"):
     initialize_ray_cluster(ray_address)
     try:
         resources = ray.cluster_resources()
-        logger.info("Cluster resources:", resources)
+        logger.info("Cluster resources: %s", resources)
     except Exception as e:
         logger.error(f"Error getting Ray nodes status: {e}")
 

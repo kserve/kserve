@@ -1828,6 +1828,44 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcNoAnnotation)
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: unchanged legacy alias annotation ("Serverless") should be accepted once the
+	// controller has normalized the status to "Knative". Regression test for issue #5885:
+	// the annotation here is untouched by the user, but the raw string differs from the
+	// normalized status, so the pre-fix comparison rejected the update anyway.
+	oldIsvcNormalizedStatus := makeTestInferenceService()
+	oldIsvcNormalizedStatus.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Knative),
+	}
+	oldIsvcNormalizedStatus.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	unchangedIsvcLegacySl := oldIsvcNormalizedStatus.DeepCopy()
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStatus, unchangedIsvcLegacySl)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: same as above for the "RawDeployment" / "Standard" legacy pair.
+	oldIsvcNormalizedStandard := makeTestInferenceService()
+	oldIsvcNormalizedStandard.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Standard),
+	}
+	oldIsvcNormalizedStandard.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	unchangedIsvcLegacyRaw := oldIsvcNormalizedStandard.DeepCopy()
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStandard, unchangedIsvcLegacyRaw)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: a legacy alias annotation that genuinely changes mode must still be rejected.
+	changedIsvcLegacySl := oldIsvcNormalizedStandard.DeepCopy()
+	changedIsvcLegacySl.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStandard, changedIsvcLegacySl)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
 }
 
 func TestValidateUpdateDuringDeletion(t *testing.T) {
@@ -2029,6 +2067,46 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 			},
 		},
 	}
+	validExternalWithoutType := validExternal.DeepCopy()
+	validExternalWithoutType.AutoScaling.Metrics[0].External.Target.Type = ""
+	validExternalAverageValue := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: NewMetricQuantity("10"),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidExternalUtilization := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:               UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(50)),
+						},
+					},
+				},
+			},
+		},
+	}
 	invalidPodMetric := &ComponentExtensionSpec{
 		AutoScaling: &AutoScalingSpec{
 			Metrics: []MetricsSpec{
@@ -2067,6 +2145,46 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 			},
 		},
 	}
+	validPodMetricWithoutType := validPodMetric.DeepCopy()
+	validPodMetricWithoutType.AutoScaling.Metrics[0].PodMetric.Target.Type = ""
+	validPodMetricAverageValue := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: NewMetricQuantity("5"),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidPodMetricUtilization := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:               UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(50)),
+						},
+					},
+				},
+			},
+		},
+	}
 	unknownMetricType := &ComponentExtensionSpec{
 		AutoScaling: &AutoScalingSpec{
 			Metrics: []MetricsSpec{
@@ -2092,8 +2210,14 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 		{"invalid: unsupported resource", unsupportedResource, "resource type disk is not supported"},
 		{"invalid: external metric missing query/value", invalidExternal, "the query should not be empty"},
 		{"valid: external metric", validExternal, ""},
+		{"valid: external metric without target type", validExternalWithoutType, ""},
+		{"valid: external AverageValue metric", validExternalAverageValue, ""},
+		{"invalid: external Utilization metric", invalidExternalUtilization, "Utilization is not supported"},
 		{"invalid: pod metric missing query/value", invalidPodMetric, "the query should not be empty"},
 		{"valid: pod metric", validPodMetric, ""},
+		{"valid: pod metric without target type", validPodMetricWithoutType, ""},
+		{"valid: pod AverageValue metric", validPodMetricAverageValue, ""},
+		{"invalid: pod Utilization metric", invalidPodMetricUtilization, "Utilization is not supported"},
 		{"invalid: unknown metric type", unknownMetricType, "unknown KEDA metric type with value [UnknownType].Valid types are Resource,External,PodMetric"},
 	}
 

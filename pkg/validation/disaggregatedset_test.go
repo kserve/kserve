@@ -26,6 +26,8 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
+var specAnnotationsPath = field.NewPath("spec", "annotations")
+
 func disaggAnnotations(value string) map[string]string {
 	return map[string]string{constants.LLMDisaggregatedSetAnnotationKey: value}
 }
@@ -61,13 +63,13 @@ func TestDisaggregatedSetEnabled(t *testing.T) {
 
 func TestValidateDisaggregatedSetAnnotation(t *testing.T) {
 	t.Run("annotation absent is valid", func(t *testing.T) {
-		assert.Empty(t, ValidateDisaggregatedSetAnnotation(nil))
-		assert.Empty(t, ValidateDisaggregatedSetAnnotation(map[string]string{"foo": "bar"}))
+		assert.Empty(t, ValidateDisaggregatedSetAnnotation(nil, specAnnotationsPath))
+		assert.Empty(t, ValidateDisaggregatedSetAnnotation(map[string]string{"foo": "bar"}, specAnnotationsPath))
 	})
 
 	t.Run("accepted values", func(t *testing.T) {
 		for _, v := range []string{"true", "false", "True", "FALSE", "  true  "} {
-			assert.Empty(t, ValidateDisaggregatedSetAnnotation(disaggAnnotations(v)), "value %q", v)
+			assert.Empty(t, ValidateDisaggregatedSetAnnotation(disaggAnnotations(v), specAnnotationsPath), "value %q", v)
 		}
 	})
 
@@ -76,9 +78,9 @@ func TestValidateDisaggregatedSetAnnotation(t *testing.T) {
 	// contract matches the message and the sibling serving.kserve.io/stop annotation.
 	t.Run("values outside the documented contract are rejected", func(t *testing.T) {
 		for _, v := range []string{"yes", "", "1", "0", "t", "f", "TRUEISH"} {
-			errs := ValidateDisaggregatedSetAnnotation(disaggAnnotations(v))
+			errs := ValidateDisaggregatedSetAnnotation(disaggAnnotations(v), specAnnotationsPath)
 			require.Len(t, errs, 1, "value %q", v)
-			assert.Contains(t, errs[0].Field, constants.LLMDisaggregatedSetAnnotationKey)
+			assert.Equal(t, "spec.annotations["+constants.LLMDisaggregatedSetAnnotationKey+"]", errs[0].Field)
 			assert.Equal(t, field.ErrorTypeNotSupported, errs[0].Type)
 		}
 	})
@@ -88,6 +90,6 @@ func TestValidateDisaggregatedSetAnnotation(t *testing.T) {
 	// feature-level constraints are the reconciler's job. Opting in alongside scaling
 	// must therefore be admitted here.
 	t.Run("opting in is admitted regardless of the rest of the spec", func(t *testing.T) {
-		assert.Empty(t, ValidateDisaggregatedSetAnnotation(disaggAnnotations("true")))
+		assert.Empty(t, ValidateDisaggregatedSetAnnotation(disaggAnnotations("true"), specAnnotationsPath))
 	})
 }

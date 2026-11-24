@@ -18,6 +18,8 @@ import httpx
 import numpy as np
 import pytest
 import pytest_asyncio
+from opentelemetry import trace
+from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from kserve import InferenceRESTClient, InferRequest, InferInput
 from kserve.model_server import app as kserve_app
@@ -25,6 +27,10 @@ from kserve.errors import UnsupportedProtocol
 from kserve.inference_client import RESTConfig
 from kserve.protocol.infer_type import RequestedOutput
 from test.test_server import DummyModel
+
+
+def _traceparent(trace_id: int, span_id: int, trace_flags: int = 1) -> str:
+    return f"00-{trace_id:032x}-{span_id:016x}-{trace_flags:02x}"
 
 
 @pytest.mark.asyncio
@@ -562,3 +568,87 @@ class TestInferenceRESTClient:
                 headers={"Host": "test-server.com"},
                 timeout=1.3,
             )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_graph_endpoint", [False, True])
+@pytest.mark.parametrize(
+    "traceparent_key", ["traceparent", "TraceParent", "TRACEPARENT"]
+)
+async def test_infer_injects_active_trace_context_without_mutating_headers(
+    is_graph_endpoint,
+    traceparent_key,
+):
+    captured_headers = {}
+
+    async def handler(request):
+        captured_headers.update(request.headers)
+        return httpx.Response(200, json={"predictions": [1]})
+
+    client = InferenceRESTClient(
+        RESTConfig(
+            transport=httpx.MockTransport(handler),
+            protocol="v1",
+        )
+    )
+    headers = {
+        traceparent_key: _traceparent(0x1, 0x2),
+        "TraceState": "old=1",
+        "x-request-id": "request-1",
+    }
+    active_trace_id = 0xAABB
+    active_span_id = 0xCCDD
+    span = NonRecordingSpan(
+        SpanContext(
+            trace_id=active_trace_id,
+            span_id=active_span_id,
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        )
+    )
+
+    try:
+        with trace.use_span(span):
+            await client.infer(
+                "http://test-server/infer",
+                data={"instances": [1]},
+                model_name=None if is_graph_endpoint else "model",
+                headers=headers,
+                is_graph_endpoint=is_graph_endpoint,
+            )
+    finally:
+        await client.close()
+
+    assert captured_headers["traceparent"] == _traceparent(
+        active_trace_id, active_span_id
+    )
+    assert "tracestate" not in captured_headers
+    assert captured_headers["x-request-id"] == "request-1"
+    assert headers[traceparent_key] == _traceparent(0x1, 0x2)
+    assert headers["TraceState"] == "old=1"
+
+
+@pytest.mark.asyncio
+async def test_infer_does_not_create_trace_context_without_active_span():
+    captured_headers = {}
+
+    async def handler(request):
+        captured_headers.update(request.headers)
+        return httpx.Response(200, json={"predictions": [1]})
+
+    client = InferenceRESTClient(
+        RESTConfig(
+            transport=httpx.MockTransport(handler),
+            protocol="v1",
+        )
+    )
+    try:
+        await client.infer(
+            "http://test-server",
+            data={"instances": [1]},
+            model_name="model",
+        )
+    finally:
+        await client.close()
+
+    assert "traceparent" not in captured_headers

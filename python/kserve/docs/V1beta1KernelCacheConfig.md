@@ -17,6 +17,7 @@ Name | Type | Description | Notes
 **prefetch_image** | **str** |  | [optional] 
 **reconcile_interval_seconds** | **int** |  | [optional] 
 **registry** | [**V1beta1KernelCacheRegistryConfig**](V1beta1KernelCacheRegistryConfig.md) |  | [optional] 
+**runtime_image_prefetch** | [**V1beta1KernelCacheRuntimeImagePrefetchConfig**](V1beta1KernelCacheRuntimeImagePrefetchConfig.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

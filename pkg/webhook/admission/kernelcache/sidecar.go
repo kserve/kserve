@@ -275,7 +275,7 @@ func getSidecarManifestsWithConfigs(cfg *v1beta1.KernelCacheConfig, readiness ca
 	sidecar := corev1.Container{
 		Name:            sidecarName,
 		Image:           cfg.MCVImage,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: corev1.PullIfNotPresent,
 		Env: []corev1.EnvVar{
 			{Name: captureconfig.CaptureModeEnv, Value: "true"},
 			{Name: captureconfig.CaptureConfigEnv, Value: captureValue},

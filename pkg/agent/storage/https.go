@@ -30,6 +30,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
 
 const (
@@ -71,6 +73,9 @@ type HTTPSDownloader struct {
 }
 
 func (h *HTTPSDownloader) Download(client http.Client) error {
+	if err := kserveutils.CheckHTTPStorageURIResolved(h.StorageUri); err != nil {
+		return err
+	}
 	// Create request
 	req, err := http.NewRequest(http.MethodGet, h.StorageUri, nil)
 	if err != nil {
@@ -86,7 +91,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	}
 
 	// Query request
-	resp, err := client.Do(req)
+	resp, err := kserveutils.SafeHTTPClient(&client).Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to make a request: %w", err)
 	}

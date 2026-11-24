@@ -70,12 +70,157 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   type: array
+                kvCacheOffloading:
+                  properties:
+                    cpu:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    evictionPolicy:
+                      default: lru
+                      enum:
+                        - lru
+                        - arc
+                      type: string
+                    secondary:
+                      items:
+                        properties:
+                          fileSystem:
+                            properties:
+                              emptyDir:
+                                properties:
+                                  size:
+                                    anyOf:
+                                      - type: integer
+                                      - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                required:
+                                  - size
+                                type: object
+                              pvc:
+                                properties:
+                                  ref:
+                                    properties:
+                                      name:
+                                        type: string
+                                      path:
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
+                                  spec:
+                                    properties:
+                                      accessModes:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      dataSource:
+                                        properties:
+                                          apiGroup:
+                                            type: string
+                                          kind:
+                                            type: string
+                                          name:
+                                            type: string
+                                        required:
+                                          - kind
+                                          - name
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                      dataSourceRef:
+                                        properties:
+                                          apiGroup:
+                                            type: string
+                                          kind:
+                                            type: string
+                                          name:
+                                            type: string
+                                          namespace:
+                                            type: string
+                                        required:
+                                          - kind
+                                          - name
+                                        type: object
+                                      resources:
+                                        properties:
+                                          limits:
+                                            additionalProperties:
+                                              anyOf:
+                                                - type: integer
+                                                - type: string
+                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                              x-kubernetes-int-or-string: true
+                                            type: object
+                                          requests:
+                                            additionalProperties:
+                                              anyOf:
+                                                - type: integer
+                                                - type: string
+                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                              x-kubernetes-int-or-string: true
+                                            type: object
+                                        type: object
+                                      selector:
+                                        properties:
+                                          matchExpressions:
+                                            items:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                operator:
+                                                  type: string
+                                                values:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                              required:
+                                                - key
+                                                - operator
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          matchLabels:
+                                            additionalProperties:
+                                              type: string
+                                            type: object
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                      storageClassName:
+                                        type: string
+                                      volumeAttributesClassName:
+                                        type: string
+                                      volumeMode:
+                                        type: string
+                                      volumeName:
+                                        type: string
+                                    type: object
+                                type: object
+                            type: object
+                        type: object
+                      type: array
+                  required:
+                    - cpu
+                  type: object
                 labels:
                   additionalProperties:
                     type: string
                   type: object
                 model:
                   properties:
+                    confidential:
+                      properties:
+                        enabled:
+                          type: boolean
+                        resourceId:
+                          type: string
+                      required:
+                        - enabled
+                      type: object
                     criticality:
                       enum:
                         - Critical
@@ -137,6 +282,142 @@ spec:
                     annotations:
                       additionalProperties:
                         type: string
+                      type: object
+                    kvCacheOffloading:
+                      properties:
+                        cpu:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        evictionPolicy:
+                          default: lru
+                          enum:
+                            - lru
+                            - arc
+                          type: string
+                        secondary:
+                          items:
+                            properties:
+                              fileSystem:
+                                properties:
+                                  emptyDir:
+                                    properties:
+                                      size:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    required:
+                                      - size
+                                    type: object
+                                  pvc:
+                                    properties:
+                                      ref:
+                                        properties:
+                                          name:
+                                            type: string
+                                          path:
+                                            type: string
+                                        required:
+                                          - name
+                                        type: object
+                                      spec:
+                                        properties:
+                                          accessModes:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          dataSource:
+                                            properties:
+                                              apiGroup:
+                                                type: string
+                                              kind:
+                                                type: string
+                                              name:
+                                                type: string
+                                            required:
+                                              - kind
+                                              - name
+                                            type: object
+                                            x-kubernetes-map-type: atomic
+                                          dataSourceRef:
+                                            properties:
+                                              apiGroup:
+                                                type: string
+                                              kind:
+                                                type: string
+                                              name:
+                                                type: string
+                                              namespace:
+                                                type: string
+                                            required:
+                                              - kind
+                                              - name
+                                            type: object
+                                          resources:
+                                            properties:
+                                              limits:
+                                                additionalProperties:
+                                                  anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                                type: object
+                                              requests:
+                                                additionalProperties:
+                                                  anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                                type: object
+                                            type: object
+                                          selector:
+                                            properties:
+                                              matchExpressions:
+                                                items:
+                                                  properties:
+                                                    key:
+                                                      type: string
+                                                    operator:
+                                                      type: string
+                                                    values:
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                      x-kubernetes-list-type: atomic
+                                                  required:
+                                                    - key
+                                                    - operator
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              matchLabels:
+                                                additionalProperties:
+                                                  type: string
+                                                type: object
+                                            type: object
+                                            x-kubernetes-map-type: atomic
+                                          storageClassName:
+                                            type: string
+                                          volumeAttributesClassName:
+                                            type: string
+                                          volumeMode:
+                                            type: string
+                                          volumeName:
+                                            type: string
+                                        type: object
+                                    type: object
+                                type: object
+                            type: object
+                          type: array
+                      required:
+                        - cpu
                       type: object
                     labels:
                       additionalProperties:
@@ -593,8 +874,6 @@ spec:
                         - maxReplicas
                       type: object
                       x-kubernetes-validations:
-                        - message: either wva or keda must be specified when scaling is configured
-                          rule: has(self.wva) || has(self.keda)
                         - message: wva and keda are mutually exclusive
                           rule: '!(has(self.wva) && has(self.keda))'
                         - message: at least one trigger is required when using direct KEDA scaling
@@ -9673,6 +9952,7 @@ spec:
                                       retry:
                                         properties:
                                           attempts:
+                                            minimum: 1
                                             type: integer
                                           backoff:
                                             pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -9683,7 +9963,7 @@ spec:
                                               minimum: 400
                                               type: integer
                                             type: array
-                                            x-kubernetes-list-type: atomic
+                                            x-kubernetes-list-type: set
                                         type: object
                                       sessionPersistence:
                                         properties:
@@ -9699,9 +9979,6 @@ spec:
                                                   - Session
                                                 type: string
                                             type: object
-                                          idleTimeout:
-                                            pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                            type: string
                                           sessionName:
                                             maxLength: 128
                                             type: string
@@ -9809,8 +10086,6 @@ spec:
                                         - FailClose
                                       type: string
                                     group:
-                                      maxLength: 253
-                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     kind:
                                       maxLength: 63
@@ -18062,8 +18337,6 @@ spec:
                     - maxReplicas
                   type: object
                   x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct KEDA scaling
@@ -26917,8 +27190,6 @@ spec:
                         - maxReplicas
                       type: object
                       x-kubernetes-validations:
-                        - message: either wva or keda must be specified when scaling is configured
-                          rule: has(self.wva) || has(self.keda)
                         - message: wva and keda are mutually exclusive
                           rule: '!(has(self.wva) && has(self.keda))'
                         - message: at least one trigger is required when using direct KEDA scaling
@@ -35997,6 +36268,7 @@ spec:
                                       retry:
                                         properties:
                                           attempts:
+                                            minimum: 1
                                             type: integer
                                           backoff:
                                             pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -36007,7 +36279,7 @@ spec:
                                               minimum: 400
                                               type: integer
                                             type: array
-                                            x-kubernetes-list-type: atomic
+                                            x-kubernetes-list-type: set
                                         type: object
                                       sessionPersistence:
                                         properties:
@@ -36023,9 +36295,6 @@ spec:
                                                   - Session
                                                 type: string
                                             type: object
-                                          idleTimeout:
-                                            pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                            type: string
                                           sessionName:
                                             maxLength: 128
                                             type: string
@@ -36204,7 +36473,6 @@ spec:
                                     - message: port number must be unique
                                       rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
                               required:
-                                - endpointPickerRef
                                 - selector
                                 - targetPorts
                               type: object
@@ -44427,8 +44695,6 @@ spec:
                     - maxReplicas
                   type: object
                   x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct KEDA scaling

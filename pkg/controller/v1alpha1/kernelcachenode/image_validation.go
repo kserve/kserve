@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
@@ -44,6 +47,15 @@ func (r *KernelCacheNodeReconciler) RunPeriodicImageValidation(ctx context.Conte
 func (r *KernelCacheNodeReconciler) runImageValidation(ctx context.Context) {
 	if err := r.validateNodeImages(ctx); err != nil {
 		r.Log.Error(err, "KernelCache image validation failed", "node", r.NodeName, "operation", "periodic-image-validation")
+		if r.Recorder == nil {
+			return
+		}
+		kernelCacheNode := &v1alpha1.KernelCacheNode{}
+		if getErr := r.Get(ctx, client.ObjectKey{Name: r.NodeName}, kernelCacheNode); getErr != nil {
+			r.Log.Error(getErr, "unable to get KernelCacheNode for image validation event", "node", r.NodeName)
+			return
+		}
+		r.recordErrorEvent(kernelCacheNode, "ImageValidation", "ImageValidationError", err)
 	}
 }
 

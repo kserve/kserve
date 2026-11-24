@@ -15,6 +15,7 @@
 import asyncio
 import json
 import os
+import re
 import time
 from concurrent import futures
 from pathlib import Path
@@ -505,6 +506,43 @@ def get_isvc_endpoint(isvc, network_layer: str = "istio"):
     else:
         raise ValueError(f"Unknown network layer {network_layer}")
     return scheme, cluster_ip, host, path
+
+
+def get_ingress_config() -> Dict:
+    """Return the parsed ``ingress`` section of the inferenceservice-config ConfigMap."""
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    config_map = kfs_client.core_api.read_namespaced_config_map(
+        "inferenceservice-config", KSERVE_NAMESPACE
+    )
+    return json.loads(config_map.data["ingress"])
+
+
+def render_path_template(ingress_config: Dict, name: str, namespace: str) -> str:
+    """Render the configured pathTemplate for an InferenceService, without a trailing "/".
+
+    Only ``{{ .Namespace }}`` and ``{{ .Name }}`` are supported.
+    """
+    values = {"Namespace": namespace, "Name": name}
+    return re.sub(
+        r"{{\s*\.(\w+)\s*}}",
+        lambda m: values[m.group(1)],
+        ingress_config["pathTemplate"],
+    ).rstrip("/")
+
+
+def get_path_based_endpoint(isvc, network_layer: str, ingress_config: Dict):
+    """Return (base_url, host) for the path-based URL of an InferenceService.
+
+    The URL is the gateway address plus the rendered pathTemplate, and the host is the
+    shared ingressDomain.
+    """
+    scheme, cluster_ip, _, _ = get_isvc_endpoint(isvc, network_layer)
+    path = render_path_template(
+        ingress_config, isvc["metadata"]["name"], isvc["metadata"]["namespace"]
+    )
+    return f"{scheme}://{cluster_ip}{path}", ingress_config["ingressDomain"]
 
 
 def generate(

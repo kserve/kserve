@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 )
 
@@ -112,6 +113,17 @@ func candidateMatchesKernelCache(candidate kernelCacheNodeCandidate, cache *v1al
 func compatibilityFootprintsMatch(requested, candidate v1alpha1.KernelCacheFootprints) bool {
 	return requested.CompatibilityFootprint != "" &&
 		requested.CompatibilityFootprint == candidate.CompatibilityFootprint
+}
+
+func kernelCacheVerificationAllowsUse(cache *v1alpha1.KernelCache, cfg *v1beta1.KernelCacheConfig) bool {
+	if cfg.ArtifactSecurity.Mode == "" || cfg.ArtifactSecurity.Mode == "none" {
+		return true
+	}
+	verification := cache.Status.Verification
+	return verification != nil &&
+		verification.Mode == cfg.ArtifactSecurity.Mode &&
+		verification.State == v1alpha1.KernelCacheArtifactSecurityStateSucceeded &&
+		verification.Verified
 }
 
 func cacheCanMountToPod(cache *v1alpha1.KernelCache, pod *corev1.Pod) bool {

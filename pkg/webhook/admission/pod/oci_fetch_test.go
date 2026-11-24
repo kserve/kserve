@@ -26,6 +26,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -78,7 +79,7 @@ func TestConfigureOciFetchToContainer(t *testing.T) {
 		require.NotNil(t, init, "storage-initializer init container should be injected")
 		assert.Equal(t, []string{constants.OciURIPrefix + "registry.io/mymodel:v1", constants.DefaultModelLocalMountPath}, init.Args)
 
-		assert.Nil(t, findVolume(podSpec.Volumes, ociFetchDockerConfigVolumeName), "no docker config volume without imagePullSecrets")
+		assert.Nil(t, findVolume(podSpec.Volumes, credentials.OciFetchDockerConfigVolumeName), "no docker config volume without imagePullSecrets")
 		assert.Empty(t, init.Env, "no env vars added without imagePullSecrets or CA bundle")
 
 		// Shared model emptyDir mounted on both the init and the user container.
@@ -110,7 +111,7 @@ func TestConfigureOciFetchToContainer(t *testing.T) {
 		init := getStorageInitializerInitContainer(&podSpec)
 		require.NotNil(t, init)
 
-		vol := findVolume(podSpec.Volumes, ociFetchDockerConfigVolumeName)
+		vol := findVolume(podSpec.Volumes, credentials.OciFetchDockerConfigVolumeName)
 		require.NotNil(t, vol, "docker config volume should be present")
 		require.NotNil(t, vol.Secret)
 		assert.Equal(t, "my-reg-cred", vol.Secret.SecretName)
@@ -118,14 +119,14 @@ func TestConfigureOciFetchToContainer(t *testing.T) {
 		assert.Equal(t, corev1.DockerConfigJsonKey, vol.Secret.Items[0].Key)
 		assert.Equal(t, "config.json", vol.Secret.Items[0].Path)
 
-		mount := findVolumeMount(init.VolumeMounts, ociFetchDockerConfigVolumeName)
+		mount := findVolumeMount(init.VolumeMounts, credentials.OciFetchDockerConfigVolumeName)
 		require.NotNil(t, mount, "init container should mount the docker config volume")
-		assert.Equal(t, ociFetchDockerConfigDir, mount.MountPath)
+		assert.Equal(t, credentials.OciFetchDockerConfigDir, mount.MountPath)
 		assert.True(t, mount.ReadOnly)
 
-		env := findEnv(init.Env, ociFetchDockerConfigPathEnvVar)
+		env := findEnv(init.Env, credentials.OciFetchDockerConfigPathEnvVar)
 		require.NotNil(t, env, "KSERVE_OCI_DOCKER_CONFIG should point the handler at the config")
-		assert.Equal(t, ociFetchDockerConfigDir+"/config.json", env.Value)
+		assert.Equal(t, credentials.OciFetchDockerConfigDir+"/config.json", env.Value)
 	})
 
 	t.Run("multiple imagePullSecrets use the first", func(t *testing.T) {
@@ -145,7 +146,7 @@ func TestConfigureOciFetchToContainer(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		vol := findVolume(podSpec.Volumes, ociFetchDockerConfigVolumeName)
+		vol := findVolume(podSpec.Volumes, credentials.OciFetchDockerConfigVolumeName)
 		require.NotNil(t, vol)
 		require.NotNil(t, vol.Secret)
 		assert.Equal(t, "cred-a", vol.Secret.SecretName, "first imagePullSecret should be used")
@@ -258,45 +259,6 @@ func TestConfigureOciFetchToContainer(t *testing.T) {
 	})
 }
 
-// TestConfigureOciFetchDockerConfig exercises the mountImagePullSecretsAsDockerConfig
-// helper directly (TEST-C).
-func TestConfigureOciFetchDockerConfig(t *testing.T) {
-	t.Run("zero secrets is a no-op", func(t *testing.T) {
-		container := &corev1.Container{Name: constants.StorageInitializerContainerName}
-		var volumes []corev1.Volume
-		require.NoError(t, mountImagePullSecretsAsDockerConfig(nil, container, &volumes))
-		assert.Empty(t, volumes)
-		assert.Empty(t, container.VolumeMounts)
-		assert.Empty(t, container.Env)
-	})
-
-	t.Run("single secret adds volume, mount and config-path env", func(t *testing.T) {
-		container := &corev1.Container{Name: constants.StorageInitializerContainerName}
-		var volumes []corev1.Volume
-		secrets := []corev1.LocalObjectReference{{Name: "reg-cred"}}
-		require.NoError(t, mountImagePullSecretsAsDockerConfig(secrets, container, &volumes))
-
-		require.Len(t, volumes, 1)
-		require.NotNil(t, volumes[0].Secret)
-		assert.Equal(t, "reg-cred", volumes[0].Secret.SecretName)
-		require.Len(t, container.VolumeMounts, 1)
-		assert.Equal(t, ociFetchDockerConfigDir, container.VolumeMounts[0].MountPath)
-		require.Len(t, container.Env, 1)
-		assert.Equal(t, ociFetchDockerConfigPathEnvVar, container.Env[0].Name)
-		assert.Equal(t, ociFetchDockerConfigDir+"/config.json", container.Env[0].Value)
-	})
-
-	t.Run("multiple secrets use the first", func(t *testing.T) {
-		container := &corev1.Container{Name: constants.StorageInitializerContainerName}
-		var volumes []corev1.Volume
-		secrets := []corev1.LocalObjectReference{{Name: "first"}, {Name: "second"}}
-		require.NoError(t, mountImagePullSecretsAsDockerConfig(secrets, container, &volumes))
-		require.Len(t, volumes, 1)
-		require.NotNil(t, volumes[0].Secret)
-		assert.Equal(t, "first", volumes[0].Secret.SecretName)
-	})
-}
-
 // TestConfigureOciFetchViaCommonStorageInitialization verifies oci+fetch:// dispatch
 // through the storageUris (non-legacy) path.
 func TestConfigureOciFetchViaCommonStorageInitialization(t *testing.T) {
@@ -338,7 +300,7 @@ func TestConfigureOciFetchViaCommonStorageInitialization(t *testing.T) {
 			IsLegacyURI:     false,
 		}
 		require.NoError(t, CommonStorageInitialization(t.Context(), params))
-		assert.NotNil(t, findVolume(podSpec.Volumes, ociFetchDockerConfigVolumeName))
+		assert.NotNil(t, findVolume(podSpec.Volumes, credentials.OciFetchDockerConfigVolumeName))
 	})
 }
 

@@ -32,8 +32,20 @@ func SetUseVersionedConfigForTest(enabled bool) func() {
 	}
 }
 
-// SelectSingleNodeTemplateName exposes selectSingleNodeTemplateName for testing.
-var SelectSingleNodeTemplateName = selectSingleNodeTemplateName
+// SelectSingleNodeTemplateNames exposes selectSingleNodeTemplateNames for testing.
+var SelectSingleNodeTemplateNames = selectSingleNodeTemplateNames
+
+// IsOmniRuntimeForTest exposes isOmniRuntime for testing.
+var IsOmniRuntimeForTest = isOmniRuntime
+
+// StripModalityRouteRules exposes stripModalityRouteRules for testing.
+var StripModalityRouteRules = stripModalityRouteRules
+
+// IsModalityEndpointPathForTest exposes isModalityEndpointPath for testing.
+var IsModalityEndpointPathForTest = isModalityEndpointPath
+
+// InjectOmniRuntimeArgs exposes injectOmniRuntimeArgs for testing.
+var InjectOmniRuntimeArgs = injectOmniRuntimeArgs
 
 // ResolveRuntimeSpec exposes (*LLMISVCReconciler).resolveRuntimeSpec for testing.
 func (r *LLMISVCReconciler) ResolveRuntimeSpec(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*v1alpha2.LLMInferenceServiceSpec, error) {

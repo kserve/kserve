@@ -23,6 +23,8 @@ type SignRequest struct {
 
 	// ProfileRef identifies the namespace-scoped signing profile as namespace/name.
 	ProfileRef string
+
+	RegistrySettings
 }
 
 // SignResult reports the outcome of a signing operation.

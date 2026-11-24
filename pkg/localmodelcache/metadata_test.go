@@ -19,6 +19,7 @@ package localmodelcache
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -40,11 +41,49 @@ func TestMatchCacheForURI_ClusterScoped(t *testing.T) {
 		}},
 	}
 
-	match := MatchCacheForURI("hf://org/model", "", false, models, nil)
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, models, nil)
 	assert.NotNil(t, match)
 	assert.Equal(t, "my-cache", match.Cache)
 	assert.Empty(t, match.Namespace)
 	assert.Equal(t, "my-cache-gpu1", match.PVCName)
+}
+
+func TestMatchCacheForURI_ClusterScopedOldestWins(t *testing.T) {
+	newer := metav1.NewTime(time.Now())
+	older := metav1.NewTime(time.Now().Add(-time.Hour))
+	items := func(order ...v1alpha1.LocalModelCache) []v1alpha1.LocalModelCache {
+		return order
+	}
+	model := func(name string, created metav1.Time) v1alpha1.LocalModelCache {
+		return v1alpha1.LocalModelCache{
+			ObjectMeta: metav1.ObjectMeta{Name: name, CreationTimestamp: created},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: "hf://org/model",
+				ModelSize:      resource.MustParse("1Gi"),
+				NodeGroups:     []string{"gpu1"},
+			},
+		}
+	}
+	newestFirst := model("z-newest", newer)
+	olderFirst := model("a-oldest", older)
+
+	// The oldest cache wins regardless of list order.
+	for _, list := range []v1alpha1.LocalModelCacheList{
+		{Items: items(newestFirst, olderFirst)},
+		{Items: items(olderFirst, newestFirst)},
+	} {
+		match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, &list, nil)
+		assert.NotNil(t, match)
+		assert.Equal(t, "a-oldest", match.Cache)
+		assert.Equal(t, "a-oldest-gpu1", match.PVCName)
+	}
+
+	// Equal creation timestamps fall back to name order.
+	tied := metav1.NewTime(time.Now())
+	list := v1alpha1.LocalModelCacheList{Items: items(model("z-cache", tied), model("a-cache", tied))}
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, &list, nil)
+	assert.NotNil(t, match)
+	assert.Equal(t, "a-cache", match.Cache)
 }
 
 func TestMatchCacheForURI_NamespaceScopedPrecedence(t *testing.T) {
@@ -69,17 +108,17 @@ func TestMatchCacheForURI_NamespaceScopedPrecedence(t *testing.T) {
 		}},
 	}
 
-	match := MatchCacheForURI("hf://org/model", "", false, models, nsModels)
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, models, nsModels)
 	assert.NotNil(t, match)
 	assert.Equal(t, "ns-cache", match.Cache)
 	assert.Equal(t, "default", match.Namespace)
 	assert.Equal(t, "ns-cache-gpu2", match.PVCName)
 }
 
-func sharedNSCache(name, pvcRef string, ready bool) v1alpha1.LocalModelNamespaceCache {
-	ref := pvcRef
+func sharedNSCache(ready bool) v1alpha1.LocalModelNamespaceCache {
+	ref := "shared-pvc"
 	c := v1alpha1.LocalModelNamespaceCache{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1},
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-cache", Namespace: "default", Generation: 1},
 		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
 			SourceModelUri: "hf://org/model",
 			ModelSize:      resource.MustParse("1Gi"),
@@ -94,9 +133,9 @@ func sharedNSCache(name, pvcRef string, ready bool) v1alpha1.LocalModelNamespace
 
 func TestMatchCacheForURI_SharedPVCReady(t *testing.T) {
 	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
-		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache("ns-cache", "shared-pvc", true)},
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(true)},
 	}
-	match := MatchCacheForURI("hf://org/model", "", false, nil, nsModels)
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, nil, nsModels)
 	assert.NotNil(t, match)
 	assert.Equal(t, "ns-cache", match.Cache)
 	assert.Equal(t, "default", match.Namespace)
@@ -105,10 +144,58 @@ func TestMatchCacheForURI_SharedPVCReady(t *testing.T) {
 
 func TestMatchCacheForURI_SharedPVCNotReadySkipped(t *testing.T) {
 	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
-		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache("ns-cache", "shared-pvc", false)},
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(false)},
 	}
-	match := MatchCacheForURI("hf://org/model", "", false, nil, nsModels)
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, nil, nsModels)
 	assert.Nil(t, match)
+}
+
+// importedSharedNSCache is a shared-PVC cache that imported successfully and then dropped to
+// NotReady (re-import blocked, spec-generation bump): the import record still names the claim.
+func importedSharedNSCache() v1alpha1.LocalModelNamespaceCache {
+	c := sharedNSCache(false)
+	c.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "claim-uid"}
+	return c
+}
+
+// A consumer already bound to a shared-PVC cache keeps its binding when the cache drops to
+// NotReady after a successful import (re-import blocked, spec-generation bump): the data is
+// still on the claim, and stripping the binding would roll pods back to downloading from
+// source and drop the consumer out of the cache's re-import gate.
+func TestMatchCacheForURI_SharedPVCNotReadyKeepsBoundConsumer(t *testing.T) {
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{importedSharedNSCache()},
+	}
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model", BoundCache: "ns-cache", BoundNamespace: "default"}, nil, nsModels)
+	assert.NotNil(t, match)
+	assert.Equal(t, "ns-cache", match.Cache)
+	assert.Equal(t, "default", match.Namespace)
+	assert.Equal(t, "shared-pvc", match.PVCName)
+}
+
+// The binding is held only by the import record. Once the claim is recreated under the same
+// name, a fresh import starts and clears the record; the claim holds no data yet, so a bound
+// consumer updated during that import is released to its source URI like any unbound one.
+func TestMatchCacheForURI_SharedPVCNotReadyReleasesBoundConsumerWithoutRecord(t *testing.T) {
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(false)},
+	}
+	assert.Nil(t, MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model", BoundCache: "ns-cache", BoundNamespace: "default"}, nil, nsModels))
+}
+
+func TestMatchCacheForURI_SharedPVCNotReadySkipsConsumerBoundElsewhere(t *testing.T) {
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{importedSharedNSCache()},
+	}
+	for name, sel := range map[string]v1alpha1.LocalModelCacheSelection{
+		"other cache":                    {StorageURI: "hf://org/model", BoundCache: "other-cache", BoundNamespace: "default"},
+		"same name, cluster-scoped":      {StorageURI: "hf://org/model", BoundCache: "ns-cache"},
+		"same name, different namespace": {StorageURI: "hf://org/model", BoundCache: "ns-cache", BoundNamespace: "elsewhere"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Nil(t, MatchCacheForURI(sel, nil, nsModels))
+		})
+	}
 }
 
 func TestMarshalParseLoRACacheAnnotation(t *testing.T) {
@@ -240,4 +327,161 @@ func TestLLMISVCNamespaceCacheNames(t *testing.T) {
 		)
 		assert.Equal(t, []string{"adapter-ns-cache", "ns-cache"}, got)
 	})
+}
+
+// A not-ready namespace cache yields to the cluster cache: an unbound workload
+// is never routed to a not-ready shared-PVC cache, and every reconciliation
+// that lists a cluster-scoped match must be able to serve it.
+func TestMatchCacheForURI_NamespaceCacheNotReadyFallsBackToClusterCache(t *testing.T) {
+	models := &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: "hf://org/model",
+				ModelSize:      resource.MustParse("1Gi"),
+				NodeGroups:     []string{"gpu1"},
+			},
+		}},
+	}
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{
+			importedSharedNSCache(),
+			sharedNSCache(false),
+		},
+	}
+
+	match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, models, nsModels)
+	assert.NotNil(t, match)
+	assert.Equal(t, "cluster-cache", match.Cache)
+	assert.Empty(t, match.Namespace)
+	assert.Equal(t, "cluster-cache-gpu1", match.PVCName)
+}
+
+// A namespace cache that stopped matching the storage URI releases the
+// consumer's binding, so the consumer falls back to the cluster cache instead
+// of being pinned to a cache that no longer serves its model.
+func TestMatchCacheForURI_NamespaceCacheStoppedMatchingURIDropsBinding(t *testing.T) {
+	models := &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: "hf://org/model",
+				ModelSize:      resource.MustParse("1Gi"),
+				NodeGroups:     []string{"gpu1"},
+			},
+		}},
+	}
+	retargeted := sharedNSCache(true)
+	retargeted.Spec.SourceModelUri = "hf://org/other-model"
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{retargeted},
+	}
+
+	// The consumer is still bound to ns-cache, but the cache no longer matches.
+	match := MatchCacheForURI(
+		v1alpha1.LocalModelCacheSelection{
+			StorageURI:     "hf://org/model",
+			BoundCache:     "ns-cache",
+			BoundNamespace: "default",
+		}, models, nsModels)
+	assert.NotNil(t, match)
+	assert.Equal(t, "cluster-cache", match.Cache)
+	assert.Equal(t, "cluster-cache-gpu1", match.PVCName)
+
+	// With no cluster cache either, the binding is dropped and nothing matches.
+	match = MatchCacheForURI(
+		v1alpha1.LocalModelCacheSelection{
+			StorageURI:     "hf://org/model",
+			BoundCache:     "ns-cache",
+			BoundNamespace: "default",
+		}, nil, nsModels)
+	assert.Nil(t, match)
+}
+
+// nsCachePermutations returns every permutation of caches, so selection tests
+// can prove order-independence without a random number generator.
+func nsCachePermutations(items []v1alpha1.LocalModelNamespaceCache) [][]v1alpha1.LocalModelNamespaceCache {
+	var out [][]v1alpha1.LocalModelNamespaceCache
+	var permute func(current, remaining []v1alpha1.LocalModelNamespaceCache)
+	permute = func(current, remaining []v1alpha1.LocalModelNamespaceCache) {
+		if len(remaining) == 0 {
+			out = append(out, current)
+			return
+		}
+		for i := range remaining {
+			next := make([]v1alpha1.LocalModelNamespaceCache, 0, len(current)+1)
+			next = append(next, current...)
+			next = append(next, remaining[i])
+			rest := make([]v1alpha1.LocalModelNamespaceCache, 0, len(remaining)-1)
+			rest = append(rest, remaining[:i]...)
+			rest = append(rest, remaining[i+1:]...)
+			permute(next, rest)
+		}
+	}
+	permute(nil, items)
+	return out
+}
+
+// Selection must be deterministic across API list order: the oldest matching
+// ready shared-PVC cache wins regardless of how the informer lists the caches,
+// so a workload never moves between claims across reconciles.
+func TestMatchCacheForURI_SharedPVCDeterministicAcrossListOrder(t *testing.T) {
+	setup := func(name, pvcRef string) v1alpha1.LocalModelNamespaceCache {
+		ref := pvcRef
+		c := v1alpha1.LocalModelNamespaceCache{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              name,
+				Namespace:         "default",
+				Generation:        1,
+				CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
+			},
+			Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+				SourceModelUri: "hf://org/model",
+				ModelSize:      resource.MustParse("1Gi"),
+				PVCRef:         &ref,
+			},
+		}
+		c.Status.MarkReady(1)
+		return c
+	}
+	caches := []v1alpha1.LocalModelNamespaceCache{
+		setup("ns-cache-a", "pvc-a"),
+		setup("ns-cache-b", "pvc-b"),
+		setup("ns-cache-c", "pvc-c"),
+	}
+
+	for i, ordering := range nsCachePermutations(caches) {
+		match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, nil,
+			&v1alpha1.LocalModelNamespaceCacheList{Items: ordering})
+		assert.NotNil(t, match, "permutation %d", i)
+		assert.Equal(t, "ns-cache-a", match.Cache, "permutation %d", i)
+		assert.Equal(t, "pvc-a", match.PVCName, "permutation %d", i)
+	}
+}
+
+// The oldest cache breaks name-order ties deterministically as well.
+func TestMatchCacheForURI_SharedPVCNameBreaksTimestampTie(t *testing.T) {
+	created := metav1.Now()
+	setup := func(name, pvcRef string) v1alpha1.LocalModelNamespaceCache {
+		ref := pvcRef
+		c := v1alpha1.LocalModelNamespaceCache{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1, CreationTimestamp: created},
+			Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+				SourceModelUri: "hf://org/model",
+				ModelSize:      resource.MustParse("1Gi"),
+				PVCRef:         &ref,
+			},
+		}
+		c.Status.MarkReady(1)
+		return c
+	}
+	for _, items := range [][]v1alpha1.LocalModelNamespaceCache{
+		{setup("ns-cache-b", "pvc-b"), setup("ns-cache-a", "pvc-a")},
+		{setup("ns-cache-a", "pvc-a"), setup("ns-cache-b", "pvc-b")},
+	} {
+		match := MatchCacheForURI(v1alpha1.LocalModelCacheSelection{StorageURI: "hf://org/model"}, nil,
+			&v1alpha1.LocalModelNamespaceCacheList{Items: items})
+		assert.NotNil(t, match)
+		assert.Equal(t, "ns-cache-a", match.Cache)
+	}
 }

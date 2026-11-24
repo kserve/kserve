@@ -109,7 +109,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "inference_extension_prefix_indexer_size", "legendFormat": "{{pod}}", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "llm_d_epp_prefix_indexer_size", "legendFormat": "{{pod}}", "refId": "A" }
       ],
       "title": "EPP prefix indexer size",
       "type": "timeseries"
@@ -123,8 +123,8 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by(le) (rate(inference_extension_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
-        { "expr": "histogram_quantile(0.90, sum by(le) (rate(inference_extension_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
+        { "expr": "histogram_quantile(0.50, sum by(le) (rate(llm_d_epp_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.90, sum by(le) (rate(llm_d_epp_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
       ],
       "title": "EPP prefix indexer hit ratio (P50, P90)",
       "type": "timeseries"
@@ -138,8 +138,8 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by(le) (rate(inference_extension_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
-        { "expr": "histogram_quantile(0.90, sum by(le) (rate(inference_extension_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
+        { "expr": "histogram_quantile(0.50, sum by(le) (rate(llm_d_epp_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.90, sum by(le) (rate(llm_d_epp_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
       ],
       "title": "EPP prefix indexer hit bytes (P50, P90)",
       "type": "timeseries"

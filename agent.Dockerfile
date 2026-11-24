@@ -5,7 +5,8 @@ WORKDIR /go/src/github.com/kserve/kserve
 COPY go.mod  go.mod
 COPY go.sum  go.sum
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+    # Retry once: the module proxy resets streams mid-download, and go sets no timeout of its own.
+    timeout -v 300 go mod download || timeout -v 300 go mod download
 
 # ---- Build stage (parallel with license on BuildKit) ----
 FROM deps AS builder
@@ -16,7 +17,7 @@ COPY cmd/${CMD}/ cmd/${CMD}/
 COPY pkg/    pkg/
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -a -o agent ./cmd/${CMD}
+    CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -o agent ./cmd/${CMD}
 
 # ---- License stage (parallel with build on BuildKit) ----
 FROM deps AS license

@@ -58,11 +58,37 @@ const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrat
 
 const AnnotationModelBasedRoutingEnabled = "serving.kserve.io/model-based-routing-enabled"
 
+// AnnotationModelBasedRoutingOnly leaves model-based routing as the only way a
+// managed HTTPRoute reaches the model: the per-model path matches
+// (/{namespace}/{name}/... and /publishers/{namespace}/models/{model}/...) are
+// dropped. Externally referenced routes are never changed. It is read from two
+// places:
+//   - the service's spec.annotations, where a true or false value decides for
+//     that service, so a preset or the service owner can opt in alone or opt
+//     out of a Gateway-wide setting;
+//   - the parent Gateways' metadata.annotations, consulted otherwise: every
+//     parent Gateway of the route has to set it to true, because the route is
+//     shared and one Gateway's setting would otherwise break path URLs on the
+//     others.
+//
+// Values are read with strconv.ParseBool, unlike the exact "true" that
+// AnnotationModelBasedRoutingEnabled requires; an empty value counts as unset.
+//
+// It needs model-based routing to be active for the service: the workload
+// preset has to set AnnotationModelBasedRoutingEnabled, which marks a runtime
+// that serves the publisher-qualified model name. Otherwise the model-routing
+// matches are stripped first, and a route without model-routing matches keeps
+// its paths, so a route never loses both. The PerModelPathsDropped condition
+// reports the outcome.
+const AnnotationModelBasedRoutingOnly = "serving.kserve.io/model-based-routing-only"
+
 // AnnotationLoRAModelRoutingStrategy pins the LoRA routing strategy for one
 // service, overriding the cluster-wide loraModelRoutingStrategy. Read from
 // spec.annotations like AnnotationModelBasedRoutingEnabled, so a preset can
 // carry it; absent or empty means the ConfigMap value applies.
 const AnnotationLoRAModelRoutingStrategy = constants.LoRAModelRoutingStrategyAnnotationKey
+
+const AnnotationRouteRuleNaming = constants.RouteRuleNamingAnnotationKey
 
 // ErrPreconditionNotMet indicates a non-transient routing precondition failure
 // (e.g. a required CRD is missing or the routing strategy cannot be applied).
@@ -81,6 +107,16 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 
 	// Ensure readiness is determined even if errors occur
 	defer llmSvc.DetermineRouterReadiness()
+
+	if !utils.GetForceStopRuntime(llmSvc) && managedInferencePoolMissingEndpointPickerRef(llmSvc) {
+		const reason = "EndpointPickerRefMissing"
+		message := "spec.router.scheduler.pool.spec.endpointPickerRef is required for a managed InferencePool"
+		llmSvc.MarkGatewaysReadyUnset()
+		llmSvc.MarkHTTPRoutesReadyUnset()
+		llmSvc.MarkSchedulerWorkloadNotReady(reason, "%s", message)
+		llmSvc.MarkInferencePoolNotReady(reason, "%s", message)
+		return reconcile.TerminalError(errors.New(message))
+	}
 
 	// Ensure platform-specific preconditions are met before proceeding.
 	// A non-transient precondition failure (e.g. missing CRD) marks status and stops
@@ -105,8 +141,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 
 	// Reconcile the scheduler component that manages inference pools
 	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
-		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
-		return fmt.Errorf("failed to reconcile scheduler: %w", err)
+		return r.schedulerReconcileError(llmSvc, err)
 	}
 
 	// Reconcile HTTP routes for traffic routing
@@ -152,6 +187,18 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	return nil
 }
 
+func (r *LLMISVCReconciler) schedulerReconcileError(llmSvc *v1alpha2.LLMInferenceService, err error) error {
+	var unsupported *unsupportedSchedulerPluginError
+	if errors.As(err, &unsupported) {
+		llmSvc.MarkSchedulerWorkloadNotReady("UnsupportedSchedulerPlugin", "%s", unsupported.Error())
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "UnsupportedSchedulerPlugin", "%s", unsupported.Error())
+		return reconcile.TerminalError(unsupported)
+	}
+
+	llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
+	return fmt.Errorf("failed to reconcile scheduler: %w", err)
+}
+
 // reconcileHTTPRoutes manages HTTPRoute resources for traffic routing.
 // It handles both custom routes (via refs) and generated routes (via spec), and settles
 // HTTPRoutesReady from the route objects it holds - evaluating here rather than in the
@@ -166,6 +213,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.MarkGroupReadyUnset()
+		llmSvc.MarkPerModelPathsDroppedUnset()
 		if _, err := r.updateRoutingStatus(ctx, llmSvc); err != nil {
 			return nil, err
 		}
@@ -181,6 +229,17 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	// may run against an incomplete spec.
 	if renderErr != nil {
 		return nil, fmt.Errorf("failed to render HTTPRoute: %w", renderErr)
+	}
+
+	// Before group injection: it keeps a rule on the service's own backend when
+	// any of its matches is a per-model path, so stripping afterwards would
+	// change which rules get the weighted group backends.
+	var perModelPaths perModelPathsDecision
+	if llmSvc.Spec.Router.Route.HTTP.HasSpec() {
+		var err error
+		if perModelPaths, err = r.applyModelBasedRoutingOnly(ctx, llmSvc, cfg, expectedHTTPRoute); err != nil {
+			return nil, fmt.Errorf("failed to render HTTPRoute: %w", err)
+		}
 	}
 
 	// Inject group members' backendRefs for traffic splitting.
@@ -216,7 +275,8 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	if route.HTTP.HasSpec() {
 		// Model name collisions affect publisher paths and model-routing
-		// headers alike - both derive from the same fullyQualifiedModelName.
+		// headers. Headers carry the declared model name; publisher paths
+		// carry its publisherModelPath, so distinct names can share a path.
 		// Run unconditionally because publisher paths are always present.
 		others := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, others, client.InNamespace(llmSvc.Namespace)); err != nil {
@@ -242,6 +302,11 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		}
 		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
 	}
+
+	// After the route write, so the condition describes the stored route; any
+	// earlier return leaves the previous value, as the stored route is
+	// unchanged. The zero value clears it for externally referenced routes.
+	perModelPaths.markOn(llmSvc)
 
 	// Apply group status after the route write so status reflects committed state.
 	if groupMatching != nil {
@@ -305,6 +370,14 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasSpec() {
 		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
 
+		// The route preset ships modality rules for the omni runtime. Strip
+		// them for every other runtime so they do not consume the Gateway API
+		// rule and match caps that LoRA adapter expansion needs; this runs
+		// before the expansion so modality matches are not duplicated first.
+		if !isOmniRuntime(llmSvc.Spec.Runtime) {
+			httpRoute.Spec.Rules = stripModalityRouteRules(httpRoute.Spec.Rules)
+		}
+
 		if r.isModelBasedRoutingEnabled(ctx, llmSvc, cfg) {
 			if err := applyLoRAModelRouting(httpRoute.Spec.Rules, llmSvc, cfg); err != nil {
 				return httpRoute, err
@@ -314,6 +387,10 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 				httpRoute.Spec.Rules,
 				cfg.ModelBasedRoutingHeaderName,
 			)
+		}
+
+		if err := applyRouteRuleNaming(httpRoute.Spec.Rules, llmSvc, cfg); err != nil {
+			return httpRoute, err
 		}
 	}
 
@@ -340,11 +417,13 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		infPoolV1Support = IsInferencePoolV1Supported(curr)
 	}
 
+	// Multiple target ports require v1 even before the gateway reports support.
+	// Single-port pools retain the migration path for older gateway controllers.
 	// Switch to v1 if:
 	// - Gateway accepted v1 (route using v1 and ResolvedRefs=True), OR
 	// - Gateway rejected v1alpha2 (route using v1alpha2 and ResolvedRefs=False/InvalidKind), OR
 	// - Already migrated (annotation exists - one-way lock)
-	if isMigrated || infPoolV1Support == metav1.ConditionTrue || infPoolV1Alpha2Support == metav1.ConditionFalse {
+	if inferencePoolRequiresV1(&llmSvc.Spec) || isMigrated || infPoolV1Support == metav1.ConditionTrue || infPoolV1Alpha2Support == metav1.ConditionFalse {
 		// Switch backendRef to v1 API group
 		for i := range httpRoute.Spec.Rules {
 			for j := range httpRoute.Spec.Rules[i].BackendRefs {
@@ -777,6 +856,23 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	v1Pool := &igwapi.InferencePool{}
 	v1Err := r.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: poolName}, v1Pool)
 	v1Ready := v1Err == nil && IsInferencePoolReadyForGateways(v1Pool, gatewayKeys)
+
+	// A ready legacy pool cannot establish readiness for multiple target ports.
+	// It may remain from an earlier single-port configuration of this service.
+	if inferencePoolRequiresV1(&llmSvc.Spec) {
+		setRoutingPoolStatus(llmSvc,
+			gwapiv1.ObjectReference{Group: gwapiv1.Group(constants.InferencePoolV1APIGroupName), Kind: "InferencePool", Name: gwapiv1.ObjectName(poolName)},
+			gwapiv1.ObjectReference{Group: "", Kind: "Service", Name: gwapiv1.ObjectName(llmSvc.Spec.Router.EPPServiceName(llmSvc))},
+		)
+		if v1Err != nil {
+			llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", "Failed to fetch v1 Inference Pool %s/%s: %v", poolNamespace, poolName, v1Err)
+			if apierrors.IsNotFound(v1Err) {
+				return nil
+			}
+			return fmt.Errorf("failed to fetch v1 Inference Pool %s/%s: %w", poolNamespace, poolName, v1Err)
+		}
+		return r.evaluateInferencePoolCondition(ctx, llmSvc, v1Pool, gatewayKeys)
+	}
 
 	// Check v1alpha2 pool - treat CRD-not-installed as "version unavailable" (not an error)
 	v1alpha2Pool := &igwapiv1alpha2.InferencePool{}

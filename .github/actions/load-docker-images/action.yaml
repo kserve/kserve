@@ -26,9 +26,9 @@ runs:
             echo "Re-downloading artifact matching ${filename} (attempt ${attempt}/${max_retries})"
             rm -f "${file}"
             retry_dir=$(mktemp -d)
-            # Artifact names follow the convention "<prefix>-<tar filename>"
+            # Artifact names may be the tar filename or "<prefix>-<tar filename>".
             dl_stderr=$(mktemp)
-            if gh run download "${GITHUB_RUN_ID}" --pattern "*-${filename}" -D "${retry_dir}" 2>"${dl_stderr}"; then
+            if gh run download "${GITHUB_RUN_ID}" --pattern "*${filename}" -D "${retry_dir}" 2>"${dl_stderr}"; then
               found_file=$(find "${retry_dir}" -name "${filename}" -type f | head -1)
               if [ -n "${found_file}" ] && tar tf "${found_file}" > /dev/null 2>&1; then
                 mv "${found_file}" "${file}"

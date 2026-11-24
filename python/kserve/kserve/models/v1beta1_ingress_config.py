@@ -59,12 +59,15 @@ class V1beta1IngressConfig(object):
         'ingress_gateway': 'str',
         'knative_local_gateway_service': 'str',
         'kserve_ingress_gateway': 'str',
+        'llm_inference_service_tls_cipher_suites': 'str',
+        'llm_inference_service_tls_min_version': 'str',
         'local_gateway': 'str',
         'local_gateway_service': 'str',
         'lora_model_routing_strategy': 'str',
         'model_based_routing_header_name': 'str',
         'model_based_routing_mode': 'str',
         'path_template': 'str',
+        'route_rule_naming': 'str',
         'url_scheme': 'str'
     }
 
@@ -81,16 +84,19 @@ class V1beta1IngressConfig(object):
         'ingress_gateway': 'ingressGateway',
         'knative_local_gateway_service': 'knativeLocalGatewayService',
         'kserve_ingress_gateway': 'kserveIngressGateway',
+        'llm_inference_service_tls_cipher_suites': 'llmInferenceServiceTLSCipherSuites',
+        'llm_inference_service_tls_min_version': 'llmInferenceServiceTLSMinVersion',
         'local_gateway': 'localGateway',
         'local_gateway_service': 'localGatewayService',
         'lora_model_routing_strategy': 'loraModelRoutingStrategy',
         'model_based_routing_header_name': 'modelBasedRoutingHeaderName',
         'model_based_routing_mode': 'modelBasedRoutingMode',
         'path_template': 'pathTemplate',
+        'route_rule_naming': 'routeRuleNaming',
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, lora_model_routing_strategy=None, model_based_routing_header_name=None, model_based_routing_mode=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, lora_model_routing_strategy=None, model_based_routing_header_name=None, model_based_routing_mode=None, path_template=None, url_scheme=None, local_vars_configuration=None, *, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None, route_rule_naming=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -108,12 +114,15 @@ class V1beta1IngressConfig(object):
         self._ingress_gateway = None
         self._knative_local_gateway_service = None
         self._kserve_ingress_gateway = None
+        self._llm_inference_service_tls_cipher_suites = None
+        self._llm_inference_service_tls_min_version = None
         self._local_gateway = None
         self._local_gateway_service = None
         self._lora_model_routing_strategy = None
         self._model_based_routing_header_name = None
         self._model_based_routing_mode = None
         self._path_template = None
+        self._route_rule_naming = None
         self._url_scheme = None
         self.discriminator = None
 
@@ -141,6 +150,10 @@ class V1beta1IngressConfig(object):
             self.knative_local_gateway_service = knative_local_gateway_service
         if kserve_ingress_gateway is not None:
             self.kserve_ingress_gateway = kserve_ingress_gateway
+        if llm_inference_service_tls_cipher_suites is not None:
+            self.llm_inference_service_tls_cipher_suites = llm_inference_service_tls_cipher_suites
+        if llm_inference_service_tls_min_version is not None:
+            self.llm_inference_service_tls_min_version = llm_inference_service_tls_min_version
         if local_gateway is not None:
             self.local_gateway = local_gateway
         if local_gateway_service is not None:
@@ -153,6 +166,8 @@ class V1beta1IngressConfig(object):
             self.model_based_routing_mode = model_based_routing_mode
         if path_template is not None:
             self.path_template = path_template
+        if route_rule_naming is not None:
+            self.route_rule_naming = route_rule_naming
         if url_scheme is not None:
             self.url_scheme = url_scheme
 
@@ -409,6 +424,52 @@ class V1beta1IngressConfig(object):
         self._kserve_ingress_gateway = kserve_ingress_gateway
 
     @property
+    def llm_inference_service_tls_cipher_suites(self):
+        """Gets the llm_inference_service_tls_cipher_suites of this V1beta1IngressConfig.  # noqa: E501
+
+        LLMInferenceServiceTLSCipherSuites configures TLS 1.2 cipher suites using Go/IANA names; values are translated to OpenSSL names for vLLM.  # noqa: E501
+
+        :return: The llm_inference_service_tls_cipher_suites of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._llm_inference_service_tls_cipher_suites
+
+    @llm_inference_service_tls_cipher_suites.setter
+    def llm_inference_service_tls_cipher_suites(self, llm_inference_service_tls_cipher_suites):
+        """Sets the llm_inference_service_tls_cipher_suites of this V1beta1IngressConfig.
+
+        LLMInferenceServiceTLSCipherSuites configures TLS 1.2 cipher suites using Go/IANA names; values are translated to OpenSSL names for vLLM.  # noqa: E501
+
+        :param llm_inference_service_tls_cipher_suites: The llm_inference_service_tls_cipher_suites of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._llm_inference_service_tls_cipher_suites = llm_inference_service_tls_cipher_suites
+
+    @property
+    def llm_inference_service_tls_min_version(self):
+        """Gets the llm_inference_service_tls_min_version of this V1beta1IngressConfig.  # noqa: E501
+
+        LLMInferenceServiceTLSMinVersion configures the minimum TLS version for Go-based LLMISVC components. vLLM does not expose a minimum-version option.  # noqa: E501
+
+        :return: The llm_inference_service_tls_min_version of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._llm_inference_service_tls_min_version
+
+    @llm_inference_service_tls_min_version.setter
+    def llm_inference_service_tls_min_version(self, llm_inference_service_tls_min_version):
+        """Sets the llm_inference_service_tls_min_version of this V1beta1IngressConfig.
+
+        LLMInferenceServiceTLSMinVersion configures the minimum TLS version for Go-based LLMISVC components. vLLM does not expose a minimum-version option.  # noqa: E501
+
+        :param llm_inference_service_tls_min_version: The llm_inference_service_tls_min_version of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._llm_inference_service_tls_min_version = llm_inference_service_tls_min_version
+
+    @property
     def local_gateway(self):
         """Gets the local_gateway of this V1beta1IngressConfig.  # noqa: E501
 
@@ -535,6 +596,29 @@ class V1beta1IngressConfig(object):
         """
 
         self._path_template = path_template
+
+    @property
+    def route_rule_naming(self):
+        """Gets the route_rule_naming of this V1beta1IngressConfig.  # noqa: E501
+
+        RouteRuleNaming is \"preset\" (the default) or \"unique\", which suffixes the LLMInferenceService HTTPRoute rule names per service. An unsupported value sets HTTPRoutesReady=False on the services that use it.  # noqa: E501
+
+        :return: The route_rule_naming of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._route_rule_naming
+
+    @route_rule_naming.setter
+    def route_rule_naming(self, route_rule_naming):
+        """Sets the route_rule_naming of this V1beta1IngressConfig.
+
+        RouteRuleNaming is \"preset\" (the default) or \"unique\", which suffixes the LLMInferenceService HTTPRoute rule names per service. An unsupported value sets HTTPRoutesReady=False on the services that use it.  # noqa: E501
+
+        :param route_rule_naming: The route_rule_naming of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._route_rule_naming = route_rule_naming
 
     @property
     def url_scheme(self):

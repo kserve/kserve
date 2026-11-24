@@ -97,6 +97,7 @@ func main() {
 		Reader:   mgr.GetAPIReader(),
 		NodeName: os.Getenv("NODE_NAME"),
 		Log:      ctrl.Log.WithName("kernelcachenode-agent"),
+		Recorder: mgr.GetEventRecorder("kernelcachenode-agent"),
 	}
 	if err := reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create KernelCacheNode controller")

@@ -75,7 +75,7 @@ install() {
     fi
 
     log_info "Adding Istio Helm repository..."
-    helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
+    helm repo add istio https://blob.istio.io/istio-release/charts --force-update
 
     # Allow callers to override the version from kserve-deps.env
     ISTIO_VERSION="${ISTIO_VERSION_OVERRIDE:-$ISTIO_VERSION}"

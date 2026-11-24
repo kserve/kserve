@@ -73,6 +73,8 @@ func TestParseCipherSuites(t *testing.T) {
 		{"unknown cipher is error", "BOGUS_CIPHER", 0, true},
 		{"mixed valid and invalid is error", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,BOGUS", 0, true},
 		{"only commas is error", ",,", 0, true},
+		{"trailing empty entry is ignored for flag compatibility", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,", 1, false},
+		{"TLS 1.3 cipher remains accepted by the shared parser", "TLS_AES_128_GCM_SHA256", 1, false},
 	}
 
 	for _, tt := range tests {
@@ -92,6 +94,17 @@ func TestParseCipherSuites(t *testing.T) {
 				t.Errorf("parseCipherSuites(%q) returned %d ciphers, want %d", tt.input, len(got), tt.wantCount)
 			}
 		})
+	}
+}
+
+func TestValidateRejectsNonWorkloadCipherLists(t *testing.T) {
+	for _, input := range []string{
+		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,",
+		"TLS_AES_128_GCM_SHA256",
+	} {
+		if err := Validate("VersionTLS12", input); err == nil {
+			t.Fatalf("Validate(%q) expected error", input)
+		}
 	}
 }
 
@@ -150,6 +163,20 @@ func TestResolve(t *testing.T) {
 			cipherSuites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 			wantErr:      true,
 			errContains:  "cannot be configured with TLS 1.3",
+		},
+		{
+			name:         "TLS 1.3 cipher names with TLS 1.2 floor is error",
+			minVersion:   "VersionTLS12",
+			cipherSuites: "TLS_AES_128_GCM_SHA256",
+			wantErr:      true,
+			errContains:  "cannot include TLS 1.3 suites",
+		},
+		{
+			name:         "mixed TLS 1.3 and TLS 1.2 names with TLS 1.2 floor is error",
+			minVersion:   "VersionTLS12",
+			cipherSuites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_CHACHA20_POLY1305_SHA256",
+			wantErr:      true,
+			errContains:  "cannot include TLS 1.3 suites",
 		},
 	}
 

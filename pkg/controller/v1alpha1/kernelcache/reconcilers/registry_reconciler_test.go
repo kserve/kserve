@@ -77,6 +77,56 @@ func TestEnsurePusherIdentityForCaptureCreatesOwnedResources(t *testing.T) {
 	}
 }
 
+func TestEnsureControllerRegistryBindingsCreatesAndUpdatesBindings(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := rbacv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	reconciler := &KernelCacheCaptureControllerReconciler{
+		Client:                 k8sClient,
+		Reader:                 k8sClient,
+		OperatorNamespace:      "kserve",
+		OperatorServiceAccount: "localmodel-controller",
+	}
+	config := v1beta1.KernelCacheRegistryConfig{Auth: v1beta1.KernelCacheRegistryAuth{
+		Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
+		PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+		PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+	}}
+
+	if err := reconciler.ensureControllerRegistryBindings(t.Context(), "team", config); err != nil {
+		t.Fatal(err)
+	}
+	for name, roleName := range map[string]string{
+		registryauth.ControllerPushRoleBindingName: "registry-pusher",
+		registryauth.ControllerPullRoleBindingName: "registry-puller",
+	} {
+		binding := &rbacv1.RoleBinding{}
+		if err := k8sClient.Get(t.Context(), client.ObjectKey{Namespace: "team", Name: name}, binding); err != nil {
+			t.Fatal(err)
+		}
+		if binding.RoleRef.Name != roleName || binding.Labels[registryauth.ManagedLabel] != "true" {
+			t.Fatalf("unexpected controller registry binding: %#v", binding)
+		}
+		if len(binding.Subjects) != 1 || binding.Subjects[0].Name != "localmodel-controller" || binding.Subjects[0].Namespace != "kserve" {
+			t.Fatalf("unexpected controller registry subject: %#v", binding.Subjects)
+		}
+	}
+
+	config.Auth.PushRoleRef.Name = "registry-pusher-v2"
+	if err := reconciler.ensureControllerRegistryBindings(t.Context(), "team", config); err != nil {
+		t.Fatal(err)
+	}
+	updated := &rbacv1.RoleBinding{}
+	if err := k8sClient.Get(t.Context(), client.ObjectKey{Namespace: "team", Name: registryauth.ControllerPushRoleBindingName}, updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.RoleRef.Name != "registry-pusher-v2" {
+		t.Fatalf("expected updated controller registry RoleRef, got %q", updated.RoleRef.Name)
+	}
+}
+
 func TestEnsurePusherIdentityForCapturePreservesActiveRoleRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	for _, addToScheme := range []func(*runtime.Scheme) error{

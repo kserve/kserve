@@ -59,21 +59,30 @@ func observedLWS(name string) *v1alpha2.ObservedWorkloadStatus {
 // This function must only be called after reconcileWorkload and
 // reconcileRouter return without error, which guarantees the named
 // resources exist on the API server.
-func (r *LLMISVCReconciler) observeWorkloadStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+func (r *LLMISVCReconciler) observeWorkloadStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.Status.Workloads = nil
 		return nil
 	}
 
+	// Recomputed from the merged spec and the configuration, as reconcileWorkload
+	// decides it, rather than read back from status.
+	disaggregatedSet := useDisaggregatedSetWorkload(llmSvc, r.decideDisaggregatedSet(llmSvc, config))
+
 	ws := &v1alpha2.WorkloadStatus{}
 
-	if llmSvc.Spec.Worker != nil {
+	switch {
+	case disaggregatedSet:
+		// Both roles run in the same DisaggregatedSet.
+		ws.Primary = observedDisaggregatedSet(disaggregatedSetName(llmSvc))
+		ws.Prefill = observedDisaggregatedSet(disaggregatedSetName(llmSvc))
+	case llmSvc.Spec.Worker != nil:
 		ws.Primary = observedLWS(mainLWSName(llmSvc))
-	} else {
+	default:
 		ws.Primary = observedDeployment(mainDeploymentName(llmSvc))
 	}
 
-	if llmSvc.Spec.Prefill != nil {
+	if llmSvc.Spec.Prefill != nil && !disaggregatedSet {
 		if llmSvc.Spec.Prefill.Worker != nil {
 			ws.Prefill = observedLWS(prefillLWSName(llmSvc))
 		} else {
@@ -92,8 +101,14 @@ func (r *LLMISVCReconciler) observeWorkloadStatus(ctx context.Context, llmSvc *v
 
 	llmSvc.Status.Workloads = ws
 
+	if disaggregatedSet {
+		if err := r.observeDisaggregatedSetReplicas(ctx, llmSvc, ws.Primary, ws.Prefill); err != nil {
+			return err
+		}
+	}
+
 	for _, w := range []*v1alpha2.ObservedWorkloadStatus{ws.Primary, ws.Prefill, ws.Scheduler} {
-		if w == nil {
+		if w == nil || w.Kind == "DisaggregatedSet" {
 			continue
 		}
 		if w.Kind == "LeaderWorkerSet" {

@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -55,8 +56,20 @@ type LocalModelCacheSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	NodeGroups []string `json:"nodeGroups" validate:"required"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
+	// The service account must exist in the download job namespace (localModel.jobNamespace).
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// ImagePullSecrets is a single kubernetes.io/dockerconfigjson secret in the download
+	// job namespace used to authenticate OCI (oci://) imports. The list shape matches
+	// PodSpec.imagePullSecrets; MaxItems=1 because credential merging is not supported.
+	// Combine credentials for multiple registries into one secret.
+	// Credentials from serviceAccountName and storage are not used for oci:// sources.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=1
+	// +kubebuilder:validation:XValidation:rule="self.all(s, s.name != '')",message="imagePullSecrets.name must be non-empty"
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }

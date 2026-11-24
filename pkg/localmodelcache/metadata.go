@@ -36,84 +36,84 @@ type CacheEntry struct {
 	PVCName   string `json:"-"`
 }
 
-// MatchCacheForURI finds a namespace-scoped or cluster-scoped cache matching storageURI.
-// LocalModelNamespaceCache takes precedence over LocalModelCache.
+// MatchCacheForURI finds a namespace-scoped or cluster-scoped cache for a workload.
+// Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
+//
+// Namespace-scoped selection is deterministic and binding-aware: see
+// v1alpha1.SelectLocalModelNamespaceCache. When no namespace-scoped cache is
+// selected, a matching cluster-scoped LocalModelCache that serves the
+// workload's node group is used; the oldest match wins there too.
 func MatchCacheForURI(
-	storageURI string,
-	nodeGroup string,
-	nodeGroupExists bool,
+	sel v1alpha1.LocalModelCacheSelection,
 	models *v1alpha1.LocalModelCacheList,
 	nsModels *v1alpha1.LocalModelNamespaceCacheList,
 ) *CacheEntry {
-	if storageURI == "" {
+	if sel.StorageURI == "" {
 		return nil
 	}
 
 	if nsModels != nil {
-		for i := range nsModels.Items {
-			nsModel := &nsModels.Items[i]
-			if !nsModel.Spec.MatchStorageURI(storageURI) {
-				continue
-			}
-			// Shared-PVC mode: the cache is only selected once Ready=True, and the serving
-			// PVC is the referenced claim itself (node groups do not apply).
-			if nsModel.Spec.SharedPVCMode() {
-				if !nsModel.IsReady() {
-					continue
-				}
-				return &CacheEntry{
-					Cache:     nsModel.Name,
-					Namespace: nsModel.Namespace,
-					SourceURI: nsModel.Spec.SourceModelUri,
-					PVCName:   *nsModel.Spec.PVCRef,
-				}
-			}
-			pvcName, ok := PVCNameForNodeGroup(nsModel.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsModel.Name)
-			if !ok {
-				continue
-			}
-			return &CacheEntry{
-				Cache:     nsModel.Name,
-				Namespace: nsModel.Namespace,
-				SourceURI: nsModel.Spec.SourceModelUri,
-				PVCName:   pvcName,
-			}
+		if selected := v1alpha1.SelectLocalModelNamespaceCache(sel, nsModels); selected != nil {
+			return namespaceScopedCacheEntry(selected, sel)
 		}
 	}
 
-	if models == nil {
-		return nil
-	}
-	for i := range models.Items {
-		model := &models.Items[i]
-		if !model.Spec.MatchStorageURI(storageURI) {
-			continue
+	if models != nil {
+		var oldest *v1alpha1.LocalModelCache
+		for i := range models.Items {
+			model := &models.Items[i]
+			if !model.Spec.MatchStorageURI(sel.StorageURI) {
+				continue
+			}
+			if !v1alpha1.NodeLocalCacheServesNodeGroup(model.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists) {
+				continue
+			}
+			oldest = v1alpha1.OlderLocalModelCache(oldest, model)
 		}
-		pvcName, ok := PVCNameForNodeGroup(model.Spec.NodeGroups, nodeGroup, nodeGroupExists, model.Name)
-		if !ok {
-			continue
-		}
-		return &CacheEntry{
-			Cache:     model.Name,
-			SourceURI: model.Spec.SourceModelUri,
-			PVCName:   pvcName,
+		if oldest != nil {
+			return &CacheEntry{
+				Cache:     oldest.Name,
+				SourceURI: oldest.Spec.SourceModelUri,
+				PVCName:   nodeLocalPVCName(oldest.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists, oldest.Name),
+			}
 		}
 	}
 	return nil
 }
 
+// namespaceScopedCacheEntry builds the CacheEntry for a selected namespace-scoped
+// cache. Node-local caches are only selected when they serve the workload's node
+// group, so the PVC name derivation cannot fail.
+func namespaceScopedCacheEntry(selected *v1alpha1.LocalModelNamespaceCache, sel v1alpha1.LocalModelCacheSelection) *CacheEntry {
+	entry := &CacheEntry{
+		Cache:     selected.Name,
+		Namespace: selected.Namespace,
+		SourceURI: selected.Spec.SourceModelUri,
+	}
+	if selected.Spec.SharedPVCMode() {
+		entry.PVCName = *selected.Spec.PVCRef
+		return entry
+	}
+	entry.PVCName = nodeLocalPVCName(selected.Spec.NodeGroups, sel.NodeGroup, sel.NodeGroupExists, selected.Name)
+	return entry
+}
+
 // PVCNameForNodeGroup returns the serving PVC name for a cache and node group selection.
 func PVCNameForNodeGroup(nodeGroups []string, nodeGroup string, nodeGroupExists bool, cacheName string) (string, bool) {
-	if nodeGroupExists {
-		if !slices.Contains(nodeGroups, nodeGroup) {
-			return "", false
-		}
-		return cacheName + "-" + nodeGroup, true
-	}
-	if len(nodeGroups) == 0 {
+	if !v1alpha1.NodeLocalCacheServesNodeGroup(nodeGroups, nodeGroup, nodeGroupExists) {
 		return "", false
 	}
-	return cacheName + "-" + nodeGroups[0], true
+	return nodeLocalPVCName(nodeGroups, nodeGroup, nodeGroupExists, cacheName), true
+}
+
+// nodeLocalPVCName derives the serving PVC name for a node-local cache that is
+// known to serve the workload's node group (see
+// v1alpha1.NodeLocalCacheServesNodeGroup).
+func nodeLocalPVCName(nodeGroups []string, nodeGroup string, nodeGroupExists bool, cacheName string) string {
+	if nodeGroupExists {
+		return cacheName + "-" + nodeGroup
+	}
+	return cacheName + "-" + nodeGroups[0]
 }
 
 // BuildCachedPVCURI rewrites storageURI to a local model cache PVC path.

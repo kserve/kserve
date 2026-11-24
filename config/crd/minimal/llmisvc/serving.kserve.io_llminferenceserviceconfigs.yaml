@@ -892,9 +892,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -9640,6 +9637,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -9649,7 +9647,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -9664,8 +9662,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -9804,7 +9800,6 @@ spec:
                                 type: array
                                 x-kubernetes-list-type: atomic
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object
@@ -18006,8 +18001,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA

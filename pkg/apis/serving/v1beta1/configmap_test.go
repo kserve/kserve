@@ -27,6 +27,7 @@ import (
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
 var (
@@ -101,6 +102,9 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.JobNamespace).To(gomega.Equal(DefaultKernelCacheJobNamespace))
 		g.Expect(config.MCVImage).To(gomega.Equal(DefaultKernelCacheMCVImage))
 		g.Expect(config.PrefetchImage).To(gomega.Equal(DefaultKernelCachePrefetchImage))
+		g.Expect(config.RuntimeImagePrefetch.Enabled).To(gomega.BeFalse())
+		g.Expect(config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+		g.Expect(*config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds))
 		g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds))
 		g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal(DefaultKernelCacheAbandonedCapturePolicy))
 		g.Expect(config.Registry.Endpoint).To(gomega.BeEmpty())
@@ -110,11 +114,56 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.Registry.Auth.TokenTTLSeconds).To(gomega.Equal(int64(0)))
 		g.Expect(config.Registry.Auth.PushRoleRef).To(gomega.BeNil())
 		g.Expect(config.Registry.Auth.PullRoleRef).To(gomega.BeNil())
+		g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal(DefaultKernelCacheArtifactSecurityMode))
+		g.Expect(config.ArtifactSecurity.FailurePolicy).To(gomega.Equal(string(kernelcachetypes.FailurePolicyReject)))
+		g.Expect(config.ArtifactSecurity.Cert).To(gomega.Equal(KernelCacheArtifactCertConfig{
+			SigningProfileRef: DefaultKernelCacheArtifactSigningProfileRef,
+			TrustBundle:       DefaultKernelCacheArtifactTrustBundle,
+			SubjectRegexp:     DefaultKernelCacheArtifactSubjectRegexp,
+		}))
 		g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
 		g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheJobTTLSeconds))
 		g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
 		g.Expect(*config.ReconcileIntervalSeconds).To(gomega.Equal(DefaultKernelCacheReconcileIntervalSeconds))
 	}
+}
+
+func TestNewKernelCacheConfigAcceptsCertificateArtifactSecurity(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"artifactSecurity": {
+				"mode": "cert",
+				"failurePolicy": "reject",
+				"cert": {
+					"signingProfileRef": "kernelcache-signer",
+					"trustBundle": "kserve/kernelcache-root-ca",
+					"subjectRegexp": "spiffe://kserve/kernelcache-signer"
+				}
+			}
+		}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal("cert"))
+	g.Expect(config.ArtifactSecurity.FailurePolicy).To(gomega.Equal(string(kernelcachetypes.FailurePolicyReject)))
+	g.Expect(config.ArtifactSecurity.Cert).To(gomega.Equal(KernelCacheArtifactCertConfig{
+		SigningProfileRef: "kernelcache-signer",
+		TrustBundle:       "kserve/kernelcache-root-ca",
+		SubjectRegexp:     "spiffe://kserve/kernelcache-signer",
+	}))
+}
+
+func TestNewKernelCacheConfigAllowsDisabledArtifactSecurity(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{"artifactSecurity":{"mode":"none"}}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal("none"))
 }
 
 func TestKernelCacheRegistryConfigRejectsIncompleteCAConfigMapRef(t *testing.T) {
@@ -136,13 +185,25 @@ func TestKernelCacheRegistryConfigRejectsIncompleteCAConfigMapRef(t *testing.T) 
 	}
 }
 
+func TestKernelCacheRegistryConfigRejectsInsecureWithCAConfigMapRef(t *testing.T) {
+	g := gomega.NewWithT(t)
+	config := KernelCacheRegistryConfig{
+		Insecure: true,
+		CAConfigMapRef: &KernelCacheConfigMapKeyRef{
+			Name: "registry-ca",
+			Key:  "ca.crt",
+		},
+	}
+
+	g.Expect(config.Validate()).To(gomega.MatchError("registry.insecure cannot be used with registry.caConfigMapRef"))
+}
+
 func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	configMap := &corev1.ConfigMap{Data: map[string]string{
 		KernelCacheConfigName: `{
 			"registry": {
 				"endpoint": "registry.example:5000",
-				"insecure": true,
 				"caConfigMapRef": {"name": "custom-ca", "key": "bundle.pem"},
 				"auth": {
 					"type": "serviceAccountToken",
@@ -156,7 +217,7 @@ func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 	config, err := NewKernelCacheConfig(configMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(config.Registry.Endpoint).To(gomega.Equal("registry.example:5000"))
-	g.Expect(config.Registry.Insecure).To(gomega.BeTrue())
+	g.Expect(config.Registry.Insecure).To(gomega.BeFalse())
 	g.Expect(config.Registry.CAConfigMapRef).To(gomega.Equal(&KernelCacheConfigMapKeyRef{
 		Name: "custom-ca",
 		Key:  "bundle.pem",
@@ -171,6 +232,26 @@ func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 		Kind: "ClusterRole",
 		Name: "registry-puller",
 	}))
+}
+
+func TestNewKernelCacheConfigRejectsInsecureServiceAccountTokenRegistry(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"registry": {
+				"endpoint": "registry.example:5000",
+				"insecure": true,
+				"auth": {
+					"type": "serviceAccountToken",
+					"pushRoleRef": {"kind": "ClusterRole", "name": "registry-pusher"},
+					"pullRoleRef": {"kind": "ClusterRole", "name": "registry-puller"}
+				}
+			}
+		}`,
+	}}
+
+	_, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).To(gomega.MatchError("registry.insecure cannot be used with registry.auth.type serviceAccountToken"))
 }
 
 func TestNewKernelCacheConfigRejectsUnsupportedRegistryAuthType(t *testing.T) {
@@ -339,6 +420,10 @@ func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
 			"mcvImage": "example/mcv:test",
 			"mcvCaptureReadinessTimeoutSeconds": 900,
 			"prefetchImage": "example/prefetch:test",
+			"runtimeImagePrefetch": {
+				"enabled": true,
+				"jobTTLSecondsAfterFinished": 7200
+			},
 			"jobTTLSecondsAfterFinished": 600,
 			"reconcileIntervalSeconds": 300,
 			"abandonedCapturePolicy": "delete"
@@ -355,6 +440,9 @@ func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
 	g.Expect(config.MCVImage).To(gomega.Equal("example/mcv:test"))
 	g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(int64(900)))
 	g.Expect(config.PrefetchImage).To(gomega.Equal("example/prefetch:test"))
+	g.Expect(config.RuntimeImagePrefetch.Enabled).To(gomega.BeTrue())
+	g.Expect(config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+	g.Expect(*config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).To(gomega.Equal(int32(7200)))
 	g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
 	g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(int32(600)))
 	g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
@@ -1154,6 +1242,35 @@ func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
 			}
 			g.Expect(err).ToNot(gomega.HaveOccurred())
 			g.Expect(cfg.LoRAModelRoutingStrategy).To(gomega.Equal(tt.want))
+		})
+	}
+}
+
+func TestNewIngressConfigRouteRuleNaming(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		value string // omitted from the ingress JSON when empty
+		want  string
+	}{
+		{name: "defaults to preset when omitted", want: constants.RouteRuleNamingPreset},
+		{name: "defaults to preset when blank", value: "  ", want: constants.RouteRuleNamingPreset},
+		{name: "keeps preset", value: "preset", want: constants.RouteRuleNamingPreset},
+		{name: "normalizes case and whitespace", value: " Unique ", want: constants.RouteRuleNamingUnique},
+		// Rejected per service by the llmisvc router; failing here would fail every reader of the ingress config.
+		{name: "keeps an unsupported value for the router to reject", value: " Suffixed ", want: "suffixed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			ingress := `{"ingressGateway": "knative-serving/knative-ingress-gateway"`
+			if tt.value != "" {
+				ingress += `, "routeRuleNaming": ` + strconv.Quote(tt.value)
+			}
+			ingress += `}`
+
+			cfg, err := NewIngressConfig(&corev1.ConfigMap{Data: map[string]string{IngressConfigKeyName: ingress}})
+
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(cfg.RouteRuleNaming).To(gomega.Equal(tt.want))
 		})
 	}
 }

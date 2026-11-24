@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -327,9 +325,12 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 				}
 				// If --http_port is set in args, use that port for the probe so the
 				// readiness check targets the port the server actually listens on.
-				if argPort, ok := getArgValue(container.Args, constants.ArgumentHttpPort); ok {
-					if parsed, err := strconv.ParseInt(argPort, 10, 32); err == nil {
-						probePort = int32(parsed)
+				if argPort, ok := isvcutils.GetArgValue(container.Args, constants.ArgumentHttpPort); ok {
+					if parsed, err := utils.ParsePort(argPort); err == nil {
+						probePort = parsed
+					} else {
+						log.Info("Ignoring invalid readiness probe port, using default",
+							"container", container.Name, "probePort", probePort, "err", err)
 					}
 				}
 				container.ReadinessProbe = &corev1.Probe{
@@ -348,40 +349,6 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 			}
 		}
 	}
-}
-
-// getArgValue extracts the value for a CLI flag from an args slice.
-// It handles both "--flag value" (two elements) and "--flag=value" (single element) forms.
-func getArgValue(args []string, flag string) (string, bool) {
-	var lastVal string
-	found := false
-	for i, arg := range args {
-		if arg == flag && i+1 < len(args) {
-			lastVal = args[i+1]
-			found = true
-		}
-		if strings.HasPrefix(arg, flag+"=") {
-			lastVal = strings.TrimPrefix(arg, flag+"=")
-			found = true
-		}
-	}
-	return lastVal, found
-}
-
-// setArgValue replaces the value of an existing "--flag value" pair in an args
-// slice, or appends it if absent. It handles both two-element and "=" forms.
-func setArgValue(args []string, flag, value string) []string {
-	for i, arg := range args {
-		if arg == flag && i+1 < len(args) {
-			args[i+1] = value
-			return args
-		}
-		if strings.HasPrefix(arg, flag+"=") {
-			args[i] = flag + "=" + value
-			return args
-		}
-	}
-	return append(args, flag, value)
 }
 
 func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
@@ -547,6 +514,13 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			resultList = append(resultList, existingDep)
 
 		case constants.CheckResultExisted:
+			if desiredDep.Labels[constants.KServeManagedLabelKey] != existingDep.Labels[constants.KServeManagedLabelKey] {
+				before := existingDep.DeepCopy()
+				existingDep.Labels = utils.Union(existingDep.Labels, map[string]string{
+					constants.KServeManagedLabelKey: desiredDep.Labels[constants.KServeManagedLabelKey],
+				})
+				opErr = r.client.Patch(ctx, existingDep, kclient.MergeFrom(before))
+			}
 			// Spec is unchanged. existingDep has the live .Status.Conditions from the server
 			// (e.g. ReplicaFailure, Available, Progressing) which PropagateRawStatus needs.
 			resultList = append(resultList, existingDep)
@@ -585,6 +559,11 @@ func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, sche
 		if err := controllerutil.SetControllerReference(owner, deployment, scheme); err != nil {
 			return err
 		}
+		// Copy the labels: the pod template can share this map. Labeling the
+		// Deployment must not roll out existing pods during an upgrade.
+		deployment.Labels = utils.Union(deployment.Labels, map[string]string{
+			constants.KServeManagedLabelKey: constants.KServeManagedLabelValue,
+		})
 	}
 	return nil
 }

@@ -2308,3 +2308,80 @@ func TestReconcileExternalService_NoUpdateWhenUnchanged(t *testing.T) {
 	g.Expect(svc.Labels).To(gomega.HaveKeyWithValue("some-other-label", "value"), "labels from other controllers should be preserved")
 	g.Expect(svc.Annotations).To(gomega.HaveKeyWithValue("serving.cert-manager.io/certificate", "some-cert"), "annotations from other controllers should be preserved")
 }
+
+// TestReconcileExternalService_AddsManagedLabelOnUpgrade verifies that an
+// ExternalName Service created before the managed label existed (e.g. by an
+// older controller version) is migrated during reconciliation: the managed
+// label is added so the Service stays visible to the label-scoped informer
+// cache, while labels and annotations owned by other controllers are
+// preserved.
+func TestReconcileExternalService_AddsManagedLabelOnUpgrade(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scheme := runtime.NewScheme()
+	_ = v1beta1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	_ = istioclientv1beta1.AddToScheme(scheme)
+
+	localGatewayService := "knative-local-gateway.istio-system.svc.cluster.local"
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressGateway:             constants.KnativeIngressGateway,
+		KnativeLocalGatewayService: localGatewayService,
+		LocalGateway:               constants.KnativeLocalGateway,
+		LocalGatewayServiceName:    localGatewayService,
+		DisableIstioVirtualHost:    false,
+	}
+
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "test"},
+	}
+
+	// Simulate a pre-upgrade ExternalName service: matching spec and
+	// owner reference, labels/annotations from other controllers, but no
+	// KServe managed label (the reconciler path does not go through
+	// ServiceReconciler, so the label must be merged in here).
+	existingSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-model",
+			Namespace: "test",
+			Labels: map[string]string{
+				"opendatahub.io/managed": "true",
+				"some-other-label":       "value",
+			},
+			Annotations: map[string]string{
+				"serving.cert-manager.io/certificate": "some-cert",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(isvc, v1beta1.SchemeGroupVersion.WithKind("InferenceService")),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ExternalName:    localGatewayService,
+			Type:            corev1.ServiceTypeExternalName,
+			SessionAffinity: corev1.ServiceAffinityNone,
+		},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(isvc, existingSvc).Build()
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+	reconciler := NewIngressReconciler(cl, kubernetesfake.NewSimpleClientset(), scheme, ingressConfig, isvcConfig, true)
+
+	err := reconciler.reconcileExternalService(t.Context(), isvc, ingressConfig)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	// Verify the managed label was added during the upgrade
+	svc := &corev1.Service{}
+	err = cl.Get(t.Context(), types.NamespacedName{Name: "my-model", Namespace: "test"}, svc)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(svc.Labels).To(gomega.HaveKeyWithValue(constants.KServeManagedLabelKey, constants.KServeManagedLabelValue),
+		"the managed label should be added to pre-existing services so they stay visible to the scoped cache")
+
+	// Verify labels and annotations from other controllers are preserved
+	g.Expect(svc.Labels).To(gomega.HaveKeyWithValue("opendatahub.io/managed", "true"), "labels from other controllers should be preserved")
+	g.Expect(svc.Labels).To(gomega.HaveKeyWithValue("some-other-label", "value"), "labels from other controllers should be preserved")
+	g.Expect(svc.Annotations).To(gomega.HaveKeyWithValue("serving.cert-manager.io/certificate", "some-cert"), "annotations from other controllers should be preserved")
+
+	// Verify the spec is unchanged
+	g.Expect(svc.Spec.ExternalName).To(gomega.Equal(localGatewayService))
+	g.Expect(svc.Spec.Type).To(gomega.Equal(corev1.ServiceTypeExternalName))
+}

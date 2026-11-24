@@ -2,14 +2,14 @@
 
 Helm chart for deploying kserve resources
 
-![Version: v0.21.0-rc1](https://img.shields.io/badge/Version-v0.21.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.21.0-rc1](https://img.shields.io/badge/AppVersion-v0.21.0--rc1-informational?style=flat-square)
+![Version: v0.21.0](https://img.shields.io/badge/Version-v0.21.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.21.0](https://img.shields.io/badge/AppVersion-v0.21.0-informational?style=flat-square)
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.21.0-rc1
+$ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.21.0
 ```
 
 ## Values
@@ -29,6 +29,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.containerSecurityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.controller.deploymentMode | string | `"Knative"` |  |
+| kserve.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
 | kserve.controller.gateway.disableHTTPRouteTimeout | bool | `false` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
@@ -45,6 +46,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
 | kserve.controller.gateway.loraModelRoutingStrategy | string | `"exact"` |  |
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
+| kserve.controller.gateway.routeRuleNaming | string | `"preset"` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
 | kserve.controller.imagePullPolicy | string | `"Always"` |  |
@@ -65,7 +67,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.rbacProxy.securityContext.privileged | bool | `false` |  |
 | kserve.controller.rbacProxy.securityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.rbacProxy.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` |  |
+| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.23.0"` |  |
 | kserve.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.controller.resources.requests.cpu | string | `"100m"` |  |
@@ -84,12 +86,12 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
 | kserve.kernelcache.abandonedCapturePolicy | string | `"retain"` |  |
-| kserve.kernelcache.artifactSecurity.cert.signingProfileRef | string | `""` |  |
-| kserve.kernelcache.artifactSecurity.cert.subjectRegexp | string | `""` |  |
-| kserve.kernelcache.artifactSecurity.cert.trustBundle | string | `""` |  |
+| kserve.kernelcache.artifactSecurity.cert.signingProfileRef | string | `"kernelcache-signer"` |  |
+| kserve.kernelcache.artifactSecurity.cert.subjectRegexp | string | `"spiffe://kserve/kernelcache-signer"` |  |
+| kserve.kernelcache.artifactSecurity.cert.trustBundle | string | `"kserve/kernelcache-root-ca"` |  |
 | kserve.kernelcache.artifactSecurity.cert.trustBundleKey | string | `""` |  |
 | kserve.kernelcache.artifactSecurity.failurePolicy | string | `"reject"` |  |
-| kserve.kernelcache.artifactSecurity.mode | string | `"none"` |  |
+| kserve.kernelcache.artifactSecurity.mode | string | `"cert"` |  |
 | kserve.kernelcache.defaultMountType | string | `"oci"` |  |
 | kserve.kernelcache.defaultNodeGroup | string | `""` |  |
 | kserve.kernelcache.defaultSidecarInjection | bool | `true` |  |
@@ -111,6 +113,8 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.kernelcache.registry.caConfigMapRef.key | string | `""` |  |
 | kserve.kernelcache.registry.caConfigMapRef.name | string | `""` |  |
 | kserve.kernelcache.registry.endpoint | string | `""` |  |
+| kserve.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
+| kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
@@ -129,6 +133,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
 | kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
+| kserve.localmodel.sharedPVCImportFSGroup | int | `1000` | fsGroup for shared-PVC import Jobs, which run in the cache's namespace. Independent of securityContext.fsGroup (per-node download Jobs). Set to null to omit it and let namespace admission (e.g. an OpenShift SCC) assign the group. |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` |  |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` |  |
 | kserve.opentelemetryCollector.metricReceiverEndpoint | string | `"keda-otel-scaler.keda.svc:4317"` |  |
@@ -177,4 +182,4 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.21.0-rc1"` |  |
+| kserve.version | string | `"v0.21.0"` |  |

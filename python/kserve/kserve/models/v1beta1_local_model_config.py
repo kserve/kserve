@@ -53,7 +53,8 @@ class V1beta1LocalModelConfig(object):
         'fs_group': 'int',
         'job_namespace': 'str',
         'job_ttl_seconds_after_finished': 'int',
-        'reconcilation_frequency_in_secs': 'int'
+        'reconcilation_frequency_in_secs': 'int',
+        'shared_pvc_import_fs_group': 'int'
     }
 
     attribute_map = {
@@ -63,10 +64,11 @@ class V1beta1LocalModelConfig(object):
         'fs_group': 'fsGroup',
         'job_namespace': 'jobNamespace',
         'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished',
-        'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs'
+        'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs',
+        'shared_pvc_import_fs_group': 'sharedPVCImportFSGroup'
     }
 
-    def __init__(self, default_job_image=None, disable_volume_management=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_job_image=None, disable_volume_management=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, shared_pvc_import_fs_group=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -79,6 +81,7 @@ class V1beta1LocalModelConfig(object):
         self._job_namespace = None
         self._job_ttl_seconds_after_finished = None
         self._reconcilation_frequency_in_secs = None
+        self._shared_pvc_import_fs_group = None
         self.discriminator = None
 
         if default_job_image is not None:
@@ -93,6 +96,8 @@ class V1beta1LocalModelConfig(object):
             self.job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
         if reconcilation_frequency_in_secs is not None:
             self.reconcilation_frequency_in_secs = reconcilation_frequency_in_secs
+        if shared_pvc_import_fs_group is not None:
+            self.shared_pvc_import_fs_group = shared_pvc_import_fs_group
 
     @property
     def default_job_image(self):
@@ -244,6 +249,29 @@ class V1beta1LocalModelConfig(object):
         """
 
         self._reconcilation_frequency_in_secs = reconcilation_frequency_in_secs
+
+    @property
+    def shared_pvc_import_fs_group(self):
+        """Gets the shared_pvc_import_fs_group of this V1beta1LocalModelConfig.  # noqa: E501
+
+        SharedPVCImportFSGroup is applied to shared-PVC import Jobs, which run in the cache's own namespace. It is independent of FSGroup, which applies only to per-node download Jobs in JobNamespace. Leave it unset to let namespace admission assign the group.  # noqa: E501
+
+        :return: The shared_pvc_import_fs_group of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: int
+        """
+        return self._shared_pvc_import_fs_group
+
+    @shared_pvc_import_fs_group.setter
+    def shared_pvc_import_fs_group(self, shared_pvc_import_fs_group):
+        """Sets the shared_pvc_import_fs_group of this V1beta1LocalModelConfig.
+
+        SharedPVCImportFSGroup is applied to shared-PVC import Jobs, which run in the cache's own namespace. It is independent of FSGroup, which applies only to per-node download Jobs in JobNamespace. Leave it unset to let namespace admission assign the group.  # noqa: E501
+
+        :param shared_pvc_import_fs_group: The shared_pvc_import_fs_group of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: int
+        """
+
+        self._shared_pvc_import_fs_group = shared_pvc_import_fs_group
 
     def to_dict(self):
         """Returns the model properties as a dict"""

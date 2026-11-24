@@ -504,9 +504,8 @@ spec:
       - args:
         - --secure-listen-address=0.0.0.0:8443
         - --upstream=http://127.0.0.1:8080/
-        - --logtostderr=true
         - --v=10
-        image: quay.io/brancz/kube-rbac-proxy:v0.18.0
+        image: quay.io/brancz/kube-rbac-proxy:v0.23.0
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443

@@ -24,7 +24,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-// disaggregatedSetAnnotationValues are the accepted values of the opt-in annotation,
+// disaggregatedSetAnnotationValues are the accepted values of the annotation,
 // compared case-insensitively after trimming. This matches the convention used by the
 // other boolean annotation on these resources, serving.kserve.io/stop, which is read with
 // strings.EqualFold against "true". It is deliberately narrower than strconv.ParseBool,
@@ -35,13 +35,13 @@ const (
 	disaggregatedSetAnnotationFalse = "false"
 )
 
-// DisaggregatedSetEnabled reports whether the annotations opt the resource into the
-// DisaggregatedSet workload backend.
+// DisaggregatedSetEnabled reports whether the annotations request the DisaggregatedSet
+// workload backend.
 //
 // It is deliberately lenient: an absent, malformed or unrecognised value reads as "not
-// opted in", because ValidateDisaggregatedSetAnnotation rejects those at admission. That
-// keeps a bad annotation from being treated as opt-in by a controller if one ever reaches
-// it, for instance on a resource created before the webhook existed.
+// requested", because ValidateDisaggregatedSetAnnotation rejects those at admission. That
+// keeps a bad annotation from being treated as a request by a controller if one ever
+// reaches it, for instance on a resource created before the webhook existed.
 func DisaggregatedSetEnabled(annotations map[string]string) bool {
 	raw, ok := annotations[constants.LLMDisaggregatedSetAnnotationKey]
 	if !ok {
@@ -50,8 +50,8 @@ func DisaggregatedSetEnabled(annotations map[string]string) bool {
 	return strings.EqualFold(strings.TrimSpace(raw), disaggregatedSetAnnotationTrue)
 }
 
-// ValidateDisaggregatedSetAnnotation validates the DisaggregatedSet opt-in annotation
-// on any resource that supports it.
+// ValidateDisaggregatedSetAnnotation validates the DisaggregatedSet annotation in the
+// given annotations, reporting errors under path.
 //
 // This checks only that the value is well formed. It deliberately does not reject
 // feature-level combinations such as opting in alongside autoscaling, for two reasons.
@@ -63,12 +63,12 @@ func DisaggregatedSetEnabled(annotations map[string]string) bool {
 //
 // Second, admission does not see the final spec. Presets referenced by spec.baseRefs are
 // merged into the spec by the reconciler after admission, via a strategic merge patch
-// over the whole spec, so fields like spec.scaling can appear later. A webhook check
-// would therefore be incomplete by construction.
+// over the whole spec, so fields like spec.scaling, and the annotation itself, can
+// appear later. A webhook check would therefore be incomplete by construction.
 //
 // Feature-level constraints belong in the reconciler, which sees both the gate and the
 // merged spec and can surface them as a status condition on every pass.
-func ValidateDisaggregatedSetAnnotation(annotations map[string]string) field.ErrorList {
+func ValidateDisaggregatedSetAnnotation(annotations map[string]string, path *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 
 	raw, ok := annotations[constants.LLMDisaggregatedSetAnnotationKey]
@@ -80,7 +80,7 @@ func ValidateDisaggregatedSetAnnotation(annotations map[string]string) field.Err
 	if !strings.EqualFold(trimmed, disaggregatedSetAnnotationTrue) &&
 		!strings.EqualFold(trimmed, disaggregatedSetAnnotationFalse) {
 		allErrs = append(allErrs, field.NotSupported(
-			field.NewPath("metadata").Child("annotations").Key(constants.LLMDisaggregatedSetAnnotationKey),
+			path.Key(constants.LLMDisaggregatedSetAnnotationKey),
 			raw,
 			[]string{disaggregatedSetAnnotationTrue, disaggregatedSetAnnotationFalse},
 		))

@@ -149,6 +149,7 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 ) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
+	customizeRouterPodSpec(graph, desiredSvc)
 
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 

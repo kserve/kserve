@@ -70,8 +70,9 @@ func SafeObjectName(candidate string) string {
 //
 // The 8-character width is a compatibility contract, not an implementation detail.
 // SafeObjectName derives its truncation budget from it, so widening it renames every
-// sanitized object and restarts the pods holding them, and loraMountSegments relies on
-// a fixed width for two suffixed segments to be unable to collide. Not for security
+// sanitized object and restarts the pods holding them. uniqueRuleName persists it in
+// HTTPRoute rule names, so widening it renames those rules too. loraMountSegments relies
+// on a fixed width for two suffixed segments to be unable to collide. Not for security
 // use: 32 bits.
 func ShortHash(s string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(s)))[:8]

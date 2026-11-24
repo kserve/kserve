@@ -167,6 +167,7 @@ func main() {
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
 		Cache:                  cacheOpts,
+		Client:                 v1beta1controller.NewClientOptions(),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")

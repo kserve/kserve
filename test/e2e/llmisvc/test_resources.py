@@ -17,13 +17,14 @@ import os
 GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
 
 
-def make_router_gateway(name, namespace):
+def make_router_gateway(name, namespace, annotations=None):
     return {
         "apiVersion": "gateway.networking.k8s.io/v1",
         "kind": "Gateway",
         "metadata": {
             "name": name,
             "namespace": namespace,
+            "annotations": annotations or {},
         },
         "spec": {
             "gatewayClassName": GATEWAY_CLASS_NAME,

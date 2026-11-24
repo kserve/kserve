@@ -14,7 +14,8 @@ WORKDIR /go/src/github.com/kserve/kernelcache/mcv
 COPY kernelcache/mcv/go.mod  go.mod
 COPY kernelcache/mcv/go.sum  go.sum
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+    # Retry once: the module proxy resets streams mid-download, and go sets no timeout of its own.
+    timeout -v 300 go mod download || timeout -v 300 go mod download
 
 # ---- Build stage (parallel with license on BuildKit) ----
 FROM deps AS builder

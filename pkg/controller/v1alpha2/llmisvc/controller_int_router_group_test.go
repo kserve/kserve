@@ -145,6 +145,115 @@ var _ = Describe("LLMInferenceService Group Routing", func() {
 		})
 	})
 
+	Context("Member route re-acceptance", func() {
+		It("should keep a member in its peer's route while the member's own route is not yet accepted", func(ctx SpecContext) {
+			// given
+			groupName := "reaccept-group"
+			svcNameA := "test-reaccept-a"
+			svcNameB := "test-reaccept-b"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvcA := LLMInferenceService(svcNameA,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(80),
+			)
+			llmSvcB := LLMInferenceService(svcNameB,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(20),
+			)
+
+			Expect(envTest.Create(ctx, llmSvcA)).To(Succeed())
+			Expect(envTest.Create(ctx, llmSvcB)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvcA)
+				testNs.DeleteAndWait(ctx, llmSvcB)
+			}()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvcA)
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvcB)
+
+			// The controller moves each backendRef from the v1alpha2 to the v1 InferencePool
+			// group as the pools become ready. Once none is left on v1alpha2, any later
+			// rewrite of B's route comes from the trigger.
+			routeBefore := &gwapiv1.HTTPRoute{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvcB)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(groupRoutingBackendRefs(&routes[0], llmSvcB)).To(ConsistOf(
+					inferencePoolBackendRef(svcNameA, 80),
+					inferencePoolBackendRef(svcNameB, 20),
+				))
+				g.Expect(allBackendRefs(&routes[0])).NotTo(ContainElement(
+					HaveField("Group", HaveValue(Equal(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))))))
+				routeBefore = routes[0].DeepCopy()
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - the gateway has not yet accepted A's current route generation,
+			// as happens right after every route write.
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvcA)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				route := routes[0].DeepCopy()
+				g.Expect(route.Generation).To(BeNumerically(">", 1), "group injection must have rewritten A's route at least once")
+				withStaleRouteAcceptance(route)
+				g.Expect(envTest.Status().Update(ctx, route)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				currentA := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvcA), currentA)).To(Succeed())
+				g.Expect(currentA.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "False"))
+				g.Expect(currentA.Status).To(HaveCondition(string(v1alpha2.RouterReady), "False"))
+			}).WithContext(ctx).Should(Succeed())
+
+			expectRouteB := func(weightA, weightB int32) {
+				GinkgoHelper()
+				Eventually(func(g Gomega, ctx context.Context) {
+					routes, err := managedRoutes(ctx, llmSvcB)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					g.Expect(groupRoutingBackendRefs(&routes[0], llmSvcB)).To(ConsistOf(
+						inferencePoolBackendRef(svcNameA, weightA),
+						inferencePoolBackendRef(svcNameB, weightB),
+					))
+					g.Expect(specWithoutWeights(routes[0].Spec)).To(Equal(specWithoutWeights(routeBefore.Spec)),
+						"B's route must not be rewritten beyond the weights")
+				}).WithContext(ctx).Should(Succeed())
+			}
+
+			// then - B keeps routing to A's backend on a pass of its own. A's status and
+			// B's spec reach the cache over one LLMInferenceService watch, in
+			// resourceVersion order, so a route with B's new weight was rendered from a
+			// cache that already held A as not ready.
+			setGroupWeight(ctx, llmSvcB, 30)
+			expectRouteB(80, 30)
+
+			// and - on a pass a peer change triggers. B's status is written last in a pass and
+			// reaches the cache before A's change, so that pass starts from B's own generation
+			// observed.
+			expectGenerationObserved(ctx, llmSvcB)
+			setGroupWeight(ctx, llmSvcA, 70)
+			expectRouteB(70, 30)
+
+			Expect(llmSvcStatus(ctx, llmSvcA)).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "False"),
+				"neither weight change may hide that A's route is not accepted")
+		})
+	})
+
 	Context("Weight change", func() {
 		It("should update HTTPRoute backendRefs when a member's weight changes", func(ctx SpecContext) {
 			// given
@@ -554,14 +663,22 @@ var _ = Describe("LLMInferenceService Group Routing", func() {
 				g.Expect(current.Status.GetCondition(v1alpha2.PresetsCombined).Reason).To(Equal("ConfigNotFound"))
 			}).WithContext(ctx).Should(Succeed())
 
-			// A's stored route is frozen with B's backendRef still in it
-			Consistently(func(g Gomega, ctx context.Context) {
-				routes, err := managedRoutes(ctx, llmSvcA)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(routes).To(HaveLen(1))
-				g.Expect(backendRefNames(groupRoutingBackendRefs(&routes[0], llmSvcA))).
-					To(ContainElement(HavePrefix(svcNameB)))
-			}).WithContext(ctx).WithTimeout(5 * time.Second).Should(Succeed())
+			// A's stored route is frozen with B's backendRef still in it. ConfigNotFound is
+			// terminal, so B's weight change forces the next pass, and each failing pass
+			// reports this event after its route cleanup ran.
+			failedPasses := func(ctx context.Context) int32 {
+				return eventCount(ctx, envTest.Client, llmSvcA, "Error", "does-not-exist")
+			}
+			Eventually(failedPasses).WithContext(ctx).Should(BeNumerically(">=", 1))
+			before := failedPasses(ctx)
+			setGroupWeight(ctx, llmSvcB, 50)
+			Eventually(failedPasses).WithContext(ctx).Should(BeNumerically(">", before))
+
+			routes, err := managedRoutes(ctx, llmSvcA)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(routes).To(HaveLen(1))
+			Expect(backendRefNames(groupRoutingBackendRefs(&routes[0], llmSvcA))).
+				To(ContainElement(HavePrefix(svcNameB)))
 
 			// when - B is deleted while A stays broken
 			Expect(envTest.Delete(ctx, llmSvcB)).To(Succeed())
@@ -1172,4 +1289,63 @@ func HaveBackendWeight(weight int32) OmegaMatcher {
 	return WithTransform(func(ref gwapiv1.HTTPBackendRef) *int32 {
 		return ref.Weight
 	}, Equal(ptr.To(weight)))
+}
+
+// withStaleRouteAcceptance leaves the route accepted for its previous generation
+// only, which is what a gateway controller reports between a spec write and its
+// re-acceptance of the new generation.
+func withStaleRouteAcceptance(route *gwapiv1.HTTPRoute) {
+	WithHTTPRouteReadyStatus(DefaultGatewayControllerName)(route)
+	for i := range route.Status.Parents {
+		for j := range route.Status.Parents[i].Conditions {
+			route.Status.Parents[i].Conditions[j].ObservedGeneration = route.Generation - 1
+		}
+	}
+}
+
+// setGroupWeight changes a member's weight, which fans out to its group peers.
+func setGroupWeight(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, weight int32) {
+	GinkgoHelper()
+	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &v1alpha2.LLMInferenceService{}
+		if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+			return err
+		}
+		current.Spec.Router.Route.Weight = new(weight)
+		return envTest.Update(ctx, current)
+	})).To(Succeed())
+}
+
+// allBackendRefs lists the backendRefs of every rule in the route.
+func allBackendRefs(route *gwapiv1.HTTPRoute) []gwapiv1.HTTPBackendRef {
+	refs := make([]gwapiv1.HTTPBackendRef, 0, len(route.Spec.Rules))
+	for _, rule := range route.Spec.Rules {
+		refs = append(refs, rule.BackendRefs...)
+	}
+	return refs
+}
+
+// specWithoutWeights clears the backendRef weights, which a spec changes on purpose.
+func specWithoutWeights(spec gwapiv1.HTTPRouteSpec) gwapiv1.HTTPRouteSpec {
+	spec = *spec.DeepCopy()
+	for i := range spec.Rules {
+		for j := range spec.Rules[i].BackendRefs {
+			spec.Rules[i].BackendRefs[j].Weight = nil
+		}
+	}
+	return spec
+}
+
+// inferencePoolBackendRef is the full backendRef of a member running its managed
+// InferencePool. HaveBackendName alone also matches the member's workload Service.
+func inferencePoolBackendRef(svcName string, weight int32) gwapiv1.HTTPBackendRef {
+	return gwapiv1.HTTPBackendRef{BackendRef: gwapiv1.BackendRef{
+		BackendObjectReference: gwapiv1.BackendObjectReference{
+			Group: new(gwapiv1.Group(constants.InferencePoolV1APIGroupName)),
+			Kind:  new(gwapiv1.Kind("InferencePool")),
+			Name:  gwapiv1.ObjectName(svcName + "-inference-pool"),
+			Port:  new(gwapiv1.PortNumber(8000)),
+		},
+		Weight: new(weight),
+	}}
 }

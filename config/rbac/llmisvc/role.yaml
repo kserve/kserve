@@ -30,6 +30,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - persistentvolumeclaims
   - pods
   verbs:
   - get
@@ -117,6 +118,14 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - disaggregatedset.x-k8s.io
+  resources:
+  - disaggregatedsetrolescalers
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - disaggregatedset.x-k8s.io

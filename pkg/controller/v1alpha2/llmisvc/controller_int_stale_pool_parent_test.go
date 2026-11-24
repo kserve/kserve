@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -64,51 +65,72 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.InferencePoolReady), "True"))
 			})).WithContext(ctx).Should(Succeed())
 
-			// Simulate what happens when a user previously referenced a different gateway
-			// (e.g. data-science-gateway) and then switched to the default. The old gateway
-			// controller leaves a rejected parent entry in the pool status.
-			injectStalePoolParent(ctx, envTest.Client,
-				client.ObjectKey{Name: poolName, Namespace: testNs.Name},
-				igwapi.ParentReference{
-					Group:     ptr.To(igwapi.Group("networking.istio.io")),
-					Kind:      igwapi.Kind("Gateway"),
-					Name:      "data-science-gateway",
-					Namespace: "openshift-ingress",
-				},
-			)
+			// A real gateway controller owns the pool status on an existing cluster.
+			if envTest.UsingExistingCluster() {
+				return
+			}
 
-			Consistently(func(g Gomega, ctx context.Context) {
-				current := &v1alpha2.LLMInferenceService{}
-				g.Expect(envTest.Client.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
-				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.InferencePoolReady), "True"),
-					"stale rejected parent from old gateway should not block readiness")
-			}).WithContext(ctx).WithTimeout(10 * time.Second).WithPolling(time.Second).Should(Succeed())
+			pool := &igwapi.InferencePool{}
+			Expect(envTest.Get(ctx, client.ObjectKey{Name: poolName, Namespace: testNs.Name}, pool)).To(Succeed())
+			Expect(pool.Status.Parents).To(HaveLen(1))
+			defaultGateway := pool.Status.Parents[0].ParentRef
+			// The gateway the service used before switching to the default. Its controller
+			// leaves a rejected parent entry in the pool status.
+			oldGateway := igwapi.ParentReference{
+				Group:     ptr.To(igwapi.Group("networking.istio.io")),
+				Kind:      igwapi.Kind("Gateway"),
+				Name:      "data-science-gateway",
+				Namespace: "openshift-ingress",
+			}
+
+			// when - the default gateway has not accepted the pool yet
+			setPoolParents(ctx, pool, poolParent(defaultGateway, metav1.ConditionFalse), poolParent(oldGateway, metav1.ConditionFalse))
+			Eventually(llmSvcStatus).WithContext(ctx).WithArguments(llmSvc).
+				Should(HaveCondition(string(v1alpha2.InferencePoolReady), "False"))
+
+			// and - then accepts it, while the old gateway's rejection stays
+			setPoolParents(ctx, pool, poolParent(defaultGateway, metav1.ConditionTrue), poolParent(oldGateway, metav1.ConditionFalse))
+
+			// then - True after False takes a pass that read the stale parent
+			poolReady := HaveCondition(string(v1alpha2.InferencePoolReady), "True")
+			Eventually(llmSvcStatus).WithContext(ctx).WithArguments(llmSvc).
+				Should(poolReady, "stale rejected parent from old gateway should not block readiness")
+
+			// and - so does a pass that starts from True. The hold is there because a block on
+			// that pass alone flips the condition back and forth, and one read can land on True.
+			forceObservedPass(ctx, llmSvc)
+			Consistently(llmSvcStatus).WithContext(ctx).WithArguments(llmSvc).
+				WithTimeout(500 * time.Millisecond).Should(poolReady)
 		})
 	})
 })
 
-// injectStalePoolParent appends a rejected parent entry to an InferencePool's status,
-// simulating a gateway controller that hasn't cleaned up after the HTTPRoute stopped
-// referencing its gateway. Only runs in envtest (no-op against a real cluster where
-// the gateway controller manages pool status).
-func injectStalePoolParent(ctx context.Context, c client.Client, poolKey client.ObjectKey, parentRef igwapi.ParentReference) {
-	if envTest.UsingExistingCluster() {
-		return
+// setPoolParents replaces an InferencePool's status parents, standing in for the
+// gateway controllers that envtest does not run.
+func setPoolParents(ctx context.Context, pool *igwapi.InferencePool, parents ...igwapi.ParentStatus) {
+	GinkgoHelper()
+	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := envTest.Get(ctx, client.ObjectKeyFromObject(pool), pool); err != nil {
+			return err
+		}
+		pool.Status.Parents = parents
+		return envTest.Status().Update(ctx, pool)
+	})).To(Succeed())
+}
+
+// poolParent is a gateway's verdict on the pool.
+func poolParent(gateway igwapi.ParentReference, accepted metav1.ConditionStatus) igwapi.ParentStatus {
+	reason := string(igwapi.InferencePoolReasonAccepted)
+	if accepted != metav1.ConditionTrue {
+		reason = "HTTPRouteNotAccepted"
 	}
-
-	pool := &igwapi.InferencePool{}
-	Expect(c.Get(ctx, poolKey, pool)).To(Succeed())
-
-	pool.Status.Parents = append(pool.Status.Parents, igwapi.ParentStatus{
-		ParentRef: parentRef,
+	return igwapi.ParentStatus{
+		ParentRef: gateway,
 		Conditions: []metav1.Condition{{
 			Type:               string(igwapi.InferencePoolConditionAccepted),
-			Status:             metav1.ConditionFalse,
-			Reason:             "HTTPRouteNotAccepted",
-			Message:            "namespace not allowed by the parent",
+			Status:             accepted,
+			Reason:             reason,
 			LastTransitionTime: metav1.Now(),
 		}},
-	})
-
-	Expect(c.Status().Update(ctx, pool)).To(Succeed())
+	}
 }
