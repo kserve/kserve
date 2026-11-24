@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llmisvc-prefix-demo
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: prefix-rollout
+  namespace: llmisvc-prefix-demo
+  annotations:
+    networking.istio.io/service-type: ClusterIP
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: qwen-pd-prefix-epp
+  namespace: llmisvc-prefix-demo
+spec:
+  host: qwen-pd-prefix-epp-service.llmisvc-prefix-demo.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
