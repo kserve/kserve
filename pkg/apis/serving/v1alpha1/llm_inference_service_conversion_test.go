@@ -1413,3 +1413,38 @@ func TestLLMInferenceServiceConversion_NilConfidentialPreserved(t *testing.T) {
 	require.NoError(t, restored.ConvertFrom(hub))
 	assert.Nil(t, restored.Spec.Model.Confidential)
 }
+
+func TestLLMInferenceServiceConversion_PreservesSchedulerGenerations(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc-generations", Namespace: "default"},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "facebook/opt-125m"}},
+			Router: &RouterSpec{Scheduler: &SchedulerSpec{
+				RolloutStrategy: &SchedulerRolloutStrategy{
+					Type: SchedulerRolloutGenerations,
+					Generations: &SchedulerGenerationsSpec{
+						Promotion:           SchedulerGenerationPromotionManual,
+						Serving:             "7c9f8d6b5",
+						MinReadySeconds:     20,
+						RetainedGenerations: ptr.To[int32](2),
+					},
+				},
+			}},
+		},
+	}
+
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+	rs := dst.Spec.Router.Scheduler.RolloutStrategy
+	require.NotNil(t, rs)
+	assert.True(t, rs.IsGenerations())
+	require.NotNil(t, rs.Generations)
+	assert.Equal(t, v1alpha2.SchedulerGenerationPromotionManual, rs.Generations.Promotion)
+	assert.Equal(t, "7c9f8d6b5", rs.Generations.Serving)
+	assert.Equal(t, int32(20), rs.Generations.MinReadySeconds)
+	assert.Equal(t, ptr.To[int32](2), rs.Generations.RetainedGenerations)
+
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+	assert.Equal(t, src.Spec.Router.Scheduler.RolloutStrategy, restored.Spec.Router.Scheduler.RolloutStrategy)
+}

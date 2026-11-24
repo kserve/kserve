@@ -521,6 +521,98 @@ type SchedulerSpec struct {
 	// template (resources, image overrides, etc.).
 	// +optional
 	Tokenizer *TokenizerSpec `json:"tokenizer,omitempty"`
+
+	// RolloutStrategy selects how a change to the scheduler reaches the gateway.
+	//
+	// Type Recreate, the default, replaces the scheduler Deployment's pods: every replica
+	// stops before the new ones start, and requests are not routed by the endpoint picker
+	// in between.
+	//
+	// Type Generations runs each version of the scheduler as its own Deployment, a
+	// generation, next to the one that serves, and moves the EPP Service to it once it
+	// is available. The previous generation keeps running, so rolling back moves the
+	// Service back without starting a pod.
+	// +optional
+	RolloutStrategy *SchedulerRolloutStrategy `json:"rolloutStrategy,omitempty"`
+}
+
+// SchedulerRolloutStrategyType selects how a scheduler change is rolled out.
+// +kubebuilder:validation:Enum=Recreate;Generations
+type SchedulerRolloutStrategyType string
+
+const (
+	// SchedulerRolloutRecreate replaces the pods of the one scheduler Deployment.
+	SchedulerRolloutRecreate SchedulerRolloutStrategyType = "Recreate"
+	// SchedulerRolloutGenerations runs each version of the scheduler as its own
+	// Deployment and moves the EPP Service between them.
+	SchedulerRolloutGenerations SchedulerRolloutStrategyType = "Generations"
+)
+
+// SchedulerRolloutStrategy configures how a change to the scheduler is rolled out.
+type SchedulerRolloutStrategy struct {
+	// Type is Recreate or Generations. Defaults to Recreate.
+	// +optional
+	Type SchedulerRolloutStrategyType `json:"type,omitempty"`
+
+	// Generations configures type Generations.
+	// +optional
+	Generations *SchedulerGenerationsSpec `json:"generations,omitempty"`
+}
+
+// IsGenerations reports whether the strategy is type Generations.
+func (s *SchedulerRolloutStrategy) IsGenerations() bool {
+	return s != nil && s.Type == SchedulerRolloutGenerations
+}
+
+// SchedulerGenerationPromotion selects when the EPP Service moves to a new generation.
+// +kubebuilder:validation:Enum=Automatic;Manual
+type SchedulerGenerationPromotion string
+
+const (
+	// SchedulerGenerationPromotionAutomatic moves the EPP Service to the newest
+	// generation once all of its replicas have been available for minReadySeconds
+	// (with leader election: once its leader is).
+	SchedulerGenerationPromotionAutomatic SchedulerGenerationPromotion = "Automatic"
+	// SchedulerGenerationPromotionManual starts the new generation next to the one that
+	// serves and leaves the EPP Service where it is until generations.serving names
+	// the new one.
+	SchedulerGenerationPromotionManual SchedulerGenerationPromotion = "Manual"
+)
+
+// SchedulerGenerationsSpec configures scheduler generations.
+//
+// A generation is one scheduler Deployment, named after a hash of its pod template; any
+// change to the scheduler's template, config or presets makes a new one. Every generation
+// belongs to the same InferencePool and sees the same endpoints; the EPP Service, which the
+// InferencePool's endpointPickerRef names, selects the pods of the one that serves.
+// status.workloads.schedulerGenerations lists them.
+type SchedulerGenerationsSpec struct {
+	// Promotion is Automatic or Manual. Defaults to Automatic.
+	// +optional
+	Promotion SchedulerGenerationPromotion `json:"promotion,omitempty"`
+
+	// Serving pins the generation the EPP Service selects, by its name in
+	// status.workloads.schedulerGenerations. It overrides promotion: to promote a
+	// generation under Manual promotion, or to roll back to the previous one, set it to
+	// that generation. A generation that is no longer running cannot be pinned; the
+	// Service then stays where it is.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	Serving string `json:"serving,omitempty"`
+
+	// MinReadySeconds a new generation's replicas must be available before the EPP
+	// Service moves to it under Automatic promotion. Defaults to 0.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
+
+	// RetainedGenerations is how many generations, besides the one that serves and the
+	// newest, keep running: the most recent ones that served. Defaults to 1, so the
+	// generation that served before is there to roll back to.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=10
+	RetainedGenerations *int32 `json:"retainedGenerations,omitempty"`
 }
 
 // TokenizerSpec configures a standalone tokenizer deployment.
@@ -888,8 +980,42 @@ type WorkloadStatus struct {
 
 	// Scheduler is the EPP scheduler Deployment.
 	// Nil when the scheduler is not configured.
+	// With rolloutStrategy type Generations, the generation the EPP Service selects.
 	// +optional
 	Scheduler *ObservedWorkloadStatus `json:"scheduler,omitempty"`
+
+	// SchedulerGenerations lists the scheduler generations that run, newest first,
+	// with rolloutStrategy type Generations.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	SchedulerGenerations []ObservedSchedulerGeneration `json:"schedulerGenerations,omitempty"`
+}
+
+// ObservedSchedulerGeneration is one scheduler generation: a Deployment of one version of
+// the scheduler.
+type ObservedSchedulerGeneration struct {
+	// Name of the generation, the hash of its pod template. generations.serving takes it.
+	Name string `json:"name"`
+
+	// Deployment is the generation's Deployment.
+	Deployment string `json:"deployment"`
+
+	// Serving is true for the generation the EPP Service selects.
+	// +optional
+	Serving bool `json:"serving,omitempty"`
+
+	// Current is true for the generation of the current spec.
+	// +optional
+	Current bool `json:"current,omitempty"`
+
+	// ReadyReplicas is the number of the generation's pods available to serve.
+	// +optional
+	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
+
+	// CreationTimestamp is when the generation was created.
+	// +optional
+	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
 }
 
 // SourcedAddress extends Addressable with the networking resource that

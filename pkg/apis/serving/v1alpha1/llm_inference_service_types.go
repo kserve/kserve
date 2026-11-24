@@ -508,6 +508,73 @@ type SchedulerSpec struct {
 	// vLLM render endpoint (/v1/completions/render) over HTTP.
 	// +optional
 	Tokenizer *TokenizerSpec `json:"tokenizer,omitempty"`
+
+	// RolloutStrategy selects how a change to the scheduler is rolled out: Recreate (the
+	// default), or one Deployment per version with the EPP Service moved between them
+	// (type Generations).
+	// +optional
+	RolloutStrategy *SchedulerRolloutStrategy `json:"rolloutStrategy,omitempty"`
+}
+
+// SchedulerRolloutStrategyType selects how a scheduler change is rolled out.
+// +kubebuilder:validation:Enum=Recreate;Generations
+type SchedulerRolloutStrategyType string
+
+const (
+	// SchedulerRolloutRecreate replaces the pods of the one scheduler Deployment.
+	SchedulerRolloutRecreate SchedulerRolloutStrategyType = "Recreate"
+	// SchedulerRolloutGenerations runs each version of the scheduler as its own
+	// Deployment and moves the EPP Service between them.
+	SchedulerRolloutGenerations SchedulerRolloutStrategyType = "Generations"
+)
+
+// SchedulerRolloutStrategy configures how a change to the scheduler is rolled out.
+type SchedulerRolloutStrategy struct {
+	// Type is Recreate or Generations. Defaults to Recreate.
+	// +optional
+	Type SchedulerRolloutStrategyType `json:"type,omitempty"`
+
+	// Generations configures type Generations.
+	// +optional
+	Generations *SchedulerGenerationsSpec `json:"generations,omitempty"`
+}
+
+// SchedulerGenerationPromotion selects when the EPP Service moves to a new generation.
+// +kubebuilder:validation:Enum=Automatic;Manual
+type SchedulerGenerationPromotion string
+
+const (
+	// SchedulerGenerationPromotionAutomatic moves the EPP Service to the newest
+	// generation once it is available.
+	SchedulerGenerationPromotionAutomatic SchedulerGenerationPromotion = "Automatic"
+	// SchedulerGenerationPromotionManual leaves the EPP Service where it is until
+	// generations.serving names the new generation.
+	SchedulerGenerationPromotionManual SchedulerGenerationPromotion = "Manual"
+)
+
+// SchedulerGenerationsSpec configures scheduler generations.
+type SchedulerGenerationsSpec struct {
+	// Promotion is Automatic or Manual. Defaults to Automatic.
+	// +optional
+	Promotion SchedulerGenerationPromotion `json:"promotion,omitempty"`
+
+	// Serving pins the generation the EPP Service selects.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	Serving string `json:"serving,omitempty"`
+
+	// MinReadySeconds a new generation's replicas must be available before the EPP
+	// Service moves to it under Automatic promotion.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
+
+	// RetainedGenerations is how many generations, besides the one that serves and the
+	// newest, keep running. Defaults to 1.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=10
+	RetainedGenerations *int32 `json:"retainedGenerations,omitempty"`
 }
 
 // TokenizerSpec configures a standalone tokenizer deployment.

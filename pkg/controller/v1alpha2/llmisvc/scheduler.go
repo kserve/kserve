@@ -108,11 +108,22 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 		return err
 	}
 
-	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
-		return err
-	}
-	if err := r.reconcileSchedulerService(ctx, llmSvc); err != nil {
-		return err
+	if schedulerUsesGenerations(llmSvc) {
+		if err := r.reconcileSchedulerGenerations(ctx, llmSvc); err != nil {
+			return err
+		}
+	} else {
+		if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
+			return err
+		}
+		if err := r.reconcileSchedulerService(ctx, llmSvc); err != nil {
+			return err
+		}
+		// After the Service: it has to select the scheduler Deployment again before the
+		// generations it selected go.
+		if err := r.deleteSchedulerGenerations(ctx, llmSvc); err != nil {
+			return err
+		}
 	}
 	if err := r.reconcileSchedulerInferencePool(ctx, llmSvc); err != nil {
 		return err
@@ -283,11 +294,18 @@ func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSv
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.Service{}, expected, semanticServiceIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &corev1.Service{}, expected, semanticSchedulerServiceIsEqual); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// semanticSchedulerServiceIsEqual also compares the selector exactly: a selector the
+// expected one is a subset of is not equal, so a generation label is removed from it.
+func semanticSchedulerServiceIsEqual(expected *corev1.Service, current *corev1.Service) bool {
+	return semanticServiceIsEqual(expected, current) &&
+		equality.Semantic.DeepEqual(expected.Spec.Selector, current.Spec.Selector)
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {
@@ -447,6 +465,14 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.C
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*appsv1.Deployment, error) {
+	return r.expectedSchedulerDeploymentFrom(ctx, llmSvc, nil)
+}
+
+// expectedSchedulerDeploymentFrom builds the scheduler Deployment. Some fields carry over
+// from the running scheduler (its config flag when the spec has none, the
+// storage-initializer image); they are read from curr, or with curr nil from the scheduler
+// Deployment of the same name.
+func (r *LLMISVCReconciler) expectedSchedulerDeploymentFrom(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.Deployment) (*appsv1.Deployment, error) {
 	labels := SchedulerLabels(llmSvc)
 
 	var schedulerLabels map[string]string
@@ -501,9 +527,11 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
-		curr := &appsv1.Deployment{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		if curr == nil {
+			curr = &appsv1.Deployment{}
+			if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+			}
 		}
 
 		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
@@ -553,11 +581,6 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 					return d, fmt.Errorf("failed to get expected scheduler service account: %w", saErr)
 				}
 				existingServiceAccount = sa
-			}
-
-			curr := &appsv1.Deployment{}
-			if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-				return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 			}
 
 			config, err := r.loadConfig(ctx)

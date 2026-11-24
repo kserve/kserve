@@ -9728,6 +9728,34 @@ spec:
                         replicas:
                           format: int32
                           type: integer
+                        rolloutStrategy:
+                          properties:
+                            generations:
+                              properties:
+                                minReadySeconds:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                promotion:
+                                  enum:
+                                    - Automatic
+                                    - Manual
+                                  type: string
+                                retainedGenerations:
+                                  format: int32
+                                  maximum: 10
+                                  minimum: 0
+                                  type: integer
+                                serving:
+                                  maxLength: 63
+                                  type: string
+                              type: object
+                            type:
+                              enum:
+                                - Recreate
+                                - Generations
+                              type: string
+                          type: object
                         template:
                           properties:
                             activeDeadlineSeconds:
@@ -35481,6 +35509,34 @@ spec:
                         replicas:
                           format: int32
                           type: integer
+                        rolloutStrategy:
+                          properties:
+                            generations:
+                              properties:
+                                minReadySeconds:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                promotion:
+                                  enum:
+                                    - Automatic
+                                    - Manual
+                                  type: string
+                                retainedGenerations:
+                                  format: int32
+                                  maximum: 10
+                                  minimum: 0
+                                  type: integer
+                                serving:
+                                  maxLength: 63
+                                  type: string
+                              type: object
+                            type:
+                              enum:
+                                - Recreate
+                                - Generations
+                              type: string
+                          type: object
                         template:
                           properties:
                             activeDeadlineSeconds:

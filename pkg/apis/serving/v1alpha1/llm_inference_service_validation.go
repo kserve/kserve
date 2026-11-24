@@ -339,6 +339,11 @@ func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInference
 		allErrs = append(allErrs, field.Invalid(schedulerPath.Child("replicas"), *svc.Spec.Router.Scheduler.Replicas, "scheduler replicas must be greater than zero"))
 	}
 
+	if rs := svc.Spec.Router.Scheduler.RolloutStrategy; rs != nil {
+		allErrs = append(allErrs, v1alpha2.ValidateSchedulerRolloutStrategy(
+			&v1alpha2.SchedulerSpec{RolloutStrategy: convertSchedulerRolloutStrategyToV1Alpha2(rs)}, schedulerPath)...)
+	}
+
 	if svc.Spec.Router.Scheduler.Config == nil {
 		return allErrs
 	}
