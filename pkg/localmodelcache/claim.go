@@ -38,7 +38,11 @@ import (
 // A missing PVC or a record naming a different (recreated) claim means no usable
 // data is on the current claim; a cache lookup failure is reported as an error so
 // callers fail closed rather than silently serving from an unverified claim.
-func ClaimHoldsImportedModel(ctx context.Context, c client.Client, nsCache *v1alpha1.LocalModelNamespaceCache) (bool, error) {
+//
+// The reader only needs list-less direct reads of one claim; callers that run in
+// the manager binary (the pod webhook) must pass an APIReader, since the manager
+// role grants no PVC verbs and the cached client has no PVC informer.
+func ClaimHoldsImportedModel(ctx context.Context, c client.Reader, nsCache *v1alpha1.LocalModelNamespaceCache) (bool, error) {
 	if nsCache == nil || nsCache.Spec.PVCRef == nil || *nsCache.Spec.PVCRef == "" {
 		return false, fmt.Errorf("namespace cache %s/%s has no PVC reference", nsCache.GetNamespace(), nsCache.GetName())
 	}

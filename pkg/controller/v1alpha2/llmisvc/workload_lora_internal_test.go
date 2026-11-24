@@ -525,6 +525,17 @@ func TestUserSuppliedLoRAConfig(t *testing.T) {
 	}
 }
 
+// podSpecMountingPVC builds the currently-deployed PodSpec of a role whose
+// pods already mount claim: the "already bound" signal for degraded serving.
+func podSpecMountingPVC(claim string) corev1.PodSpec {
+	return corev1.PodSpec{Volumes: []corev1.Volume{{
+		Name: "models",
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim},
+		},
+	}}}
+}
+
 func newLoRARewriteScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
 	scheme := runtime.NewScheme()
@@ -562,7 +573,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache(t *testing.T) {
 		},
 	}
 
-	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false)
+	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false, corev1.PodSpec{})
 	require.NoError(t, err)
 	require.Len(t, rewritten, 2)
 
@@ -585,7 +596,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_NoAnnotation(t *testing.T) {
 	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
 	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).Build()
 
-	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false)
+	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false, corev1.PodSpec{})
 	require.NoError(t, err)
 	assert.Equal(t, adapters, rewritten)
 }
@@ -614,7 +625,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_Subpath(t *testing.T) {
 		},
 	}
 
-	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false)
+	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false, corev1.PodSpec{})
 	require.NoError(t, err)
 	assert.Contains(t, rewritten[0].uri, "/subdir")
 	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
@@ -645,7 +656,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_NamespaceScoped(t *testing.T) {
 		},
 	}
 
-	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false)
+	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false, corev1.PodSpec{})
 	require.NoError(t, err)
 	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
 	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://ns-adapter-cache-gpu2/models/"))
@@ -678,7 +689,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCReady(t *testing.T) {
 		},
 	}
 
-	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false)
+	rewritten, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false, corev1.PodSpec{})
 	require.NoError(t, err)
 	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
 	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
@@ -719,7 +730,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyFailsClosed(t *
 		},
 	}
 
-	_, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, true)
+	_, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, true, corev1.PodSpec{})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, errLocalModelCacheNotReady)
 	assert.Contains(t, err.Error(), "LoRA adapter \"my-adapter\"")
@@ -757,7 +768,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyDefaultPolicySe
 		},
 	}
 
-	rewritten, degraded, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false)
+	rewritten, degraded, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false, corev1.PodSpec{})
 	require.NoError(t, err)
 	assert.Empty(t, degraded)
 	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
@@ -799,12 +810,56 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCImportRecordServesDegra
 		},
 	}
 
-	rewritten, degraded, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, true)
+	rewritten, degraded, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, true, podSpecMountingPVC(ref))
 	require.NoError(t, err)
 	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
 	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
 	assert.Contains(t, degraded, "LoRA adapter \"my-adapter\"")
 	assert.Contains(t, degraded, v1alpha1.ReasonReimportBlocked)
+}
+
+// The degraded-serving grace is for workloads that already serve from the
+// claim: a CacheRequired workload that binds while the cache is degraded (no
+// running pods on the claim yet) waits for a completed import instead of
+// serving from a cache it has never served from.
+func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCImportRecordNewBindingWaits(t *testing.T) {
+	t.Parallel()
+
+	adapters := []resolvedLoRAAdapter{
+		{name: "my-adapter", uri: "hf://org/adapter", scheme: constants.HfURIPrefix},
+	}
+	ref := "shared-pvc"
+	nsCache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-adapter-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/adapter",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	nsCache.Status.MarkNotReady(v1alpha1.ReasonReimportBlocked, "node agents behind", 1)
+	nsCache.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-1"}
+	claim := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: ref, Namespace: "default", UID: "pvc-uid-1"},
+	}
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(nsCache, claim).Build()
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.LocalModelLoRAAnnotationKey:        `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
+				constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+			},
+		},
+	}
+
+	// The role's currently-deployed PodSpec mounts nothing.
+	_, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, true, corev1.PodSpec{})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, errLocalModelCacheNotReady)
+	assert.Contains(t, err.Error(), "LoRA adapter \"my-adapter\"")
+	assert.Contains(t, err.Error(), v1alpha1.ReasonReimportBlocked)
 }
 
 func TestRewriteLoRAAdaptersFromLocalModelCache_MissingCache(t *testing.T) {
@@ -822,7 +877,7 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_MissingCache(t *testing.T) {
 		},
 	}
 
-	_, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false)
+	_, _, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters, false, corev1.PodSpec{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "get LocalModelCache")
 }

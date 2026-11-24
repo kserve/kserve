@@ -22,7 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -53,6 +55,11 @@ type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	config            *types.StorageInitializerConfig
 	client            client.Client
+	// reader, when set, is used instead of client for reads of objects the
+	// manager controllers do not watch and that are outside the webhook's
+	// RBAC-scope, so the cached client would fail (no informers, no PVC verbs
+	// in the manager role). It must only be used for direct reads.
+	reader client.Reader
 }
 
 // StorageInitializerParams contains all the parameters needed for storage initialization
@@ -1092,12 +1099,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	// Mount pvc directly if local model label exists
 	// Not supported with multiple storage URIs
 	if _, ok := pod.Labels[constants.LocalModelLabel]; ok {
-		// Fail closed while the shared-PVC cache this pod is bound to is not
-		// Ready: the pod is not admitted (and never rewritten to download from
-		// its original source URI) until the cache import completes.
-		if err := mi.gateLocalModelCacheWaiting(ctx, pod); err != nil {
-			return err
-		}
 		sourceUri := pod.Annotations[constants.LocalModelSourceUriAnnotationKey]
 		subPath, _ := strings.CutPrefix(srcURI, sourceUri)
 		if !strings.HasPrefix(subPath, "/") {
@@ -1158,8 +1159,8 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	return CommonStorageInitialization(ctx, storageInitializerParams)
 }
 
-// gateLocalModelCacheWaiting fails closed for CacheRequired pods while the
-// shared-PVC LocalModelNamespaceCache a pod is bound to has no usable data on
+// gateLocalModelCacheWaiting fails closed for CacheRequired pods while a
+// shared-PVC LocalModelNamespaceCache they are bound to has no usable data on
 // its current claim. Returning an error rejects the pod; workload controllers
 // retry creation, so the pod starts once the cache import completes instead of
 // downloading the model from its original source URI.
@@ -1170,6 +1171,19 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 // the live claim even though the cache is not Ready (ReimportBlocked,
 // node-agent failures, spec-generation bumps); Ready remains what admits
 // not-yet-bound workloads to the cache in the workloads' defaulters.
+//
+// The gate covers both the base-model cache the pod carries (label
+// serving.kserve.io/local-model) and each namespace-scoped LoRA adapter cache
+// recorded in the pod's LoRA annotation: a pod mounting an adapter's recreated
+// empty claim races the replacement import exactly like a base-model pod does.
+//
+// The gate runs in Mutator.Handle before needMutate, so it also covers
+// LLMInferenceService workload pods, which do not carry the InferenceService
+// pod label and are otherwise skipped by the injection pipeline. Rejecting the
+// pod at creation is what closes the window where a workload's ReplicaSet
+// keeps creating pods onto a claim that was recreated empty after a delete:
+// reconciliation may have failed closed server-side, but only the webhook sees
+// every pod the ReplicaSet attempts.
 //
 // Pods without the internal policy annotation (the FallbackToSource default)
 // are not gated: they keep the #6280 behavior of mounting whatever claim their
@@ -1184,8 +1198,47 @@ func (mi *StorageInitializerInjector) gateLocalModelCacheWaiting(ctx context.Con
 		return nil
 	}
 
-	cacheName := pod.Labels[constants.LocalModelLabel]
-	cacheNamespace := pod.Labels[constants.LocalModelNamespaceLabel]
+	if cacheName, ok := pod.Labels[constants.LocalModelLabel]; ok {
+		if err := mi.gateSharedPVCImportRecord(ctx, pod, cacheName, pod.Labels[constants.LocalModelNamespaceLabel]); err != nil {
+			return err
+		}
+	}
+
+	// LoRA adapters bind to caches independently of the base model. Errors and
+	// a malformed annotation fail closed: the annotation is written by
+	// defaulting and parsed again at reconcile time, so a malformed value
+	// means the binding state is unknown.
+	entries, err := localmodelcache.ParseLoRACacheAnnotation(pod.Annotations[constants.LocalModelLoRAAnnotationKey])
+	if err != nil {
+		return fmt.Errorf("pod %s/%s: parse %s annotation: %w",
+			pod.Namespace, pod.Name, constants.LocalModelLoRAAnnotationKey, err)
+	}
+	for _, adapterName := range slices.Sorted(maps.Keys(entries)) {
+		entry := entries[adapterName]
+		// Entries without a namespace reference a cluster-scoped
+		// LocalModelCache: node-local only, no import gate.
+		if entry.Namespace == "" {
+			continue
+		}
+		if err := mi.gateSharedPVCImportRecord(ctx, pod, entry.Cache, entry.Namespace); err != nil {
+			return fmt.Errorf("LoRA adapter %q: %w", adapterName, err)
+		}
+	}
+	return nil
+}
+
+// gateSharedPVCImportRecord is the cache-binding half of
+// gateLocalModelCacheWaiting for one referenced cache: a namespace-scoped
+// shared-PVC cache is only mountable (for the base model or a LoRA adapter)
+// while its import record attests a completed import onto the current claim.
+//
+// The import record is checked even when the cache reports Ready: a claim
+// recreated under the same name has a new UID while the cached Ready
+// condition still attests the old claim, so trusting Ready alone would let
+// a CacheRequired pod mount an empty claim until the cache reconciler
+// catches up. Failing closed here only holds the pod at (re)creation;
+// already-running pods keep serving until the reconciler re-enqueues them.
+func (mi *StorageInitializerInjector) gateSharedPVCImportRecord(ctx context.Context, pod *corev1.Pod, cacheName, cacheNamespace string) error {
 	if cacheNamespace == "" {
 		// Cluster-scoped LocalModelCache: node-local only, no import gate.
 		return nil
@@ -1207,13 +1260,10 @@ func (mi *StorageInitializerInjector) gateLocalModelCacheWaiting(ctx context.Con
 		// Node-local namespace cache: no import gate.
 		return nil
 	}
-	// The import record is checked even when the cache reports Ready: a claim
-	// recreated under the same name has a new UID while the cached Ready
-	// condition still attests the old claim, so trusting Ready alone would let
-	// a CacheRequired pod mount an empty claim until the cache reconciler
-	// catches up. Failing closed here only holds the pod at (re)creation;
-	// already-running pods keep serving until the reconciler re-enqueues them.
-	holdsImport, err := localmodelcache.ClaimHoldsImportedModel(ctx, mi.client, nsCache)
+	// The claim is read directly (APIReader) rather than through the manager's
+	// cached client: the manager binary hosting this webhook has no PVC
+	// informer and no PVC RBAC, so a cached read cannot be served.
+	holdsImport, err := localmodelcache.ClaimHoldsImportedModel(ctx, mi.authoritativeReader(), nsCache)
 	if err != nil {
 		return fmt.Errorf("check import record of LocalModelNamespaceCache %s/%s referenced by pod %s/%s: %w",
 			cacheNamespace, cacheName, pod.Namespace, pod.Name, err)
@@ -1226,6 +1276,16 @@ func (mi *StorageInitializerInjector) gateLocalModelCacheWaiting(ctx context.Con
 	}
 	return fmt.Errorf("LocalModelNamespaceCache %s/%s does not attest the model as imported onto its current claim (%s); pod %s/%s is admitted once the model import completes",
 		cacheNamespace, cacheName, nsCache.NotReadySummary(), pod.Namespace, pod.Name)
+}
+
+// authoritativeReader returns a reader that bypasses the informer cache for
+// the PVC import-record read, falling back to the cached client when no
+// APIReader was supplied (direct injector use, unit tests).
+func (mi *StorageInitializerInjector) authoritativeReader() client.Reader {
+	if mi.reader != nil {
+		return mi.reader
+	}
+	return mi.client
 }
 
 // SetIstioCniSecurityContext determines if Istio is installed in using the CNI plugin. If so,

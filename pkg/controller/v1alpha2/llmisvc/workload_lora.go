@@ -157,13 +157,17 @@ func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoR
 // using the slim localmodel-lora annotation (cache + optional namespace). Source URI and PVC
 // name are resolved at reconcile time via Get on the referenced cache. The second
 // return value is non-empty when an adapter is served from a not-Ready shared-PVC
-// cache whose import record attests the current claim (degraded serving).
+// cache whose import record attests the current claim (degraded serving). curr is
+// the role's currently-deployed PodSpec; only a role whose pods already mount an
+// adapter's claim keeps serving it through a degraded cache (see
+// resolveLoRACachePVC), a newly-bound role waits for the import to complete.
 func rewriteLoRAAdaptersFromLocalModelCache(
 	ctx context.Context,
 	c client.Client,
 	llmSvc *v1alpha2.LLMInferenceService,
 	adapters []resolvedLoRAAdapter,
 	cacheRequired bool,
+	curr corev1.PodSpec,
 ) ([]resolvedLoRAAdapter, string, error) {
 	if len(adapters) == 0 {
 		return adapters, "", nil
@@ -192,7 +196,7 @@ func rewriteLoRAAdaptersFromLocalModelCache(
 		}
 		var sourceURI, pvcName, adapterDegraded string
 		var err error
-		sourceURI, pvcName, adapterDegraded, err = resolveLoRACachePVC(ctx, c, entry, nodeGroup, nodeGroupExists, cacheRequired)
+		sourceURI, pvcName, adapterDegraded, err = resolveLoRACachePVC(ctx, c, entry, nodeGroup, nodeGroupExists, cacheRequired, curr)
 		if err != nil {
 			return nil, "", fmt.Errorf("LoRA adapter %q: %w", out[i].name, err)
 		}
@@ -209,11 +213,12 @@ func rewriteLoRAAdaptersFromLocalModelCache(
 // derives source URI + serving PVC name for the LLMInferenceService node group.
 // Like resolveBaseModelCachePVC, it only gates under the local-model-cache-policy:
 // CacheRequired policy, keyed on the cache's import record for the current claim:
-// a workload already bound to the claim the record attests keeps mounting the
-// adapter (non-empty degradedMsg), while a binding whose claim carries no
-// attested copy waits for the import to complete. Defaulting binds adapters to
-// not-Ready caches as a wait intent, and an import still in progress may not
-// have written a complete copy of the adapter onto the claim yet.
+// a role whose currently-deployed PodSpec already mounts the claim the record
+// attests keeps mounting the adapter (non-empty degradedMsg), while a binding
+// whose claim carries no attested copy - or a role that has never mounted it -
+// waits for the import to complete. Defaulting binds adapters to not-Ready
+// caches as a wait intent, and an import still in progress may not have written
+// a complete copy of the adapter onto the claim yet.
 func resolveLoRACachePVC(
 	ctx context.Context,
 	c client.Client,
@@ -221,6 +226,7 @@ func resolveLoRACachePVC(
 	nodeGroup string,
 	nodeGroupExists bool,
 	cacheRequired bool,
+	curr corev1.PodSpec,
 ) (sourceURI, pvcName, degradedMsg string, err error) {
 	if entry.Namespace != "" {
 		nsCache := &v1alpha1.LocalModelNamespaceCache{}
@@ -230,7 +236,8 @@ func resolveLoRACachePVC(
 		// Shared-PVC mode: the serving PVC is the referenced claim, gated on the
 		// import record for CacheRequired workloads.
 		if nsCache.Spec.SharedPVCMode() {
-			binding, err := resolveSharedPVCCacheBinding(ctx, c, nsCache, cacheRequired,
+			alreadyBound := podSpecMountsClaim(curr, *nsCache.Spec.PVCRef)
+			binding, err := resolveSharedPVCCacheBinding(ctx, c, nsCache, cacheRequired, alreadyBound,
 				"waiting for the cache instead of mounting an incomplete LoRA adapter")
 			if err != nil {
 				return "", "", "", err

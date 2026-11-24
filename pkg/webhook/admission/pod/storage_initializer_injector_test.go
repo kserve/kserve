@@ -5175,7 +5175,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-not-ready"
-		err := injector.InjectStorageInitializer(t.Context(), pod)
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
 		if err == nil {
 			t.Error("expected an error while the shared-PVC cache is not ready")
 		} else if !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") || !strings.Contains(err.Error(), "ImportRunning") {
@@ -5197,7 +5197,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-ready-no-record"
-		err := injector.InjectStorageInitializer(t.Context(), pod)
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
 		if err == nil || !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") {
 			t.Errorf("expected an import-record error, got: %v", err)
 		}
@@ -5225,13 +5225,11 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-import-record"
-		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].PersistentVolumeClaim == nil ||
-			pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName != "shared-pvc" {
-			t.Errorf("expected the pod to mount the cache PVC, got: %+v", pod.Spec.Volumes)
-		}
+		// The gate only admits; the injection pipeline (needMutate path) does
+		// the actual rewriting, so the pod spec is left untouched here.
 	})
 
 	t.Run("import record naming a recreated claim rejects the pod", func(t *testing.T) {
@@ -5242,7 +5240,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-stale-record"
-		err := injector.InjectStorageInitializer(t.Context(), pod)
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
 		if err == nil || !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") {
 			t.Errorf("expected an import-record error, got: %v", err)
 		}
@@ -5263,7 +5261,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-ready-stale-record"
-		err := injector.InjectStorageInitializer(t.Context(), pod)
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
 		if err == nil || !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") {
 			t.Errorf("expected an import-record error despite the Ready condition, got: %v", err)
 		}
@@ -5281,13 +5279,11 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-ready-record"
-		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].PersistentVolumeClaim == nil ||
-			pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName != "shared-pvc" {
-			t.Errorf("expected the pod to mount the cache PVC, got: %+v", pod.Spec.Volumes)
-		}
+		// The gate only admits; the injection pipeline (needMutate path) does
+		// the actual rewriting, so the pod spec is left untouched here.
 	})
 
 	t.Run("default policy (no internal annotation) has no gate", func(t *testing.T) {
@@ -5296,12 +5292,10 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := localModelGatePod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-default-policy"
-		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if len(pod.Spec.Volumes) != 1 {
-			t.Errorf("expected the pod to be rewritten, got: %+v", pod.Spec.Volumes)
-		}
+		// No gate: the pod is left to the injection pipeline.
 	})
 
 	t.Run("internal FallbackToSource annotation has no gate", func(t *testing.T) {
@@ -5311,12 +5305,10 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		pod := localModelGatePod("default")
 		pod.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyFallbackToSource
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-fallback"
-		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if len(pod.Spec.Volumes) != 1 {
-			t.Errorf("expected the pod to be rewritten, got: %+v", pod.Spec.Volumes)
-		}
+		// No gate: the pod is left to the injection pipeline.
 	})
 
 	t.Run("malformed internal policy value fails closed", func(t *testing.T) {
@@ -5324,7 +5316,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := localModelGatePod("default")
 		pod.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = "definitely-not-a-policy"
-		err := injector.InjectStorageInitializer(t.Context(), pod)
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
 		if err == nil || !strings.Contains(err.Error(), "invalid") {
 			t.Errorf("expected a malformed-policy error, got: %v", err)
 		}
@@ -5342,19 +5334,17 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-node-local"
-		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if len(pod.Spec.Volumes) != 1 {
-			t.Errorf("expected the pod to be rewritten, got: %+v", pod.Spec.Volumes)
-		}
+		// No gate: the pod is left to the injection pipeline.
 	})
 
 	t.Run("cluster-scoped binding has no import gate", func(t *testing.T) {
 		injector := &StorageInitializerInjector{config: storageConfig, client: c}
 
 		pod := cacheRequiredPod("")
-		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -5364,7 +5354,7 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 
 		pod := cacheRequiredPod("default")
 		pod.Labels[constants.LocalModelLabel] = "no-such-cache"
-		err := injector.InjectStorageInitializer(t.Context(), pod)
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
 		if err == nil || !strings.Contains(err.Error(), "get LocalModelNamespaceCache") {
 			t.Errorf("expected a cache lookup error, got: %v", err)
 		}
@@ -5379,12 +5369,94 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		// cache state.
 		pod := cacheRequiredPod("some-other-namespace")
 		pod.Labels[constants.LocalModelLabel] = "gate-cache-foreign"
-		err := injector.InjectStorageInitializer(t.Context(), pod)
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
 		if err == nil || !strings.Contains(err.Error(), "only served from the pod's own namespace") {
 			t.Errorf("expected a cross-namespace rejection, got: %v", err)
 		}
 		if len(pod.Spec.Volumes) != 0 {
 			t.Error("the pod must not be rewritten on a cross-namespace rejection")
+		}
+	})
+
+	t.Run("LLMInferenceService workload pod is gated without the InferenceService label", func(t *testing.T) {
+		// llmisvc serving pods carry the local model labels and the internal
+		// policy annotation but neither the InferenceService pod label nor the
+		// legacy storage-initializer source annotation, so needMutate skips
+		// them; the gate runs in Mutator.Handle before needMutate and covers
+		// them too.
+		createLocalModelGateCache(t, newCache("gate-cache-llmisvc", false))
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		delete(pod.Annotations, constants.StorageInitializerSourceUriInternalAnnotationKey)
+		delete(pod.Annotations, constants.LocalModelSourceUriAnnotationKey)
+		delete(pod.Annotations, constants.LocalModelPVCNameAnnotationKey)
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-llmisvc"
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") {
+			t.Errorf("expected a not-ready error, got: %v", err)
+		}
+	})
+
+	t.Run("LoRA adapter cache without an import record rejects the pod", func(t *testing.T) {
+		// The base model is served from a Ready cache whose record attests the
+		// live claim; the adapter is bound to a cache with no record, so the
+		// pod is rejected instead of mounting an incomplete adapter.
+		ready := newCache("gate-cache-adapter-base", true)
+		pvc := getOrCreateLocalModelGatePVC(t)
+		ready.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: pvc.UID}
+		createLocalModelGateCache(t, ready)
+		createLocalModelGateCache(t, newCache("gate-cache-adapter", false))
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-adapter-base"
+		pod.Annotations[constants.LocalModelLoRAAnnotationKey] = `{"sql-lora":{"cache":"gate-cache-adapter","namespace":"default"}}`
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), `LoRA adapter "sql-lora"`) ||
+			!strings.Contains(err.Error(), "does not attest the model as imported onto its current claim") {
+			t.Errorf("expected an adapter import-record error, got: %v", err)
+		}
+	})
+
+	t.Run("LoRA adapter cache with an import record for the live claim admits the pod", func(t *testing.T) {
+		ready := newCache("gate-cache-adapter-ok", true)
+		pvc := getOrCreateLocalModelGatePVC(t)
+		ready.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: pvc.UID}
+		createLocalModelGateCache(t, ready)
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-adapter-ok"
+		pod.Annotations[constants.LocalModelLoRAAnnotationKey] = `{"sql-lora":{"cache":"gate-cache-adapter-ok","namespace":"default"}}`
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("cluster-scoped LoRA adapter entry has no import gate", func(t *testing.T) {
+		ready := newCache("gate-cache-adapter-cluster", false)
+		createLocalModelGateCache(t, ready)
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		// The adapter entry has no namespace: it references a cluster-scoped
+		// LocalModelCache (node-local), which the gate does not cover.
+		pod := cacheRequiredPod("")
+		pod.Annotations[constants.LocalModelLoRAAnnotationKey] = `{"sql-lora":{"cache":"some-cluster-cache"}}`
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("malformed LoRA annotation fails closed", func(t *testing.T) {
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("")
+		delete(pod.Labels, constants.LocalModelLabel)
+		pod.Annotations[constants.LocalModelLoRAAnnotationKey] = `{"sql-lora":{`
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), constants.LocalModelLoRAAnnotationKey) || !strings.Contains(err.Error(), "parse") {
+			t.Errorf("expected a LoRA-annotation parse error, got: %v", err)
 		}
 	})
 }

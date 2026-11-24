@@ -66,6 +66,24 @@ type sharedPVCBinding struct {
 	degradedMsg string
 }
 
+// podSpecMountsClaim reports whether the currently-deployed PodSpec for a
+// workload role already mounts claimName. It is the "already bound" signal for
+// degraded serving: a workload whose running pods mount the claim keeps
+// serving the import record's attested copy through cache degradations, while
+// a role with no running pods yet (new workload, new role, scale-from-zero
+// with no retained template) waits for a completed import instead.
+func podSpecMountsClaim(spec corev1.PodSpec, claimName string) bool {
+	if claimName == "" {
+		return false
+	}
+	for i := range spec.Volumes {
+		if pvcSource := spec.Volumes[i].PersistentVolumeClaim; pvcSource != nil && pvcSource.ClaimName == claimName {
+			return true
+		}
+	}
+	return false
+}
+
 // resolveSharedPVCCacheBinding decides whether a workload bound to the
 // shared-PVC cache nsCache may serve from its claim, honoring the workload's
 // local-model-cache-policy.
@@ -75,39 +93,40 @@ type sharedPVCBinding struct {
 // pre-gate semantics (workloads can download their own copy or the claim still
 // carries the model). With CacheRequired the gate keys on the cache's import
 // record for the current claim rather than the Ready condition, which also
-// folds in node-agent propagation: a new binding waits for a completed import,
-// while a workload already bound to the claim named by the import record keeps
-// serving and reports degradedMsg instead of failing reconciliation.
+// folds in node-agent propagation: a binding whose role does not already mount
+// the claim (alreadyBound=false) waits for a completed import, while a
+// workload already serving from the claim named by the import record keeps
+// serving and reports degradedMsg instead of failing reconciliation. A
+// workload that binds after the cache degraded therefore waits rather than
+// serving from a cache it has never served from; only the transition of an
+// already-running workload is graceful.
 //
 // The record is checked even when the cache reports Ready: a claim recreated
 // under the same name has a new UID while the cached Ready condition still
 // attests the old claim, so trusting Ready alone would let a CacheRequired
 // workload mount an empty claim until the cache reconciler catches up.
-func resolveSharedPVCCacheBinding(ctx context.Context, c client.Client, nsCache *v1alpha1.LocalModelNamespaceCache, cacheRequired bool, waitMsg string) (sharedPVCBinding, error) {
+func resolveSharedPVCCacheBinding(ctx context.Context, c client.Client, nsCache *v1alpha1.LocalModelNamespaceCache, cacheRequired bool, alreadyBound bool, waitMsg string) (sharedPVCBinding, error) {
 	if !cacheRequired {
 		return sharedPVCBinding{sourceURI: nsCache.Spec.SourceModelUri, pvcName: *nsCache.Spec.PVCRef}, nil
 	}
+	imported, err := localmodelcache.ClaimHoldsImportedModel(ctx, c, nsCache)
+	if err != nil {
+		return sharedPVCBinding{}, err
+	}
 	if nsCache.IsReady() {
-		imported, err := localmodelcache.ClaimHoldsImportedModel(ctx, c, nsCache)
-		if err != nil {
-			return sharedPVCBinding{}, err
-		}
 		if imported {
 			return sharedPVCBinding{sourceURI: nsCache.Spec.SourceModelUri, pvcName: *nsCache.Spec.PVCRef}, nil
 		}
 		return sharedPVCBinding{}, fmt.Errorf("%w: LocalModelNamespaceCache %s/%s reports Ready, but its import record does not attest the current claim %q; %s",
 			errLocalModelCacheNotReady, nsCache.Namespace, nsCache.Name, *nsCache.Spec.PVCRef, waitMsg)
 	}
-	imported, err := localmodelcache.ClaimHoldsImportedModel(ctx, c, nsCache)
-	if err != nil {
-		return sharedPVCBinding{}, err
-	}
-	if !imported {
+	if !imported || !alreadyBound {
 		return sharedPVCBinding{}, fmt.Errorf("%w: LocalModelNamespaceCache %s/%s (%s); %s",
 			errLocalModelCacheNotReady, nsCache.Namespace, nsCache.Name, nsCache.NotReadySummary(), waitMsg)
 	}
-	// The current claim still holds the imported copy: keep serving through
-	// node-agent / re-import failures; the caller surfaces the degradation.
+	// The current claim still holds the imported copy and this role's running
+	// pods already mount it: keep serving through node-agent / re-import
+	// failures; the caller surfaces the degradation.
 	return sharedPVCBinding{
 		sourceURI: nsCache.Spec.SourceModelUri,
 		pvcName:   *nsCache.Spec.PVCRef,
@@ -124,7 +143,10 @@ func resolveSharedPVCCacheBinding(ctx context.Context, c client.Client, nsCache 
 // the workload waits for the import to complete instead of serving the model
 // from its original source URI; workloads without that policy keep the
 // FallbackToSource default and are not gated (see resolveSharedPVCCacheBinding).
-func resolveBaseModelCachePVC(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService, cacheRequired bool) (binding sharedPVCBinding, err error) {
+// curr is the role's currently-deployed PodSpec: an already-served binding is
+// what keeps degraded serving (import record still attests the claim) rather
+// than waiting, while a newly-bound workload waits for the import to complete.
+func resolveBaseModelCachePVC(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService, cacheRequired bool, curr corev1.PodSpec) (binding sharedPVCBinding, err error) {
 	cacheName := llmSvc.Labels[constants.LocalModelLabel]
 	cacheNamespace := llmSvc.Labels[constants.LocalModelNamespaceLabel]
 	nodeGroup, nodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
@@ -137,7 +159,8 @@ func resolveBaseModelCachePVC(ctx context.Context, c client.Client, llmSvc *v1al
 		// Shared-PVC mode: the serving PVC is the referenced claim, gated on the
 		// import record for CacheRequired workloads.
 		if nsCache.Spec.SharedPVCMode() {
-			return resolveSharedPVCCacheBinding(ctx, c, nsCache, cacheRequired,
+			alreadyBound := podSpecMountsClaim(curr, *nsCache.Spec.PVCRef)
+			return resolveSharedPVCCacheBinding(ctx, c, nsCache, cacheRequired, alreadyBound,
 				"waiting for the import instead of serving the model from "+llmSvc.Spec.Model.URI.String())
 		}
 		pvc, ok := localmodelcache.PVCNameForNodeGroup(nsCache.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsCache.Name)
@@ -235,7 +258,7 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	}
 	var degradedCacheMsg string
 	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok && !nativeModelExpress {
-		binding, err := resolveBaseModelCachePVC(ctx, r.Client, llmSvc, cacheRequired)
+		binding, err := resolveBaseModelCachePVC(ctx, r.Client, llmSvc, cacheRequired, curr)
 		if err != nil {
 			if errors.Is(err, errLocalModelCacheNotReady) {
 				llmSvc.MarkLocalModelCacheNotReady(v1alpha2.SharedPVCImportIncompleteReason, "%s", err)
@@ -246,6 +269,17 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		degradedCacheMsg = binding.degradedMsg
 		modelUri = localmodelcache.BuildCachedPVCURI(binding.sourceURI, binding.pvcName, modelUri)
 		schema = "pvc"
+	} else if cacheRequired && !nativeModelExpress && (schema == "hf" || schema == "s3") {
+		// CacheRequired with no cache bound to the base model (no cache matched
+		// the URI, or the binding was released): fail closed rather than
+		// downloading the model from its original source URI. pvc:// and oci://
+		// base models are exempt: they mount or pull an image rather than
+		// download, so there is nothing the cache would save the workload from.
+		err := fmt.Errorf("%w: the base model of LLMInferenceService %s/%s (%s) requires a local model cache but is not bound to one; waiting for a matching cache",
+			errLocalModelCacheNotReady, llmSvc.Namespace, llmSvc.Name, modelUri)
+		llmSvc.MarkLocalModelCacheNotReady(v1alpha2.SharedPVCImportIncompleteReason, "%s", err)
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "LocalModelCacheNotReady", "%s", err)
+		return err
 	}
 
 	var resolvedLoRAAdapters []resolvedLoRAAdapter
@@ -260,7 +294,7 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	if hasLoRAAdapters {
 		var loraDegraded string
 		var err error
-		resolvedLoRAAdapters, loraDegraded, err = rewriteLoRAAdaptersFromLocalModelCache(ctx, r.Client, llmSvc, config.ResolvedLoRAAdapters, cacheRequired)
+		resolvedLoRAAdapters, loraDegraded, err = rewriteLoRAAdaptersFromLocalModelCache(ctx, r.Client, llmSvc, config.ResolvedLoRAAdapters, cacheRequired, curr)
 		if err != nil {
 			// Mirror the base model path: emit an actionable warning event while a
 			// shared-PVC cache bound to a LoRA adapter cannot serve the workload

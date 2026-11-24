@@ -59099,6 +59099,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - persistentvolumeclaims
   - secrets
   - serviceaccounts
   verbs:

@@ -450,6 +450,7 @@ func TestResolveBaseModelCachePVC(t *testing.T) {
 		labels           map[string]string
 		annotations      map[string]string
 		cacheRequired    bool
+		currClaim        string
 		objects          []client.Object
 		expectedSource   string
 		expectedPVC      string
@@ -502,10 +503,24 @@ func TestResolveBaseModelCachePVC(t *testing.T) {
 				constants.LocalModelNamespaceLabel: "default",
 			},
 			cacheRequired:    true,
+			currClaim:        "imported-pvc",
 			objects:          []client.Object{sharedNotReadyImported, importedPVC},
 			expectedSource:   "hf://org/model",
 			expectedPVC:      "imported-pvc",
 			expectedDegraded: true,
+		},
+		"CacheRequired workload binding while the cache is degraded waits instead": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-not-ready-imported",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired: true,
+			// The role's currently-deployed PodSpec mounts nothing: the
+			// workload has never served from the degraded cache, so it waits
+			// for a completed import instead of serving an unknown copy.
+			objects:       []client.Object{sharedNotReadyImported, importedPVC},
+			expectedErr:   v1alpha1.ReasonReimportBlocked,
+			errIsNotReady: true,
 		},
 		"recreated claim not attested by the import record fails closed": {
 			labels: map[string]string{
@@ -580,7 +595,11 @@ func TestResolveBaseModelCachePVC(t *testing.T) {
 				annotations = baseModelCacheAnnotationsWithPolicy(annotations, constants.LocalModelCachePolicyCacheRequired)
 			}
 			llmSvc := baseModelCacheLLMSvc(scenario.labels, annotations)
-			binding, err := resolveBaseModelCachePVC(t.Context(), c, llmSvc, scenario.cacheRequired)
+			curr := corev1.PodSpec{}
+			if scenario.currClaim != "" {
+				curr = podSpecMountingPVC(scenario.currClaim)
+			}
+			binding, err := resolveBaseModelCachePVC(t.Context(), c, llmSvc, scenario.cacheRequired, curr)
 
 			if scenario.expectedErr != "" {
 				assert.Error(t, err)

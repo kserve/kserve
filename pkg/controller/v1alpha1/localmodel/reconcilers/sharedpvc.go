@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/jobs"
@@ -529,7 +530,21 @@ func reimportBlocked(localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.
 	if !importedOnto(localModel, pvc) {
 		return nil
 	}
-	isvcCount, llmSvcCount := len(consumers.isvcs), len(consumers.llmSvcs)
+	// LLMInferenceServices bound only as a wait intent (LocalModelCacheReady=False,
+	// SharedPVCImportIncomplete reason: reconciliation fails closed and no pod of
+	// the workload mounts the claim) do not count: a consumer waiting for the
+	// import is the reason to run it, and counting it would deadlock the cache
+	// once the original consumers leave. Workloads still serving from the import
+	// record (SharedPVCServingFromImportRecord reason) and workloads without the
+	// condition keep counting, as do their Pods through podsBlockReimport.
+	// InferenceServices have no equivalent condition, so all of them count.
+	isvcCount := len(consumers.isvcs)
+	llmSvcCount := 0
+	for i := range consumers.llmSvcs {
+		if !waitsForSharedPVCImport(&consumers.llmSvcs[i]) {
+			llmSvcCount++
+		}
+	}
 	if isvcCount == 0 && llmSvcCount == 0 {
 		return nil
 	}
@@ -537,6 +552,21 @@ func reimportBlocked(localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.
 		"%d InferenceService and %d LLMInferenceService consumer(s) still read the destination; "+
 		"remove them to allow one replacement import",
 		errReimportBlocked, localModel.Namespace, importJobName(localModel.Name), pvc.Name, isvcCount, llmSvcCount)
+}
+
+// waitsForSharedPVCImport reports whether an LLMInferenceService is bound to a
+// shared-PVC cache only as a wait intent: its LocalModelCacheReady condition is
+// False with the SharedPVCImportIncomplete reason, which the llmisvc
+// controller sets while reconciliation fails closed waiting for the import
+// record to attest the claim. Such a workload mounts nothing (the pod webhook
+// rejects its pods in the same state), so it cannot be reading the
+// destination, and it keeps re-queueing on its own instead.
+func waitsForSharedPVCImport(llmSvc *v1alpha2.LLMInferenceService) bool {
+	cond := llmSvc.Status.GetCondition(v1alpha2.LocalModelCacheReady)
+	if cond == nil {
+		return false
+	}
+	return cond.Status == corev1.ConditionFalse && cond.Reason == v1alpha2.SharedPVCImportIncompleteReason
 }
 
 // buildImportJob constructs the single import Job for a shared-PVC cache.

@@ -36,11 +36,21 @@ import (
 // +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=inferenceservice.kserve-webhook-server.pod-mutator,reinvocationPolicy=IfNeeded
 var log = logf.Log.WithName(constants.PodMutatorWebhookName)
 
-// Mutator is a webhook that injects incoming pods
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get
+
+// Mutator is a webhook that injects incoming pods. Handle additionally runs
+// the CacheRequired import-record gate on every pod (see
+// gateLocalModelCacheWaiting), which reads the claim the pod's local model
+// cache bindings point at.
 type Mutator struct {
 	Client    client.Client
 	Clientset kubernetes.Interface
 	Decoder   admission.Decoder
+	// APIReader bypasses the manager's cache for objects the manager
+	// controllers do not watch (e.g. the PVC import-record check done for
+	// CacheRequired local model caches, which has no cache informer and no
+	// RBAC in the manager role). It must only be used for direct reads.
+	APIReader client.Reader
 }
 
 // Handle decodes the incoming Pod and executes mutation logic.
@@ -50,6 +60,24 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	if err := mutator.Decoder.Decode(req, pod); err != nil {
 		log.Error(err, "Failed to decode pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
 		return admission.Errored(http.StatusBadRequest, err)
+	}
+
+	// For some reason pod namespace is always empty when coming to pod mutator, need to set from admission request
+	pod.Namespace = req.Namespace
+
+	// Fail closed for CacheRequired pods bound to shared-PVC local model caches
+	// whose import record does not attest the current claim. This runs before
+	// needMutate so LLMInferenceService workload pods -- which do not carry the
+	// InferenceService pod label and are otherwise skipped by the injection
+	// pipeline -- are gated too. Rejecting the pod at creation is also what
+	// closes the window where a workload's ReplicaSet keeps creating pods onto
+	// a claim that was recreated empty after a delete: server-side
+	// reconciliation may have failed closed, but only the webhook sees every
+	// pod the ReplicaSet attempts. The gate reads the claim directly through
+	// the APIReader: the manager has no PVC informer.
+	if err := (&StorageInitializerInjector{client: mutator.Client, reader: mutator.APIReader}).gateLocalModelCacheWaiting(ctx, pod); err != nil {
+		log.Error(err, "Failed local model cache import-record gate", "name", pod.Name, "namespace", pod.Namespace)
+		return admission.Errored(http.StatusForbidden, err)
 	}
 
 	if !needMutate(pod) {
@@ -72,9 +100,6 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 		// log the error but allow the mutator to continue
 		log.Info("Failed to get InferenceService", "name", isvcName, "err", err.Error())
 	}
-
-	// For some reason pod namespace is always empty when coming to pod mutator, need to set from admission request
-	pod.Namespace = req.Namespace
 
 	if err := mutator.mutate(ctx, pod, configMap, isvc); err != nil {
 		log.Error(err, "Failed to mutate pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
@@ -102,6 +127,7 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 		credentialBuilder: credentialBuilder,
 		config:            storageInitializerConfig,
 		client:            mutator.Client,
+		reader:            mutator.APIReader,
 	}
 
 	loggerConfig, err := getLoggerConfigs(pod, configMap, isvc)
