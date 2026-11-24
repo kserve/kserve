@@ -286,6 +286,7 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	cleanupErr := r.reconcileTerminatingGroupBackends(ctx, resource)
 	reconcileErr := r.reconcile(ctx, resource)
 	reconciler.PostProcessReconcile(ctx, resource, original)
+	adapterLifecycleResult := r.reconcileAdapterLifecycle(ctx, resource)
 
 	if err := errors.Join(cleanupErr, reconcileErr); err != nil {
 		logger.Error(err, "Failed to reconcile LLMInferenceService")
@@ -304,7 +305,7 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("failed to clean up terminating group backends: %w", cleanupErr)
 	}
 
-	return ctrl.Result{}, reconcileErr
+	return adapterLifecycleResult, reconcileErr
 }
 
 // reconcile handles the core business logic of reconciling an LLMInferenceService

@@ -672,6 +672,11 @@ func (in *LLMModelSpec) DeepCopyInto(out *LLMModelSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.MinReplicas != nil {
+		in, out := &in.MinReplicas, &out.MinReplicas
+		*out = new(int32)
+		**out = **in
+	}
 	if in.LoRA != nil {
 		in, out := &in.LoRA, &out.LoRA
 		*out = new(LoRASpec)

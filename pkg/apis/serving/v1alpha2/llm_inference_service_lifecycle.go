@@ -164,6 +164,10 @@ const (
 	// Independent of the Ready rollup - the current workloads keep serving.
 	// Only present when the backend is requested; absent means not requested.
 	DisaggregatedSetUsed apis.ConditionType = "DisaggregatedSetUsed"
+
+	// LoRAAdaptersWarm reports whether every configured adapter warm target is
+	// currently met. It is informational and does not participate in Ready.
+	LoRAAdaptersWarm apis.ConditionType = "LoRAAdaptersWarm"
 )
 
 const (
@@ -439,6 +443,18 @@ func (in *LLMInferenceService) MarkDisaggregatedSetNotUsed(reason, messageFormat
 
 func (in *LLMInferenceService) MarkDisaggregatedSetUsedUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(DisaggregatedSetUsed)
+}
+
+func (in *LLMInferenceService) MarkLoRAAdaptersWarmReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(LoRAAdaptersWarm)
+}
+
+func (in *LLMInferenceService) MarkLoRAAdaptersWarmNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(LoRAAdaptersWarm, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkLoRAAdaptersWarmUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(LoRAAdaptersWarm)
 }
 
 func (in *LLMInferenceService) DetermineRouterReadiness() {

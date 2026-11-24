@@ -34908,6 +34908,10 @@ spec:
                         minimum: 1
                         type: integer
                     type: object
+                  minReplicas:
+                    format: int32
+                    minimum: 0
+                    type: integer
                   name:
                     type: string
                   uri:
@@ -87411,6 +87415,10 @@ spec:
                         minimum: 1
                         type: integer
                     type: object
+                  minReplicas:
+                    format: int32
+                    minimum: 0
+                    type: integer
                   name:
                     type: string
                   uri:
