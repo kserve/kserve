@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/rest"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -96,6 +97,18 @@ func NewClientOptions(cfg *rest.Config) (client.Options, error) {
 	}
 	if !otelFound {
 		disableFor = append(disableFor, &otelv1beta1.OpenTelemetryCollector{})
+	}
+	// SetupWithManager only watches serving.knative.dev/v1/Service when the
+	// CRD exists at startup, while Reconcile re-checks availability and
+	// proceeds once Knative is installed. Without an informer those reads
+	// must go direct, so Knative-mode services keep starting after a late
+	// install instead of failing with "not cached" until a restart.
+	ksvcFound, err := utils.IsCrdAvailable(cfg, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+	if err != nil {
+		return client.Options{}, err
+	}
+	if !ksvcFound {
+		disableFor = append(disableFor, &knservingv1.Service{})
 	}
 
 	return client.Options{Cache: &client.CacheOptions{DisableFor: disableFor}}, nil
