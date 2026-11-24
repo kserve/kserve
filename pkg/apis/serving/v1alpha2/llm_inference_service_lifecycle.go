@@ -164,6 +164,20 @@ const (
 	// Independent of the Ready rollup - the current workloads keep serving.
 	// Only present when the backend is requested; absent means not requested.
 	DisaggregatedSetUsed apis.ConditionType = "DisaggregatedSetUsed"
+
+	// DisaggregatedSetRolloutScreened reports whether the KServe-managed scheduler of a
+	// service on a DisaggregatedSet runs the disaggregatedset-rollout-screener, which
+	// keeps each request's prefill and decode on one revision while the DisaggregatedSet
+	// rolls. Without it, a request can be prefilled on one revision and decoded on
+	// another during a rollout or a canary. False with reason ScreenerMissing,
+	// ExperimentalPluginsDisabled (the endpoint picker rejects the alpha plugin without
+	// --allow-experimental-plugins) or ScreenerScopeMismatch (its scope.labelSelector
+	// does not select the pods of both roles); Unknown with reason ConfigNotInspectable
+	// when the scheduler config is not inline.
+	// Independent of the Ready rollup - requests are still served without it.
+	// Only present when the service runs on a DisaggregatedSet with a KServe-managed
+	// scheduler.
+	DisaggregatedSetRolloutScreened apis.ConditionType = "DisaggregatedSetRolloutScreened"
 )
 
 const (
@@ -427,6 +441,22 @@ func (in *LLMInferenceService) MarkPerModelPathsKept(reason, messageFormat strin
 
 func (in *LLMInferenceService) MarkPerModelPathsDroppedUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PerModelPathsDropped)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetRolloutScreened() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(DisaggregatedSetRolloutScreened)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetRolloutNotScreened(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(DisaggregatedSetRolloutScreened, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetRolloutScreenedUnknown(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkUnknown(DisaggregatedSetRolloutScreened, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetRolloutScreenedUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(DisaggregatedSetRolloutScreened)
 }
 
 func (in *LLMInferenceService) MarkDisaggregatedSetUsed() {
