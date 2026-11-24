@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import signal
+
 import pytest
-from kserve import ModelServer
+from kserve import Model, ModelRepository, ModelServer
 
 UNKNOWN_MODEL_TYPE_ERR_MESSAGE = "Unknown model collection type"
 
@@ -70,3 +73,68 @@ def test_model_server_rejects_partial_ssl_configuration(ssl_certfile, ssl_keyfil
         ValueError, match="ssl_certfile and ssl_keyfile must be configured together"
     ):
         ModelServer(ssl_certfile=ssl_certfile, ssl_keyfile=ssl_keyfile)
+
+
+class _RecordingModel(Model):
+    def __init__(self, name, events):
+        super().__init__(name)
+        self.events = events
+        self.ready = True
+
+    def stop(self):
+        self.events.append("model stopped")
+        super().stop()
+
+
+class _DrainingServer:
+    def __init__(self, events, drain):
+        self.events = events
+        self.drain = drain
+
+    async def stop(self, sig):
+        self.events.append("drain started")
+        await self.drain.wait()
+        self.events.append("drain finished")
+
+
+async def _wait_until(predicate):
+    for _ in range(50):
+        if predicate():
+            return
+        await asyncio.sleep(0.01)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("server_attr", ["_rest_multiprocess_server", "_grpc_server"])
+async def test_model_server_stop_unloads_models_after_drain(server_attr):
+    events = []
+    drain = asyncio.Event()
+    server = ModelServer(registered_models=ModelRepository())
+    server.register_model(_RecordingModel("test-model", events))
+    setattr(server, server_attr, _DrainingServer(events, drain))
+
+    server.stop(signal.SIGTERM)
+    await asyncio.sleep(0.1)
+    # In-flight requests may still use the model while the server drains.
+    assert events == ["drain started"]
+
+    drain.set()
+    await _wait_until(lambda: "model stopped" in events)
+    assert events == ["drain started", "drain finished", "model stopped"]
+
+
+@pytest.mark.asyncio
+async def test_model_server_stop_unloads_models_when_server_stop_fails():
+    events = []
+
+    class FailingGRPCServer:
+        async def stop(self, sig):
+            raise RuntimeError("grpc stop failed")
+
+    server = ModelServer(registered_models=ModelRepository())
+    server.register_model(_RecordingModel("test-model", events))
+    server._grpc_server = FailingGRPCServer()
+
+    server.stop(signal.SIGTERM)
+    await _wait_until(lambda: "model stopped" in events)
+    assert events == ["model stopped"]

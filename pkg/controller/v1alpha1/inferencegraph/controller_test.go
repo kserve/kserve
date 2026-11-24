@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,8 +47,10 @@ var _ = Describe("Inference Graph controller test", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
 		timeout  = time.Second * 10
-		interval = time.Millisecond * 250
+		interval = time.Millisecond * 50
 		domain   = "example.com"
+		// Match the InferenceService suite's fastTimeout for negative checks.
+		absenceWindow = time.Second * 3
 	)
 
 	configs := map[string]string{
@@ -85,6 +87,20 @@ var _ = Describe("Inference Graph controller test", func() {
 	}
 
 	expectedReadinessProbe := constants.GetRouterReadinessProbe()
+
+	// expectKnServiceSpec compares the stored knative service against expected after a dry-run update
+	// fills in the API server defaults. The controller can still write the service after the test first
+	// reads it, so each attempt re-reads it and a resourceVersion conflict retries instead of failing.
+	expectKnServiceSpec := func(ctx context.Context, key types.NamespacedName, expected *knservingv1.Service) {
+		Eventually(func(g Gomega) {
+			actual := &knservingv1.Service{}
+			g.Expect(k8sClient.Get(ctx, key, actual)).To(Succeed())
+			dryRun := expected.DeepCopy()
+			dryRun.ResourceVersion = actual.ResourceVersion
+			g.Expect(k8sClient.Update(ctx, dryRun, client.DryRunAll)).To(Succeed())
+			g.Expect(actual.Spec).To(BeComparableTo(dryRun.Spec))
+		}, timeout, interval).Should(Succeed())
+	}
 
 	Context("with knative configured to not allow zero initial scale", func() {
 		When("a Knative InferenceGraph is created with an initial scale annotation and value of zero", func() {
@@ -258,7 +274,6 @@ var _ = Describe("Inference Graph controller test", func() {
 	})
 	Context("with knative configured to allow zero initial scale", func() {
 		BeforeEach(func() {
-			time.Sleep(10 * time.Second)
 			// Patch the existing config-autoscaler configmap to set allow-zero-initial-scale to true
 			configAutoscaler := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -272,7 +287,6 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout).Should(Succeed())
 		})
 		AfterEach(func() {
-			time.Sleep(10 * time.Second)
 			// Restore the default autoscaling configuration
 			configAutoscaler := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -280,7 +294,9 @@ var _ = Describe("Inference Graph controller test", func() {
 					Namespace: constants.AutoscalerConfigmapNamespace,
 				},
 			}
-			configPatch := []byte(`{"data":{}}`)
+			// The suite creates this configmap without the key. A strategic merge patch only
+			// removes a key set to null: `{"data":{}}` merges nothing and leaves it "true".
+			configPatch := []byte(`{"data":{"allow-zero-initial-scale":null}}`)
 			Eventually(func() error {
 				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout).Should(Succeed())
@@ -571,14 +587,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -710,14 +719,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -886,14 +888,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -993,6 +988,175 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers).To(Not(BeNil()))
 			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers[0].Image).To(Not(BeNil()))
 			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers[0].Args).To(Not(BeNil()))
+		})
+	})
+
+	Context("When creating an inferencegraph in Knative deployment mode with custom annotations", func() {
+		It("Should propagate custom annotations to the knative service metadata as well as the revision template", func() {
+			By("By creating a new InferenceGraph")
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			graphName := "igknativeannotations1"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			ctx := context.Background()
+			customAnnotationKey := "custom.annotation/hostname"
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
+						customAnnotationKey:                "test-hostname",
+						// Annotations on the ServiceAnnotationDisallowedList must not leak onto the
+						// knative service metadata, even though they are still honored on the revision
+						// template (pod) annotations.
+						autoscaling.MaxScaleAnnotationKey: "5",
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.example.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer k8sClient.Delete(ctx, ig)
+
+			actualService := &knservingv1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), serviceKey, actualService)
+			}, timeout, interval).Should(Succeed())
+
+			// The custom annotation reaches the knative service's top-level metadata (so it can be
+			// picked up by tools such as external-dns off the resulting Route/VirtualService) ...
+			Expect(actualService.Annotations).To(HaveKeyWithValue(customAnnotationKey, "test-hostname"))
+			// ... and remains on the revision template (pod) annotations too, unchanged from today.
+			Expect(actualService.Spec.Template.Annotations).To(HaveKeyWithValue(customAnnotationKey, "test-hostname"))
+
+			// Disallowed-list annotations must not leak onto the service metadata.
+			Expect(actualService.Annotations).NotTo(HaveKey(autoscaling.MaxScaleAnnotationKey))
+			Expect(actualService.Spec.Template.Annotations).To(HaveKeyWithValue(autoscaling.MaxScaleAnnotationKey, "5"))
+
+			// The autoscaling class annotation knative injects a default for must not leak onto the
+			// service metadata either, which would happen if annotations were captured for passthrough
+			// after SetAutoScalingAnnotations mutated the map instead of before.
+			Expect(actualService.Annotations).NotTo(HaveKey(autoscaling.ClassAnnotationKey))
+		})
+
+		It("Should update the knative service metadata when a custom annotation is changed on an existing IG", func() {
+			By("By creating a new InferenceGraph")
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			graphName := "igknativeannotations2"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			ctx := context.Background()
+			customAnnotationKey := "custom.annotation/hostname"
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
+						customAnnotationKey:                "hostname-a",
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.example.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer k8sClient.Delete(ctx, ig)
+
+			actualService := &knservingv1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, actualService)
+			}, timeout, interval).Should(Succeed())
+			Eventually(func() map[string]string {
+				_ = k8sClient.Get(ctx, serviceKey, actualService)
+				return actualService.Annotations
+			}, timeout, interval).Should(HaveKeyWithValue(customAnnotationKey, "hostname-a"))
+
+			By("Updating the custom annotation on the InferenceGraph")
+			actualIG := &v1alpha1.InferenceGraph{}
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				if err := k8sClient.Get(ctx, serviceKey, actualIG); err != nil {
+					return err
+				}
+				actualIG.Annotations[customAnnotationKey] = "hostname-b"
+				return k8sClient.Update(ctx, actualIG)
+			})).To(Succeed())
+
+			// The updated value must reach the existing knative service's metadata -- this exercises
+			// semanticEquals/reconcileKsvc's annotation sync path on the update branch, not just the
+			// initial create.
+			Eventually(func() map[string]string {
+				_ = k8sClient.Get(ctx, serviceKey, actualService)
+				return actualService.Annotations
+			}, timeout, interval).Should(HaveKeyWithValue(customAnnotationKey, "hostname-b"))
+			Expect(actualService.Spec.Template.Annotations).To(HaveKeyWithValue(customAnnotationKey, "hostname-b"))
+
+			By("Removing the custom annotation from the InferenceGraph")
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				if err := k8sClient.Get(ctx, serviceKey, actualIG); err != nil {
+					return err
+				}
+				delete(actualIG.Annotations, customAnnotationKey)
+				return k8sClient.Update(ctx, actualIG)
+			})).To(Succeed())
+
+			// A removed annotation must not linger on the knative service metadata, otherwise tools
+			// such as external-dns keep acting on a hostname the user already removed.
+			Eventually(func() map[string]string {
+				_ = k8sClient.Get(ctx, serviceKey, actualService)
+				return actualService.Annotations
+			}, timeout, interval).ShouldNot(HaveKey(customAnnotationKey))
+			Expect(actualService.Spec.Template.Annotations).NotTo(HaveKey(customAnnotationKey))
+
+			// Annotations are compared exactly, so make sure the reconciler settles instead of
+			// updating the knative service on every loop.
+			settledResourceVersion := actualService.ResourceVersion
+			Consistently(func() string {
+				_ = k8sClient.Get(ctx, serviceKey, actualService)
+				return actualService.ResourceVersion
+			}, 2*time.Second, interval).Should(Equal(settledResourceVersion))
 		})
 	})
 
@@ -1098,12 +1262,13 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
 		}
 
-		// Checks that any Kubernetes object to be not found.
-		expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
-			Consistently(func() bool {
-				err := k8sClient.Get(ctx, objKey, obj)
-				return apierr.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+		// Use one window so checking multiple resources does not extend the wait.
+		expectResourceIsDeleted := func(ctx context.Context, objKey types.NamespacedName, objs ...client.Object) {
+			Consistently(func(g Gomega) {
+				for _, obj := range objs {
+					g.Expect(apierr.IsNotFound(k8sClient.Get(ctx, objKey, obj))).To(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+				}
+			}, absenceWindow, interval).Should(Succeed())
 		}
 
 		// Wait for any Kubernetes object to be not found.
@@ -1205,7 +1370,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the knative service was not created
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &knservingv1.Service{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1269,7 +1434,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the knative service was not created
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &knservingv1.Service{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1414,8 +1579,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the service and deployment were not created
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
-				expectResourceIsDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &corev1.Service{}, &appsv1.Deployment{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1482,8 +1646,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				defer k8sClient.Delete(context.Background(), ig)
 
 				// Check that the service and deployment were not created
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
-				expectResourceIsDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectResourceIsDeleted(ctx, graphServiceKey, &corev1.Service{}, &appsv1.Deployment{})
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
@@ -1641,14 +1804,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(actualKnServiceCreated.Spec).To(BeComparableTo(expectedKnService.Spec))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 })

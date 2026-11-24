@@ -52,6 +52,10 @@ runs:
         cpus: 'max'
         memory: 'max'
         start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
+        # These workflows usually run on PRs, whose caches cannot be shared
+        # with other PRs. Manual runs on master can create shared entries.
+        # Measured PR re-push savings were only ~4 s for 0.8-1.6 GB per entry.
+        cache: false
 
     - name: Configure MetalLB address pool
       if: contains(inputs.addons, 'metallb')

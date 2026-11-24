@@ -647,7 +647,7 @@ PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.8.1
-ENVOY_AI_GATEWAY_VERSION=v1.1.0
+ENVOY_AI_GATEWAY_VERSION=v1.3.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
@@ -655,13 +655,13 @@ PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
 KSERVE_VERSION=v0.21.0
-ISTIO_VERSION=1.27.1
+ISTIO_VERSION=1.31.2
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v1.0.0
-GATEWAY_API_VERSION=v1.5.1
+GATEWAY_API_VERSION=v1.6.2
 GIE_VERSION=v1.6.2
-LLMD_ROUTER_VERSION=v0.11.0
+LLMD_ROUTER_VERSION=v1.0.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -1154,6 +1154,7 @@ install_envoy_ai_gateway() {
     fi
 
     log_info "Updating Envoy Gateway ${ENVOY_GATEWAY_VERSION}...to add inference pool addons for Envoy AI Gateway"
+    # Keep Envoy proxies in envoy-gateway-system when the inference pool add-on defaults to GatewayNamespace.
     helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
@@ -1161,6 +1162,7 @@ install_envoy_ai_gateway() {
         --skip-crds \
         -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/manifests/envoy-gateway-values.yaml \
         -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/inference-pool/envoy-gateway-values-addon.yaml \
+        --set config.envoyGateway.provider.kubernetes.deploy.type=ControllerNamespace \
         --wait
 
     log_success "Successfully Updated Envoy Gateway ${ENVOY_GATEWAY_VERSION} for Envoy AI Gateway"

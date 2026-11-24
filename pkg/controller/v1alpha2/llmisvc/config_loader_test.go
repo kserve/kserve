@@ -102,6 +102,31 @@ func TestLoadConfigLoRAModelRoutingStrategy(t *testing.T) {
 	}
 }
 
+func TestLoadConfigRouteRuleNaming(t *testing.T) {
+	for _, tt := range []struct {
+		input string
+		want  llmisvc.RouteRuleNaming
+	}{
+		{input: "", want: llmisvc.RouteRuleNamingPreset},
+		{input: "preset", want: llmisvc.RouteRuleNamingPreset},
+		{input: "UNIQUE", want: llmisvc.RouteRuleNamingUnique},
+		{input: "Unsupported", want: "unsupported"},
+	} {
+		t.Run(tt.input, func(t *testing.T) {
+			cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+			if tt.input != "" {
+				fixture.SetIngressConfigKey(cm, "routeRuleNaming", tt.input)
+			}
+			c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+
+			got, err := llmisvc.LoadConfig(t.Context(), c)
+
+			require.NoError(t, err, "an unsupported value fails the routes that use it, not config loading")
+			require.Equal(t, tt.want, got.RouteRuleNaming, "the loaded value is defaulted and lowercased")
+		})
+	}
+}
+
 func TestNewSchedulerConfig(t *testing.T) {
 	tests := []struct {
 		name                      string

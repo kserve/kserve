@@ -452,15 +452,14 @@ class TestV1Endpoints:
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers["content-type"] == "application/json"
 
-    def test_trace_id_header_present(self, http_server_client):
+    def test_trace_id_header_absent_when_tracing_is_not_configured(
+        self, http_server_client
+    ):
         resp = http_server_client.post(
             "/v1/models/TestModel:predict", content=b'{"instances":[[3,4]]}'
         )
         header_name = TRACE_RESPONSE_HEADER_NAME or "traceparent"
-        assert header_name in resp.headers
-        assert re.fullmatch(
-            r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}", resp.headers[header_name]
-        )
+        assert header_name not in resp.headers
 
     def test_explain_v1(self, http_server_client):
         resp = http_server_client.post(

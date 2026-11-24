@@ -164,6 +164,20 @@ func TestResolve(t *testing.T) {
 			wantErr:      true,
 			errContains:  "cannot be configured with TLS 1.3",
 		},
+		{
+			name:         "TLS 1.3 cipher names with TLS 1.2 floor is error",
+			minVersion:   "VersionTLS12",
+			cipherSuites: "TLS_AES_128_GCM_SHA256",
+			wantErr:      true,
+			errContains:  "cannot include TLS 1.3 suites",
+		},
+		{
+			name:         "mixed TLS 1.3 and TLS 1.2 names with TLS 1.2 floor is error",
+			minVersion:   "VersionTLS12",
+			cipherSuites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_CHACHA20_POLY1305_SHA256",
+			wantErr:      true,
+			errContains:  "cannot include TLS 1.3 suites",
+		},
 	}
 
 	for _, tt := range tests {

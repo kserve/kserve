@@ -49,7 +49,8 @@ const (
 	DefaultStorageSecretKey     = "default"
 	UnsupportedStorageSpecType  = "storage type must be one of [%s]. storage type [%s] is not supported"
 	MissingBucket               = "format [%s] requires a bucket but one wasn't found in storage data or parameters"
-	AwsIrsaAnnotationKey        = "eks.amazonaws.com/role-arn"
+	AwsIrsaAnnotationPrefix     = "eks.amazonaws.com/"
+	AwsIrsaAnnotationKey        = AwsIrsaAnnotationPrefix + "role-arn"
 )
 
 var (

@@ -19,6 +19,8 @@ package llmisvc
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
@@ -30,4 +32,15 @@ func ReconcileSingleNodeMainServiceAccountForTest(
 	cfg *Config,
 ) error {
 	return r.reconcileSingleNodeMainServiceAccount(ctx, llmSvc, cfg)
+}
+
+// ExpectedSingleNodePrefillPodTemplateForTest exposes expectedSingleNodePrefillPodTemplate for testing.
+func ExpectedSingleNodePrefillPodTemplateForTest(
+	ctx context.Context,
+	r *LLMISVCReconciler,
+	llmSvc *v1alpha2.LLMInferenceService,
+	config *Config,
+	deployed corev1.PodSpec,
+) (*singleNodePodTemplate, error) {
+	return r.expectedSingleNodePrefillPodTemplate(ctx, llmSvc, config, deployed)
 }

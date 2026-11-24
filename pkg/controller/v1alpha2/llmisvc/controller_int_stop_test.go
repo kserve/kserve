@@ -242,12 +242,13 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
 			// then - verify scheduler deployment is created
+			schedulerDeploymentKey := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+				Namespace: nsName,
+			}
 			schedulerDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
-					Namespace: nsName,
-				}, schedulerDeployment)
+				return envTest.Get(ctx, schedulerDeploymentKey, schedulerDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
 			// verify scheduler service is created
@@ -301,10 +302,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 
 			// then - verify scheduler deployment is deleted
 			Eventually(func(g Gomega, ctx context.Context) bool {
-				err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-epp",
-					Namespace: nsName,
-				}, schedulerDeployment)
+				err := envTest.Get(ctx, schedulerDeploymentKey, schedulerDeployment)
 				return err != nil && errors.IsNotFound(err)
 			}).WithContext(ctx).Should(BeTrue(), "scheduler deployment should be deleted when service is stopped")
 
@@ -1008,12 +1006,13 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
 			// then - verify scheduler deployment is created
+			schedulerDeploymentKey := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+				Namespace: nsName,
+			}
 			schedulerDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
-				}, schedulerDeployment)
+				return envTest.Get(ctx, schedulerDeploymentKey, schedulerDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
 			// verify InferencePool is created
@@ -1028,7 +1027,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			// when - Delete the LLMInferenceServiceConfig before stopping
 			Expect(envTest.Client.Delete(ctx, schedulerConfig)).To(Succeed())
 
-			// when - Set stop annotation (config is now missing)
+			// when - Set stop annotation (the config is terminating, its finalizer still holds it)
 			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
 					if llmSvc.Annotations == nil {
@@ -1058,10 +1057,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 
 			// verify scheduler deployment is deleted
 			Eventually(func(g Gomega, ctx context.Context) bool {
-				err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-epp",
-					Namespace: nsName,
-				}, schedulerDeployment)
+				err := envTest.Get(ctx, schedulerDeploymentKey, schedulerDeployment)
 				return err != nil && errors.IsNotFound(err)
 			}).WithContext(ctx).Should(BeTrue(), "scheduler deployment should be deleted when stopped with missing config")
 

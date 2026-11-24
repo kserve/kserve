@@ -121,9 +121,8 @@ mv $(1) $(1)-$(3)-$(GO_TOOLCHAIN) ;\
 ln -sf $(1)-$(3)-$(GO_TOOLCHAIN) $(1)
 endef
 
-# This clears all the installed binaries.
-#
-# Whenever you run into issues with the target like `precommit` or `test`, try running this target.
+##@ Tools
+
 .PHONY: clean
-clean:
+clean: ## Delete bin/: tools, venv, envtest assets. Try it when precommit or test breaks.
 	rm -rf $(LOCALBIN)

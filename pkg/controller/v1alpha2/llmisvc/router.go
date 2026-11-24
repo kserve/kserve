@@ -88,6 +88,8 @@ const AnnotationModelBasedRoutingOnly = "serving.kserve.io/model-based-routing-o
 // carry it; absent or empty means the ConfigMap value applies.
 const AnnotationLoRAModelRoutingStrategy = constants.LoRAModelRoutingStrategyAnnotationKey
 
+const AnnotationRouteRuleNaming = constants.RouteRuleNamingAnnotationKey
+
 // ErrPreconditionNotMet indicates a non-transient routing precondition failure
 // (e.g. a required CRD is missing or the routing strategy cannot be applied).
 // The caller should mark status and then return either nil or a
@@ -139,8 +141,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 
 	// Reconcile the scheduler component that manages inference pools
 	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
-		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
-		return fmt.Errorf("failed to reconcile scheduler: %w", err)
+		return r.schedulerReconcileError(llmSvc, err)
 	}
 
 	// Reconcile HTTP routes for traffic routing
@@ -184,6 +185,18 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	r.EvaluateGatewayConditions(ctx, llmSvc, resolvedGWs)
 
 	return nil
+}
+
+func (r *LLMISVCReconciler) schedulerReconcileError(llmSvc *v1alpha2.LLMInferenceService, err error) error {
+	var unsupported *unsupportedSchedulerPluginError
+	if errors.As(err, &unsupported) {
+		llmSvc.MarkSchedulerWorkloadNotReady("UnsupportedSchedulerPlugin", "%s", unsupported.Error())
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "UnsupportedSchedulerPlugin", "%s", unsupported.Error())
+		return reconcile.TerminalError(unsupported)
+	}
+
+	llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
+	return fmt.Errorf("failed to reconcile scheduler: %w", err)
 }
 
 // reconcileHTTPRoutes manages HTTPRoute resources for traffic routing.
@@ -262,7 +275,8 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	if route.HTTP.HasSpec() {
 		// Model name collisions affect publisher paths and model-routing
-		// headers alike - both derive from the same fullyQualifiedModelName.
+		// headers. Headers carry the declared model name; publisher paths
+		// carry its publisherModelPath, so distinct names can share a path.
 		// Run unconditionally because publisher paths are always present.
 		others := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, others, client.InNamespace(llmSvc.Namespace)); err != nil {
@@ -373,6 +387,10 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 				httpRoute.Spec.Rules,
 				cfg.ModelBasedRoutingHeaderName,
 			)
+		}
+
+		if err := applyRouteRuleNaming(httpRoute.Spec.Rules, llmSvc, cfg); err != nil {
+			return httpRoute, err
 		}
 	}
 

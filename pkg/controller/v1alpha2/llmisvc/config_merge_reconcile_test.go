@@ -49,6 +49,13 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
+func mainContainerForMergeTest(t *testing.T, podSpec *corev1.PodSpec) *corev1.Container {
+	t.Helper()
+	container := utils.GetContainerWithName(podSpec, mainContainerName)
+	require.NotNil(t, container, "main container not found")
+	return container
+}
+
 func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -160,6 +167,122 @@ func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
 	assert.Equal(t, condition.Message, ready.Message, "the exact cause should bubble up to Ready")
 }
 
+func TestCombineBaseRefsConfig_SchedulerVersionPrecedence(t *testing.T) {
+	const namespace = "test-ns"
+	modelURI, err := apis.ParseURL("hf://facebook/opt-125m")
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name             string
+		baseRefVersion   string
+		serviceScheduler *v1alpha2.SchedulerSpec
+		wantPreset       bool
+		wantVersion      string
+		wantImage        string
+	}{
+		{
+			name:           "baseRef pins router 0.11.0",
+			baseRefVersion: "0.11.0",
+			wantVersion:    "0.11.0",
+			wantImage:      "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
+		},
+		{
+			name:           "service 1.0.0 overrides a baseRef 0.11.0 pin",
+			baseRefVersion: "0.11.0",
+			serviceScheduler: &v1alpha2.SchedulerSpec{
+				Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "main",
+						Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0",
+					}},
+				},
+			},
+			wantPreset:  true,
+			wantVersion: "1.0.0",
+			wantImage:   "ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0",
+		},
+		{
+			name:           "service 0.11.0 overrides a baseRef 1.0.0 pin",
+			baseRefVersion: "1.0.0",
+			serviceScheduler: &v1alpha2.SchedulerSpec{
+				Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "main",
+						Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
+					}},
+				},
+			},
+			wantVersion: "0.11.0",
+			wantImage:   "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+			objects := make([]client.Object, 0, 4)
+			for _, name := range []string{
+				"config-llm-scheduler.yaml",
+				"config-llm-scheduler-eppconfig-default.yaml",
+				"config-llm-template.yaml",
+			} {
+				preset := loadPresetConfig(t, name)
+				preset.Namespace = namespace
+				objects = append(objects, preset)
+			}
+
+			pinnedScheduler := &v1alpha2.LLMInferenceServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{Name: "pinned-scheduler", Namespace: namespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Annotations: map[string]string{"app.kubernetes.io/version": tc.baseRefVersion},
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v" + tc.baseRefVersion,
+								}},
+							},
+						},
+					},
+				},
+			}
+			objects = append(objects, pinnedScheduler)
+
+			serviceScheduler := tc.serviceScheduler
+			if serviceScheduler == nil {
+				serviceScheduler = &v1alpha2.SchedulerSpec{}
+			}
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:    v1alpha2.LLMModelSpec{URI: *modelURI},
+					Router:   &v1alpha2.RouterSpec{Scheduler: serviceScheduler},
+					BaseRefs: []corev1.LocalObjectReference{{Name: pinnedScheduler.Name}},
+				},
+			}
+			r := &LLMISVCReconciler{
+				Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build(),
+			}
+
+			combined, err := r.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+
+			require.NoError(t, err)
+			if tc.wantPreset {
+				require.NotNil(t, combined.Config.Spec.Router.Scheduler.Config)
+				assert.Contains(t, string(combined.Config.Spec.Router.Scheduler.Config.Inline.Raw), "llm-d.ai/v1")
+			} else {
+				assert.Nil(t, combined.Config.Spec.Router.Scheduler.Config,
+					"a scheduler pinned to 0.11.0 through baseRefs must not receive the llm-d.ai/v1 preset")
+			}
+			assert.Equal(t, tc.wantVersion, combined.Config.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"])
+			assert.Equal(t, tc.wantImage, combined.Config.Spec.Router.Scheduler.Template.Containers[0].Image)
+		})
+	}
+}
+
 func TestReconcileBaseRefs_DryRunUpdateRetainsWVA(t *testing.T) {
 	for _, role := range []string{"main", "prefill"} {
 		t.Run(role, func(t *testing.T) {
@@ -239,6 +362,301 @@ func TestReconcileBaseRefs_DryRunUpdateRetainsWVA(t *testing.T) {
 	}
 }
 
+func TestMergeSpecsReplacesPVCEvictorResources(t *testing.T) {
+	base := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: pvcEvictorTemplateName,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1")},
+						Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("4")},
+					},
+				}},
+			},
+		},
+	}
+	override := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: pvcEvictorTemplateName,
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m")},
+					},
+				}},
+			},
+		},
+	}
+
+	merged, err := mergeSpecs(t.Context(), base, override)
+	require.NoError(t, err)
+	container := findPVCEvictorContainerTemplate(merged.Template)
+	require.NotNil(t, container)
+	assert.Empty(t, container.Resources.Requests)
+	assert.Equal(t, corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m")}, container.Resources.Limits)
+}
+
+func TestCombineBaseRefsConfigRendersMainPVCEvictorOverrideForPrefill(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	const namespace = "test-ns"
+	modelURL, err := apis.ParseURL("pvc://test-model")
+	require.NoError(t, err)
+	decodePreset := loadPresetConfig(t, "config-llm-decode-template.yaml")
+	decodePreset.Namespace = namespace
+	prefillPreset := loadPresetConfig(t, "config-llm-prefill-template.yaml")
+	prefillPreset.Namespace = namespace
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{URI: *modelURL, Name: ptr.To("test-model")},
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  pvcEvictorTemplateName,
+						Image: "example.com/evictor:custom",
+					}},
+				},
+			},
+			Prefill: &v1alpha2.WorkloadSpec{
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("1Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+					}}},
+				},
+			},
+		},
+	}
+
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(decodePreset, prefillPreset).
+			Build(),
+	}
+	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	require.NoError(t, err)
+
+	llmSvc.Spec = combined.Config.Spec
+	pod, err := reconciler.expectedSingleNodePrefillPodTemplate(t.Context(), llmSvc, &Config{}, corev1.PodSpec{})
+	require.NoError(t, err)
+	evictor := utils.GetContainerWithName(&pod.Template.Spec, "pvc-evictor-kv-cache-secondary-0")
+	require.NotNil(t, evictor, "prefill did not inherit the main pvc-evictor template")
+	assert.Equal(t, "example.com/evictor:custom", evictor.Image)
+}
+
+func TestCombineBaseRefsConfigFillsPrefillPVCEvictorImage(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	const namespace = "test-ns"
+	modelURL, err := apis.ParseURL("pvc://test-model")
+	require.NoError(t, err)
+	decodePreset := loadPresetConfig(t, "config-llm-decode-template.yaml")
+	decodePreset.Namespace = namespace
+	prefillPreset := loadPresetConfig(t, "config-llm-prefill-template.yaml")
+	prefillPreset.Namespace = namespace
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{URI: *modelURL, Name: ptr.To("test-model")},
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  pvcEvictorTemplateName,
+						Image: "example.com/evictor:custom",
+					}},
+				},
+			},
+			Prefill: &v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: pvcEvictorTemplateName,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")},
+						},
+					}},
+				},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("1Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+					}}},
+				},
+			},
+		},
+	}
+
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(decodePreset, prefillPreset).
+			Build(),
+	}
+	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	require.NoError(t, err)
+
+	llmSvc.Spec = combined.Config.Spec
+	pod, err := reconciler.expectedSingleNodePrefillPodTemplate(t.Context(), llmSvc, &Config{}, corev1.PodSpec{})
+	require.NoError(t, err)
+	evictor := utils.GetContainerWithName(&pod.Template.Spec, "pvc-evictor-kv-cache-secondary-0")
+	require.NotNil(t, evictor, "prefill did not render its explicit pvc-evictor template")
+	assert.Equal(t, "example.com/evictor:custom", evictor.Image)
+	assert.Equal(t, corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")}, evictor.Resources.Requests)
+}
+
+func TestCombineBaseRefsConfigFillsPrefillSharedPVCEvictorImage(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	const namespace = "test-ns"
+	modelURL, err := apis.ParseURL("pvc://test-model")
+	require.NoError(t, err)
+	decodePreset := loadPresetConfig(t, "config-llm-decode-template.yaml")
+	decodePreset.Namespace = namespace
+	prefillPreset := loadPresetConfig(t, "config-llm-prefill-template.yaml")
+	prefillPreset.Namespace = namespace
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{URI: *modelURL, Name: ptr.To("test-model")},
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  pvcEvictorTemplateName,
+						Image: "example.com/evictor:custom",
+					}},
+				},
+			},
+			Prefill: &v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: pvcEvictorTemplateName,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")},
+						},
+					}},
+				},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("1Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "prefill-pvc", Path: "kv-cache"}},
+					}}},
+				},
+			},
+		},
+	}
+
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(decodePreset, prefillPreset).
+			Build(),
+	}
+	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	require.NoError(t, err)
+
+	llmSvc.Spec = combined.Config.Spec
+	require.NoError(t, validatePVCEvictorContainerTemplates(llmSvc))
+	targets := collectPVCEvictorTargets(llmSvc)
+	require.Len(t, targets, 1)
+	deployment := expectedPVCEvictorDeployment(llmSvc, targets[0])
+	evictor := utils.GetContainerWithName(&deployment.Spec.Template.Spec, "pvc-evictor")
+	require.NotNil(t, evictor, "shared evictor Deployment has no pvc-evictor container")
+	assert.Equal(t, "example.com/evictor:custom", evictor.Image)
+	assert.Equal(t, corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")}, evictor.Resources.Requests)
+}
+
+func TestMultiNodePrefillWorkerInheritsPVCEvictorImage(t *testing.T) {
+	modelURL, err := apis.ParseURL("pvc://test-model")
+	require.NoError(t, err)
+	main := corev1.Container{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: disaggTestNamespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{URI: *modelURL, Name: ptr.To("test-model")},
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: []corev1.Container{
+					main,
+					{Name: pvcEvictorTemplateName, Image: "example.com/evictor:custom"},
+				}},
+			},
+			Prefill: &v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: []corev1.Container{
+					main,
+					{
+						Name: pvcEvictorTemplateName,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")},
+						},
+					},
+				}},
+				Worker: &corev1.PodSpec{Containers: []corev1.Container{main}},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("1Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+					}}},
+				},
+			},
+		},
+	}
+
+	prefill, err := disaggTestReconciler(t).expectedMultiNodePrefillLeaderWorkerTemplate(t.Context(), llmSvc, disaggTestConfig(), nil, corev1.PodSpec{})
+	require.NoError(t, err)
+	for role, pod := range map[string]*corev1.PodSpec{
+		"leader": &prefill.Template.LeaderTemplate.Spec,
+		"worker": &prefill.Template.WorkerTemplate.Spec,
+	} {
+		evictor := utils.GetContainerWithName(pod, "pvc-evictor-kv-cache-secondary-0")
+		require.NotNil(t, evictor, "prefill %s has no pvc-evictor sidecar", role)
+		assert.Equal(t, "example.com/evictor:custom", evictor.Image, "prefill %s", role)
+	}
+}
+
+func TestMergeSpecsPreservesExplicitPrefillPVCEvictorOverride(t *testing.T) {
+	base := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+		},
+		Prefill: &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+		},
+	}
+	override := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "main-custom:v1"}},
+			},
+		},
+		Prefill: &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "prefill-custom:v1"}},
+			},
+		},
+	}
+
+	merged, err := mergeSpecs(t.Context(), base, override)
+	require.NoError(t, err)
+	require.NotNil(t, merged.Prefill)
+	prefillContainer := findPVCEvictorContainerTemplate(merged.Prefill.Template)
+	require.NotNil(t, prefillContainer)
+	assert.Equal(t, "prefill-custom:v1", prefillContainer.Image)
+}
+
 // TestCombineBaseRefsConfig_TransferSlot pins the upgrade contract end to end: a
 // preset declaring the slot gets the argument filled in from the merged spec, and
 // one without it comes back untouched.
@@ -301,7 +719,7 @@ func TestCombineBaseRefsConfig_TransferSlot(t *testing.T) {
 			require.NotNil(t, combined.Config.Spec.Template)
 			podSpec := combined.Config.Spec.Template
 			require.Len(t, podSpec.Containers, 1)
-			main := &podSpec.Containers[0]
+			main := mainContainerForMergeTest(t, podSpec)
 
 			// This preset asks for no headroom, so its declared size stands.
 			// Secondary-tier volumes are attached later by the workload builders.
@@ -360,7 +778,7 @@ func TestCombineBaseRefsConfig_RendersDegenerateKVCacheCPUFromBaseRef(t *testing
 
 			require.NotNil(t, combined.Config.Spec.Template)
 			require.Len(t, combined.Config.Spec.Template.Containers, 1)
-			transfer, filled := utils.GetEnvVarValue(combined.Config.Spec.Template.Containers[0].Env, kvTransferArgsEnvVar)
+			transfer, filled := utils.GetEnvVarValue(mainContainerForMergeTest(t, combined.Config.Spec.Template).Env, kvTransferArgsEnvVar)
 			require.True(t, filled)
 			assert.Contains(t, transfer, "cpu_bytes_to_use")
 		})
@@ -494,7 +912,7 @@ func TestCombineBaseRefsConfig_ResolvesAndClearsSchedulerConfigRef(t *testing.T)
 	schedulerConfig := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: configMapName, Namespace: namespace},
 		Data: map[string]string{"epp": `
-apiVersion: llm-d.ai/v1alpha1
+apiVersion: llm-d.ai/v1
 kind: EndpointPickerConfig
 plugins: []
 `},
@@ -630,7 +1048,7 @@ func TestCombineBaseRefsConfig_ConfigFlagInWellKnownPresetSuppressesInjection(t 
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
 	const adminConfig = `
-apiVersion: llm-d.ai/v1alpha1
+apiVersion: llm-d.ai/v1
 kind: EndpointPickerConfig
 plugins:
 - type: admin-owned-plugin
@@ -640,7 +1058,7 @@ plugins:
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Router: &v1alpha2.RouterSpec{
 				Scheduler: &v1alpha2.SchedulerSpec{
-					Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
+					Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
 					Template: &corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name: "main",
@@ -738,7 +1156,7 @@ func TestCombineBaseRefsConfig_RendersAgainstBaseRefValues(t *testing.T) {
 	require.NotNil(t, combined.Config.Spec.Template)
 	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
 
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	cmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Template).Command, " ")
 	assert.Contains(t, cmd, "--data-parallel-size 2",
 		"parallelism supplied through a baseRef must reach the rendered command")
 	assert.Contains(t, cmd, "--enable-expert-parallel")
@@ -799,7 +1217,7 @@ func TestCombineBaseRefsConfig_GracePeriodFromBaseRef(t *testing.T) {
 
 	// and: the engine is told to stop within it, not within the default
 	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	cmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Template).Command, " ")
 	assert.Contains(t, cmd, "--shutdown-timeout 280",
 		"300s grace period, less the 15s preStop and a 5s signal buffer")
 	assert.NotContains(t, cmd, "--shutdown-timeout 40",
@@ -862,11 +1280,11 @@ func TestCombineBaseRefsConfig_DisaggregatedBaseRefValues(t *testing.T) {
 	require.NotNil(t, combined.Config.Spec.Prefill.Template)
 	require.NotEmpty(t, combined.Config.Spec.Prefill.Template.Containers)
 
-	decodeCmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	decodeCmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Template).Command, " ")
 	assert.Contains(t, decodeCmd, "--data-parallel-size 4")
 	assert.Contains(t, decodeCmd, "--enable-expert-parallel")
 
-	prefillCmd := strings.Join(combined.Config.Spec.Prefill.Template.Containers[0].Command, " ")
+	prefillCmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Prefill.Template).Command, " ")
 	assert.Contains(t, prefillCmd, "--data-parallel-size 2")
 	assert.Contains(t, prefillCmd, "--enable-expert-parallel")
 }
@@ -934,7 +1352,7 @@ func TestCombineBaseRefsConfig_ServiceWinsOverBaseRef(t *testing.T) {
 
 	require.NotNil(t, combined.Config.Spec.Template)
 	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	cmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Template).Command, " ")
 	assert.Contains(t, cmd, "--tensor-parallel-size 8",
 		"the rendered command must match the deployed spec, not the overridden baseRef")
 	assert.NotContains(t, cmd, "--tensor-parallel-size 2")
@@ -1000,7 +1418,7 @@ func TestCombineBaseRefsConfig_RendersAgainstCanonicalPreRenderSpec(t *testing.T
 	require.NotNil(t, combined.Config.Spec.Template)
 	require.Len(t, combined.Config.Spec.Template.Containers, 1)
 
-	container := combined.Config.Spec.Template.Containers[0]
+	container := mainContainerForMergeTest(t, combined.Config.Spec.Template)
 	wantEnv := make([]string, 0, len(container.Env))
 	for _, env := range container.Env {
 		wantEnv = append(wantEnv, env.Name+"="+env.Value+";")
@@ -1091,7 +1509,7 @@ func TestCombineBaseRefsConfig_BareServiceRendersUnchanged(t *testing.T) {
 				if pod == nil || len(pod.Containers) == 0 {
 					continue
 				}
-				cmd := strings.Join(pod.Containers[0].Command, " ")
+				cmd := strings.Join(mainContainerForMergeTest(t, pod).Command, " ")
 				if !strings.Contains(cmd, "--shutdown-timeout") {
 					continue
 				}

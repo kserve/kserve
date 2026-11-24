@@ -23,6 +23,7 @@ Name | Type | Description | Notes
 **model_based_routing_header_name** | **str** |  | [optional] 
 **model_based_routing_mode** | **str** |  | [optional] 
 **path_template** | **str** |  | [optional] 
+**route_rule_naming** | **str** | RouteRuleNaming is \&quot;preset\&quot; (the default) or \&quot;unique\&quot;, which suffixes the LLMInferenceService HTTPRoute rule names per service. An unsupported value sets HTTPRoutesReady&#x3D;False on the services that use it. | [optional] 
 **url_scheme** | **str** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

@@ -46,7 +46,12 @@ from kserve.models import V1alpha2LLMInferenceService, V1alpha2LLMInferenceServi
 from kubernetes import client as k8s_client, config
 
 from .diagnostic import collect_diagnostics
-from .fixtures import DEFAULT_LLMISVC_ANNOTATIONS, LLMD_SIMULATOR_SECURITY_CONTEXT
+from .fixtures import (
+    DEFAULT_LLMISVC_ANNOTATIONS,
+    LLMD_SIMULATOR_SECURITY_CONTEXT,
+    apply_epp_tls_workaround,
+    has_istio,
+)
 from .namespace import skip_deletion, skip_deletion_on_failure
 from .test_llm_inference_service import MODEL_ROUTING_HEADER, publisher_model
 
@@ -610,60 +615,6 @@ def wait_for_group_weight(api, observer, member, expected, ns, timeout=30):
     raise TimeoutError(f"{member} weight={w}, expected {expected} (from {observer})")
 
 
-def _has_istio():
-    try:
-        k8s_client.ApiextensionsV1Api().read_custom_resource_definition(
-            "destinationrules.networking.istio.io"
-        )
-        return True
-    except k8s_client.ApiException:
-        return False
-
-
-def _apply_epp_tls_workaround(ns):
-    """Apply Istio DestinationRules for EPP TLS. Idempotent.
-
-    Istio's sidecar proxy enforces mTLS between services by default, but
-    the EPP scheduler generates its own self-signed TLS cert rather than
-    using Istio mesh certs. Without a DestinationRule, Istio initiates
-    mTLS to EPP, EPP presents its self-signed cert, and Istio rejects
-    the connection - leaving InferencePool stuck in WaitingForGateway.
-
-    The DestinationRule switches to SIMPLE TLS (accept any server cert)
-    for EPP services, bypassing the mTLS mismatch. Only needed on Istio;
-    Envoy Gateway handles EPP TLS natively.
-    """
-    core = k8s_client.CoreV1Api()
-    api = k8s_client.CustomObjectsApi()
-    svcs = core.list_namespaced_service(ns)
-    for svc in svcs.items:
-        if "epp" not in svc.metadata.name:
-            continue
-        name = f"{svc.metadata.name}-tls"
-        body = {
-            "apiVersion": "networking.istio.io/v1",
-            "kind": "DestinationRule",
-            "metadata": {"name": name, "namespace": ns},
-            "spec": {
-                "host": f"{svc.metadata.name}.{ns}.svc.cluster.local",
-                "trafficPolicy": {
-                    "tls": {"mode": "SIMPLE", "insecureSkipVerify": True}
-                },
-            },
-        }
-        try:
-            api.create_namespaced_custom_object(
-                "networking.istio.io", "v1", ns, "destinationrules", body
-            )
-        except k8s_client.ApiException as e:
-            if e.status == 409:
-                api.patch_namespaced_custom_object(
-                    "networking.istio.io", "v1", ns, "destinationrules", name, body
-                )
-            else:
-                raise
-
-
 # ---------------------------------------------------------------------------
 # Test fixtures
 # ---------------------------------------------------------------------------
@@ -693,8 +644,8 @@ def canary_env(request, test_namespace):
     wait_ready(api, scenario.v2.name, ns)
 
     # Istio needs DestinationRules for EPP TLS origination (scheduler scenarios only).
-    if any(m.scheduler for m in [scenario.v1, scenario.v2]) and _has_istio():
-        _apply_epp_tls_workaround(ns)
+    if any(m.scheduler for m in [scenario.v1, scenario.v2]) and has_istio():
+        apply_epp_tls_workaround(ns)
 
     yield scenario, api, ns
 

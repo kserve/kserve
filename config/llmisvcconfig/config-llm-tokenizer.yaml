@@ -46,6 +46,8 @@ spec:
               env:
                 - name: KSERVE_TRACING_CONFIG_VERSION
                   value: "1"
+                - name: KSERVE_PULL_SECRETS_CONFIG_VERSION
+                  value: "1"
                 - name: HF_HOME
                   value: /tmp/hf
                 - name: DO_NOT_TRACK

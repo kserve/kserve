@@ -2,15 +2,15 @@
 
 """Generate kserve-deps.env from go.mod"""
 
+import json
 import os
 import re
 import subprocess
 import sys
-import json
+import time
 import urllib.request
-from urllib.request import Request
 from pathlib import Path
-
+from urllib.request import Request
 
 # Configuration: (go_package, helm_repo, helm_chart, (github_repo, download_file))
 DEPENDENCIES = {
@@ -79,6 +79,8 @@ def get_helm_versions(repo, chart):
         with open(cache_file, "r") as f:
             return json.load(f)
 
+    # fetch latest versions from helm repo
+    run(f"helm repo update {repo}")
     output = run(f"helm search repo {repo}/{chart} --versions --devel -o json")
     versions = json.loads(output)
     with open(cache_file, "w") as f:
@@ -214,7 +216,14 @@ def ensure_helm_repo(name, url):
     repos = json.loads(result)
     if any(r.get("name") == name for r in repos):
         return
-    run(f"helm repo add {name} {url}")
+    for attempt in range(3):
+        try:
+            run(f"helm repo add {name} {url}")
+            return
+        except subprocess.CalledProcessError:
+            if attempt == 2:
+                raise
+            time.sleep(2)
 
 
 def parse_existing_versions(env_file):
