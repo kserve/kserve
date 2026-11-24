@@ -498,6 +498,33 @@ func TestSchedulerDefaultPreset(t *testing.T) {
 	}))
 }
 
+// TestSchedulerPresetPreStopNeedsNoBinary asserts the scheduler preset drains the endpoint
+// picker with the kubelet's sleep action. The endpoint picker image is distroless, so an exec
+// hook (e.g. /bin/sleep) fails immediately and the pod gets no drain time before SIGTERM.
+func TestSchedulerPresetPreStopNeedsNoBinary(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	path := filepath.Join(pkgtesting.ProjectRoot(), "config", "llmisvcconfig", "config-llm-scheduler.yaml")
+	data, err := os.ReadFile(filepath.Clean(path))
+	g.Expect(err).NotTo(HaveOccurred())
+	cfg := &v1alpha2.LLMInferenceServiceConfig{}
+	g.Expect(yaml.Unmarshal(data, cfg)).To(Succeed())
+	g.Expect(cfg.Spec.Router.Scheduler.Template).NotTo(BeNil())
+
+	idx := slices.IndexFunc(cfg.Spec.Router.Scheduler.Template.Containers, func(c corev1.Container) bool {
+		return c.Name == "main"
+	})
+	g.Expect(idx).To(BeNumerically(">=", 0))
+	lifecycle := cfg.Spec.Router.Scheduler.Template.Containers[idx].Lifecycle
+	g.Expect(lifecycle).NotTo(BeNil())
+	g.Expect(lifecycle.PreStop).NotTo(BeNil())
+	g.Expect(lifecycle.PreStop.Exec).To(BeNil(), "the endpoint picker image has no shell or sleep binary")
+	g.Expect(lifecycle.PreStop.Sleep).NotTo(BeNil())
+	g.Expect(lifecycle.PreStop.Sleep.Seconds).To(BeEquivalentTo(15))
+	g.Expect(lifecycle.PreStop.Sleep.Seconds).To(BeNumerically("<",
+		*cfg.Spec.Router.Scheduler.Template.TerminationGracePeriodSeconds))
+}
+
 // TestSchedulerConfigTextOmni asserts the legacy fallback config (routers too
 // old for presets) is load-only for omni services: the text prefix-cache chain
 // has no TokenizedRequest for audio/image inputs, so prefix-cache-scorer must
