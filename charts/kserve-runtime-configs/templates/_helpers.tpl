@@ -53,12 +53,13 @@ Render an image name with its tag or digest cleanly.
 Usage: {{ include "kserve-runtime-configs.image" (dict "image" .image "tag" .tag) }}
 */}}
 {{- define "kserve-runtime-configs.image" -}}
-{{- if hasPrefix "@" (default "" .tag) -}}
-{{- printf "%s%s" .image .tag -}}
-{{- else if hasPrefix "sha256:" (default "" .tag) -}}
-{{- printf "%s@%s" .image .tag -}}
-{{- else if .tag -}}
-{{- printf "%s:%s" .image .tag -}}
+{{- $tag := (default "" .tag) | toString -}}
+{{- if hasPrefix "@" $tag -}}
+{{- printf "%s%s" .image $tag -}}
+{{- else if hasPrefix "sha256:" $tag -}}
+{{- printf "%s@%s" .image $tag -}}
+{{- else if $tag -}}
+{{- printf "%s:%s" .image $tag -}}
 {{- else -}}
 {{- printf "%s" .image -}}
 {{- end -}}
