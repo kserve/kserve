@@ -30,8 +30,13 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/csaupgrade"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -252,42 +257,114 @@ func (r *LLMISVCReconciler) reconcileDisaggregatedSet(ctx context.Context, llmSv
 	if err != nil {
 		return nil, fmt.Errorf("failed to build the expected DisaggregatedSet: %w", err)
 	}
-	// current was just read, so create or update directly rather than through Reconcile,
+	// current was just read, so create or apply directly rather than through Reconcile,
 	// which would read it again.
 	if current == nil {
 		err = Create(ctx, r, llmSvc, expected)
 	} else {
-		err = Update(ctx, r, llmSvc, current, expected, semanticDisaggregatedSetIsEqual, PreserveDisaggregatedSetControllerAnnotations())
+		err = r.applyDisaggregatedSet(ctx, llmSvc, current, expected)
 	}
 	if err != nil {
 		return nil, err
 	}
 	// Read the stored object back, as the Deployment and LeaderWorkerSet paths do, rather
-	// than returning expected: when nothing changed, Update leaves expected holding its
-	// dry-run response, whose generation is ahead of the stored one if the stored object
-	// has a field the controller does not set, so readiness would never catch up.
+	// than returning expected: the stored object can carry fields the controller does not
+	// set, and its generation is what the DisaggregatedSet status is compared against.
 	return r.currentDisaggregatedSet(ctx, llmSvc)
 }
 
-// PreserveDisaggregatedSetControllerAnnotations returns an UpdateOption that copies the
-// annotations in the DisaggregatedSet API group from the stored DisaggregatedSet to the
-// one being written, unless the latter sets them. Those annotations are set by the
-// DisaggregatedSet controller.
-func PreserveDisaggregatedSetControllerAnnotations() UpdateOption[*disaggregatedsetv1.DisaggregatedSet] {
-	return AfterDryRun(func(expected, expectedGiven, curr *disaggregatedsetv1.DisaggregatedSet) {
-		for k, v := range curr.Annotations {
-			if !strings.HasPrefix(k, apiGroupDisaggregatedSet+"/") {
-				continue
-			}
-			if _, set := expectedGiven.Annotations[k]; set {
-				continue
-			}
-			if expected.Annotations == nil {
-				expected.Annotations = map[string]string{}
-			}
-			expected.Annotations[k] = v
-		}
-	})
+// disaggregatedSetFieldOwner is the field manager KServe applies the DisaggregatedSet with.
+const disaggregatedSetFieldOwner = "kserve-llmisvc-controller"
+
+// applyDisaggregatedSet writes the fields KServe manages with server-side apply, so the
+// fields it does not set stay as their owners left them. A full Update would drop them: a
+// user's placementPolicy, the DisaggregatedSet controller's annotations, and every field
+// added in a newer DisaggregatedSet API than the one KServe is built against (for example
+// rollout canary settings that a release controller sets during a release), as typed objects
+// cannot carry fields their Go type does not have. Fields KServe does set, such as a role's
+// replicas when it is not autoscaled, are taken back with force, as before.
+//
+// A DisaggregatedSet written by an earlier KServe with Update first has that manager's
+// fields moved to the apply manager, so fields KServe stops setting are still removed.
+func (r *LLMISVCReconciler) applyDisaggregatedSet(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, current, expected *disaggregatedsetv1.DisaggregatedSet) error {
+	if !metav1.IsControlledBy(current, llmSvc) {
+		return fmt.Errorf("failed to update DisaggregatedSet %s/%s: it is not controlled by LLMInferenceService %s/%s",
+			current.GetNamespace(), current.GetName(), llmSvc.GetNamespace(), llmSvc.GetName())
+	}
+
+	if err := r.upgradeDisaggregatedSetManagedFields(ctx, current); err != nil {
+		return err
+	}
+
+	apply, err := disaggregatedSetApplyConfiguration(expected)
+	if err != nil {
+		return err
+	}
+	opts := []client.ApplyOption{client.FieldOwner(disaggregatedSetFieldOwner), client.ForceOwnership}
+
+	// Dry-run first so an unchanged service writes nothing and emits no event.
+	dryRun := apply.DeepCopy()
+	if err := r.Apply(ctx, client.ApplyConfigurationFromUnstructured(dryRun), append(opts, client.DryRunAll)...); err != nil {
+		return fmt.Errorf("failed to get defaults for DisaggregatedSet %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+	applied := &disaggregatedsetv1.DisaggregatedSet{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(dryRun.Object, applied); err != nil {
+		return fmt.Errorf("failed to read the dry-run DisaggregatedSet %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+	if semanticDisaggregatedSetIsEqual(applied, current) {
+		return nil
+	}
+
+	log.FromContext(ctx).V(2).Info("Applying DisaggregatedSet", "expected", expected, "curr", current)
+	if err := r.Apply(ctx, client.ApplyConfigurationFromUnstructured(apply), opts...); err != nil {
+		return fmt.Errorf("failed to update DisaggregatedSet %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+	r.Eventf(llmSvc, corev1.EventTypeNormal, "Updated", "Updated DisaggregatedSet %s/%s", expected.GetNamespace(), expected.GetName())
+	return nil
+}
+
+// disaggregatedSetApplyConfiguration turns the expected DisaggregatedSet into an apply
+// request: the fields KServe sets, with the type information apply needs and without the
+// ones it must not send.
+func disaggregatedSetApplyConfiguration(expected *disaggregatedsetv1.DisaggregatedSet) (*unstructured.Unstructured, error) {
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(expected)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert the expected DisaggregatedSet %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+	u := &unstructured.Unstructured{Object: obj}
+	u.SetGroupVersionKind(disaggregatedsetv1.GroupVersion.WithKind("DisaggregatedSet"))
+	u.SetResourceVersion("")
+	u.SetManagedFields(nil)
+	unstructured.RemoveNestedField(u.Object, "metadata", "creationTimestamp")
+	unstructured.RemoveNestedField(u.Object, "status")
+	return u, nil
+}
+
+// upgradeDisaggregatedSetManagedFields moves the fields KServe owns through Update, from
+// releases that wrote the DisaggregatedSet that way, to its apply field manager. Without it
+// they would stay owned by the old Update entry, and a field KServe stops setting would never
+// be removed. Only KServe's own entry moves: fields other managers own are left alone.
+func (r *LLMISVCReconciler) upgradeDisaggregatedSetManagedFields(ctx context.Context, current *disaggregatedsetv1.DisaggregatedSet) error {
+	patch, err := csaupgrade.UpgradeManagedFieldsPatch(current, sets.New(legacyFieldManager()), disaggregatedSetFieldOwner)
+	if err != nil {
+		return fmt.Errorf("failed to compute the managed fields upgrade of DisaggregatedSet %s/%s: %w", current.GetNamespace(), current.GetName(), err)
+	}
+	if patch == nil {
+		return nil
+	}
+	if err := r.Patch(ctx, current, client.RawPatch(types.JSONPatchType, patch)); err != nil {
+		return fmt.Errorf("failed to upgrade the managed fields of DisaggregatedSet %s/%s: %w", current.GetNamespace(), current.GetName(), err)
+	}
+	log.FromContext(ctx).Info("Moved DisaggregatedSet fields to server-side apply", "disaggregatedset", client.ObjectKeyFromObject(current))
+	return nil
+}
+
+// legacyFieldManager is the field manager the API server recorded for KServe's Update
+// requests, which set no field manager of their own: the client's user agent up to the
+// first "/", by default the controller binary's name.
+func legacyFieldManager() string {
+	name, _, _ := strings.Cut(rest.DefaultKubernetesUserAgent(), "/")
+	return name
 }
 
 // deleteDisaggregatedSet removes the DisaggregatedSet of a service that does not run on
