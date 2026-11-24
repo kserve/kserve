@@ -468,6 +468,15 @@ type IngressSpec struct {
 	Refs []UntypedObjectReference `json:"refs,omitempty"`
 }
 
+// SchedulerAvailabilityMode defines how managed scheduler replicas serve traffic.
+// +kubebuilder:validation:Enum=LeaderElection;ActiveActive
+type SchedulerAvailabilityMode string
+
+const (
+	SchedulerLeaderElection SchedulerAvailabilityMode = "LeaderElection"
+	SchedulerActiveActive   SchedulerAvailabilityMode = "ActiveActive"
+)
+
 // SchedulerSpec defines the Inference Gateway extension configuration.
 //
 // The SchedulerSpec configures the connection from the Gateway to the model deployment leveraging the LLM optimized
@@ -503,6 +512,13 @@ type SchedulerSpec struct {
 
 	// Replicas is the number of replicas for the scheduler.
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// AvailabilityMode controls the managed scheduler deployment. LeaderElection preserves
+	// the default single active scheduler with Recreate updates. ActiveActive lets all
+	// ready replicas serve requests and rolls with one surge replica and zero unavailable.
+	// Configure the EndpointPicker plugins for cross-replica state when using ActiveActive.
+	// +optional
+	AvailabilityMode SchedulerAvailabilityMode `json:"availabilityMode,omitempty"`
 
 	// Tokenizer configures a standalone tokenizer deployment that serves the
 	// vLLM render endpoint (/v1/completions/render) over HTTP.

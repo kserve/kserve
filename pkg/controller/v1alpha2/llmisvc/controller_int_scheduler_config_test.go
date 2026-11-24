@@ -931,6 +931,40 @@ schedulingProfiles:
 				"Expected --ha-enable-leader-election flag when replicas > 1")
 		})
 
+		It("rolls active-active schedulers with surge and no leader election", func(ctx SpecContext) {
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm-active-active"},
+			}
+			Expect(envTest.Create(ctx, namespace)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) { envTest.DeleteAll(ctx, namespace) })
+
+			llmSvc := LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService](namespace.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerReplicas(2),
+			)
+			llmSvc.Spec.Router.Scheduler.AvailabilityMode = v1alpha2.SchedulerActiveActive
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) { Expect(envTest.Delete(ctx, llmSvc)).To(Succeed()) })
+
+			deployment := &appsv1.Deployment{}
+			key := types.NamespacedName{
+				Name: kmeta.ChildName(llmSvc.Name, "-kserve-router-scheduler"), Namespace: namespace.Name,
+			}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, key, deployment)).To(Succeed())
+				g.Expect(deployment.Spec.Strategy.Type).To(Equal(appsv1.RollingUpdateDeploymentStrategyType))
+				g.Expect(deployment.Spec.MinReadySeconds).To(Equal(int32(10)))
+				g.Expect(deployment.Spec.Strategy.RollingUpdate).NotTo(BeNil())
+				g.Expect(deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.IntValue()).To(BeZero())
+				g.Expect(deployment.Spec.Strategy.RollingUpdate.MaxSurge.IntValue()).To(Equal(1))
+				g.Expect(hasLeaderElectionFlag(deployment)).To(BeFalse())
+			}).WithContext(ctx).Should(Succeed())
+		})
+
 		It("should NOT inject --ha-enable-leader-election when replicas = 1", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-ha-replicas-eq-1"

@@ -498,6 +498,19 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	}
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+		activeActive := llmSvc.Spec.Router.Scheduler.AvailabilityMode == v1alpha2.SchedulerActiveActive
+		if activeActive {
+			// Allow ready endpoints to propagate to the gateway before a replacement
+			// is counted as available and the previous replica starts terminating.
+			d.Spec.MinReadySeconds = 10
+			d.Spec.Strategy = appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       ptr.To(intstr.FromInt(1)),
+					MaxUnavailable: ptr.To(intstr.FromInt(0)),
+				},
+			}
+		}
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
@@ -516,7 +529,12 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		if mainIdx >= 0 {
 			mainContainer := &d.Spec.Template.Spec.Containers[mainIdx]
 
-			if d.Spec.Replicas != nil && *d.Spec.Replicas > 1 &&
+			if activeActive {
+				mainContainer.Args = slices.DeleteFunc(mainContainer.Args, func(arg string) bool {
+					name, _, _ := strings.Cut(strings.TrimLeft(arg, "-"), "=")
+					return name == "ha-enable-leader-election"
+				})
+			} else if d.Spec.Replicas != nil && *d.Spec.Replicas > 1 &&
 				!slices.Contains(mainContainer.Args, "--ha-enable-leader-election") &&
 				!slices.Contains(mainContainer.Args, "-ha-enable-leader-election") {
 				mainContainer.Args = append(mainContainer.Args,

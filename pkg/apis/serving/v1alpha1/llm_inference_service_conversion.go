@@ -597,10 +597,11 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 
 	if src.Scheduler != nil {
 		dst.Scheduler = &v1alpha2.SchedulerSpec{
-			Labels:      src.Scheduler.Labels,
-			Annotations: src.Scheduler.Annotations,
-			Template:    src.Scheduler.Template,
-			Replicas:    src.Scheduler.Replicas,
+			AvailabilityMode: v1alpha2.SchedulerAvailabilityMode(src.Scheduler.AvailabilityMode),
+			Labels:           src.Scheduler.Labels,
+			Annotations:      src.Scheduler.Annotations,
+			Template:         src.Scheduler.Template,
+			Replicas:         src.Scheduler.Replicas,
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &v1alpha2.InferencePoolSpec{
@@ -688,10 +689,11 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 
 	if src.Scheduler != nil {
 		dst.Scheduler = &SchedulerSpec{
-			Labels:      src.Scheduler.Labels,
-			Annotations: src.Scheduler.Annotations,
-			Template:    src.Scheduler.Template,
-			Replicas:    src.Scheduler.Replicas,
+			AvailabilityMode: SchedulerAvailabilityMode(src.Scheduler.AvailabilityMode),
+			Labels:           src.Scheduler.Labels,
+			Annotations:      src.Scheduler.Annotations,
+			Template:         src.Scheduler.Template,
+			Replicas:         src.Scheduler.Replicas,
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &InferencePoolSpec{

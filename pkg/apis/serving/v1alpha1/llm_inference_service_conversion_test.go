@@ -271,6 +271,22 @@ func TestLLMInferenceServiceConversion_PreservesExistingAnnotations(t *testing.T
 	assert.False(t, hasAnnotation, "Criticality annotation should be cleaned up")
 }
 
+func TestLLMInferenceServiceConversion_PreservesSchedulerAvailabilityMode(t *testing.T) {
+	src := &LLMInferenceService{
+		Spec: LLMInferenceServiceSpec{
+			Router: &RouterSpec{Scheduler: &SchedulerSpec{AvailabilityMode: SchedulerActiveActive}},
+		},
+	}
+
+	hub := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(hub))
+	require.Equal(t, v1alpha2.SchedulerActiveActive, hub.Spec.Router.Scheduler.AvailabilityMode)
+
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(hub))
+	require.Equal(t, SchedulerActiveActive, restored.Spec.Router.Scheduler.AvailabilityMode)
+}
+
 func TestLLMInferenceServiceConversion_PreservesInferencePoolSpec(t *testing.T) {
 	modelName := "test-model"
 	eppGroup := igwapiv1alpha2.Group("")

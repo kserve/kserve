@@ -18596,6 +18596,11 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      availabilityMode:
+                        enum:
+                        - LeaderElection
+                        - ActiveActive
+                        type: string
                       config:
                         properties:
                           inline:
@@ -44361,6 +44366,11 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      availabilityMode:
+                        enum:
+                        - LeaderElection
+                        - ActiveActive
+                        type: string
                       config:
                         properties:
                           inline:
@@ -70874,6 +70884,11 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      availabilityMode:
+                        enum:
+                        - LeaderElection
+                        - ActiveActive
+                        type: string
                       config:
                         properties:
                           inline:
@@ -97522,6 +97537,11 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      availabilityMode:
+                        enum:
+                        - LeaderElection
+                        - ActiveActive
+                        type: string
                       config:
                         properties:
                           inline:
