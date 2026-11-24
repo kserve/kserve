@@ -948,9 +948,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			return *actualIsvc
 		}
 
-		// Wait for a specific condition on an InferenceService to reach the desired status
-		expectIsvcConditionStatus := expectIsvcCondition
-
 		// Wait for the InferenceService's PredictorReady and IngressReady condition.
 		expectIsvcReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
 			GinkgoHelper()
@@ -1030,7 +1027,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
 				expectIsvcReadyStatus(ctx, serviceKey)
 
 				By("deleting them when the annotation is updated to true")
@@ -1047,7 +1044,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
 			It("Should create the knative service/virtualService/service when the annotation is updated to false on an existing ISVC that is stopped", func() {
@@ -1083,7 +1080,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				// Check that the ISVC status reflects that it is stopped
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 
 				expectAbsent(ctx,
 					absent(&knservingv1.Service{}, predictorServiceKey),
@@ -1109,7 +1106,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
 				expectIsvcReadyStatus(ctx, serviceKey)
 			})
 		})
@@ -1211,7 +1208,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
 				expectIsvcReadyStatus(ctx, serviceKey)
 				expectIsvcTransformerReadyStatus(ctx, serviceKey)
 
@@ -1230,7 +1227,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
 			It("Should create the transformer knative service/virtualService/service when the annotation is updated to false on an existing ISVC that is stopped", func() {
@@ -1272,7 +1269,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				// Check that the ISVC status reflects that it is stopped
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 
 				expectAbsent(ctx,
 					absent(&knservingv1.Service{}, predictorServiceKey),
@@ -1300,7 +1297,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
 				expectIsvcReadyStatus(ctx, serviceKey)
 				expectIsvcTransformerReadyStatus(ctx, serviceKey)
 			})
@@ -1409,7 +1406,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
 				expectIsvcReadyStatus(ctx, serviceKey)
 				expectIsvcExplainerReadyStatus(ctx, serviceKey)
 
@@ -1428,7 +1425,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
 			It("Should create the explainer knative service/virtualService/service when the annotation is updated to false on an existing ISVC that is stopped", func() {
@@ -1470,7 +1467,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				// Check that the ISVC status reflects that it is stopped
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 
 				expectAbsent(ctx,
 					absent(&knservingv1.Service{}, predictorServiceKey),
@@ -1498,7 +1495,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
-				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
+				expectIsvcCondition(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionFalse)
 				expectIsvcReadyStatus(ctx, serviceKey)
 				expectIsvcExplainerReadyStatus(ctx, serviceKey)
 			})
