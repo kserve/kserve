@@ -508,15 +508,17 @@ func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
 		// paths whose evictor Deployment a peer created and is available
 		available []string
 		// PVCEvictorReady=True from an earlier pass
-		wasReady   bool
-		conflictOn client.Object
+		wasReady bool
+		failOn   client.Object
+		// returned by the write on failOn; a conflict when nil
+		writeErr   error
 		wantStatus corev1.ConditionStatus
 		wantReason string
 	}{
 		{
 			name:       "ServiceAccount conflict before any evictor exists",
 			paths:      []string{"a"},
-			conflictOn: &corev1.ServiceAccount{},
+			failOn:     &corev1.ServiceAccount{},
 			wantStatus: corev1.ConditionFalse,
 			wantReason: "PVCEvictorNotReady",
 		},
@@ -524,7 +526,7 @@ func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
 			name:       "ServiceAccount conflict on joining a peer's available evictor",
 			paths:      []string{"a"},
 			available:  []string{"a"},
-			conflictOn: &corev1.ServiceAccount{},
+			failOn:     &corev1.ServiceAccount{},
 			wantStatus: corev1.ConditionTrue,
 		},
 		{
@@ -532,7 +534,7 @@ func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
 			paths:      []string{"a"},
 			available:  []string{"a"},
 			wasReady:   true,
-			conflictOn: &corev1.ServiceAccount{},
+			failOn:     &corev1.ServiceAccount{},
 			wantStatus: corev1.ConditionTrue,
 		},
 		{
@@ -540,7 +542,7 @@ func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
 			paths:      []string{"a", "b"},
 			available:  []string{"a"},
 			wasReady:   true,
-			conflictOn: &corev1.ServiceAccount{},
+			failOn:     &corev1.ServiceAccount{},
 			wantStatus: corev1.ConditionFalse,
 			wantReason: "PVCEvictorNotReady",
 		},
@@ -549,7 +551,7 @@ func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
 			paths:      []string{"a", "b"},
 			available:  []string{"a"},
 			wasReady:   true,
-			conflictOn: &appsv1.Deployment{},
+			failOn:     &appsv1.Deployment{},
 			wantStatus: corev1.ConditionFalse,
 			wantReason: "PVCEvictorNotReady",
 		},
@@ -557,8 +559,17 @@ func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
 			name:       "Deployment conflict on joining a peer's available evictor",
 			paths:      []string{"a"},
 			available:  []string{"a"},
-			conflictOn: &appsv1.Deployment{},
+			failOn:     &appsv1.Deployment{},
 			wantStatus: corev1.ConditionTrue,
+		},
+		{
+			name:       "ServiceAccount internal error is a reconcile error, not a lost race",
+			paths:      []string{"a"},
+			available:  []string{"a"},
+			failOn:     &corev1.ServiceAccount{},
+			writeErr:   apierrors.NewInternalError(errors.New("etcd unavailable")),
+			wantStatus: corev1.ConditionFalse,
+			wantReason: "ReconcilePVCEvictorError",
 		},
 	}
 	for _, test := range tests {
@@ -614,7 +625,10 @@ func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
 				WithObjects(objects...).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
-						if reflect.TypeOf(obj) == reflect.TypeOf(test.conflictOn) {
+						if reflect.TypeOf(obj) == reflect.TypeOf(test.failOn) {
+							if test.writeErr != nil {
+								return test.writeErr
+							}
 							return apierrors.NewConflict(schema.GroupResource{}, obj.GetName(), errors.New("modified by a peer"))
 						}
 						return c.Update(ctx, obj, opts...)
@@ -624,8 +638,12 @@ func TestReconcilePVCEvictorsReportsListedEvictorsOnConflict(t *testing.T) {
 			reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
 
 			err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{})
-			if !apierrors.IsConflict(err) {
-				t.Fatalf("reconcilePVCEvictors() error = %v, want a conflict to requeue on", err)
+			if test.writeErr != nil {
+				if !errors.Is(err, test.writeErr) || errors.Is(err, errPVCEvictorWriteConflict) {
+					t.Fatalf("reconcilePVCEvictors() error = %v, want %v, not marked as a lost write race", err, test.writeErr)
+				}
+			} else if !apierrors.IsConflict(err) || !errors.Is(err, errPVCEvictorWriteConflict) {
+				t.Fatalf("reconcilePVCEvictors() error = %v, want a conflict to requeue on, marked as a lost write race", err)
 			}
 			condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady)
 			if condition == nil || condition.Status != test.wantStatus || condition.Reason != test.wantReason {
