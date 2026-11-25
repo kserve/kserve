@@ -680,6 +680,13 @@ type TracingSpec struct {
 	// +optional
 	ExporterEndpoint *string `json:"exporterEndpoint,omitempty"`
 
+	// ExporterCertificate is the path to a PEM-encoded CA bundle used to verify
+	// the OTLP exporter endpoint. The file must be mounted at this path in each
+	// component that exports traces. Maps to the OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
+	// environment variable.
+	// +optional
+	ExporterCertificate *string `json:"exporterCertificate,omitempty"`
+
 	// Sampler specifies the sampler to use for traces.
 	// Maps to the OTEL_TRACES_SAMPLER environment variable.
 	// Default: "parentbased_traceidratio"

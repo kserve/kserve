@@ -30776,6 +30776,8 @@ spec:
                 properties:
                   exporter:
                     type: string
+                  exporterCertificate:
+                    type: string
                   exporterEndpoint:
                     type: string
                   sampler:
@@ -56571,6 +56573,8 @@ spec:
               tracing:
                 properties:
                   exporter:
+                    type: string
+                  exporterCertificate:
                     type: string
                   exporterEndpoint:
                     type: string
@@ -83108,6 +83112,8 @@ spec:
               tracing:
                 properties:
                   exporter:
+                    type: string
+                  exporterCertificate:
                     type: string
                   exporterEndpoint:
                     type: string
@@ -109799,6 +109805,8 @@ spec:
               tracing:
                 properties:
                   exporter:
+                    type: string
+                  exporterCertificate:
                     type: string
                   exporterEndpoint:
                     type: string
