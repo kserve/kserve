@@ -106,6 +106,11 @@ func requireLogFormat(t *testing.T, manifest []byte, kind, name, want string) {
 
 func managerArgs(t *testing.T, manifest []byte, kind, name string) []string {
 	t.Helper()
+	return containerArgs(t, manifest, kind, name, "manager")
+}
+
+func containerArgs(t *testing.T, manifest []byte, kind, name, containerName string) []string {
+	t.Helper()
 
 	decoder := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(manifest), 4096)
 	for {
@@ -130,7 +135,7 @@ func managerArgs(t *testing.T, manifest []byte, kind, name string) []string {
 		for _, container := range containers {
 			cm, ok := container.(map[string]any)
 			require.True(t, ok)
-			if cm["name"] != "manager" {
+			if cm["name"] != containerName {
 				continue
 			}
 			args, found, err := unstructured.NestedStringSlice(cm, "args")
@@ -140,7 +145,7 @@ func managerArgs(t *testing.T, manifest []byte, kind, name string) []string {
 			}
 			return args
 		}
-		t.Fatalf("%s %s has no manager container", kind, name)
+		t.Fatalf("%s %s has no %s container", kind, name, containerName)
 	}
 
 	t.Fatalf("rendered manifests have no %s %s", kind, name)
