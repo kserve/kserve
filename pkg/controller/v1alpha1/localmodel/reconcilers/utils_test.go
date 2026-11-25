@@ -23,9 +23,13 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -142,5 +146,295 @@ func TestUpdateLocalModelNodeReplacesImagePullSecrets(t *testing.T) {
 	if len(got.Spec.LocalModels) != 1 || len(got.Spec.LocalModels[0].ImagePullSecrets) != 1 ||
 		got.Spec.LocalModels[0].ImagePullSecrets[0].Name != "reg-cred-b" {
 		t.Fatalf("LocalModels = %#v, want imagePullSecrets [reg-cred-b]", got.Spec.LocalModels)
+	}
+}
+
+func TestCreatePVCReleasesStaleClaimRefOnRetainedPV(t *testing.T) {
+	ctx := context.Background()
+	releasedPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-ns"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "ns",
+				Name:      "cache-gpu",
+				UID:       "deleted-claim-uid",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeReleased},
+	}
+	cs := k8sfake.NewClientset(releasedPV)
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "cache-gpu-ns"},
+	}
+	if err := CreatePVC(ctx, cs, nil, logr.Discard(), pvc, "ns", nil, nil); err != nil {
+		t.Fatalf("CreatePVC() error = %v", err)
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-ns", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef != nil {
+		t.Fatalf("PV claimRef = %#v, want nil so the recreated claim can bind", gotPV.Spec.ClaimRef)
+	}
+
+	gotPVC, err := cs.CoreV1().PersistentVolumeClaims("ns").Get(ctx, "cache-gpu", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PVC: %v", err)
+	}
+	if gotPVC.Spec.VolumeName != "cache-gpu-ns" {
+		t.Fatalf("PVC volumeName = %q, want %q", gotPVC.Spec.VolumeName, "cache-gpu-ns")
+	}
+}
+
+func TestCreatePVCLeavesClaimRefOfAnotherNamespaceAlone(t *testing.T) {
+	ctx := context.Background()
+	boundPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-other"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "other",
+				Name:      "cache-gpu",
+				UID:       "live-claim-uid",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeBound},
+	}
+	cs := k8sfake.NewClientset(boundPV)
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "cache-gpu-other"},
+	}
+	if err := CreatePVC(ctx, cs, nil, logr.Discard(), pvc, "ns", nil, nil); err != nil {
+		t.Fatalf("CreatePVC() error = %v", err)
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-other", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef == nil || gotPV.Spec.ClaimRef.Namespace != "other" {
+		t.Fatalf("PV claimRef = %#v, want the claim of namespace other untouched", gotPV.Spec.ClaimRef)
+	}
+}
+
+// TestCreatePVCKeepsClaimRefWhenARecreatedClaimBindsFirst simulates another
+// controller binding a freshly created claim to the retained PV between the
+// controller's Get and its release request. The release must not clear that
+// live reference.
+func TestCreatePVCKeepsClaimRefWhenARecreatedClaimBindsFirst(t *testing.T) {
+	ctx := context.Background()
+	retainedPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-ns"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "ns",
+				Name:      "cache-gpu",
+				UID:       "deleted-claim-uid",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeReleased},
+	}
+	livePV := retainedPV.DeepCopy()
+	livePV.Spec.ClaimRef = &corev1.ObjectReference{
+		Kind:      "PersistentVolumeClaim",
+		Namespace: "ns",
+		Name:      "cache-gpu",
+		UID:       "live-claim-uid",
+	}
+	cs := k8sfake.NewClientset(retainedPV)
+	cs.PrependReactor("patch", "persistentvolumes", func(k8stesting.Action) (bool, runtime.Object, error) {
+		if err := cs.Tracker().Update(
+			schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumes"},
+			livePV, "",
+		); err != nil {
+			t.Fatalf("update PV in tracker: %v", err)
+		}
+		return false, nil, nil
+	})
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "cache-gpu-ns"},
+	}
+	if err := CreatePVC(ctx, cs, nil, logr.Discard(), pvc, "ns", nil, nil); err == nil {
+		t.Fatal("CreatePVC() error = nil, want the release to fail on the changed claimRef")
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-ns", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef == nil || gotPV.Spec.ClaimRef.UID != "live-claim-uid" {
+		t.Fatalf("PV claimRef = %#v, want the newly bound claim reference kept", gotPV.Spec.ClaimRef)
+	}
+	if _, err := cs.CoreV1().PersistentVolumeClaims("ns").Get(ctx, "cache-gpu", metav1.GetOptions{}); !apierr.IsNotFound(err) {
+		t.Fatalf("PVC lookup error = %v, want NotFound because the claim was not created", err)
+	}
+}
+
+// TestReleaseStaleClaimRefRepairsRecreatedPendingClaim covers the window between
+// the caller's claim lookup and the release: another controller can recreate the
+// claim after it was seen absent. That claim is Pending and holds a different
+// UID than the stale reference, so it is stuck on the same reference and the
+// release repairs it.
+func TestReleaseStaleClaimRefRepairsRecreatedPendingClaim(t *testing.T) {
+	ctx := context.Background()
+	retainedPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-ns"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "ns",
+				Name:      "cache-gpu",
+				UID:       "deleted-claim-uid",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeReleased},
+	}
+	recreatedClaim := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu", Namespace: "ns", UID: "live-claim-uid"},
+		Status:     corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimPending},
+	}
+	cs := k8sfake.NewClientset(retainedPV, recreatedClaim)
+
+	if err := releaseStaleClaimRef(ctx, cs.CoreV1().PersistentVolumes(), cs.CoreV1().PersistentVolumeClaims("ns"),
+		logr.Discard(), "cache-gpu-ns", "ns", "cache-gpu"); err != nil {
+		t.Fatalf("releaseStaleClaimRef() error = %v", err)
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-ns", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef != nil {
+		t.Fatalf("PV claimRef = %#v, want nil so the pending claim can bind", gotPV.Spec.ClaimRef)
+	}
+}
+
+// TestReleaseStaleClaimRefKeepsBoundClaim checks that the release never clears
+// the reference of a claim that is already bound.
+func TestReleaseStaleClaimRefKeepsBoundClaim(t *testing.T) {
+	ctx := context.Background()
+	retainedPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-ns"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "ns",
+				Name:      "cache-gpu",
+				UID:       "live-claim-uid",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeBound},
+	}
+	boundClaim := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu", Namespace: "ns", UID: "live-claim-uid"},
+		Status:     corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimBound},
+	}
+	cs := k8sfake.NewClientset(retainedPV, boundClaim)
+
+	if err := releaseStaleClaimRef(ctx, cs.CoreV1().PersistentVolumes(), cs.CoreV1().PersistentVolumeClaims("ns"),
+		logr.Discard(), "cache-gpu-ns", "ns", "cache-gpu"); err != nil {
+		t.Fatalf("releaseStaleClaimRef() error = %v", err)
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-ns", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef == nil || gotPV.Spec.ClaimRef.UID != "live-claim-uid" {
+		t.Fatalf("PV claimRef = %#v, want the bound claim reference kept", gotPV.Spec.ClaimRef)
+	}
+}
+
+// TestCreatePVCLeavesPreReservedClaimRefAlone checks that a volume reserved for
+// the claim by name keeps its reference, because the claim can bind to it as is.
+func TestCreatePVCLeavesPreReservedClaimRefAlone(t *testing.T) {
+	ctx := context.Background()
+	reservedPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-ns"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "ns",
+				Name:      "cache-gpu",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeAvailable},
+	}
+	cs := k8sfake.NewClientset(reservedPV)
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "cache-gpu-ns"},
+	}
+	if err := CreatePVC(ctx, cs, nil, logr.Discard(), pvc, "ns", nil, nil); err != nil {
+		t.Fatalf("CreatePVC() error = %v", err)
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-ns", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef == nil || gotPV.Spec.ClaimRef.Name != "cache-gpu" {
+		t.Fatalf("PV claimRef = %#v, want the pre-reserved reference kept", gotPV.Spec.ClaimRef)
+	}
+	if _, err := cs.CoreV1().PersistentVolumeClaims("ns").Get(ctx, "cache-gpu", metav1.GetOptions{}); err != nil {
+		t.Fatalf("get PVC: %v", err)
+	}
+}
+
+// TestCreatePVCRepairsExistingPendingClaim checks that a claim a previous
+// controller already created and left Pending on the retained volume is
+// repaired, not skipped because it exists.
+func TestCreatePVCRepairsExistingPendingClaim(t *testing.T) {
+	ctx := context.Background()
+	retainedPV := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu-ns"},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Kind:      "PersistentVolumeClaim",
+				Namespace: "ns",
+				Name:      "cache-gpu",
+				UID:       "deleted-claim-uid",
+			},
+		},
+		Status: corev1.PersistentVolumeStatus{Phase: corev1.VolumeReleased},
+	}
+	stuckClaim := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu", Namespace: "ns", UID: "recreated-claim-uid"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "cache-gpu-ns"},
+		Status:     corev1.PersistentVolumeClaimStatus{Phase: corev1.ClaimPending},
+	}
+	cs := k8sfake.NewClientset(retainedPV, stuckClaim)
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache-gpu"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "cache-gpu-ns"},
+	}
+	if err := CreatePVC(ctx, cs, nil, logr.Discard(), pvc, "ns", nil, nil); err != nil {
+		t.Fatalf("CreatePVC() error = %v", err)
+	}
+
+	gotPV, err := cs.CoreV1().PersistentVolumes().Get(ctx, "cache-gpu-ns", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get PV: %v", err)
+	}
+	if gotPV.Spec.ClaimRef != nil {
+		t.Fatalf("PV claimRef = %#v, want nil so the existing pending claim can bind", gotPV.Spec.ClaimRef)
 	}
 }
