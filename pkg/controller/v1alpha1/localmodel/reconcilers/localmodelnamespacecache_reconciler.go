@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -39,7 +40,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
@@ -129,8 +129,11 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	previousNamespaces := consumerNamespaces(localModel.Status)
 
 	// Step 2 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, consumers); err != nil {
-		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
+	// Kept from failing the whole reconcile, but returned at the end so a failed cleanup of a
+	// deleted node's LocalModelNodes is retried instead of waiting for the next event.
+	localModelNodeErr := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, consumers)
+	if localModelNodeErr != nil {
+		c.Log.Error(localModelNodeErr, "failed to reconcile LocalModelNode for namespace cache")
 	}
 
 	// Step 3 - Creates PV & PVC for model download (in jobNamespace, same as cluster-scoped)
@@ -157,12 +160,12 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	if localModelConfig.DisableVolumeManagement {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, localModelNodeErr
 	}
 
 	// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this model
 	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
-	return ctrl.Result{}, err
+	return ctrl.Result{}, errors.Join(err, localModelNodeErr)
 }
 
 // Reconciles corresponding namespace model cache CR when we found an update on an isvc
@@ -224,40 +227,31 @@ func (c *LocalModelNamespaceCacheReconciler) llmIsvcFuncNamespaceCache(ctx conte
 	return requests
 }
 
-// Given a node object, checks if it matches any node group CR, then reconcile all namespace local models that has this node group.
+// nodeFuncNamespaceCache maps a node object to every namespace cache that has to reconcile it.
 func (c *LocalModelNamespaceCacheReconciler) nodeFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
 	node := obj.(*corev1.Node)
-	requests := []reconcile.Request{}
 	models := &v1alpha1.LocalModelNamespaceCacheList{}
 	if err := c.List(ctx, models); err != nil {
 		c.Log.Error(err, "list namespace models error when reconciling nodes")
 		return []reconcile.Request{}
 	}
 
+	// See nodeFunc: a cache still holding this node's record is reconciled even when the node
+	// matches none of its node groups, so a de-labelled node's record and Jobs are pruned too.
+	nodeRecord := modelsOfNodeRecord(ctx, c.Client, c.Log, node.Name)
+	requests := make([]reconcile.Request, 0, len(models.Items))
 	for _, model := range models.Items {
 		// Shared-PVC caches have no node groups and ignore node events.
 		if model.Spec.SharedPVCMode() || len(model.Spec.NodeGroups) == 0 {
 			continue
 		}
-		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
-		nodeGroupNamespacedName := types.NamespacedName{Name: model.Spec.NodeGroups[0]}
-		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
-			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroups[0])
+		key := types.NamespacedName{Name: model.Name, Namespace: model.Namespace}
+		if _, recorded := nodeRecord[key]; !recorded &&
+			!nodeMatchesAnyNodeGroup(ctx, c.Client, c.Log, model.Spec.NodeGroups, node) {
 			continue
 		}
-		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
-		if err != nil {
-			c.Log.Error(err, "checkNodeAffinity error", "node", node.Name)
-		}
-		if matches {
-			c.Log.Info("new node for namespace model", "name", model.Name, "namespace", model.Namespace)
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      model.Name,
-					Namespace: model.Namespace,
-				},
-			})
-		}
+		c.Log.Info("new node for namespace model", "name", model.Name, "namespace", model.Namespace)
+		requests = append(requests, reconcile.Request{NamespacedName: key})
 	}
 	return requests
 }

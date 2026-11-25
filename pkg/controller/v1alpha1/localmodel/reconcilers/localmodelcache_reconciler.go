@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -38,7 +39,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -112,8 +112,11 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	previousNamespaces := consumerNamespaces(localModel.Status)
 
 	// Step 2 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, localModel, nil, nodeGroups, consumers); err != nil {
-		c.Log.Error(err, "failed to reconcile LocalModelNode")
+	// Kept from failing the whole reconcile, but returned at the end so a failed cleanup of a
+	// deleted node's LocalModelNodes is retried instead of waiting for the next event.
+	localModelNodeErr := ReconcileLocalModelNode(ctx, c.Client, c.Log, localModel, nil, nodeGroups, consumers)
+	if localModelNodeErr != nil {
+		c.Log.Error(localModelNodeErr, "failed to reconcile LocalModelNode")
 	}
 
 	// Step 3 - Creates PV & PVC for model download
@@ -140,12 +143,12 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if localModelConfig.DisableVolumeManagement {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, localModelNodeErr
 	}
 
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
 	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
-	return ctrl.Result{}, err
+	return ctrl.Result{}, errors.Join(err, localModelNodeErr)
 }
 
 // Reconciles corresponding model cache CR when we found an update on an isvc
@@ -200,32 +203,25 @@ func (c *LocalModelReconciler) llmIsvcFunc(ctx context.Context, obj client.Objec
 // Given a node object, checks if it matches any node group CR, then reconcile all local models that has this node group to create download jobs.
 func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	node := obj.(*corev1.Node)
-	requests := []reconcile.Request{}
 	models := &v1alpha1.LocalModelCacheList{}
 	if err := c.List(ctx, models); err != nil {
 		c.Log.Error(err, "list models error when reconciling nodes")
 		return []reconcile.Request{}
 	}
 
+	// A cache that still holds this node's record is reconciled even when the node matches none of
+	// its node groups, which is what a node de-labelled before deletion looks like. The reconcile
+	// prunes the record and, with it, the download Jobs of the node that is gone.
+	nodeRecord := modelsOfNodeRecord(ctx, c.Client, c.Log, node.Name)
+	requests := make([]reconcile.Request, 0, len(models.Items))
 	for _, model := range models.Items {
-		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
-		nodeGroupNamespacedName := types.NamespacedName{Name: model.Spec.NodeGroups[0]}
-		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
-			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroups[0])
+		key := types.NamespacedName{Name: model.Name}
+		if _, recorded := nodeRecord[key]; !recorded &&
+			!nodeMatchesAnyNodeGroup(ctx, c.Client, c.Log, model.Spec.NodeGroups, node) {
 			continue
 		}
-		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
-		if err != nil {
-			c.Log.Error(err, "checkNodeAffinity error", "node", node.Name)
-		}
-		if matches {
-			c.Log.Info("new node for model", "name", model.Name)
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: model.Name,
-				},
-			})
-		}
+		c.Log.Info("new node for model", "name", model.Name)
+		requests = append(requests, reconcile.Request{NamespacedName: key})
 	}
 	return requests
 }
