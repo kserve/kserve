@@ -35,6 +35,7 @@ import (
 const (
 	MinReplicasShouldBeLessThanMaxError              = "'MinReplicas' cannot be greater than MaxReplicas"
 	MinReplicasLowerBoundExceededError               = "'MinReplicas' cannot be less than 0"
+	HPAMinReplicasZeroError                          = "'MinReplicas' cannot be 0 when the autoscaler is HPA: the Kubernetes HorizontalPodAutoscaler does not support scale-to-zero and silently raises the value to 1. Use an autoscaler that supports scale-to-zero instead ('keda' or 'none' in Standard deployment mode, or the Knative Pod Autoscaler in Knative deployment mode)"
 	MaxReplicasLowerBoundExceededError               = "'MaxReplicas' cannot be less than 0"
 	ParallelismLowerBoundExceededError               = "parallelism cannot be less than 0"
 	UnsupportedStorageURIFormatError                 = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
@@ -81,6 +82,8 @@ type Component interface {
 // ComponentExtensionSpec defines the deployment configuration for a given InferenceService component
 type ComponentExtensionSpec struct {
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
+	// Scale-to-zero is not supported with the 'hpa' autoscaler class (the default for
+	// Standard deployment mode); use the 'keda' or 'none' autoscaler class instead.
 	// +optional
 	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// Maximum number of replicas for autoscaling.

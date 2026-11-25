@@ -4654,7 +4654,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"minReplicas": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. Scale-to-zero is not supported with the 'hpa' autoscaler class (the default for Standard deployment mode); use the 'keda' or 'none' autoscaler class instead.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -7319,7 +7319,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					},
 					"minReplicas": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. Scale-to-zero is not supported with the 'hpa' autoscaler class (the default for Standard deployment mode); use the 'keda' or 'none' autoscaler class instead.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -12558,7 +12558,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"minReplicas": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. Scale-to-zero is not supported with the 'hpa' autoscaler class (the default for Standard deployment mode); use the 'keda' or 'none' autoscaler class instead.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -14419,7 +14419,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					},
 					"minReplicas": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. Scale-to-zero is not supported with the 'hpa' autoscaler class (the default for Standard deployment mode); use the 'keda' or 'none' autoscaler class instead.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
