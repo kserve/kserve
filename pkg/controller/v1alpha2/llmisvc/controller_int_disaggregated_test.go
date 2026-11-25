@@ -182,6 +182,108 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			Expect(getDisaggregatedSet(ctx, llmSvc).Spec.PlacementPolicy).NotTo(BeNil(), "the hand-added field is kept")
 		})
 
+		It("keeps fields it does not set when a release changes the roles, and takes back the ones it does", func(ctx SpecContext) {
+			// given
+			enableDisaggregatedSetGate(ctx)
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := singleNodePD("ds-release-keeps", testNs.Name, optIn)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+			getDisaggregatedSet(ctx, llmSvc)
+
+			// when another client (e.g. a user, or a release controller) sets a field the
+			// controller does not set, and changes one it does (the decode replicas)
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				ds := getDisaggregatedSet(ctx, llmSvc)
+				ds.Spec.PlacementPolicy = &disaggregatedsetv1.PlacementPolicy{
+					Type:     disaggregatedsetv1.PlacementExclusiveTopology,
+					Topology: "topology.kubernetes.io/zone",
+				}
+				findDisaggregatedRoleSpec(ds, constants.LLMDRoleDecode).Spec.Replicas = ptr.To[int32](3)
+				// Its own field manager: the test client and the controller run in one binary
+				// and would otherwise share the default one.
+				return envTest.Update(ctx, ds, client.FieldOwner("another-client"))
+			})).To(Succeed())
+
+			// and then a release changes both roles' pod templates
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				for _, spec := range []*corev1.PodSpec{current.Spec.Template, current.Spec.Prefill.Template} {
+					spec.Containers[0].Env = append(spec.Containers[0].Env, corev1.EnvVar{Name: "RELEASE", Value: "r1"})
+				}
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// then the release is written, the other client's field survives it, and the
+			// replicas the service sets are restored
+			Eventually(func(g Gomega, ctx context.Context) {
+				ds := getDisaggregatedSet(ctx, llmSvc)
+				for _, role := range []string{constants.LLMDRoleDecode, constants.LLMDRolePrefill} {
+					spec := findDisaggregatedRoleSpec(ds, role)
+					g.Expect(spec).NotTo(BeNil())
+					g.Expect(spec.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.Containers[0].Env).To(
+						ContainElement(corev1.EnvVar{Name: "RELEASE", Value: "r1"}), role)
+				}
+				g.Expect(ds.Spec.PlacementPolicy).NotTo(BeNil(), "the other client's field is kept across the release")
+				g.Expect(findDisaggregatedRoleSpec(ds, constants.LLMDRoleDecode).Spec.Replicas).To(HaveValue(BeEquivalentTo(1)))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("warns when the scheduler of a service on a DisaggregatedSet does not run the rollout screener", func(ctx SpecContext) {
+			// given
+			enableDisaggregatedSetGate(ctx)
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := singleNodePD("ds-no-screener", testNs.Name, optIn,
+				WithManagedRoute(), WithManagedGateway(), WithManagedScheduler())
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			// then
+			getDisaggregatedSet(ctx, llmSvc)
+			expectScreenedCondition(ctx, llmSvc, corev1.ConditionFalse, "ScreenerMissing")
+			expectEvent(ctx, llmSvc, "ScreenerMissing")
+		})
+
+		It("reports a scheduler that runs the rollout screener over the service's pods", func(ctx SpecContext) {
+			// given
+			enableDisaggregatedSetGate(ctx)
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := singleNodePD("ds-screener", testNs.Name, optIn,
+				WithManagedRoute(), WithManagedGateway(),
+				WithSchedulerConfigTemplateArgs(screenerSchedulerConfig("app.kubernetes.io/name=ds-screener")))
+			llmSvc.Spec.Router.Scheduler.Template.Containers[0].Args = append(
+				[]string{"--allow-experimental-plugins"}, llmSvc.Spec.Router.Scheduler.Template.Containers[0].Args...)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			// then
+			getDisaggregatedSet(ctx, llmSvc)
+			expectScreenedCondition(ctx, llmSvc, corev1.ConditionTrue, "")
+
+			// when the screener's scope no longer selects the service's pods
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				current.Spec.Router.Scheduler.Template.Containers[0].Args = []string{
+					"--allow-experimental-plugins", "--config-text", screenerSchedulerConfig("app.kubernetes.io/name=another-service"),
+				}
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// then
+			expectScreenedCondition(ctx, llmSvc, corev1.ConditionFalse, "ScreenerScopeMismatch")
+			expectEvent(ctx, llmSvc, "ScreenerScopeMismatch")
+		})
+
 		It("runs a P/D service on a DisaggregatedSet by default", func(ctx SpecContext) {
 			// given
 			enableDisaggregatedSetGate(ctx)
@@ -487,6 +589,55 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 		})
 	})
 })
+
+// screenerSchedulerConfig is a P/D scheduler config with the DisaggregatedSet rollout
+// screener scoped to selector.
+func screenerSchedulerConfig(selector string) string {
+	return `apiVersion: llm-d.ai/v1
+kind: EndpointPickerConfig
+plugins:
+- type: disaggregatedset-rollout-screener
+  parameters:
+    scope:
+      labelSelector: "` + selector + `"
+    revisionGating:
+      mode: max-role
+      requiredRoles: [prefill, decode]
+- type: prefill-filter
+- type: decode-filter
+- type: max-score-picker
+schedulingProfiles:
+- name: prefill
+  plugins:
+  - pluginRef: prefill-filter
+  - pluginRef: max-score-picker
+- name: decode
+  plugins:
+  - pluginRef: decode-filter
+  - pluginRef: max-score-picker
+`
+}
+
+func expectScreenedCondition(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, status corev1.ConditionStatus, reason string) {
+	GinkgoHelper()
+	Eventually(func(g Gomega, ctx context.Context) {
+		current := &v1alpha2.LLMInferenceService{}
+		g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+		cond := current.Status.GetCondition(v1alpha2.DisaggregatedSetRolloutScreened)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(status))
+		g.Expect(cond.Reason).To(Equal(reason))
+	}).WithContext(ctx).Should(Succeed())
+}
+
+func findDisaggregatedRoleSpec(ds *disaggregatedsetv1.DisaggregatedSet, role string) *disaggregatedsetv1.DisaggregatedRoleSpec {
+	for i := range ds.Spec.Roles {
+		if ds.Spec.Roles[i].Name == role {
+			return &ds.Spec.Roles[i]
+		}
+	}
+	return nil
+}
 
 func getDisaggregatedSet(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *disaggregatedsetv1.DisaggregatedSet {
 	GinkgoHelper()

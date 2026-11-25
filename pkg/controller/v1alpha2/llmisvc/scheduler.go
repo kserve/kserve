@@ -213,10 +213,14 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 		} else {
 			llmSvc.MarkSchedulerWorkloadUnset()
 		}
+		llmSvc.MarkDisaggregatedSetRolloutScreenedUnset()
 		return Delete(ctx, r, llmSvc, scheduler)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
+	}
+	if err := r.checkDisaggregatedSetRolloutScreener(ctx, llmSvc, scheduler); err != nil {
+		return err
 	}
 	return r.propagateComponentDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
 }
