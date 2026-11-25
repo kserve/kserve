@@ -28,10 +28,10 @@ import (
 // +k8s:openapi-gen=true
 type StorageContainerSpec struct {
 	// Container spec for the storage initializer init container
-	Container corev1.Container `json:"container" validate:"required"`
+	Container corev1.Container `json:"container"`
 
 	// List of URI formats that this container supports
-	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
+	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats"`
 	// +kubebuilder:default="initContainer"
 	WorkloadType WorkloadType `json:"workloadType,omitempty"`
 
@@ -73,7 +73,7 @@ type ClusterStorageContainer struct {
 type ClusterStorageContainerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterStorageContainer `json:"items" validate:"required"`
+	Items           []ClusterStorageContainer `json:"items"`
 }
 
 func (sc *ClusterStorageContainer) IsDisabled() bool {

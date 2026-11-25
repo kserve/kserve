@@ -23,9 +23,9 @@ import (
 
 type LocalModelInfo struct {
 	// Original StorageUri
-	SourceModelUri string `json:"sourceModelUri" validate:"required"`
+	SourceModelUri string `json:"sourceModelUri"`
 	// Model name. Used as the subdirectory name to store this model on local file system
-	ModelName string `json:"modelName" validate:"required"`
+	ModelName string `json:"modelName"`
 	// Namespace of the LocalModelNamespaceCache CR (empty for cluster-scoped LocalModelCache)
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
@@ -64,7 +64,7 @@ func (info *LocalModelInfo) GetStatusKey() string {
 // +k8s:openapi-gen=true
 type LocalModelNodeSpec struct {
 	// List of model source URI and their names
-	LocalModels []LocalModelInfo `json:"localModels" validate:"required"`
+	LocalModels []LocalModelInfo `json:"localModels"`
 }
 
 // +k8s:openapi-gen=true
@@ -85,5 +85,5 @@ type LocalModelNode struct {
 type LocalModelNodeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []LocalModelNode `json:"items" validate:"required"`
+	Items           []LocalModelNode `json:"items"`
 }
