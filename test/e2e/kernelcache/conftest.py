@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 
 import pytest
 from kubernetes import client
@@ -60,6 +61,31 @@ _KC_JOBS_NS = os.environ.get("KERNELCACHE_JOBS_NS", "kserve-kernelcache-jobs")
 _KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 
 KC_TEST_RUNTIME_NAME = "kernelcache-test-runtime"
+
+_KERNELCACHE_TEST_DIR = Path(__file__).parent.resolve()
+_KERNELCACHE_DELETION_TEST = "test_kernelcache_deletion.py"
+
+
+def pytest_collection_modifyitems(items):
+    """Run the destructive KernelCache deletion test after this suite's readers."""
+    kernelcache_items = [
+        item for item in items if item.path.parent.resolve() == _KERNELCACHE_TEST_DIR
+    ]
+    deletion_items = [
+        item
+        for item in kernelcache_items
+        if item.path.name == _KERNELCACHE_DELETION_TEST
+    ]
+    if not deletion_items:
+        return
+
+    ordered_kernelcache_items = [
+        item for item in kernelcache_items if item not in deletion_items
+    ] + deletion_items
+    ordered_iter = iter(ordered_kernelcache_items)
+    items[:] = [
+        next(ordered_iter) if item in kernelcache_items else item for item in items
+    ]
 
 
 @pytest.fixture(scope="session")
