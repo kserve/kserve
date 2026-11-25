@@ -1,4 +1,5 @@
-ARG BASE_IMAGE=ubuntu:22.04
+ARG PYTHON_VERSION=3.11
+ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-bookworm
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS base
@@ -16,9 +17,6 @@ RUN apt-get update && \
         libjemalloc2 \
         libnuma1 \
         numactl \
-        python3.10-dev \
-        python3.10-venv \
-        python3-pip \
         curl && \
     apt-get clean && \
     apt-get autoclean && \
@@ -134,8 +132,6 @@ RUN df -hT
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
-# TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 # Build the final image
