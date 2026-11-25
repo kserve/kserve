@@ -13,6 +13,20 @@ The general overview of multi-model serving:
 
 > :warning: You must set SKLearn's multiModelServer flag in `inferenceservice.yaml` to true to enable multi-model serving for SKLearn.
 
+## Optional read-only model mount
+
+To give the model server read-only access to `/mnt/models`, add this annotation to the hosting `InferenceService`:
+
+```yaml
+metadata:
+  annotations:
+    storage.kserve.io/readonly: "true"
+```
+
+The agent retains write access to download, update, and remove models. Only the exact value `"true"` enables this option; omitting the annotation or setting it to `"false"` preserves the writable model-server mount. File permissions remain unchanged.
+
+This setting applies when a Pod is created. Existing Pods are not remounted.
+
 ## Example
 Firstly, you should have kfserving installed. Check [this](https://github.com/kubeflow/kfserving#install-kfserving) out if you have not installed kfserving.
 

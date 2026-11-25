@@ -520,9 +520,10 @@ func mountModelDir(pod *corev1.Pod) error {
 			},
 		}
 		// Mount the model dir into agent container
-		mountVolumeToContainer(constants.AgentContainerName, pod, modelDirVolume, constants.ModelDir)
-		// Mount the model dir into model server container
-		mountVolumeToContainer(constants.InferenceServiceContainerName, pod, modelDirVolume, constants.ModelDir)
+		mountVolumeToContainer(constants.AgentContainerName, pod, modelDirVolume, constants.ModelDir, false)
+		// Preserve the writable default unless the model server explicitly opts in.
+		readOnly := pod.Annotations[constants.StorageReadonlyAnnotationKey] == "true"
+		mountVolumeToContainer(constants.InferenceServiceContainerName, pod, modelDirVolume, constants.ModelDir, readOnly)
 		return nil
 	}
 	return fmt.Errorf("can not find %v label", constants.AgentModelConfigVolumeNameAnnotationKey)
@@ -540,13 +541,13 @@ func mountModelConfig(pod *corev1.Pod) error {
 				},
 			},
 		}
-		mountVolumeToContainer(constants.AgentContainerName, pod, modelConfigVolume, constants.ModelConfigDir)
+		mountVolumeToContainer(constants.AgentContainerName, pod, modelConfigVolume, constants.ModelConfigDir, false)
 		return nil
 	}
 	return fmt.Errorf("can not find %v label", constants.AgentModelConfigVolumeNameAnnotationKey)
 }
 
-func mountVolumeToContainer(containerName string, pod *corev1.Pod, additionalVolume corev1.Volume, mountPath string) {
+func mountVolumeToContainer(containerName string, pod *corev1.Pod, additionalVolume corev1.Volume, mountPath string, readOnly bool) {
 	pod.Spec.Volumes = appendVolume(pod.Spec.Volumes, additionalVolume)
 	mountedContainers := make([]corev1.Container, 0, len(pod.Spec.Containers))
 	for _, container := range pod.Spec.Containers {
@@ -556,7 +557,7 @@ func mountVolumeToContainer(containerName string, pod *corev1.Pod, additionalVol
 			}
 			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 				Name:      additionalVolume.Name,
-				ReadOnly:  false,
+				ReadOnly:  readOnly,
 				MountPath: mountPath,
 			})
 		}
