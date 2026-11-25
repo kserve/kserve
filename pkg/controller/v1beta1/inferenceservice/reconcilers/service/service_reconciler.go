@@ -114,6 +114,12 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 				container = c
 				break
 			}
+			// The predictor container is the entrypoint when there is no
+			// transformer. It is not necessarily first: a sidecar may precede
+			// it, so look it up by name instead of assuming index 0.
+			if c.Name == constants.InferenceServiceContainerName {
+				container = c
+			}
 		}
 		if len(container.Ports) > 0 {
 			var servicePort corev1.ServicePort

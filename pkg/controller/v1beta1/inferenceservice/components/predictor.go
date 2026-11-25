@@ -93,6 +93,26 @@ type predictorResources struct {
 	predictorAnnotations map[string]string
 }
 
+// placePredictorContainer puts the resolved predictor container into the pod spec,
+// replacing the container with the same name in place. When the pod spec has no
+// containers, the predictor container becomes the only one. When no container
+// with the predictor's name exists (the predictor container is missing from the
+// user-provided pod spec), it is appended instead of overwriting an unrelated
+// container at index 0, which could be a sidecar.
+func placePredictorContainer(podSpec *corev1.PodSpec, predContainer *corev1.Container) {
+	if len(podSpec.Containers) == 0 {
+		podSpec.Containers = []corev1.Container{*predContainer}
+		return
+	}
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name == predContainer.Name {
+			podSpec.Containers[i] = *predContainer
+			return
+		}
+	}
+	podSpec.Containers = append(podSpec.Containers, *predContainer)
+}
+
 // buildPredictorResources builds the annotations, pod spec, and object meta for the
 // current isvc.Spec.Predictor. Both the stable and canary paths use this so that any
 // annotation or pod spec logic added here automatically applies to canary deployments.
@@ -139,10 +159,11 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 	} else {
 		predContainer := predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 		podSpec = corev1.PodSpec(isvc.Spec.Predictor.PodSpec)
-		if len(podSpec.Containers) == 0 {
-			podSpec.Containers = []corev1.Container{*predContainer}
-		} else {
-			podSpec.Containers[0] = *predContainer
+		// GetContainer returns nil when no container is named kserve-container
+		// (e.g. a leading transformer-container with the predictor container
+		// unnamed). Leave the user-provided podSpec untouched in that case.
+		if predContainer != nil {
+			placePredictorContainer(&podSpec, predContainer)
 		}
 	}
 
