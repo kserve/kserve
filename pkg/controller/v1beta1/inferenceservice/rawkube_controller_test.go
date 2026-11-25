@@ -51,6 +51,33 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
+func setDeploymentReadyStatus(deployment *appsv1.Deployment) {
+	replicas := int32(1)
+	if deployment.Spec.Replicas != nil {
+		replicas = *deployment.Spec.Replicas
+	}
+
+	deployment.Status = appsv1.DeploymentStatus{
+		ObservedGeneration: deployment.Generation,
+		Replicas:           replicas,
+		UpdatedReplicas:    replicas,
+		ReadyReplicas:      replicas,
+		AvailableReplicas:  replicas,
+		Conditions: []appsv1.DeploymentCondition{
+			{
+				Type:   appsv1.DeploymentProgressing,
+				Status: corev1.ConditionTrue,
+				Reason: "NewReplicaSetAvailable",
+			},
+			{
+				Type:   appsv1.DeploymentAvailable,
+				Status: corev1.ConditionTrue,
+				Reason: "MinimumReplicasAvailable",
+			},
+		},
+	}
+}
+
 var _ = Describe("v1beta1 inference service controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 
@@ -157,12 +184,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http route
@@ -574,12 +596,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check service
@@ -777,25 +794,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.PredictorComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -1082,12 +1084,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http Route
@@ -1268,25 +1265,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.PredictorComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -1567,12 +1549,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Should(Succeed())
 
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
 		}
 
@@ -3334,36 +3311,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.PredictorComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -3574,12 +3531,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http route
@@ -3760,25 +3712,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.PredictorComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -4225,20 +4162,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// update deployment status to make isvc ready
 			updatedPredictorDeployment := actualPredictorDeployment.DeepCopy()
-			updatedPredictorDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedPredictorDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(HaveOccurred())
 			updatedTransformerDeployment := actualTransformerDeployment.DeepCopy()
-			updatedTransformerDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedTransformerDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerDeployment)).NotTo(HaveOccurred())
 
 			// check http route
@@ -4493,30 +4420,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-						{
-							Type:     v1beta1.TransformerReady,
-							Status:   "True",
-							Severity: "Info",
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.PredictorComponent,
+						v1beta1.TransformerComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -4963,20 +4871,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// update deployment status to make isvc ready
 			updatedPredictorDeployment := actualPredictorDeployment.DeepCopy()
-			updatedPredictorDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedPredictorDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(HaveOccurred())
 			updatedExplainerDeployment := actualExplainerDeployment.DeepCopy()
-			updatedExplainerDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedExplainerDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(HaveOccurred())
 
 			// check http route
@@ -5275,30 +5173,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:     v1beta1.ExplainerReady,
-							Status:   "True",
-							Severity: "Info",
-						},
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.PredictorComponent,
+						v1beta1.ExplainerComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -5572,12 +5451,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http route
@@ -5776,25 +5650,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.PredictorComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -6247,20 +6106,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// update deployment status to make isvc ready
 			updatedPredictorDeployment := actualPredictorDeployment.DeepCopy()
-			updatedPredictorDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedPredictorDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(HaveOccurred())
 			updatedTransformerDeployment := actualTransformerDeployment.DeepCopy()
-			updatedTransformerDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedTransformerDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerDeployment)).NotTo(HaveOccurred())
 
 			// check http route
@@ -6533,30 +6382,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-						{
-							Type:     v1beta1.TransformerReady,
-							Status:   "True",
-							Severity: "Info",
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.TransformerComponent,
+						v1beta1.PredictorComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -7006,20 +6836,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// update deployment status to make isvc ready
 			updatedPredictorDeployment := actualPredictorDeployment.DeepCopy()
-			updatedPredictorDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedPredictorDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(HaveOccurred())
 			updatedExplainerDeployment := actualExplainerDeployment.DeepCopy()
-			updatedExplainerDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedExplainerDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(HaveOccurred())
 
 			// check http route
@@ -7336,30 +7156,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
-					Conditions: duckv1.Conditions{
-						{
-							Type:     v1beta1.ExplainerReady,
-							Status:   "True",
-							Severity: "Info",
-						},
-						{
-							Type:   v1beta1.IngressReady,
-							Status: "True",
-						},
-						{
-							Type:   v1beta1.PredictorReady,
-							Status: "True",
-						},
-						{
-							Type:   apis.ConditionReady,
-							Status: "True",
-						},
-						{
-							Type:     v1beta1.Stopped,
-							Status:   "False",
-							Severity: apis.ConditionSeverityInfo,
-						},
-					},
+					ObservedGeneration: 1,
+					Conditions: expectedRawDeploymentReadyConditions(
+						v1beta1.ExplainerComponent,
+						v1beta1.PredictorComponent,
+					),
 				},
 				URL: &apis.URL{
 					Scheme: "http",
@@ -7910,12 +7711,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check ingress
@@ -9099,12 +8895,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Update deployment status to trigger status reconciliation
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
 
 			// Verify status.address.url includes port 8080
@@ -9274,12 +9065,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Update deployment status to trigger status reconciliation
 			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
+			setDeploymentReadyStatus(updatedDeployment)
 			Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
 
 			// Verify status.address.url includes the actual container port (8888), not the default (8080)
