@@ -16,6 +16,7 @@ resources:
 - kserve-huggingfaceserver-multinode.yaml
 - kserve-autogluonserver.yaml
 - kserve-vllmserver.yaml
+- kserve-llamacpp.yaml
 - kserve-llm-sglang.yaml
 - kserve-llm-omni.yaml
 

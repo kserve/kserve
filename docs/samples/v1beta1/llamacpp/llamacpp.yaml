@@ -1,0 +1,25 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: llamacpp-smollm2
+  annotations:
+    serving.kserve.io/deploymentMode: Standard
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: gguf
+      runtime: kserve-llamacpp
+      storageUri: hf://QuantFactory/SmolLM2-135M-Instruct-GGUF/SmolLM2-135M-Instruct.Q4_K_M.gguf
+      args:
+        - --model
+        - /mnt/models/SmolLM2-135M-Instruct.Q4_K_M.gguf
+        - --threads
+        - "2"
+      resources:
+        requests:
+          cpu: "2"
+          memory: 2Gi
+        limits:
+          cpu: "2"
+          memory: 2Gi
