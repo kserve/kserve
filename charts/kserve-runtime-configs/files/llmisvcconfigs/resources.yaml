@@ -4211,10 +4211,8 @@ spec:
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
-              exec:
-                command:
-                - /bin/sleep
-                - "15"
+              sleep:
+                seconds: 15
           livenessProbe:
             failureThreshold: 3
             grpc:

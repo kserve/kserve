@@ -28,11 +28,12 @@ spec:
         containers:
           - name: main
             lifecycle:
+              # The endpoint picker image is distroless: an exec hook running /bin/sleep fails
+              # at once, so the pod got no drain time before SIGTERM. The kubelet's own sleep
+              # action needs no binary in the image.
               preStop:
-                exec:
-                  command:
-                  - /bin/sleep
-                  - "15"
+                sleep:
+                  seconds: 15
             ports:
               - containerPort: 9002
                 name: grpc
