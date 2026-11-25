@@ -33,8 +33,8 @@ import (
 )
 
 // reconcilePrefetchServiceAccountAccess reconciles the prefetch ServiceAccount
-// and its source-namespace RoleBinding. It returns false while a non-terminal
-// prefetch Job still depends on the current binding.
+// and its source-namespace RoleBinding. It returns false while the binding must
+// change and a non-terminal prefetch Job still depends on the current binding.
 func (r *KernelCacheReconciler) reconcilePrefetchServiceAccountAccess(
 	ctx context.Context,
 	kernelCache *v1alpha1.KernelCache,
@@ -77,6 +77,10 @@ func (r *KernelCacheReconciler) reconcilePrefetchServiceAccountAccess(
 		return false, fmt.Errorf("managed RoleBinding %s/%s has an unexpected ServiceAccount subject", kernelCache.Namespace, kernelCachePrefetchRoleBinding)
 	}
 
+	if requiresPullBinding && current.RoleRef == desired.RoleRef && current.Subjects[0] == desired.Subjects[0] {
+		return true, nil
+	}
+
 	jobNamespaces := prefetchJobServiceAccountNamespaces(current, config.JobNamespace)
 	hasActiveJobs, err := r.hasActivePrefetchJobsUsingSourceNamespace(ctx, kernelCache.Namespace, jobNamespaces)
 	if err != nil {
@@ -97,10 +101,6 @@ func (r *KernelCacheReconciler) reconcilePrefetchServiceAccountAccess(
 		if err := r.replaceManagedPrefetchRoleBinding(ctx, current, desired); err != nil {
 			return false, err
 		}
-		return true, nil
-	}
-
-	if len(current.Subjects) == 1 && current.Subjects[0] == desired.Subjects[0] {
 		return true, nil
 	}
 
