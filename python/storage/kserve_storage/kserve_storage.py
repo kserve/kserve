@@ -2032,7 +2032,12 @@ class Storage(object):
 
             if encoding == "gzip":
                 stream = gzip.GzipFile(fileobj=response.raw)
-                local_path = os.path.join(out_dir, f"{filename}.tar")
+                if mimetype == "application/x-tar":
+                    local_path = os.path.join(out_dir, f"{filename}.tar")
+                elif Path(filename).suffix == ".gz":
+                    # A gzipped single file such as model.joblib.gz is stored
+                    # decompressed under its own name, model.joblib.
+                    local_path = os.path.join(out_dir, Path(filename).stem)
             else:
                 stream = response.raw
             with open(local_path, "wb") as out:
