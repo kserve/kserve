@@ -224,13 +224,26 @@ func (r *KernelCacheCaptureControllerReconciler) ensureCaptureForPod(ctx context
 	if inferenceService == nil {
 		return false, errors.New("capture Pod has no resolved InferenceService")
 	}
-	revisionID := pod.Labels[appsv1.DefaultDeploymentUniqueLabelKey]
-	if revisionID == "" {
-		return false, nil
-	}
 	reader := r.Reader
 	if reader == nil {
 		reader = r.Client
+	}
+	// Admission records the capture selection in the Pod. Reuse it throughout
+	// the existing lifecycle, including after the InferenceService is updated.
+	override, err := kernelcacheutil.ResolveCaptureOverride(ctx, reader, pod.Namespace, pod.Annotations, inferenceService.Name)
+	if err != nil {
+		return false, err
+	}
+	if override != nil {
+		if captureConfig.Capture.Name != override.Name || captureConfig.Capture.Namespace != pod.Namespace {
+			return false, errors.New("capture Pod capture identity does not match selected KernelCacheCapture")
+		}
+		return true, nil
+	}
+
+	revisionID := pod.Labels[appsv1.DefaultDeploymentUniqueLabelKey]
+	if revisionID == "" {
+		return false, nil
 	}
 	revision, resolveErr := workload.ResolveDeploymentBackedInferenceServiceRevision(ctx, reader, pod)
 	if resolveErr != nil {
