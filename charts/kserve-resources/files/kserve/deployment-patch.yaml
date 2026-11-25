@@ -49,6 +49,10 @@ spec:
       containers:
       - name: kube-rbac-proxy
         image: "{{ .Values.kserve.controller.rbacProxyImage }}"
+        args:
+        - "--secure-listen-address=0.0.0.0:8443"
+        - "--upstream=http://127.0.0.1:{{ .Values.kserve.controller.metricsBindPort }}/"
+        - "--v=10"
         securityContext:
           {{- with .Values.kserve.controller.rbacProxy.securityContext}}
           {{- toYaml . | nindent 10 }}
