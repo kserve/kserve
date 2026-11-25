@@ -620,6 +620,17 @@ func WithSchedulerReplicas(replicas int32) LLMInferenceServiceOption {
 	}
 }
 
+// WithSchedulerGenerations sets spec.router.scheduler.rolloutStrategy to type Generations.
+func WithSchedulerGenerations(generations v1alpha2.SchedulerGenerationsSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		llmSvc.Spec.Router.Scheduler.RolloutStrategy = &v1alpha2.SchedulerRolloutStrategy{
+			Type:        v1alpha2.SchedulerRolloutGenerations,
+			Generations: generations.DeepCopy(),
+		}
+	}
+}
+
 // WithConfigSchedulerReplicas sets the scheduler replicas on the LLMInferenceServiceConfig.
 func WithConfigSchedulerReplicas(replicas int32) LLMInferenceServiceConfigOption {
 	return func(config *v1alpha2.LLMInferenceServiceConfig) {

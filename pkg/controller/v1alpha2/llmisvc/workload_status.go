@@ -95,7 +95,13 @@ func (r *LLMISVCReconciler) observeWorkloadStatus(ctx context.Context, llmSvc *v
 		Name: workloadServiceName(llmSvc),
 	}
 
-	if hasManagedScheduler(llmSvc) {
+	switch {
+	case schedulerUsesGenerations(llmSvc) && llmSvc.Status.Workloads != nil && llmSvc.Status.Workloads.Scheduler != nil:
+		// reconcileSchedulerGenerations, which ran with the router, recorded the
+		// generation the EPP Service selects and the ones that run.
+		ws.Scheduler = observedDeployment(llmSvc.Status.Workloads.Scheduler.Name)
+		ws.SchedulerGenerations = llmSvc.Status.Workloads.SchedulerGenerations
+	case hasManagedScheduler(llmSvc):
 		ws.Scheduler = observedDeployment(schedulerDeploymentName(llmSvc))
 	}
 

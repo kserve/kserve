@@ -1348,3 +1348,38 @@ func TestValidateModelExpress(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateSchedulerRolloutStrategy(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(replicas *int32, rs *SchedulerRolloutStrategy) *LLMInferenceService {
+		return &LLMInferenceService{Spec: LLMInferenceServiceSpec{
+			Router: &RouterSpec{Scheduler: &SchedulerSpec{Replicas: replicas, RolloutStrategy: rs}},
+		}}
+	}
+
+	t.Run("recreate", func(t *testing.T) {
+		assert.Empty(t, validator.validateSchedulerConfig(makeSvc(nil, &SchedulerRolloutStrategy{Type: SchedulerRolloutRecreate})))
+	})
+
+	t.Run("generations with leader election", func(t *testing.T) {
+		assert.Empty(t, validator.validateSchedulerConfig(makeSvc(ptr.To[int32](2), &SchedulerRolloutStrategy{
+			Type:        SchedulerRolloutGenerations,
+			Generations: &SchedulerGenerationsSpec{Promotion: SchedulerGenerationPromotionManual, Serving: "7c9f8d6b5"},
+		})))
+	})
+
+	t.Run("generations.serving is a generation name", func(t *testing.T) {
+		errs := validator.validateSchedulerConfig(makeSvc(nil, &SchedulerRolloutStrategy{
+			Type: SchedulerRolloutGenerations, Generations: &SchedulerGenerationsSpec{Serving: "Not_A_Name"},
+		}))
+		require.NotEmpty(t, errs)
+		assert.Equal(t, "spec.router.scheduler.rolloutStrategy.generations.serving", errs[0].Field)
+	})
+
+	t.Run("generations without type Generations rejected", func(t *testing.T) {
+		errs := validator.validateSchedulerConfig(makeSvc(nil, &SchedulerRolloutStrategy{Generations: &SchedulerGenerationsSpec{}}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, "spec.router.scheduler.rolloutStrategy.generations", errs[0].Field)
+	})
+}

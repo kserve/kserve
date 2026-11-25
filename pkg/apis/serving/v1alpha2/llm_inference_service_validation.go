@@ -393,6 +393,30 @@ func (l *LLMInferenceServiceValidator) validateImmutableParallelism(basePath *fi
 	return allErrs
 }
 
+// ValidateSchedulerRolloutStrategy validates spec.router.scheduler.rolloutStrategy: generations
+// only with type Generations, and a pinned generation must be a generation name. Shared with
+// the v1alpha1 validator.
+func ValidateSchedulerRolloutStrategy(scheduler *SchedulerSpec, schedulerPath *field.Path) field.ErrorList {
+	if scheduler == nil || scheduler.RolloutStrategy == nil {
+		return nil
+	}
+	rs := scheduler.RolloutStrategy
+	rsPath := schedulerPath.Child("rolloutStrategy")
+	if !rs.IsGenerations() {
+		if rs.Generations != nil {
+			return field.ErrorList{field.Forbidden(rsPath.Child("generations"), "generations requires type Generations")}
+		}
+		return nil
+	}
+	var allErrs field.ErrorList
+	if g := rs.Generations; g != nil && g.Serving != "" {
+		for _, msg := range validation.IsDNS1123Label(g.Serving) {
+			allErrs = append(allErrs, field.Invalid(rsPath.Child("generations", "serving"), g.Serving, msg))
+		}
+	}
+	return allErrs
+}
+
 func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -405,6 +429,8 @@ func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInference
 	if svc.Spec.Router.Scheduler.Replicas != nil && *svc.Spec.Router.Scheduler.Replicas <= 0 {
 		allErrs = append(allErrs, field.Invalid(schedulerPath.Child("replicas"), *svc.Spec.Router.Scheduler.Replicas, "scheduler replicas must be greater than zero"))
 	}
+
+	allErrs = append(allErrs, ValidateSchedulerRolloutStrategy(svc.Spec.Router.Scheduler, schedulerPath)...)
 
 	if svc.Spec.Router.Scheduler.Config == nil {
 		return allErrs

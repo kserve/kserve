@@ -619,6 +619,9 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Template: src.Scheduler.Tokenizer.Template,
 			}
 		}
+		if src.Scheduler.RolloutStrategy != nil {
+			dst.Scheduler.RolloutStrategy = convertSchedulerRolloutStrategyToV1Alpha2(src.Scheduler.RolloutStrategy)
+		}
 	}
 
 	return dst
@@ -709,6 +712,9 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 			dst.Scheduler.Tokenizer = &TokenizerSpec{
 				Template: src.Scheduler.Tokenizer.Template,
 			}
+		}
+		if src.Scheduler.RolloutStrategy != nil {
+			dst.Scheduler.RolloutStrategy = convertSchedulerRolloutStrategyFromV1Alpha2(src.Scheduler.RolloutStrategy)
 		}
 	}
 
@@ -801,4 +807,30 @@ func restoreCriticalityFromAnnotations(meta *metav1.ObjectMeta, model *LLMModelS
 	if len(meta.Annotations) == 0 {
 		meta.Annotations = nil
 	}
+}
+
+func convertSchedulerRolloutStrategyToV1Alpha2(src *SchedulerRolloutStrategy) *v1alpha2.SchedulerRolloutStrategy {
+	dst := &v1alpha2.SchedulerRolloutStrategy{Type: v1alpha2.SchedulerRolloutStrategyType(src.Type)}
+	if g := src.Generations; g != nil {
+		dst.Generations = &v1alpha2.SchedulerGenerationsSpec{
+			Promotion:           v1alpha2.SchedulerGenerationPromotion(g.Promotion),
+			Serving:             g.Serving,
+			MinReadySeconds:     g.MinReadySeconds,
+			RetainedGenerations: g.RetainedGenerations,
+		}
+	}
+	return dst
+}
+
+func convertSchedulerRolloutStrategyFromV1Alpha2(src *v1alpha2.SchedulerRolloutStrategy) *SchedulerRolloutStrategy {
+	dst := &SchedulerRolloutStrategy{Type: SchedulerRolloutStrategyType(src.Type)}
+	if g := src.Generations; g != nil {
+		dst.Generations = &SchedulerGenerationsSpec{
+			Promotion:           SchedulerGenerationPromotion(g.Promotion),
+			Serving:             g.Serving,
+			MinReadySeconds:     g.MinReadySeconds,
+			RetainedGenerations: g.RetainedGenerations,
+		}
+	}
+	return dst
 }

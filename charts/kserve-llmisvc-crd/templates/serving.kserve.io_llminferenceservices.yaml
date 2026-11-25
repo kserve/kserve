@@ -10122,6 +10122,34 @@ spec:
                         replicas:
                           format: int32
                           type: integer
+                        rolloutStrategy:
+                          properties:
+                            generations:
+                              properties:
+                                minReadySeconds:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                promotion:
+                                  enum:
+                                    - Automatic
+                                    - Manual
+                                  type: string
+                                retainedGenerations:
+                                  format: int32
+                                  maximum: 10
+                                  minimum: 0
+                                  type: integer
+                                serving:
+                                  maxLength: 63
+                                  type: string
+                              type: object
+                            type:
+                              enum:
+                                - Recreate
+                                - Generations
+                              type: string
+                          type: object
                         template:
                           properties:
                             activeDeadlineSeconds:
@@ -36480,6 +36508,34 @@ spec:
                         replicas:
                           format: int32
                           type: integer
+                        rolloutStrategy:
+                          properties:
+                            generations:
+                              properties:
+                                minReadySeconds:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                promotion:
+                                  enum:
+                                    - Automatic
+                                    - Manual
+                                  type: string
+                                retainedGenerations:
+                                  format: int32
+                                  maximum: 10
+                                  minimum: 0
+                                  type: integer
+                                serving:
+                                  maxLength: 63
+                                  type: string
+                              type: object
+                            type:
+                              enum:
+                                - Recreate
+                                - Generations
+                              type: string
+                          type: object
                         template:
                           properties:
                             activeDeadlineSeconds:
@@ -52869,6 +52925,31 @@ spec:
                         - name
                       type: object
                       x-kubernetes-map-type: atomic
+                    schedulerGenerations:
+                      items:
+                        properties:
+                          creationTimestamp:
+                            format: date-time
+                            type: string
+                          current:
+                            type: boolean
+                          deployment:
+                            type: string
+                          name:
+                            type: string
+                          readyReplicas:
+                            format: int32
+                            type: integer
+                          serving:
+                            type: boolean
+                        required:
+                          - deployment
+                          - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                        - name
+                      x-kubernetes-list-type: map
                     service:
                       properties:
                         apiGroup:
