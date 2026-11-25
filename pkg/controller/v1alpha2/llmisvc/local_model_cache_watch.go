@@ -30,15 +30,20 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
 // localModelCacheReadinessChangePredicate accepts only Update events whose
 // generation or Ready condition changed: spec generation changes re-run the
 // import, and Ready condition transitions unblock (or re-block) fail-closed
-// workloads (see resolveBaseModelCachePVC and resolveLoRACachePVC). Creates and
-// deletes are dropped: the reconcilers only match existing caches, and cache
-// deletion is protected by the local model controller's consumer tracking.
+// workloads (see resolveBaseModelCachePVC and resolveLoRACachePVC). Creates
+// are accepted too: a newly created cache may be the first match for a
+// CacheRequired workload that has been waiting unbound (see
+// ensureLocalModelCacheBinding). Deletes are dropped: the reconcilers only
+// match existing caches, and cache deletion is protected by the local model
+// controller's consumer tracking.
 func localModelCacheReadinessChangePredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -51,7 +56,7 @@ func localModelCacheReadinessChangePredicate() predicate.Funcs {
 				oldReady.Status != newReady.Status ||
 				oldReady.ObservedGeneration != newReady.ObservedGeneration
 		},
-		CreateFunc:  func(event.CreateEvent) bool { return false },
+		CreateFunc:  func(event.CreateEvent) bool { return true },
 		DeleteFunc:  func(event.DeleteEvent) bool { return false },
 		GenericFunc: func(event.GenericEvent) bool { return false },
 	}
@@ -74,6 +79,10 @@ func localModelCacheReadyCondition(obj client.Object) *metav1.Condition {
 // through the internal.serving.kserve.io/localmodel label (base model) or
 // through a LoRA adapter entry of the localmodel-lora annotation, so workloads
 // whose base model is uncached but an adapter is cached are covered too.
+// CacheRequired workloads that are still unbound but would select the changed
+// cache for their base model or an adapter are enqueued as well: their
+// reconciliation re-runs the selection (ensureLocalModelCacheBinding) and
+// persists the binding instead of waiting for the requeue backoff.
 // LocalModelCache is cluster-scoped, so its consumers are scanned across every
 // namespace.
 func (r *LLMISVCReconciler) enqueueOnLocalModelCacheChange(logger logr.Logger) handler.MapFunc {
@@ -105,6 +114,9 @@ func (r *LLMISVCReconciler) enqueueOnLocalModelCacheChange(logger logr.Logger) h
 			} else {
 				bound = localmodelcache.LLMISVCReferencesClusterCache(obj.GetName(), llmSvc.Labels, llmSvc.Annotations)
 			}
+			if !bound && localModelCacheCouldBind(obj, llmSvc) {
+				bound = true
+			}
 			if bound {
 				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 					Namespace: llmSvc.Namespace,
@@ -114,4 +126,62 @@ func (r *LLMISVCReconciler) enqueueOnLocalModelCacheChange(logger logr.Logger) h
 		}
 		return reqs
 	}
+}
+
+// localModelCacheCouldBind reports whether the changed cache would be selected
+// for the base model or a LoRA adapter of an unbound CacheRequired workload.
+// The selection mirrors MatchCacheForURI with CacheRequired and no prior
+// binding: a not-ready shared-PVC cache still matches as a wait intent, so the
+// workload binds and waits on the import record rather than staying unbound.
+func localModelCacheCouldBind(obj client.Object, llmSvc *v1alpha2.LLMInferenceService) bool {
+	cacheRequired, _ := kservevalidation.LocalModelCachePolicyRequired(llmSvc.Annotations)
+	if !cacheRequired {
+		return false
+	}
+	// Fully bound workloads re-select nothing; everything else may pick up
+	// this cache for its base model or an unbound LoRA adapter.
+	if localModelCacheFullyBound(llmSvc) {
+		return false
+	}
+
+	models := &v1alpha1.LocalModelCacheList{}
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{}
+	switch cache := obj.(type) {
+	case *v1alpha1.LocalModelCache:
+		models.Items = []v1alpha1.LocalModelCache{*cache}
+	case *v1alpha1.LocalModelNamespaceCache:
+		if cache.Namespace != llmSvc.Namespace {
+			return false
+		}
+		nsModels.Items = []v1alpha1.LocalModelNamespaceCache{*cache}
+	default:
+		return false
+	}
+
+	nodeGroup, nodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
+	if localmodelcache.MatchCacheForURI(v1alpha1.LocalModelCacheSelection{
+		StorageURI:      llmSvc.Spec.Model.URI.String(),
+		NodeGroup:       nodeGroup,
+		NodeGroupExists: nodeGroupExists,
+		CacheRequired:   true,
+	}, models, nsModels) != nil {
+		return true
+	}
+	if llmSvc.Spec.Model.LoRA == nil {
+		return false
+	}
+	for _, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
+		if adapter.Name == nil {
+			continue
+		}
+		if localmodelcache.MatchCacheForURI(v1alpha1.LocalModelCacheSelection{
+			StorageURI:      adapter.URI.String(),
+			NodeGroup:       nodeGroup,
+			NodeGroupExists: nodeGroupExists,
+			CacheRequired:   true,
+		}, models, nsModels) != nil {
+			return true
+		}
+	}
+	return false
 }

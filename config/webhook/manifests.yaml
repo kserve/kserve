@@ -51,6 +51,39 @@ webhooks:
           - CREATE
         resources:
           - pods
+  # LLMInferenceService workload pods do not carry the
+  # serving.kserve.io/inferenceservice label selected above, so without this
+  # second entry they would never reach the pod mutator and the CacheRequired
+  # import-record gate (gateLocalModelCacheWaiting) would be bypassed. Selector
+  # expressions in a single entry are AND-ed, so covering both label sets needs
+  # a separate entry. The gate is the only logic that runs for these pods:
+  # needMutate skips the injection pipeline for them.
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /mutate-pods
+    failurePolicy: Fail
+    name: llminferenceservice.kserve-webhook-server.pod-mutator
+    sideEffects: None
+    reinvocationPolicy: IfNeeded
+    admissionReviewVersions: ["v1beta1"]
+    namespaceSelector:
+      matchExpressions:
+        - key: control-plane
+          operator: DoesNotExist
+    objectSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: llminferenceservice
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
 
 ---
 apiVersion: admissionregistration.k8s.io/v1

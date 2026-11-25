@@ -355,6 +355,13 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 
 	RecordAcceleratorAnnotation(llmSvc)
 
+	// Bind CacheRequired workloads that are waiting without a cache (e.g. the
+	// matching cache was created after the workload) before reconciling the
+	// workload, so the same pass continues from the selected binding.
+	if err := r.ensureLocalModelCacheBinding(ctx, llmSvc); err != nil {
+		return err
+	}
+
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}

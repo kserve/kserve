@@ -21,9 +21,12 @@ import (
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -99,6 +102,116 @@ func TestEnqueueOnLocalModelCacheChange(t *testing.T) {
 					Name:      "unbound",
 					Namespace: "ns-a",
 				}}
+			},
+			want: nil,
+		},
+		{
+			name: "namespace cache enqueues an unbound CacheRequired service it would bind",
+			cache: &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns-a"},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: "hf://model-a",
+					PVCRef:         ptr.To("shared-pvc"),
+				},
+			},
+			llmSvc: func() *v1alpha2.LLMInferenceService {
+				uri, err := apis.ParseURL("hf://model-a")
+				require.NoError(t, err)
+				return &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "waiting",
+						Namespace: "ns-a",
+						Annotations: map[string]string{
+							constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+						},
+					},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model: v1alpha2.LLMModelSpec{URI: *uri},
+					},
+				}
+			},
+			want: []reconcile.Request{requestFor("ns-a", "waiting")},
+		},
+		{
+			name: "namespace cache ignores an unbound service without the CacheRequired policy",
+			cache: &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns-a"},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: "hf://model-a",
+					PVCRef:         ptr.To("shared-pvc"),
+				},
+			},
+			llmSvc: func() *v1alpha2.LLMInferenceService {
+				uri, err := apis.ParseURL("hf://model-a")
+				require.NoError(t, err)
+				return &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "fallback",
+						Namespace: "ns-a",
+					},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model: v1alpha2.LLMModelSpec{URI: *uri},
+					},
+				}
+			},
+			want: nil,
+		},
+		{
+			name: "namespace cache ignores an unbound CacheRequired service whose URI does not match",
+			cache: &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns-a"},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: "hf://model-a",
+					PVCRef:         ptr.To("shared-pvc"),
+				},
+			},
+			llmSvc: func() *v1alpha2.LLMInferenceService {
+				uri, err := apis.ParseURL("hf://model-b")
+				require.NoError(t, err)
+				return &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "waiting-other-model",
+						Namespace: "ns-a",
+						Annotations: map[string]string{
+							constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+						},
+					},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model: v1alpha2.LLMModelSpec{URI: *uri},
+					},
+				}
+			},
+			want: nil,
+		},
+		{
+			name: "namespace cache ignores a fully bound CacheRequired service bound to a different cache",
+			cache: &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns-a"},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: "hf://model-a",
+					PVCRef:         ptr.To("shared-pvc"),
+				},
+			},
+			llmSvc: func() *v1alpha2.LLMInferenceService {
+				uri, err := apis.ParseURL("hf://model-a")
+				require.NoError(t, err)
+				return &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bound-elsewhere",
+						Namespace: "ns-a",
+						Labels: map[string]string{
+							constants.LocalModelLabel:          "other-cache",
+							constants.LocalModelNamespaceLabel: "ns-a",
+						},
+						Annotations: map[string]string{
+							constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+							constants.LocalModelSourceUriAnnotationKey:   "hf://model-a",
+						},
+					},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model: v1alpha2.LLMModelSpec{URI: *uri},
+					},
+				}
 			},
 			want: nil,
 		},
