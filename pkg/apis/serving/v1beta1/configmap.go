@@ -149,6 +149,10 @@ type IngressConfig struct {
 	// fails config loading like the other ingress keys.
 	LoRAModelRoutingStrategy string `json:"loraModelRoutingStrategy,omitempty"`
 
+	// HTTPRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService
+	// inline route may be sharded into. Defaults to 1, so sharding is opt-in;
+	// a service overrides it with serving.kserve.io/httproute-max-shards.
+	HTTPRouteMaxShards int `json:"httpRouteMaxShards,omitempty"`
 	// RouteRuleNaming is "preset" (the default) or "unique", which suffixes the
 	// LLMInferenceService HTTPRoute rule names per service. An unsupported value
 	// sets HTTPRoutesReady=False on the services that use it.

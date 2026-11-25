@@ -4599,6 +4599,11 @@
         "enableLLMInferenceServiceTLS": {
           "type": "boolean"
         },
+        "httpRouteMaxShards": {
+          "description": "HTTPRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService inline route may be sharded into. Defaults to 1, so sharding is opt-in; a service overrides it with serving.kserve.io/httproute-max-shards.",
+          "type": "integer",
+          "format": "int32"
+        },
         "ingressClassName": {
           "type": "string"
         },

@@ -831,14 +831,17 @@ func TestFinalizeGroupMembership(t *testing.T) {
 		},
 	}
 	peer := &v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "peer", Namespace: "ns"},
+		ObjectMeta: metav1.ObjectMeta{Name: "peer", Namespace: "ns", UID: "peer-uid"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{Group: ptr.To(group)}},
 		},
 	}
 	peerPoolRoute := func(poolName string) *gwapiv1.HTTPRoute {
 		return &gwapiv1.HTTPRoute{
-			ObjectMeta: metav1.ObjectMeta{Name: kmeta.ChildName(peer.Name, "-kserve-route"), Namespace: peer.Namespace},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: kmeta.ChildName(peer.Name, "-kserve-route"), Namespace: peer.Namespace,
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(peer, v1alpha2.LLMInferenceServiceGVK)},
+			},
 			Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: []gwapiv1.HTTPBackendRef{{
 				BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
 					Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
@@ -856,8 +859,11 @@ func TestFinalizeGroupMembership(t *testing.T) {
 			}})
 		}
 		return &gwapiv1.HTTPRoute{
-			ObjectMeta: metav1.ObjectMeta{Name: kmeta.ChildName(peer.Name, "-kserve-route"), Namespace: peer.Namespace},
-			Spec:       gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: refs}}},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: kmeta.ChildName(peer.Name, "-kserve-route"), Namespace: peer.Namespace,
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(peer, v1alpha2.LLMInferenceServiceGVK)},
+			},
+			Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: refs}}},
 		}
 	}
 

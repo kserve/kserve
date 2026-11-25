@@ -19,7 +19,9 @@ package v1alpha2
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -46,7 +48,31 @@ import (
 // LLMInferenceServiceValidator is responsible for validating the LLMInferenceService resource
 // when it is created, updated, or deleted.
 // +kubebuilder:object:generate=false
-type LLMInferenceServiceValidator struct{}
+type LLMInferenceServiceValidator struct {
+	// InlineRouteDryRun, when set, sends the inline route rules to the API
+	// server as dry-run HTTPRoutes so the Gateway API CRD validates them
+	// before the workload rolls. Set by the controller, which has the client.
+	InlineRouteDryRun InlineRouteDryRunFunc
+}
+
+// InlineRouteDryRunFunc dry-runs the rules of an inline route as one or more
+// HTTPRoutes in namespace, named after name, and returns the API server's
+// verdict. It returns nil when the Gateway API is not installed.
+// A rejection of the rules is an *InlineRouteRejectedError; any other error
+// means the rules could not be checked.
+// +kubebuilder:object:generate=false
+type InlineRouteDryRunFunc func(ctx context.Context, namespace, name string, spec *gwapiv1.HTTPRouteSpec) error
+
+// InlineRouteRejectedError is the API server rejecting the inline route
+// rules as an HTTPRoute.
+// +kubebuilder:object:generate=false
+type InlineRouteRejectedError struct {
+	Err error
+}
+
+func (e *InlineRouteRejectedError) Error() string { return e.Err.Error() }
+
+func (e *InlineRouteRejectedError) Unwrap() error { return e.Err }
 
 var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
 
@@ -97,6 +123,9 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
+	allErrs = append(allErrs, ValidateHTTPRouteMaxShardsAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
+	allErrs = append(allErrs, ValidateInlineRoutePaths(llmSvc.Spec.Router, field.NewPath("spec", "router", "route", "http", "spec"))...)
+	allErrs = append(allErrs, ValidateInlineRouteSize(llmSvc.Spec.Router, field.NewPath("spec", "router", "route", "http", "spec"))...)
 	allErrs = append(allErrs, l.validateRouteRuleNamingAnnotation(llmSvc)...)
 	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
 
@@ -105,6 +134,16 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
 	warnings = append(warnings, confidentialWarnings...)
 	allErrs = append(allErrs, confidentialErrs...)
+
+	// Last and only on an otherwise valid spec, as it calls the API server.
+	if len(allErrs) == 0 {
+		dryRunErrs, err := DryRunInlineRoute(ctx, l.InlineRouteDryRun, llmSvc.Namespace, llmSvc.Name, llmSvc.Spec.Router,
+			field.NewPath("spec", "router", "route", "http", "spec"))
+		if err != nil {
+			return warnings, err
+		}
+		allErrs = append(allErrs, dryRunErrs...)
+	}
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
@@ -1005,6 +1044,155 @@ func ValidateLoRAModelRoutingStrategyAnnotation(annotations map[string]string, p
 		raw,
 		[]string{constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex},
 	)}
+}
+
+// ValidateHTTPRouteMaxShardsAnnotation rejects a serving.kserve.io/httproute-max-shards
+// value that is not an integer between 1 and constants.MaxHTTPRouteMaxShards. Shared
+// with the v1alpha1 validator so both API versions reject the same values.
+func ValidateHTTPRouteMaxShardsAnnotation(annotations map[string]string, path *field.Path) field.ErrorList {
+	raw, ok := annotations[constants.HTTPRouteMaxShardsAnnotationKey]
+	if !ok {
+		return nil
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && n >= 1 && n <= constants.MaxHTTPRouteMaxShards {
+		return nil
+	}
+	return field.ErrorList{field.Invalid(
+		path.Key(constants.HTTPRouteMaxShardsAnnotationKey),
+		raw,
+		fmt.Sprintf("must be an integer between 1 and %d", constants.MaxHTTPRouteMaxShards),
+	)}
+}
+
+// inlineRoutePathCharacters is the Gateway API HTTPPathMatch character rule for Exact and PathPrefix values.
+var inlineRoutePathCharacters = regexp.MustCompile(`^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$`)
+
+// ValidateInlineRoutePaths checks the Exact and PathPrefix path matches of an inline route against the
+// Gateway API HTTPPathMatch rules. The inline schema drops the nested Gateway API CEL rules so a route
+// larger than one HTTPRoute fits the CEL budget; checking paths here keeps an invalid path failing the
+// apply instead of only the HTTPRoute write. Every other rule is still enforced by the Gateway API CRD
+// through the controller's dry-run. Shared with the v1alpha1 validator.
+func ValidateInlineRoutePaths(router *RouterSpec, path *field.Path) field.ErrorList {
+	if router == nil || router.Route == nil || router.Route.HTTP == nil || router.Route.HTTP.Spec == nil {
+		return nil
+	}
+	return ValidateHTTPRoutePaths(router.Route.HTTP.Spec, path)
+}
+
+// ValidateHTTPRoutePaths checks the Exact and PathPrefix path matches of spec; see ValidateInlineRoutePaths.
+func ValidateHTTPRoutePaths(spec *gwapiv1.HTTPRouteSpec, path *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	for i := range spec.Rules {
+		for j := range spec.Rules[i].Matches {
+			m := spec.Rules[i].Matches[j].Path
+			if m == nil || m.Value == nil {
+				continue
+			}
+			t := ptr.Deref(m.Type, gwapiv1.PathMatchPathPrefix)
+			if t != gwapiv1.PathMatchExact && t != gwapiv1.PathMatchPathPrefix {
+				continue
+			}
+			if msg := invalidPathValue(*m.Value); msg != "" {
+				allErrs = append(allErrs, field.Invalid(
+					path.Child("rules").Index(i).Child("matches").Index(j).Child("path", "value"), *m.Value, msg))
+			}
+		}
+	}
+	return allErrs
+}
+
+func invalidPathValue(v string) string {
+	switch {
+	case !strings.HasPrefix(v, "/"):
+		return "must be an absolute path and start with '/'"
+	case strings.Contains(v, "//"):
+		return "must not contain '//'"
+	case strings.Contains(v, "/./"):
+		return "must not contain '/./'"
+	case strings.Contains(v, "/../"):
+		return "must not contain '/../'"
+	case strings.Contains(v, "%2f"), strings.Contains(v, "%2F"):
+		return "must not contain an encoded '/'"
+	case strings.Contains(v, "#"):
+		return "must not contain '#'"
+	case strings.HasSuffix(v, "/.."), strings.HasSuffix(v, "/."):
+		return "must not end with '/..' or '/.'"
+	case !inlineRoutePathCharacters.MatchString(v):
+		return "must only contain valid characters (matching " + inlineRoutePathCharacters.String() + ")"
+	}
+	return ""
+}
+
+// Bounds of an inline route: at most constants.MaxHTTPRouteMaxShards
+// HTTPRoutes of 16 rules and 128 matches each. The rule count is also capped
+// by the CRD schema (rules.maxItems); the match count cannot be expressed
+// there within the CEL budget, so it is checked here.
+const (
+	inlineRouteMaxRules   = constants.MaxHTTPRouteMaxShards * 16
+	inlineRouteMaxMatches = constants.MaxHTTPRouteMaxShards * 128
+	httpRouteRuleMatches  = 64
+)
+
+// ValidateInlineRouteSize rejects an inline route that could never fit in
+// the most HTTPRoutes a service may use: more than 256 rules once rules with
+// more than 64 matches are split, or more than 2048 matches. Shared with the
+// v1alpha1 validator.
+func ValidateInlineRouteSize(router *RouterSpec, path *field.Path) field.ErrorList {
+	if router == nil || router.Route == nil || router.Route.HTTP == nil || router.Route.HTTP.Spec == nil {
+		return nil
+	}
+	return ValidateHTTPRouteSize(router.Route.HTTP.Spec, path)
+}
+
+// ValidateHTTPRouteSize checks spec against the inline route bounds; see ValidateInlineRouteSize.
+func ValidateHTTPRouteSize(spec *gwapiv1.HTTPRouteSpec, path *field.Path) field.ErrorList {
+	rules, matches := 0, 0
+	for i := range spec.Rules {
+		n := max(1, len(spec.Rules[i].Matches))
+		matches += n
+		rules += (n + httpRouteRuleMatches - 1) / httpRouteRuleMatches
+	}
+	var allErrs field.ErrorList
+	if rules > inlineRouteMaxRules {
+		allErrs = append(allErrs, field.TooMany(path.Child("rules"), rules, inlineRouteMaxRules))
+	}
+	if matches > inlineRouteMaxMatches {
+		allErrs = append(allErrs, field.Invalid(path.Child("rules"), matches,
+			fmt.Sprintf("the rules hold %d matches; an inline route may hold at most %d (%d HTTPRoutes of 128)",
+				matches, inlineRouteMaxMatches, constants.MaxHTTPRouteMaxShards)))
+	}
+	return allErrs
+}
+
+// DryRunInlineRoute runs dryRun on the inline route of router, when both are
+// set and the route has rules. A rejection of the rules becomes a field
+// error. Any other failure means the rules could not be checked; it is
+// returned as an InternalError, not Invalid, so the client retries and the
+// controller requeues instead of marking the rendered spec invalid.
+// Shared with the v1alpha1 validator.
+func DryRunInlineRoute(ctx context.Context, dryRun InlineRouteDryRunFunc, namespace, name string, router *RouterSpec, path *field.Path) (field.ErrorList, error) {
+	if router == nil || router.Route == nil || router.Route.HTTP == nil {
+		return nil, nil
+	}
+	return DryRunInlineRouteSpec(ctx, dryRun, namespace, name, router.Route.HTTP.Spec, path)
+}
+
+// DryRunInlineRouteSpec is DryRunInlineRoute for the inline HTTPRoute spec
+// itself, for API versions whose RouterSpec differs.
+func DryRunInlineRouteSpec(ctx context.Context, dryRun InlineRouteDryRunFunc, namespace, name string, spec *gwapiv1.HTTPRouteSpec, path *field.Path) (field.ErrorList, error) {
+	if dryRun == nil || spec == nil || len(spec.Rules) == 0 {
+		return nil, nil
+	}
+	err := dryRun(ctx, namespace, name, spec)
+	if err == nil {
+		return nil, nil
+	}
+	var rejected *InlineRouteRejectedError
+	if errors.As(err, &rejected) {
+		return field.ErrorList{field.Invalid(path.Child("rules"), "<inline route rules>",
+			"rejected as an HTTPRoute by the Gateway API CRD: "+rejected.Error())}, nil
+	}
+	return nil, apierrors.NewInternalError(fmt.Errorf("could not validate the inline route rules, try again: %w", err))
 }
 
 // ValidateRouteRuleNamingAnnotation is exported for the v1alpha1 validator.

@@ -280,12 +280,16 @@ func main() {
 	ctrlmetrics.Registry.MustRegister(llmisvc.NewWorkloadMetricsCollector(client))
 
 	// Register webhooks: validation (v1alpha1, v1alpha2) and conversion
-	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{
+		InlineRouteDryRun: llmisvc.NewInlineRouteDryRun(mgr.GetClient()),
+	}
 	if err = v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha2")
 		os.Exit(1)
 	}
-	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{
+		InlineRouteDryRun: llmisvc.NewInlineRouteDryRun(mgr.GetClient()),
+	}
 	if err = v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
