@@ -42,6 +42,10 @@ MARKER="${1:-}"
 PARALLELISM="${2:-1}"
 NETWORK_LAYER="${3:-istio}"
 
+# Keeps a failed test's namespace. Only per-test namespaces (llmisvc) honour it:
+# worker namespaces are reused by the next test, so their failures are captured
+# under E2E_DIAGNOSTICS_DIR and then cleaned up. SKIP_RESOURCE_DELETION keeps
+# everything.
 : "${SKIP_DELETION_ON_FAILURE:=true}"
 export SKIP_DELETION_ON_FAILURE
 
@@ -63,6 +67,8 @@ if [[ -n "$MARKER" ]]; then
 else
   REPORT_SUFFIX=""
 fi
+
+export E2E_DIAGNOSTICS_DIR="${E2E_DIAGNOSTICS_DIR:-$REPORT_DIR/e2e-diagnostics${REPORT_SUFFIX}}"
 
 PYTEST_COMMON_ARGS=(--ignore=qpext --log-cli-level=INFO -n "$PARALLELISM" --dist worksteal --network-layer "$NETWORK_LAYER" --maxfail="$MAXFAIL" -vv --tb=long -s --junitxml="$REPORT_DIR/junit_e2e${REPORT_SUFFIX}.xml" --json-report --json-report-file="$REPORT_DIR/e2e_results${REPORT_SUFFIX}.json" --json-report-omit=log)
 

@@ -70,10 +70,11 @@ sh-lint: $(SHELLCHECK) ## After editing shell scripts: shellcheck at SHELLCHECK_
 	@git ls-files -z --cached --others --exclude-standard -- '*.sh' $(SHELLCHECK_EXCLUDES) \
 		| xargs -0 -r -n $(SHELLCHECK_BATCH_SIZE) -P $(SHELLCHECK_JOBS) $(SHELLCHECK) --severity=$(SHELLCHECK_SEVERITY)
 
-e2e-collect: $(PYTEST) ## After editing test/e2e: check pytest collects it. Installs python/kserve in bin/.venv.
+e2e-collect: $(PYTEST) ## After editing test/e2e: check pytest collects it, run the harness unit checks. Installs python/kserve in bin/.venv.
 	$(UV) pip install --python $(PYTHON_BIN)/python -e ./python/kserve -q
 	$(UV) pip install --python $(PYTHON_BIN)/python --group test --directory ./python/kserve -q
 	$(PYTEST) --collect-only test/e2e/ -q
+	$(PYTHON_BIN)/python -m pytest -p no:cacheprovider -o asyncio_default_fixture_loop_scope=function -q test/test_e2e_namespace.py test/test_e2e_diagnostics.py
 
 pin-actions: pinact ## After adding or bumping a GitHub Action: pin it to a commit SHA. Needs network.
 	GITHUB_TOKEN=$$(gh auth token 2>/dev/null) $(PINACT) run .github/workflows/*.yml .github/workflows/*.yaml

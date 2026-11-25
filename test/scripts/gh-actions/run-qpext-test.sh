@@ -21,6 +21,7 @@ set -o nounset
 set -o pipefail
 
 echo "Starting E2E queue proxy extension tests ..."
+export E2E_DIAGNOSTICS_DIR="${E2E_DIAGNOSTICS_DIR:-${ARTIFACT_DIR:-/tmp}/e2e-diagnostics-qpext}"
 source python/kserve/.venv/bin/activate
 pushd test/e2e >/dev/null
   pytest --log-level=INFO qpext
