@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -49,6 +50,13 @@ func workerNode(pool string) *corev1.Node {
 		Name:   "worker",
 		Labels: map[string]string{"pool": pool},
 	}}
+}
+
+func nodeRecord(nodeName string, models ...v1alpha1.LocalModelInfo) *v1alpha1.LocalModelNode {
+	return &v1alpha1.LocalModelNode{
+		ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+		Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: models},
+	}
 }
 
 // Records are fanned out to every configured node group, so a node that only matches a later group
@@ -80,6 +88,64 @@ func TestNodeFuncNamespaceCacheEnqueuesCacheMatchingLaterNodeGroup(t *testing.T)
 	requests := r.nodeFuncNamespaceCache(context.Background(), node)
 	if len(requests) != 1 || requests[0].Name != cache.Name || requests[0].Namespace != cache.Namespace {
 		t.Fatalf("nodeFuncNamespaceCache() = %#v, want a single request for %q", requests, cache.Namespace+"/"+cache.Name)
+	}
+}
+
+// A node that loses the labels putting it in its node group before it is deleted matches no group.
+// Its record is the only remaining link to the cache that has to prune the record and the download
+// Jobs it owns, so the cache must still be enqueued.
+func TestNodeFuncEnqueuesRecordedCacheOfNodeMatchingNoGroup(t *testing.T) {
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
+		Spec:       v1alpha1.LocalModelCacheSpec{NodeGroups: []string{"gpu"}},
+	}
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker"}}
+	record := nodeRecord("worker", v1alpha1.LocalModelInfo{ModelName: cache.Name, SourceModelUri: "s3://models"})
+	cl := newLocalModelCacheClient(t, cache, nodeGroupForPool("gpu", "gpu"), record)
+	r := &LocalModelReconciler{Client: cl, Log: logr.Discard()}
+
+	requests := r.nodeFunc(context.Background(), node)
+	if len(requests) != 1 || requests[0].Name != cache.Name {
+		t.Fatalf("nodeFunc() = %#v, want a single request for %q", requests, cache.Name)
+	}
+}
+
+func TestNodeFuncNamespaceCacheEnqueuesRecordedCacheOfNodeMatchingNoGroup(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns"},
+		Spec:       v1alpha1.LocalModelNamespaceCacheSpec{NodeGroups: []string{"gpu"}},
+	}
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker"}}
+	record := nodeRecord("worker", v1alpha1.LocalModelInfo{ModelName: cache.Name, Namespace: cache.Namespace, SourceModelUri: "s3://models"})
+	cl := newLocalModelCacheClient(t, cache, nodeGroupForPool("gpu", "gpu"), record)
+	r := &LocalModelNamespaceCacheReconciler{Client: cl, Log: logr.Discard()}
+
+	requests := r.nodeFuncNamespaceCache(context.Background(), node)
+	if len(requests) != 1 || requests[0].Name != cache.Name || requests[0].Namespace != cache.Namespace {
+		t.Fatalf("nodeFuncNamespaceCache() = %#v, want a single request for %q", requests, cache.Namespace+"/"+cache.Name)
+	}
+}
+
+// The node record only widens the match for the caches it references: a node without one is still
+// filtered out by the node groups, and a cluster cache ignores namespace-scoped records.
+func TestNodeFuncKeepsNodeGroupFilterForUnrecordedNode(t *testing.T) {
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
+		Spec:       v1alpha1.LocalModelCacheSpec{NodeGroups: []string{"gpu"}},
+	}
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker"}}
+	for name, record := range map[string]*v1alpha1.LocalModelNode{
+		"no record":              nil,
+		"namespace cache record": nodeRecord("worker", v1alpha1.LocalModelInfo{ModelName: cache.Name, Namespace: "ns"}),
+	} {
+		objs := []client.Object{cache, nodeGroupForPool("gpu", "gpu")}
+		if record != nil {
+			objs = append(objs, record)
+		}
+		r := &LocalModelReconciler{Client: newLocalModelCacheClient(t, objs...), Log: logr.Discard()}
+		if requests := r.nodeFunc(context.Background(), node); len(requests) != 0 {
+			t.Fatalf("%s: nodeFunc() = %#v, want no request", name, requests)
+		}
 	}
 }
 

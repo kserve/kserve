@@ -40,7 +40,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
@@ -228,44 +227,31 @@ func (c *LocalModelNamespaceCacheReconciler) llmIsvcFuncNamespaceCache(ctx conte
 	return requests
 }
 
-// Given a node object, checks if it matches any node group CR, then reconcile all namespace local models that has this node group.
+// nodeFuncNamespaceCache maps a node object to every namespace cache that has to reconcile it.
 func (c *LocalModelNamespaceCacheReconciler) nodeFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
 	node := obj.(*corev1.Node)
-	requests := []reconcile.Request{}
 	models := &v1alpha1.LocalModelNamespaceCacheList{}
 	if err := c.List(ctx, models); err != nil {
 		c.Log.Error(err, "list namespace models error when reconciling nodes")
 		return []reconcile.Request{}
 	}
 
+	// See nodeFunc: a cache still holding this node's record is reconciled even when the node
+	// matches none of its node groups, so a de-labelled node's record and Jobs are pruned too.
+	nodeRecord := modelsOfNodeRecord(ctx, c.Client, c.Log, node.Name)
+	requests := make([]reconcile.Request, 0, len(models.Items))
 	for _, model := range models.Items {
 		// Shared-PVC caches have no node groups and ignore node events.
 		if model.Spec.SharedPVCMode() || len(model.Spec.NodeGroups) == 0 {
 			continue
 		}
-		// A node can match any of the configured groups, and the model's records are fanned out to
-		// every one of them, so a group other than the first must enqueue the model as well.
-		for _, nodeGroupName := range model.Spec.NodeGroups {
-			nodeGroup := &v1alpha1.LocalModelNodeGroup{}
-			if err := c.Get(ctx, types.NamespacedName{Name: nodeGroupName}, nodeGroup); err != nil {
-				c.Log.Info("get nodegroup failed", "name", nodeGroupName)
-				continue
-			}
-			matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
-			if err != nil {
-				c.Log.Error(err, "checkNodeAffinity error", "node", node.Name)
-			}
-			if matches {
-				c.Log.Info("new node for namespace model", "name", model.Name, "namespace", model.Namespace)
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      model.Name,
-						Namespace: model.Namespace,
-					},
-				})
-				break
-			}
+		key := types.NamespacedName{Name: model.Name, Namespace: model.Namespace}
+		if _, recorded := nodeRecord[key]; !recorded &&
+			!nodeMatchesAnyNodeGroup(ctx, c.Client, c.Log, model.Spec.NodeGroups, node) {
+			continue
 		}
+		c.Log.Info("new node for namespace model", "name", model.Name, "namespace", model.Namespace)
+		requests = append(requests, reconcile.Request{NamespacedName: key})
 	}
 	return requests
 }

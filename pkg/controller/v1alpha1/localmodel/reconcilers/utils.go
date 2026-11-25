@@ -734,6 +734,45 @@ func DeleteLocalModelNodesOfDeletedNodes(ctx context.Context, c client.Client, l
 	return nil
 }
 
+// nodeMatchesAnyNodeGroup reports whether the node belongs to any of the named node groups. A group
+// that cannot be read counts as no match; the next node event retries it.
+func nodeMatchesAnyNodeGroup(ctx context.Context, c client.Client, log logr.Logger, nodeGroupNames []string, node *corev1.Node) bool {
+	for _, nodeGroupName := range nodeGroupNames {
+		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
+		if err := c.Get(ctx, types.NamespacedName{Name: nodeGroupName}, nodeGroup); err != nil {
+			log.Info("get nodegroup failed", "name", nodeGroupName)
+			continue
+		}
+		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
+		if err != nil {
+			log.Error(err, "checkNodeAffinity error", "node", node.Name)
+		}
+		if matches {
+			return true
+		}
+	}
+	return false
+}
+
+// modelsOfNodeRecord returns the caches referenced by the LocalModelNode of the named node. A node
+// can lose the labels that put it in a node group before it is deleted, and then no configured group
+// matches it any more; the record is the only remaining link to the caches whose cleanup has to
+// prune it and the download Jobs it owns.
+func modelsOfNodeRecord(ctx context.Context, c client.Client, log logr.Logger, nodeName string) map[types.NamespacedName]struct{} {
+	localModelNode := &v1alpha1.LocalModelNode{}
+	if err := c.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode); err != nil {
+		if !apierr.IsNotFound(err) {
+			log.Error(err, "get localmodelnode of node failed", "node", nodeName)
+		}
+		return nil
+	}
+	models := make(map[types.NamespacedName]struct{}, len(localModelNode.Spec.LocalModels))
+	for _, modelInfo := range localModelNode.Spec.LocalModels {
+		models[types.NamespacedName{Name: modelInfo.ModelName, Namespace: modelInfo.Namespace}] = struct{}{}
+	}
+	return models
+}
+
 // ReconcileLocalModelNode creates/updates LocalModelNode for each node in the node groups
 // Only one of localModelCache or localModelNamespaceCache should be non-nil
 func ReconcileLocalModelNode(
