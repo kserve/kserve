@@ -140,10 +140,6 @@ var WellKnownBaseRefConfigs = sets.New[string](
 	configPrefix+configPrefillWorkerDataParallelMultiPortNameSuffix,
 )
 
-const (
-	precisePrefixCacheScorerName = "precise-prefix-cache-scorer"
-)
-
 // routerPresetMinVersion is the minimum llm-d-router version that supports
 // both the preset-based EPPConfig plugins and the llm-d.ai/v1 API. Services
 // running older router images fall back to the hardcoded schedulerConfigText().
@@ -213,13 +209,6 @@ func injectOmniRuntimeArgs(cfg *v1alpha2.LLMInferenceServiceConfig, omni bool) {
 		return
 	}
 	c.Args = append([]string{omniRuntimeArg}, c.Args...)
-}
-
-// CombineOption is a functional option for combineBaseRefsConfig
-type CombineOption func(*combineOptions)
-
-type combineOptions struct {
-	skipClearSchedulerConfigRef bool
 }
 
 // presetAnnotationPrefix marks annotations a config contributes to the controller

@@ -348,14 +348,3 @@ func managedInferencePools(ctx context.Context, llmSvc *v1alpha2.LLMInferenceSer
 	err := envTest.List(ctx, pools, listOpts)
 	return pools, err
 }
-
-// Helper to list managed v1alpha2 InferencePools
-func managedInferencePoolsV1Alpha2(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*igwapiv1alpha2.InferencePoolList, error) {
-	pools := &igwapiv1alpha2.InferencePoolList{}
-	listOpts := &client.ListOptions{
-		Namespace:     llmSvc.Namespace,
-		LabelSelector: labels.SelectorFromSet(llmisvc.SchedulerLabels(llmSvc)),
-	}
-	err := envTest.List(ctx, pools, listOpts)
-	return pools, err
-}
