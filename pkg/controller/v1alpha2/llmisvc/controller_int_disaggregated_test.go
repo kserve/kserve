@@ -37,6 +37,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	. "github.com/kserve/kserve/pkg/testing"
@@ -195,9 +196,9 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			Expect(getDisaggregatedSet(ctx, llmSvc)).To(BeOwnedBy(llmSvc))
 			expectNotFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
 			expectNotFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
-			Consistently(func(ctx context.Context) *corev1.Event {
-				return findEvent(ctx, envTest.Client, llmSvc, "MigratingToDisaggregatedSet")
-			}).WithContext(ctx).WithTimeout(3*time.Second).Should(BeNil(), "a new service has nothing to migrate")
+			setDisaggregatedSetStatus(ctx, llmSvc, 1, 1)
+			expectReadinessEventsLanded(ctx, llmSvc, func() { setDisaggregatedSetStatus(ctx, llmSvc, 1, 0) })
+			expectNoWarningEvents(ctx, llmSvc, "a new service has nothing to migrate")
 		})
 
 		It("moves a running service onto a DisaggregatedSet and back", func(ctx SpecContext) {
@@ -420,11 +421,29 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 				return envTest.Update(ctx, ds)
 			})).To(Succeed())
 
-			// then the controller keeps it rather than rolling the role
+			// then the controller keeps it rather than rolling the role. The status write comes
+			// after the image on the same object, so a pass that reports it read the image too
+			// and already wrote any rollback. Status follows the generation as the
+			// DisaggregatedSet controller would, because the revision label covers the image
+			// and the controller rewrites it after this edit.
+			workloadsReady := SatisfyAll(
+				HaveCondition(string(v1alpha2.MainWorkloadReady), "True"),
+				HaveCondition(string(v1alpha2.PrefillWorkloadReady), "True"),
+			)
+			Eventually(func(ctx context.Context) (v1alpha2.LLMInferenceServiceStatus, error) {
+				if ds := getDisaggregatedSet(ctx, llmSvc); ds.Status.ObservedGeneration < ds.Generation {
+					setDisaggregatedSetStatus(ctx, llmSvc, 1, 1)
+				}
+				return llmSvcStatus(ctx, llmSvc)
+			}).WithContext(ctx).Should(workloadsReady)
+
+			// and on a pass that starts from a ready service. The hold covers a retry when that
+			// pass failed on a conflict before writing the role.
+			forceObservedPass(ctx, llmSvc, workloadsReady)
 			Consistently(func(g Gomega, ctx context.Context) {
 				ds := getDisaggregatedSet(ctx, llmSvc)
 				g.Expect(storageInitializerImage(&ds.Spec.Roles[0].Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)).To(Equal(deployedImage))
-			}).WithContext(ctx).WithTimeout(3 * time.Second).Should(Succeed())
+			}).WithContext(ctx).WithTimeout(500 * time.Millisecond).Should(Succeed())
 		})
 	})
 
@@ -575,9 +594,41 @@ func expectNotFound(ctx context.Context, obj client.Object, name, namespace stri
 func expectNotUsed(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
 	GinkgoHelper()
 	expectNotUsedCondition(ctx, llmSvc, reason)
-	Consistently(func(ctx context.Context) *corev1.Event {
-		return findEvent(ctx, envTest.Client, llmSvc, "DisaggregatedSetNotUsed")
-	}).WithContext(ctx).WithTimeout(3 * time.Second).Should(BeNil())
+	Expect(ensureMainDeploymentAvailable(ctx, envTest.Client, llmSvc)).To(Succeed())
+	expectReadinessEventsLanded(ctx, llmSvc, func() { setWorkloadDeploymentNotReady(ctx, envTest.Client, llmSvc) })
+	expectNoWarningEvents(ctx, llmSvc, "only a migration warns")
+}
+
+// expectReadinessEventsLanded waits for the Ready Event, makes the service not ready and
+// waits for the NotReady Event. The recorder delivers in order, so everything earlier
+// passes emitted has landed by then. Ready alone can come from the first pass, and the
+// second transition takes a pass that starts from a status the first one wrote.
+func expectReadinessEventsLanded(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, becomeNotReady func()) {
+	GinkgoHelper()
+	describeEvents := func() string { return serviceEvents(ctx, envTest.Client, llmSvc) }
+	Eventually(func(ctx context.Context) *corev1.Event {
+		return findEvent(ctx, envTest.Client, llmSvc, string(llmisvc.LLMInferenceServiceReadyState))
+	}).WithContext(ctx).ShouldNot(BeNil(), describeEvents)
+	becomeNotReady()
+	Eventually(func(ctx context.Context) *corev1.Event {
+		return findEvent(ctx, envTest.Client, llmSvc, string(llmisvc.LLMInferenceServiceNotReadyState))
+	}).WithContext(ctx).ShouldNot(BeNil(), describeEvents)
+}
+
+// expectNoWarningEvents fails on any Warning Event about the service other than
+// LLMInferenceServiceNotReady, and UpdateFailed and Error, which a status conflict or a
+// transient failure reports on any service. Checking for no reason in particular also
+// catches a warning added under a new one.
+func expectNoWarningEvents(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, description string) {
+	GinkgoHelper()
+	events := &corev1.EventList{}
+	Expect(envTest.List(ctx, events, client.InNamespace(llmSvc.Namespace))).To(Succeed())
+	Expect(events.Items).NotTo(ContainElement(SatisfyAll(
+		HaveField("InvolvedObject.Kind", "LLMInferenceService"),
+		HaveField("InvolvedObject.Name", llmSvc.Name),
+		HaveField("Type", corev1.EventTypeWarning),
+		HaveField("Reason", Not(BeElementOf("UpdateFailed", "Error", string(llmisvc.LLMInferenceServiceNotReadyState)))),
+	)), description)
 }
 
 func expectEvent(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {

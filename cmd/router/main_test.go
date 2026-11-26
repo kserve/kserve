@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	crand "crypto/rand"
@@ -29,6 +30,7 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -951,6 +953,72 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 	}
 	t.Logf("final response:%v", response)
 	require.Equal(t, expectedResponse, response)
+}
+
+func TestCallServiceW3CHeaders(t *testing.T) {
+	previousPatterns, previousTimeouts := compiledHeaderPatterns, routerTimeouts
+	t.Cleanup(func() {
+		compiledHeaderPatterns, routerTimeouts = previousPatterns, previousTimeouts
+	})
+	routerTimeouts = nil
+	const w3cPattern = "(?i)^(traceparent|tracestate|baggage)$"
+	const traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+	for _, tc := range []struct {
+		name     string
+		patterns []string
+		forward  bool
+	}{
+		{"unconfigured", nil, false},
+		{"lowercase patterns miss canonical names", []string{"traceparent", "tracestate", "baggage"}, false},
+		{"case insensitive W3C pattern", []string{w3cPattern}, true},
+		{"overlapping patterns do not duplicate values", []string{w3cPattern, "(?i)^traceparent$", "(?i)^baggage$"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var err error
+			compiledHeaderPatterns, err = compilePatterns(tc.patterns)
+			require.NoError(t, err)
+			// Parse wire-format names instead of constructing a noncanonical Header map.
+			request, err := http.ReadRequest(bufio.NewReader(strings.NewReader(
+				"POST / HTTP/1.1\r\nHost: router\r\n" +
+					"traceparent: " + traceparent + "\r\nTrAcEsTaTe: vendor=state\r\n" +
+					"baggage: user=alice\r\nbaggage: region=west\r\n" +
+					"x-unrelated: secret\r\nx-traceparent: near-match\r\n\r\n")))
+			require.NoError(t, err)
+			defer request.Body.Close()
+			require.Equal(t, []string{traceparent}, request.Header["Traceparent"])
+			require.Equal(t, []string{"vendor=state"}, request.Header["Tracestate"])
+			require.Equal(t, []string{"user=alice", "region=west"}, request.Header["Baggage"])
+			received := make(chan http.Header, 1)
+			downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				received <- r.Header.Clone()
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer downstream.Close()
+			_, status, err := callService(downstream.URL, []byte(`{}`), request.Header)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
+			headers := <-received
+			for _, name := range []string{"traceparent", "tracestate", "baggage"} {
+				if tc.forward {
+					require.Equal(t, request.Header.Values(name), headers.Values(name), name)
+				} else {
+					require.Empty(t, headers.Values(name), name)
+				}
+			}
+			require.Empty(t, headers.Values("X-Unrelated"))
+			require.Empty(t, headers.Values("X-Traceparent"))
+		})
+	}
+}
+
+func TestCompilePatternsTraceHeaders(t *testing.T) {
+	patterns, err := compilePatterns([]string{".*Trace-Id.*"})
+	require.NoError(t, err)
+	require.Len(t, patterns, 1)
+	require.True(t, patterns[0].MatchString("X-B3-Trace-Id"))
+	require.False(t, patterns[0].MatchString("Traceparent"))
+	_, err = compilePatterns([]string{"*Trace-Id*"})
+	require.Error(t, err)
 }
 
 func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing.T) {

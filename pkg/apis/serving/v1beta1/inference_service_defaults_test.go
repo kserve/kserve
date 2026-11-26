@@ -1821,7 +1821,7 @@ func TestSetLocalModelLabel_SharedPVCNotReadySkipped(t *testing.T) {
 func TestSetLocalModelLabel_SharedPVCNotReadyKeepsBoundISVC(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()
-	isvc.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
+	isvc.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache", constants.LocalModelNamespaceLabel: "default"}
 	imported := makeSharedPVCNSCache(false)
 	imported.Items[0].Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "claim-uid"}
 	isvc.setLocalModelLabel(nil, imported)
@@ -1851,7 +1851,7 @@ func TestSetLocalModelLabel_SharedPVCTerminatingHoldsBoundISVCOnly(t *testing.T)
 	terminating.Items[0].Status.MarkNotReady(v1alpha1.ReasonPVCTerminating, "PersistentVolumeClaim \"shared-pvc\" is being deleted", 1)
 
 	bound := makeSharedPVCTestISVC()
-	bound.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
+	bound.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache", constants.LocalModelNamespaceLabel: "default"}
 	bound.setLocalModelLabel(nil, terminating)
 	g.Expect(bound.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
 	g.Expect(bound.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))

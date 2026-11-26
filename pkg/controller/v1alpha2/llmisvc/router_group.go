@@ -23,8 +23,6 @@ import (
 	"slices"
 	"strings"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -279,7 +277,7 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 		if err := r.Get(ctx, routeKey, route); err != nil {
 			// An uninstalled Gateway API holds no reference to release; erroring
 			// here would block deletion forever.
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			if ignoreMissing(r.Client, err) {
 				continue
 			}
 			return false, fmt.Errorf("checking member route %s for stale backendRefs: %w", routeKey.Name, err)

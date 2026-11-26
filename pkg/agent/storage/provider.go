@@ -16,28 +16,21 @@ limitations under the License.
 
 package storage
 
+import "github.com/kserve/kserve/pkg/types"
+
 type Provider interface {
 	DownloadModel(modelDir string, modelName string, storageUri string) error
 	UploadObject(bucket string, key string, object []byte) error
 }
 
-type Protocol string
+type Protocol = types.StorageProtocol
 
 const (
-	S3    Protocol = "s3://"
-	GCS   Protocol = "gs://"
-	AZURE Protocol = "abfs://"
-	// PVC   Protocol = "pvc://"
-	// File  Protocol = "file://"
-	HTTPS Protocol = "https://"
-	HTTP  Protocol = "http://"
+	S3    = types.S3StorageProtocol
+	GCS   = types.GCSStorageProtocol
+	AZURE = types.AzureStorageProtocol
+	HTTPS = types.HTTPSStorageProtocol
+	HTTP  = types.HTTPStorageProtocol
 )
 
-var SupportedProtocols = []Protocol{S3, GCS, HTTPS, HTTP}
-
-func GetAllProtocol() (protocols []string) {
-	for _, protocol := range SupportedProtocols {
-		protocols = append(protocols, string(protocol))
-	}
-	return protocols
-}
+var SupportedProtocols = types.SupportedStorageProtocols

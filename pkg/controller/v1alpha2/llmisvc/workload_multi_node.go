@@ -24,7 +24,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -766,7 +765,7 @@ func (r *LLMISVCReconciler) deployedPrefillLWS(ctx context.Context, llmSvc *v1al
 	key := types.NamespacedName{Name: prefillLWSName(llmSvc), Namespace: llmSvc.GetNamespace()}
 	curr := &lwsapi.LeaderWorkerSet{}
 	if err := r.Get(ctx, key, curr); err != nil {
-		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+		if ignoreMissing(r.Client, err) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get current prefill leader worker set %s/%s: %w", key.Namespace, key.Name, err)
@@ -973,11 +972,11 @@ func propagateLeaderWorkerTemplateMetadata(llmSvc *v1alpha2.LLMInferenceService,
 }
 
 // deployedLeaderWorkerPodSpecs returns the leader (nil when there is none) and worker
-// pod specs of the LeaderWorkerSet named key, or empty specs when it or its CRD does
-// not exist.
+// pod specs of the LeaderWorkerSet named key, or empty specs when it or its API is
+// not present on the cluster.
 func (r *LLMISVCReconciler) deployedLeaderWorkerPodSpecs(ctx context.Context, key types.NamespacedName) (*corev1.PodSpec, corev1.PodSpec, error) {
 	curr := &lwsapi.LeaderWorkerSet{}
-	if err := r.Get(ctx, key, curr); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+	if err := r.Get(ctx, key, curr); err != nil && !ignoreMissing(r.Client, err) {
 		return nil, corev1.PodSpec{}, err
 	}
 	var leader *corev1.PodSpec

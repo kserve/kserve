@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,6 +87,20 @@ var _ = Describe("Inference Graph controller test", func() {
 	}
 
 	expectedReadinessProbe := constants.GetRouterReadinessProbe()
+
+	// expectKnServiceSpec compares the stored knative service against expected after a dry-run update
+	// fills in the API server defaults. The controller can still write the service after the test first
+	// reads it, so each attempt re-reads it and a resourceVersion conflict retries instead of failing.
+	expectKnServiceSpec := func(ctx context.Context, key types.NamespacedName, expected *knservingv1.Service) {
+		Eventually(func(g Gomega) {
+			actual := &knservingv1.Service{}
+			g.Expect(k8sClient.Get(ctx, key, actual)).To(Succeed())
+			dryRun := expected.DeepCopy()
+			dryRun.ResourceVersion = actual.ResourceVersion
+			g.Expect(k8sClient.Update(ctx, dryRun, client.DryRunAll)).To(Succeed())
+			g.Expect(actual.Spec).To(BeComparableTo(dryRun.Spec))
+		}, timeout, interval).Should(Succeed())
+	}
 
 	Context("with knative configured to not allow zero initial scale", func() {
 		When("a Knative InferenceGraph is created with an initial scale annotation and value of zero", func() {
@@ -574,14 +587,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -713,14 +719,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -889,14 +888,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 
@@ -1674,6 +1666,55 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
+
+			It("Should recreate the service when it is deleted because the graph controller owns it", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				// Define InferenceGraph
+				serviceNamespace := "default"
+				graphName := "raw-service-recreate-ig"
+				graphServiceKey := types.NamespacedName{Name: graphName, Namespace: serviceNamespace}
+				ig := defaultRawIG(graphServiceKey)
+				ig.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+				defer k8sClient.Delete(ctx, ig)
+
+				// Check the inference graph
+				expectResourceToExist(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectDeploymentToBeReady(context.Background(), graphServiceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, apis.ConditionReady, corev1.ConditionTrue)
+
+				// Delete the managed Service directly. Deleting an owned resource must
+				// re-enqueue the owning InferenceGraph (via the .Owns(&corev1.Service{})
+				// watch) so the controller recreates it instead of leaving the graph's
+				// route pointing at a deleted Service.
+				ownedService := &corev1.Service{}
+				Expect(k8sClient.Get(ctx, graphServiceKey, ownedService)).To(Succeed())
+				originalUID := ownedService.UID
+				Expect(k8sClient.Delete(ctx, ownedService.DeepCopy())).NotTo(HaveOccurred())
+
+				// The controller may recreate the Service before a Get observes
+				// NotFound, so wait for a replacement with a different UID rather
+				// than asserting the Service is gone in between.
+				Eventually(func() (types.UID, error) {
+					recreated := &corev1.Service{}
+					err := k8sClient.Get(ctx, graphServiceKey, recreated)
+					if err != nil {
+						return "", err
+					}
+					return recreated.UID, nil
+				}, timeout, interval).Should(Not(Equal(originalUID)), "the graph controller should recreate the deleted Service")
+
+				// And the graph must report Ready again once its service is restored.
+				expectIGConditionStatus(ctx, graphServiceKey, apis.ConditionReady, corev1.ConditionTrue)
+			})
 		})
 	})
 
@@ -1812,14 +1853,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			customizeRouterKnativeService(ig, expectedKnService)
-			// Set ResourceVersion which is required for update operation.
-			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
-
-			// Do a dry-run update. This will populate our local knative service object with any default values
-			// that are present on the remote version.
-			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(actualKnServiceCreated.Spec).To(BeComparableTo(expectedKnService.Spec))
+			expectKnServiceSpec(ctx, serviceKey, expectedKnService)
 		})
 	})
 })

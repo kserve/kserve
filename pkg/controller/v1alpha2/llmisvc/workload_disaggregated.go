@@ -27,7 +27,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -183,7 +182,7 @@ func (r *LLMISVCReconciler) anyExists(ctx context.Context, objs ...client.Object
 		switch {
 		case err == nil:
 			return true
-		case apierrors.IsNotFound(err) || meta.IsNoMatchError(err):
+		case ignoreMissing(r.Client, err):
 		default:
 			log.FromContext(ctx).Error(err, "Failed to check whether a workload exists", "kind", fmt.Sprintf("%T", obj), "name", obj.GetName())
 		}
@@ -302,12 +301,12 @@ func (r *LLMISVCReconciler) deleteDisaggregatedSet(ctx context.Context, llmSvc *
 }
 
 // currentDisaggregatedSet returns the DisaggregatedSet of a service, or nil when it does
-// not exist.
+// not exist or its API is not installed on the cluster.
 func (r *LLMISVCReconciler) currentDisaggregatedSet(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*disaggregatedsetv1.DisaggregatedSet, error) {
 	current := &disaggregatedsetv1.DisaggregatedSet{}
 	key := types.NamespacedName{Name: disaggregatedSetName(llmSvc), Namespace: llmSvc.GetNamespace()}
 	if err := r.Get(ctx, key, current); err != nil {
-		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+		if ignoreMissing(r.Client, err) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get DisaggregatedSet %s: %w", key, err)
@@ -564,7 +563,7 @@ func (r *LLMISVCReconciler) disaggregatedRoleTargets(ctx context.Context, ds *di
 		scaler := &disaggregatedsetv1.DisaggregatedSetRoleScaler{}
 		key := types.NamespacedName{Name: dsctrl.ScalerName(ds.Name, role.Name), Namespace: ds.Namespace}
 		if err := r.Get(ctx, key, scaler); err != nil {
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			if ignoreMissing(r.Client, err) {
 				continue
 			}
 			return nil, fmt.Errorf("failed to get DisaggregatedSetRoleScaler %s: %w", key, err)

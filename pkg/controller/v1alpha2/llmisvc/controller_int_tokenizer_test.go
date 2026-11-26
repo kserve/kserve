@@ -425,13 +425,18 @@ schedulingProfiles:
 				}))
 			}).WithContext(ctx).Should(Succeed())
 
-			// Waits for the Deployment to stop changing so the ServiceAccount update is the only reconcile trigger.
+			// Waits for the service and the Deployment to stop changing so the ServiceAccount
+			// update is the only reconcile trigger. Each status write starts another pass and
+			// the Deployment is written earlier, so the Deployment alone goes quiet too soon.
+			svc := &v1alpha2.LLMInferenceService{}
 			Eventually(func(g Gomega, ctx context.Context) {
-				resourceVersion := dep.ResourceVersion
+				depResourceVersion, svcResourceVersion := dep.ResourceVersion, svc.ResourceVersion
 				g.Consistently(func(g Gomega, ctx context.Context) {
 					g.Expect(envTest.Get(ctx, tokenizerKey, dep)).To(Succeed())
-					g.Expect(dep.ResourceVersion).To(Equal(resourceVersion))
-				}).WithContext(ctx).WithTimeout(5 * time.Second).Should(Succeed())
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), svc)).To(Succeed())
+					g.Expect(dep.ResourceVersion).To(Equal(depResourceVersion))
+					g.Expect(svc.ResourceVersion).To(Equal(svcResourceVersion))
+				}).WithContext(ctx).WithTimeout(time.Second).Should(Succeed())
 			}).WithContext(ctx).WithTimeout(time.Minute).Should(Succeed())
 
 			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -483,24 +488,15 @@ schedulingProfiles:
 			}).WithContext(ctx).Should(Succeed())
 			generation := dep.Generation
 
-			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				current := &v1alpha2.LLMInferenceService{}
-				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
-					return err
-				}
-				if current.Annotations == nil {
-					current.Annotations = map[string]string{}
-				}
-				current.Annotations["test.kserve.io/reconcile"] = "1"
-				return envTest.Update(ctx, current)
-			})).To(Succeed())
+			forceObservedPass(ctx, llmSvc)
 
+			// The hold covers a retry when that pass failed before the tokenizer step.
 			Consistently(func(g Gomega, ctx context.Context) {
 				current := &appsv1.Deployment{}
 				g.Expect(envTest.Get(ctx, tokenizerKey, current)).To(Succeed())
 				g.Expect(current.Generation).To(Equal(generation))
 				g.Expect(current.Spec.Template.Spec.ImagePullSecrets).To(BeEmpty())
-			}).WithContext(ctx).WithTimeout(3 * time.Second).Should(Succeed())
+			}).WithContext(ctx).WithTimeout(500 * time.Millisecond).Should(Succeed())
 		})
 	})
 

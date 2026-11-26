@@ -17,7 +17,6 @@ limitations under the License.
 package logger
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 	"net/http"
@@ -45,12 +44,16 @@ type loggingResponseWriter struct {
 }
 
 func (w *loggingResponseWriter) Write(b []byte) (int, error) {
-	n, err := w.responseBuffer.Write(b)
-	if err != nil {
-		w.log.Error(err, "Failed to write response buffer")
-		return n, err
+	// responseBuffer is nil when the caller already knows the response body
+	// will never be logged (logMode == LogRequest): skip capturing it, since
+	// buffering a body nobody will read wastes memory on every request.
+	if w.responseBuffer != nil {
+		if _, err := w.responseBuffer.Write(b); err != nil {
+			w.log.Error(err, "Failed to write response buffer")
+			return 0, err
+		}
 	}
-	n, err = w.ResponseWriter.Write(b)
+	n, err := w.ResponseWriter.Write(b)
 	if err != nil {
 		w.log.Error(err, "Failed to write response")
 		return n, err
@@ -167,21 +170,29 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Proxy Request
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
-	// TODO: Set a reasonable initial buffer size
-	var responseBuf bytes.Buffer
-	lrw := &loggingResponseWriter{ResponseWriter: w, responseBuffer: &responseBuf, log: eh.log}
-	eh.next.ServeHTTP(lrw, r)
-	// Read the response body from the buffer
-	reader := bufio.NewReader(lrw.responseBuffer)
-	responseBody, err := io.ReadAll(reader)
-	if err != nil {
-		eh.log.Error(err, "Failed to read response body")
+	// Only capture the response body when it might actually get logged --
+	// buffering it for logMode == LogRequest would hold the whole response
+	// in memory for nothing.
+	captureResponse := eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse
+	var responseBuf *bytes.Buffer
+	if captureResponse {
+		// TODO: Set a reasonable initial buffer size
+		responseBuf = &bytes.Buffer{}
 	}
+	lrw := &loggingResponseWriter{ResponseWriter: w, responseBuffer: responseBuf, log: eh.log}
+	eh.next.ServeHTTP(lrw, r)
 	// Record the time when the response is received
 	responseTime := time.Now()
 	// log Response
 	if lrw.statusCode == http.StatusOK {
-		if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse {
+		if captureResponse {
+			// responseBuf already holds the full response body; no need to
+			// wrap it in another reader and copy it again. This aliases
+			// responseBuf's backing array instead of copying it, which is
+			// only safe because nothing writes to responseBuf (via lrw)
+			// after eh.next.ServeHTTP returns above -- if that ever changes,
+			// switch back to a copy (e.g. bytes.Clone(responseBuf.Bytes())).
+			responseBody := responseBuf.Bytes()
 			if err := QueueLogRequest(LogRequest{
 				Url:              eh.logUrl,
 				Bytes:            &responseBody,
