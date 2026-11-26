@@ -770,17 +770,18 @@ type GatewayObjectReference struct {
 // ObservedGateway is a Gateway reference with the listeners and HTTPRoutes
 // bound to this service through it. Used in status to record observed routing topology.
 type ObservedGateway struct {
-	// Embedded ObjectReference carries group, kind, name, namespace of the Gateway.
+	// Embedded ObjectReference carries group, kind, name, namespace of the route parent:
+	// a Gateway, or a ListenerSet when the route attaches to a Gateway through one.
 	gwapiv1.ObjectReference `json:",inline"`
 
-	// Listeners lists the SectionNames of the Gateway listeners that accepted
+	// Listeners lists the SectionNames of the parent's listeners that accepted
 	// routes from this service. Nil means the route targets all listeners
 	// (no SectionName was specified on the parentRef).
 	// +optional
 	// +listType=atomic
 	Listeners []gwapiv1.SectionName `json:"listeners,omitempty"`
 
-	// HTTPRoutes lists the HTTPRoutes bound to this service through this Gateway.
+	// HTTPRoutes lists the HTTPRoutes bound to this service through this parent.
 	// +optional
 	// +listType=atomic
 	HTTPRoutes []gwapiv1.ObjectReference `json:"httpRoutes,omitempty"`
@@ -802,8 +803,8 @@ type ObservedSchedulerStatus struct {
 // successful routing reconciliation. Nil when routing is not configured or
 // the service is stopped.
 type RouterStatus struct {
-	// Gateways lists the Gateway resources observed as attached to this service,
-	// each with the listeners and HTTPRoutes bound through them.
+	// Gateways lists the route parents (Gateways or ListenerSets) observed as attached
+	// to this service, each with the listeners and HTTPRoutes bound through them.
 	// +optional
 	// +listType=atomic
 	Gateways []ObservedGateway `json:"gateways,omitempty"`

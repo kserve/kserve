@@ -1011,14 +1011,16 @@ func (r *LLMISVCReconciler) evaluateInferencePoolCondition(ctx context.Context, 
 
 // BuildObservedGateways constructs the RouterStatus.Gateways slice from HTTPRoutes.
 // Gateway references are derived from each route's spec.parentRefs.
-// Gateways are deduplicated by namespace/name; listeners and HTTPRoutes
-// are aggregated per unique gateway and sorted for stable DeepEqual.
+// Parents are deduplicated by group/kind/namespace/name; listeners and HTTPRoutes
+// are aggregated per unique parent and sorted for stable DeepEqual.
 func BuildObservedGateways(routes []*gwapiv1.HTTPRoute) []v1alpha2.ObservedGateway {
 	if len(routes) == 0 {
 		return nil
 	}
 
 	type accumulator struct {
+		group     gwapiv1.Group
+		kind      gwapiv1.Kind
 		gwName    string
 		gwNS      string
 		listeners []gwapiv1.SectionName
@@ -1036,12 +1038,15 @@ func BuildObservedGateways(routes []*gwapiv1.HTTPRoute) []v1alpha2.ObservedGatew
 		}
 
 		for _, parentRef := range route.Spec.ParentRefs {
+			// A ListenerSet parent is reported as itself: its sectionNames name its own listeners.
+			group := ptr.Deref(parentRef.Group, gwapiv1.GroupName)
+			kind := ptr.Deref(parentRef.Kind, "Gateway")
 			gwNS := string(ptr.Deref(parentRef.Namespace, gwapiv1.Namespace(route.Namespace)))
 			gwName := string(parentRef.Name)
-			key := gwNS + "/" + gwName
+			key := string(group) + "/" + string(kind) + "/" + gwNS + "/" + gwName
 
 			if _, ok := acc[key]; !ok {
-				acc[key] = &accumulator{gwName: gwName, gwNS: gwNS}
+				acc[key] = &accumulator{group: group, kind: kind, gwName: gwName, gwNS: gwNS}
 			}
 			a := acc[key]
 
@@ -1090,8 +1095,8 @@ func BuildObservedGateways(routes []*gwapiv1.HTTPRoute) []v1alpha2.ObservedGatew
 
 		result = append(result, v1alpha2.ObservedGateway{
 			ObjectReference: gwapiv1.ObjectReference{
-				Group:     gwapiv1.Group(gwapiv1.GroupName),
-				Kind:      "Gateway",
+				Group:     a.group,
+				Kind:      a.kind,
 				Name:      gwapiv1.ObjectName(a.gwName),
 				Namespace: ptr.To(gwapiv1.Namespace(a.gwNS)),
 			},

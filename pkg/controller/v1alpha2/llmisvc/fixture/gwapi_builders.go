@@ -95,6 +95,15 @@ func WithListeners(listeners ...gwapiv1.Listener) GatewayOption {
 	}
 }
 
+// WithAllowedListeners lets ListenerSets from the given namespaces attach to the Gateway.
+func WithAllowedListeners(from gwapiv1.FromNamespaces) GatewayOption {
+	return func(gw *gwapiv1.Gateway) {
+		gw.Spec.AllowedListeners = &gwapiv1.AllowedListeners{
+			Namespaces: &gwapiv1.ListenerNamespaces{From: ptr.To(from)},
+		}
+	}
+}
+
 type (
 	HTTPRouteOption ObjectOption[*gwapiv1.HTTPRoute]
 	ParentRefOption func(*gwapiv1.ParentReference)
@@ -786,4 +795,44 @@ func InferencePoolParentRefsFromRoutes(routes []gwapiv1.HTTPRoute) []igwapi.Pare
 		}
 	}
 	return refs
+}
+
+type ListenerSetOption ObjectOption[*gwapiv1.ListenerSet]
+
+// ListenerSet builds a ListenerSet attached to the Gateway gatewayNamespace/gatewayName.
+func ListenerSet(name, gatewayName, gatewayNamespace string, opts ...ListenerSetOption) *gwapiv1.ListenerSet {
+	ls := &gwapiv1.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: gwapiv1.ListenerSetSpec{
+			ParentRef: gwapiv1.ParentGatewayReference{
+				Group:     ptr.To(gwapiv1.Group(gwapiv1.GroupName)),
+				Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				Name:      gwapiv1.ObjectName(gatewayName),
+				Namespace: ptr.To(gwapiv1.Namespace(gatewayNamespace)),
+			},
+		},
+	}
+	for _, opt := range opts {
+		opt(ls)
+	}
+	return ls
+}
+
+// WithListenerEntries sets the listeners of a ListenerSet.
+func WithListenerEntries(entries ...gwapiv1.ListenerEntry) ListenerSetOption {
+	return func(ls *gwapiv1.ListenerSet) {
+		ls.Spec.Listeners = entries
+	}
+}
+
+// ListenerSetParentRef builds an HTTPRoute parentRef to a ListenerSet.
+func ListenerSetParentRef(name, namespace string) gwapiv1.ParentReference {
+	return gwapiv1.ParentReference{
+		Group:     ptr.To(gwapiv1.Group(gwapiv1.GroupName)),
+		Kind:      ptr.To(gwapiv1.Kind("ListenerSet")),
+		Name:      gwapiv1.ObjectName(name),
+		Namespace: ptr.To(gwapiv1.Namespace(namespace)),
+	}
 }

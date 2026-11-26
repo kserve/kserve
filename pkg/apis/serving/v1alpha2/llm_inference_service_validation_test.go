@@ -182,6 +182,26 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "ListenerSet parent sharing the gateway's name does not match",
+			parentRefs: []gwapiv1.ParentReference{
+				{Kind: ptr.To(gwapiv1.Kind("ListenerSet")), Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
+			},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
+			},
+			want: false,
+		},
+		{
+			name: "explicit Gateway kind and group still match",
+			parentRefs: []gwapiv1.ParentReference{
+				{Group: ptr.To(gwapiv1.Group(gwapiv1.GroupName)), Kind: ptr.To(gwapiv1.Kind("Gateway")), Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
+			},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
+			},
+			want: true,
+		},
+		{
 			name: "gwRef has sectionName, parentRef does not",
 			parentRefs: []gwapiv1.ParentReference{
 				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
@@ -242,6 +262,51 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 	warnings, err = validator.ValidateUpdate(t.Context(), oldSvc, deletingSvc)
 	assert.Empty(t, warnings)
 	assert.NoError(t, err)
+}
+
+func TestValidateUpdate_ListenerSetParentSharingGatewayRefName(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	withParents := func(kind gwapiv1.Kind) *LLMInferenceService {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Router = &RouterSpec{
+			Gateway: &GatewaySpec{Refs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
+			}},
+			Route: &GatewayRoutesSpec{HTTP: &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{
+				CommonRouteSpec: gwapiv1.CommonRouteSpec{ParentRefs: []gwapiv1.ParentReference{
+					{Kind: ptr.To(kind), Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
+				}},
+			}}},
+		}
+		return svc
+	}
+	stored := withParents("ListenerSet")
+
+	_, err := validator.ValidateCreate(t.Context(), withParents("ListenerSet"))
+	assert.ErrorContains(t, err, "conflict with custom gateway refs")
+
+	// An object stored by an earlier release stays editable while its parents are unchanged.
+	relabelled := stored.DeepCopy()
+	relabelled.Labels = map[string]string{"team": "a"}
+	warnings, err := validator.ValidateUpdate(t.Context(), stored, relabelled)
+	require.NoError(t, err)
+	assert.Len(t, warnings, 1)
+
+	reparented := stored.DeepCopy()
+	reparented.Spec.Router.Route.HTTP.Spec.ParentRefs[0].Name = "gw-2"
+	_, err = validator.ValidateUpdate(t.Context(), stored, reparented)
+	assert.ErrorContains(t, err, "conflict with custom gateway refs")
+
+	regatewayed := stored.DeepCopy()
+	regatewayed.Spec.Router.Gateway.Refs[0].Name = "gw-2"
+	_, err = validator.ValidateUpdate(t.Context(), stored, regatewayed)
+	assert.ErrorContains(t, err, "conflict with custom gateway refs")
+
+	// A conflicting Gateway parent was never accepted, so it is not ratcheted.
+	gatewayConflict := withParents("Gateway")
+	gatewayConflict.Spec.Router.Route.HTTP.Spec.ParentRefs[0].Name = "gw-2"
+	_, err = validator.ValidateUpdate(t.Context(), gatewayConflict, gatewayConflict.DeepCopy())
+	assert.ErrorContains(t, err, "conflict with custom gateway refs")
 }
 
 func TestValidateWVAConfiguration(t *testing.T) {
