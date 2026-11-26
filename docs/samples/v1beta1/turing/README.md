@@ -10,9 +10,9 @@ and Knative, the default of KServe's Knative-mode install (remove the `serving.k
 to use the cluster's default).
 
 The storage initializer needs more than its default 1Gi memory limit to download this 3 GB checkpoint: at 1Gi it
-was killed for running out of memory. 4Gi worked. Set it with `--set kserve.storage.resources.limits.memory=4Gi` on
-the `kserve-resources` chart, or as `memoryLimit` under `storageInitializer` in the `inferenceservice-config`
-ConfigMap followed by a restart of `kserve-controller-manager`.
+was killed for running out of memory. 4Gi worked, set with `--set kserve.storage.resources.limits.memory=4Gi` on the
+`kserve-resources` chart. The limit that applies to `hf://` is the `default` ClusterStorageContainer's, which that
+value sets; changing `memoryLimit` in the `inferenceservice-config` ConfigMap alone does not raise it.
 
 In Standard mode:
 
