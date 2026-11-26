@@ -201,6 +201,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_ARGS_CONFIG_VERSION", Value: "1"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{Name: "KSERVE_MODEL_ARGS"},
 										{
@@ -391,6 +392,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_ARGS_CONFIG_VERSION", Value: "1"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{Name: "KSERVE_MODEL_ARGS"},
 										{
@@ -491,6 +493,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_ARGS_CONFIG_VERSION", Value: "1"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{Name: "KSERVE_MODEL_ARGS"},
 										{
@@ -963,11 +966,14 @@ func TestVLLMPresetsRenderRootPath(t *testing.T) {
 	}
 }
 
-// TestVLLMPresetsForwardContainerArgsVerbatim executes the launch command of every
-// built-in vLLM preset, substituting only the vllm executable, and verifies that
-// container args reach vLLM unchanged: one argument per entry, with spaces and
-// quotes preserved, and nothing added when no args are set.
-func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
+// vllmLaunch is the start of the command every vLLM preset uses to start the server.
+const vllmLaunch = `eval "exec vllm serve`
+
+// vllmLaunchRunner returns a function that executes a preset container's launch
+// command with the given container args, substituting only the vllm executable, and
+// returns the arguments vllm received.
+func vllmLaunchRunner(t *testing.T) func(t *testing.T, container *corev1.Container, args ...string) []string {
+	t.Helper()
 	bashPath, err := exec.LookPath("bash")
 	if err != nil {
 		t.Skip("bash not available")
@@ -980,6 +986,64 @@ func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
 		t.Fatalf("write vllm stub: %v", err)
 	}
 
+	return func(t *testing.T, container *corev1.Container, args ...string) []string {
+		t.Helper()
+		// Skip the setup that precedes the launch command; it probes the real image.
+		start := strings.Index(container.Command[2], vllmLaunch)
+		if start < 0 {
+			t.Fatalf("launch command %q not found", vllmLaunch)
+		}
+		// The shape the kubelet runs: the command, then the container args.
+		argv := append([]string{"-c", container.Command[2][start:]}, container.Command[3:]...)
+		argv = append(argv, args...)
+		cmd := exec.CommandContext(t.Context(), bashPath, argv...) // #nosec G204 -- repository preset and fixed test input, not user data
+		cmd.Env = []string{"PATH=" + stubDir + ":/usr/bin:/bin", "VLLM_API_SERVER_COUNT=8", "DP_ADDRESS=127.0.0.1", "START_RANK=0"}
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("launch command failed: %v\n%s", err, out)
+		}
+
+		lines := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
+		got := make([]string, 0, len(lines))
+		for _, line := range lines {
+			arg, ok := strings.CutPrefix(line, "arg<")
+			if !ok {
+				t.Fatalf("unexpected output line %q in:\n%s", line, out)
+			}
+			got = append(got, strings.TrimSuffix(arg, ">"))
+		}
+		return got
+	}
+}
+
+// vllmLaunchContainers returns the main containers of a rendered preset that start vLLM.
+func vllmLaunchContainers(config *v1alpha2.LLMInferenceServiceConfig) map[string]*corev1.Container {
+	out := map[string]*corev1.Container{}
+	for role, pod := range podSpecs(config) {
+		for i := range pod.Containers {
+			container := &pod.Containers[i]
+			if container.Name == "main" && len(container.Command) >= 3 && strings.Contains(container.Command[2], vllmLaunch) {
+				out[role] = container
+			}
+		}
+	}
+	return out
+}
+
+// loraModulesForLaunchTest are --lora-modules values in the form the controller builds.
+var loraModulesForLaunchTest = []string{
+	`{"name":"a","path":"/mnt/lora/a"}`,
+	`{"name":"publishers/ns/models/a","path":"/mnt/lora/a"}`,
+}
+
+// TestVLLMPresetsForwardContainerArgsVerbatim executes the launch command of every
+// built-in vLLM preset and verifies that container args reach vLLM unchanged: one
+// argument per entry, with spaces and quotes preserved, and nothing added when no
+// args are set. The arguments the controller adds for LoRA adapters must arrive the
+// same way.
+func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
+	run := vllmLaunchRunner(t)
+
 	userArgs := []string{
 		"--max-model-len=4096",
 		"--override-generation-config",
@@ -988,7 +1052,6 @@ func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
 		"it's a template",
 	}
 
-	const launch = `eval "exec vllm serve`
 	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
 	llmSvc := llmisvc.LLMInferenceServiceSample()
 
@@ -1008,7 +1071,7 @@ func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", filename, err)
 		}
-		if !strings.Contains(string(data), launch) {
+		if !strings.Contains(string(data), vllmLaunch) {
 			continue
 		}
 
@@ -1017,55 +1080,56 @@ func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
 			t.Fatalf("render %s: %v", filename, err)
 		}
 
-		for role, pod := range podSpecs(rendered) {
-			for _, container := range pod.Containers {
-				if container.Name != "main" || len(container.Command) < 3 || !strings.Contains(container.Command[2], launch) {
-					continue
+		for role, container := range vllmLaunchContainers(rendered) {
+			t.Run(filename+"/"+role, func(t *testing.T) {
+				withoutArgs := run(t, container)
+				if slices.Contains(withoutArgs, "") {
+					t.Errorf("an empty argument is passed when no container args are set: %q", withoutArgs)
 				}
 
-				t.Run(filename+"/"+role, func(t *testing.T) {
-					// Skip the setup that precedes the launch command; it probes the real image.
-					start := strings.Index(container.Command[2], launch)
-					if start < 0 {
-						t.Fatalf("launch command %q not found", launch)
-					}
-					script := container.Command[2][start:]
+				want := append(slices.Clone(withoutArgs), userArgs...)
+				if diff := cmp.Diff(want, run(t, container, userArgs...)); diff != "" {
+					t.Errorf("container args were not forwarded verbatim (-want +got):\n%s", diff)
+				}
 
-					run := func(args ...string) []string {
-						t.Helper()
-						// The shape the kubelet runs: the command, then the container args.
-						argv := append([]string{"-c", script}, container.Command[3:]...)
-						argv = append(argv, args...)
-						cmd := exec.CommandContext(t.Context(), bashPath, argv...) // #nosec G204 -- repository preset and fixed test input, not user data
-						cmd.Env = []string{"PATH=" + stubDir + ":/usr/bin:/bin", "VLLM_API_SERVER_COUNT=8", "DP_ADDRESS=127.0.0.1", "START_RANK=0"}
-						out, err := cmd.CombinedOutput()
-						if err != nil {
-							t.Fatalf("launch command failed: %v\n%s", err, out)
-						}
-
-						var got []string
-						for _, line := range strings.Split(strings.TrimSuffix(string(out), "\n"), "\n") {
-							arg, ok := strings.CutPrefix(line, "arg<")
-							if !ok {
-								t.Fatalf("unexpected output line %q in:\n%s", line, out)
-							}
-							got = append(got, strings.TrimSuffix(arg, ">"))
-						}
-						return got
-					}
-
-					withoutArgs := run()
-					if slices.Contains(withoutArgs, "") {
-						t.Errorf("an empty argument is passed when no container args are set: %q", withoutArgs)
-					}
-
-					want := append(slices.Clone(withoutArgs), userArgs...)
-					if diff := cmp.Diff(want, run(userArgs...)); diff != "" {
-						t.Errorf("container args were not forwarded verbatim (-want +got):\n%s", diff)
-					}
-				})
-			}
+				withLoRA := container.DeepCopy()
+				withLoRA.Args = nil
+				llmisvc.AddLoRAVLLMArgsForTest(withLoRA, loraModulesForLaunchTest, nil, nil, nil)
+				want = append(slices.Clone(withoutArgs), "--enable-lora", "--lora-modules")
+				want = append(want, loraModulesForLaunchTest...)
+				if diff := cmp.Diff(want, run(t, container, withLoRA.Args...)); diff != "" {
+					t.Errorf("controller LoRA args did not reach vLLM as JSON (-want +got):\n%s", diff)
+				}
+			})
 		}
+	}
+}
+
+// TestPinnedVLLMPresetStillReceivesLoRAModulesAsJSON runs the launch command of a
+// preset from an earlier release, which re-splits container args in the shell. A
+// service pinned to such a preset keeps it across a controller upgrade, so the
+// controller must keep quoting the LoRA values it adds for it.
+func TestPinnedVLLMPresetStillReceivesLoRAModulesAsJSON(t *testing.T) {
+	run := vllmLaunchRunner(t)
+
+	filePath := filepath.Join("testdata", "config-llm-template-v0.21.0.yaml")
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatalf("read %s: %v", filePath, err)
+	}
+	rendered, err := llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), loadConfig(t, data, filePath), &llmisvc.Config{})
+	if err != nil {
+		t.Fatalf("render %s: %v", filePath, err)
+	}
+
+	container := findMainContainerForPresetTest(t, rendered.Spec.Template.Containers).DeepCopy()
+	withoutArgs := run(t, container)
+
+	llmisvc.AddLoRAVLLMArgsForTest(container, loraModulesForLaunchTest, nil, nil, nil)
+	want := append(slices.Clone(withoutArgs), "--enable-lora", "--lora-modules")
+	want = append(want, loraModulesForLaunchTest...)
+	if diff := cmp.Diff(want, run(t, container, container.Args...)); diff != "" {
+		t.Errorf("controller LoRA args did not reach vLLM as JSON (-want +got):\n%s", diff)
 	}
 }
 

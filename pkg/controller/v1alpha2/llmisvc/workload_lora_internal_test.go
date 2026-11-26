@@ -504,6 +504,26 @@ func TestAddLoRAVLLMArgs(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("preset passes args as written", func(t *testing.T) {
+		c := &corev1.Container{
+			Name: "main",
+			Args: []string{"--user-flag"},
+			Env:  []corev1.EnvVar{{Name: argsConfigVersionEnvVar, Value: "1"}},
+		}
+		addLoRAVLLMArgs(c, []string{
+			`{"name":"a","path":"/mnt/lora/a"}`,
+			`{"name":"publishers/ns/models/a","path":"/mnt/lora/a"}`,
+		}, nil, nil, nil)
+		want := []string{
+			"--enable-lora",
+			"--lora-modules",
+			`{"name":"a","path":"/mnt/lora/a"}`,
+			`{"name":"publishers/ns/models/a","path":"/mnt/lora/a"}`,
+			"--user-flag",
+		}
+		assert.Equal(t, want, c.Args)
+	})
 }
 
 func TestUserSuppliedLoRAConfig(t *testing.T) {

@@ -339,6 +339,9 @@ spec:
           - "--"
 
         env:
+          # Container args reach vLLM as written, so the controller adds its own unquoted.
+          - name: KSERVE_ARGS_CONFIG_VERSION
+            value: "1"
           - name: KSERVE_KV_TRANSFER_ARGS
             value: ''
           - name: KSERVE_MODEL_ARGS
@@ -661,6 +664,9 @@ spec:
           - "--"
 
         env:
+          # Container args reach vLLM as written, so the controller adds its own unquoted.
+          - name: KSERVE_ARGS_CONFIG_VERSION
+            value: "1"
           - name: KSERVE_KV_TRANSFER_ARGS
             value: ''
           - name: KSERVE_MODEL_ARGS

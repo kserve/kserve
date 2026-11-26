@@ -2887,6 +2887,8 @@ spec:
           \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -3296,6 +3298,8 @@ spec:
           \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -3680,6 +3684,8 @@ spec:
           \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -3997,6 +4003,8 @@ spec:
           \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -4446,6 +4454,8 @@ spec:
           \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -4922,6 +4932,8 @@ spec:
             \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -5249,6 +5261,8 @@ spec:
             \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -5566,6 +5580,8 @@ spec:
             \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -5866,6 +5882,8 @@ spec:
             \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -6226,6 +6244,8 @@ spec:
             \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -7234,6 +7254,8 @@ spec:
           \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -7682,6 +7704,8 @@ spec:
           \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -7972,6 +7996,8 @@ spec:
           \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
