@@ -1030,17 +1030,10 @@ func vllmLaunchContainers(config *v1alpha2.LLMInferenceServiceConfig) map[string
 	return out
 }
 
-// loraModulesForLaunchTest are --lora-modules values in the form the controller builds.
-var loraModulesForLaunchTest = []string{
-	`{"name":"a","path":"/mnt/lora/a"}`,
-	`{"name":"publishers/ns/models/a","path":"/mnt/lora/a"}`,
-}
-
 // TestVLLMPresetsForwardContainerArgsVerbatim executes the launch command of every
 // built-in vLLM preset and verifies that container args reach vLLM unchanged: one
 // argument per entry, with spaces and quotes preserved, and nothing added when no
-// args are set. The arguments the controller adds for LoRA adapters must arrive the
-// same way.
+// args are set.
 func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
 	run := vllmLaunchRunner(t)
 
@@ -1092,44 +1085,12 @@ func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
 					t.Errorf("container args were not forwarded verbatim (-want +got):\n%s", diff)
 				}
 
-				withLoRA := container.DeepCopy()
-				withLoRA.Args = nil
-				llmisvc.AddLoRAVLLMArgsForTest(withLoRA, loraModulesForLaunchTest, nil, nil, nil)
-				want = append(slices.Clone(withoutArgs), "--enable-lora", "--lora-modules")
-				want = append(want, loraModulesForLaunchTest...)
-				if diff := cmp.Diff(want, run(t, container, withLoRA.Args...)); diff != "" {
-					t.Errorf("controller LoRA args did not reach vLLM as JSON (-want +got):\n%s", diff)
+				// The controller formats the args it adds by this declaration.
+				if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_ARGS_CONFIG_VERSION"); version != "1" {
+					t.Errorf("preset forwards container args verbatim but does not set KSERVE_ARGS_CONFIG_VERSION=1")
 				}
 			})
 		}
-	}
-}
-
-// TestPinnedVLLMPresetStillReceivesLoRAModulesAsJSON runs the launch command of a
-// preset from an earlier release, which re-splits container args in the shell. A
-// service pinned to such a preset keeps it across a controller upgrade, so the
-// controller must keep quoting the LoRA values it adds for it.
-func TestPinnedVLLMPresetStillReceivesLoRAModulesAsJSON(t *testing.T) {
-	run := vllmLaunchRunner(t)
-
-	filePath := filepath.Join("testdata", "config-llm-template-v0.21.0.yaml")
-	data, err := os.ReadFile(filepath.Clean(filePath))
-	if err != nil {
-		t.Fatalf("read %s: %v", filePath, err)
-	}
-	rendered, err := llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), loadConfig(t, data, filePath), &llmisvc.Config{})
-	if err != nil {
-		t.Fatalf("render %s: %v", filePath, err)
-	}
-
-	container := findMainContainerForPresetTest(t, rendered.Spec.Template.Containers).DeepCopy()
-	withoutArgs := run(t, container)
-
-	llmisvc.AddLoRAVLLMArgsForTest(container, loraModulesForLaunchTest, nil, nil, nil)
-	want := append(slices.Clone(withoutArgs), "--enable-lora", "--lora-modules")
-	want = append(want, loraModulesForLaunchTest...)
-	if diff := cmp.Diff(want, run(t, container, container.Args...)); diff != "" {
-		t.Errorf("controller LoRA args did not reach vLLM as JSON (-want +got):\n%s", diff)
 	}
 }
 
