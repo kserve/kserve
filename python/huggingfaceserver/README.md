@@ -216,6 +216,24 @@ curl -H "content-type:application/json" -v localhost:8080/openai/v1/chat/complet
 {"id":"cmpl-87ee252062934e2f8f918dce011e8484","choices":[{"finish_reason":"length","index":0,"message":{"content":"<generated_response>","tool_calls":null,"role":"assistant","function_call":null},"logprobs":null}],"created":1715353461,"model":"gpt2","system_fingerprint":null,"object":"chat.completion","usage":{"completion_tokens":30,"prompt_tokens":3,"total_tokens":33}}
 ```
 
+### vLLM health probes
+
+The `/` and `/v2/health/live` endpoints return HTTP 503 after an unrecoverable
+engine failure, including `EngineDeadError` from a failed worker. The failure is
+latched until the runtime restarts. Transient health check timeouts and exceptions
+do not fail liveness.
+
+Use `/v2/health/ready` for active readiness checks. It returns HTTP 503 while the
+engine initializes, shuts down, or fails a health check. A later successful check
+restores readiness after a transient failure. Inference requests check the stored
+engine state without running an additional health probe on every request.
+
+The default engine health check timeout is **0.5 seconds**. Set
+`--vllm_health_check_timeout` (or `--vllm-health-check-timeout`) to override it, and
+configure Kubernetes probes with a larger `timeoutSeconds` to allow the runtime
+to finish checking and return its response. Allow additional time when multiple
+models are checked by a single probe.
+
 ### KServe HuggingFace vLLM Runtime Support for CPU
 vLLM powered by [Intel® Extension for PyTorch*](https://github.com/intel/intel-extension-for-pytorch) supports all LLM models from vLLM supported models list and can perform optimal model serving on all x86-64 CPUs with, at least, AVX2 support. You can find more information [here](https://docs.vllm.ai/en/stable/getting_started/installation/cpu/index.html). To run the vLLM engine on a CPU, a separate vLLM package is required, which entails creating a different Hugging Face server Docker image. The Docker image supporting the vLLM runtime on GPUs has a '-gpu' suffix in its tag (e.g., kserve/huggingfaceserver:v0.14.0-gpu), while the image for CPU support does not include the suffix (e.g., kserve/huggingfaceserver:v0.14.0). The runtime image to be used will be determined based on whether the InferenceService specifies nvidia.com/gpu in its resource requirements.
 
