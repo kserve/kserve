@@ -21,7 +21,7 @@ spec:
       # vllm/vllm-openai -> vllm/vllm-openai-cpu) via isvcutils.UpdateImageTag.
       image: vllmserver:replace
       command:
-        - python
+        - python3
         - -m
         - vllm.entrypoints.openai.api_server
       args:
