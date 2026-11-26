@@ -2548,7 +2548,7 @@ spec:
     readinessProbe:
       failureThreshold: 3
       httpGet:
-        path: /v1/models
+        path: /health
         port: 8080
       periodSeconds: 10
       successThreshold: 1
@@ -2569,7 +2569,7 @@ spec:
     startupProbe:
       failureThreshold: 60
       httpGet:
-        path: /v1/models
+        path: /health
         port: 8080
       initialDelaySeconds: 30
       periodSeconds: 30
