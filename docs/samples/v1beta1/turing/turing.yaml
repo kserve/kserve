@@ -2,6 +2,8 @@ apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: qwen25-1-5b-instruct
+  annotations:
+    serving.kserve.io/deploymentMode: "Standard"  # the mode this sample was tested in
 spec:
   predictor:
     model:

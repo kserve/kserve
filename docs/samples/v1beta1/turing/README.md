@@ -3,7 +3,8 @@
 [Turing Engine](https://github.com/intutic/turing) serves Hugging Face checkpoints through an OpenAI-compatible
 `/v1` API. The `kserve-turingserver` ClusterServingRuntime is opt-in: select it with `runtime: kserve-turingserver`,
 and the storage initializer downloads `storageUri` to `/mnt/models`, which the runtime serves under the
-InferenceService's name.
+InferenceService's name. The sample sets Standard deployment mode, the mode it was tested in (KServe v0.21.0 on GKE
+with one L4 node); Knative mode has not been tried.
 
 ```bash
 kubectl apply -f turing.yaml
