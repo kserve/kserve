@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -959,6 +960,112 @@ func TestVLLMPresetsRenderRootPath(t *testing.T) {
 				t.Errorf("rendered %d root-path flags, want %d:\n%s", gotCount, wantCount, renderedYAML)
 			}
 		})
+	}
+}
+
+// TestVLLMPresetsForwardContainerArgsVerbatim executes the launch command of every
+// built-in vLLM preset, substituting only the vllm executable, and verifies that
+// container args reach vLLM unchanged: one argument per entry, with spaces and
+// quotes preserved, and nothing added when no args are set.
+func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	// Stand-in for vllm that prints each argument it receives on its own line.
+	stubDir := t.TempDir()
+	stub := "#!/bin/sh\nfor arg in \"$@\"; do printf 'arg<%s>\\n' \"$arg\"; done\n"
+	if err := os.WriteFile(filepath.Join(stubDir, "vllm"), []byte(stub), 0o755); err != nil { //nolint:gosec // G306: stub must be executable
+		t.Fatalf("write vllm stub: %v", err)
+	}
+
+	userArgs := []string{
+		"--max-model-len=4096",
+		"--override-generation-config",
+		`{"temperature": 0.5, "top_p": 0.9}`,
+		"--chat-template",
+		"it's a template",
+	}
+
+	const launch = `eval "exec vllm serve`
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+
+		filename := entry.Name()
+		filePath := filepath.Join(presetsDir, filename)
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("read %s: %v", filename, err)
+		}
+		if !strings.Contains(string(data), launch) {
+			continue
+		}
+
+		rendered, err := llmisvc.ReplaceVariables(llmSvc, loadConfig(t, data, filePath), &llmisvc.Config{})
+		if err != nil {
+			t.Fatalf("render %s: %v", filename, err)
+		}
+
+		for role, pod := range podSpecs(rendered) {
+			for _, container := range pod.Containers {
+				if container.Name != "main" || len(container.Command) < 3 || !strings.Contains(container.Command[2], launch) {
+					continue
+				}
+
+				t.Run(filename+"/"+role, func(t *testing.T) {
+					// Skip the setup that precedes the launch command; it probes the real image.
+					start := strings.Index(container.Command[2], launch)
+					if start < 0 {
+						t.Fatalf("launch command %q not found", launch)
+					}
+					script := container.Command[2][start:]
+
+					run := func(args ...string) []string {
+						t.Helper()
+						// The shape the kubelet runs: the command, then the container args.
+						argv := append([]string{"-c", script}, container.Command[3:]...)
+						argv = append(argv, args...)
+						cmd := exec.CommandContext(t.Context(), bashPath, argv...) // #nosec G204 -- repository preset and fixed test input, not user data
+						cmd.Env = []string{"PATH=" + stubDir + ":/usr/bin:/bin", "VLLM_API_SERVER_COUNT=8", "DP_ADDRESS=127.0.0.1", "START_RANK=0"}
+						out, err := cmd.CombinedOutput()
+						if err != nil {
+							t.Fatalf("launch command failed: %v\n%s", err, out)
+						}
+
+						var got []string
+						for _, line := range strings.Split(strings.TrimSuffix(string(out), "\n"), "\n") {
+							arg, ok := strings.CutPrefix(line, "arg<")
+							if !ok {
+								t.Fatalf("unexpected output line %q in:\n%s", line, out)
+							}
+							got = append(got, strings.TrimSuffix(arg, ">"))
+						}
+						return got
+					}
+
+					withoutArgs := run()
+					if slices.Contains(withoutArgs, "") {
+						t.Errorf("an empty argument is passed when no container args are set: %q", withoutArgs)
+					}
+
+					want := append(slices.Clone(withoutArgs), userArgs...)
+					if diff := cmp.Diff(want, run(userArgs...)); diff != "" {
+						t.Errorf("container args were not forwarded verbatim (-want +got):\n%s", diff)
+					}
+				})
+			}
+		}
 	}
 }
 

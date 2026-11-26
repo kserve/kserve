@@ -334,7 +334,7 @@ spec:
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
               {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
               ${VLLM_ADDITIONAL_ARGS} \
-              $@"
+              \"\$@\""
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - "--"
 
@@ -656,7 +656,7 @@ spec:
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
               {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
               ${VLLM_ADDITIONAL_ARGS} \
-              $@"
+              \"\$@\""
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - "--"
 
