@@ -27,6 +27,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
@@ -45,6 +46,22 @@ import (
 // spec at this point in the reconcile, which must not be written back.
 func (r *LLMISVCReconciler) ensureLocalModelCacheBinding(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	if _, localModelDisabled := llmSvc.Annotations[constants.DisableLocalModelKey]; localModelDisabled {
+		return nil
+	}
+	// The admission defaulter skips cache reads (and strips cache metadata)
+	// when local models are globally disabled; the re-selection must not
+	// read them either, so a cluster without the optional cache CRDs
+	// installed can still reconcile CacheRequired workloads, including
+	// pvc:// ones that never need a cache.
+	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
+	if err != nil {
+		return fmt.Errorf("cannot read inference service config: %w", err)
+	}
+	localModelConfig, err := v1beta1.NewLocalModelConfig(configMap)
+	if err != nil {
+		return fmt.Errorf("cannot parse local model config: %w", err)
+	}
+	if !localModelConfig.Enabled {
 		return nil
 	}
 	// A malformed annotation already fails closed in attachModelArtifacts;

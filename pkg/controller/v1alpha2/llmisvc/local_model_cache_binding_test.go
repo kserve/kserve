@@ -21,8 +21,10 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,8 +32,24 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
+
+// fakeClientsetWithLocalModel builds a clientset serving the
+// inferenceservice-config configmap with local models enabled or disabled.
+func fakeClientsetWithLocalModel(enabled bool) *k8sfake.Clientset {
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+		Data: map[string]string{
+			v1beta1.LocalModelConfigName: `{"enabled": ` + map[bool]string{true: "true", false: "false"}[enabled] + `}`,
+		},
+	}
+	return k8sfake.NewSimpleClientset(configMap)
+}
 
 // A CacheRequired workload that was created before its matching cache existed
 // has no binding from defaulting: the reconciler must re-run the selection and
@@ -66,7 +84,8 @@ func TestEnsureLocalModelCacheBindingBindsWaitingWorkload(t *testing.T) {
 	g.Expect(v1alpha1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 	r := &LLMISVCReconciler{
-		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(llmSvc, sharedCache).Build(),
+		Client:    fake.NewClientBuilder().WithScheme(scheme).WithObjects(llmSvc, sharedCache).Build(),
+		Clientset: fakeClientsetWithLocalModel(true),
 	}
 
 	// The reconciler calls this with the merged (rendered) spec already in
@@ -113,9 +132,41 @@ func TestEnsureLocalModelCacheBindingSkipsBoundWorkload(t *testing.T) {
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 	// No caches at all: a fully bound workload must not even read them.
 	r := &LLMISVCReconciler{
-		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(llmSvc).Build(),
+		Client:    fake.NewClientBuilder().WithScheme(scheme).WithObjects(llmSvc).Build(),
+		Clientset: fakeClientsetWithLocalModel(true),
 	}
 
 	g.Expect(r.ensureLocalModelCacheBinding(t.Context(), llmSvc)).To(Succeed())
 	g.Expect(llmSvc.Labels).To(HaveKeyWithValue(constants.LocalModelLabel, "late-cache"))
+}
+
+// When local models are globally disabled, the re-selection must not read the
+// cache CRDs at all — a cluster without them installed can still reconcile
+// CacheRequired workloads, including pvc:// ones that never need a cache.
+func TestEnsureLocalModelCacheBindingSkipsWhenLocalModelsGloballyDisabled(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	uri, err := apis.ParseURL("pvc://some-pvc/model")
+	require.NoError(t, err)
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pvc-workload",
+			Namespace: "ns-a",
+			Annotations: map[string]string{
+				constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+			},
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{URI: *uri}},
+	}
+
+	scheme := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+	r := &LLMISVCReconciler{
+		Client:    fake.NewClientBuilder().WithScheme(scheme).WithObjects(llmSvc).Build(),
+		Clientset: fakeClientsetWithLocalModel(false),
+	}
+
+	g.Expect(r.ensureLocalModelCacheBinding(t.Context(), llmSvc)).To(Succeed())
+	g.Expect(llmSvc.Labels).ToNot(HaveKey(constants.LocalModelLabel))
 }
