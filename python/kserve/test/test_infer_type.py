@@ -35,6 +35,7 @@ from kserve.protocol.rest.v2_datamodels import (
     RequestInput,
     RequestOutput,
 )
+from kserve.utils.numpy_codec import from_np_dtype
 
 
 class TestInferRequest:
@@ -119,6 +120,78 @@ class TestInferRequest:
         )
         res = infer_req.to_grpc()
         assert res == expected
+
+    @pytest.mark.parametrize("raw_first", [False, True])
+    @pytest.mark.parametrize(
+        "typed_data,raw_data",
+        [
+            (
+                np.array([1, 2], dtype=np.int32),
+                np.array([1.25, 2.5], dtype=np.float16),
+            ),
+            (
+                np.array([b"hello", b"world"], dtype=np.object_),
+                np.array([b"\xff\x00", b"\x80"], dtype=np.object_),
+            ),
+            (
+                np.array([1, 2], dtype=np.int32),
+                np.array([], dtype=np.int32),
+            ),
+        ],
+        ids=["fp16", "bytes", "empty"],
+    )
+    def test_to_grpc_with_mixed_raw_and_typed_inputs(
+        self, raw_first, typed_data, raw_data
+    ):
+        typed_input = InferInput(
+            name="typed",
+            datatype=from_np_dtype(typed_data.dtype),
+            shape=list(typed_data.shape),
+            data=typed_data.tolist(),
+        )
+        raw_input = InferInput(
+            name="raw",
+            datatype=from_np_dtype(raw_data.dtype),
+            shape=list(raw_data.shape),
+        )
+        raw_input.set_data_from_numpy(raw_data)
+        inputs = [raw_input, typed_input] if raw_first else [typed_input, raw_input]
+        expected = [raw_data, typed_data] if raw_first else [typed_data, raw_data]
+        request = InferRequest(model_name="test_model", infer_inputs=inputs)
+
+        grpc_request = request.to_grpc()
+
+        decoded = InferRequest.from_grpc(
+            ModelInferRequest.FromString(grpc_request.SerializeToString())
+        )
+        for tensor, data in zip(decoded.inputs, expected, strict=True):
+            np.testing.assert_array_equal(tensor.as_numpy(), data)
+        assert len(grpc_request.raw_input_contents) == len(inputs)
+        assert all(not tensor.HasField("contents") for tensor in grpc_request.inputs)
+
+    def test_to_grpc_with_mixed_numpy_and_list_inputs(self):
+        request = InferRequest(
+            model_name="test_model",
+            infer_inputs=[
+                InferInput(name="list", datatype="INT32", shape=[2], data=[1, 2]),
+                InferInput(
+                    name="numpy",
+                    datatype="FP32",
+                    shape=[2],
+                    data=np.array([1.5, 2.5], dtype=np.float32),
+                ),
+            ],
+        )
+
+        grpc_request = request.to_grpc()
+
+        decoded = InferRequest.from_grpc(
+            ModelInferRequest.FromString(grpc_request.SerializeToString())
+        )
+        np.testing.assert_array_equal(decoded.inputs[0].as_numpy(), [1, 2])
+        np.testing.assert_array_equal(decoded.inputs[1].as_numpy(), [1.5, 2.5])
+        assert len(grpc_request.raw_input_contents) == 2
+        assert all(not tensor.HasField("contents") for tensor in grpc_request.inputs)
 
     def test_from_grpc(self):
         infer_req = ModelInferRequest(
