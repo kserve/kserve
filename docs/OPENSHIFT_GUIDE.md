@@ -246,7 +246,7 @@ Once all are ready, let's install KServe
 KSERVE_VERSION=v0.14.1
 oc apply --server-side -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve.yaml"
 
-# Patch the inferenceservice-config according to https://kserve.github.io/website/0.10/admin/serverless/kourier_networking/
+# Patch the inferenceservice-config according to https://kserve.github.io/website/docs/admin-guide/serverless/kourier-networking
 oc edit configmap/inferenceservice-config --namespace kserve
 # Add the flag `"disableIstioVirtualHost": true` under the ingress section
 ingress : |- {
