@@ -710,7 +710,9 @@ def _get_openai_endpoint_and_host(
         .get("modelFormat", {})
         .get("name", "")
     )
-    runtime = isvc.get("spec", {}).get("predictor", {}).get("model", {}).get("runtime", "")
+    runtime = (
+        isvc.get("spec", {}).get("predictor", {}).get("model", {}).get("runtime", "")
+    )
     if model_format == "vLLM" or runtime == "kserve-turingserver":
         return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
     else:
