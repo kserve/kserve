@@ -1,0 +1,20 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: qwen25-1-5b-instruct
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: huggingface
+      runtime: kserve-turingserver
+      storageUri: hf://Qwen/Qwen2.5-1.5B-Instruct
+      resources:
+        requests:
+          cpu: "4"
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"

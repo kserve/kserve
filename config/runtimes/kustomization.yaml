@@ -18,6 +18,7 @@ resources:
 - kserve-vllmserver.yaml
 - kserve-llm-sglang.yaml
 - kserve-llm-omni.yaml
+- kserve-turingserver.yaml
 
 images:
   # SMS Only Runtimes
