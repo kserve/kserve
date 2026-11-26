@@ -118,6 +118,7 @@ from .models.v1beta1_triton_spec import V1beta1TritonSpec
 from .models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
 from .models.v1beta1_storage_spec import V1beta1StorageSpec
 from .models.v1beta1_auto_scaling_spec import V1beta1AutoScalingSpec
+from .models.v1beta1_keda_scaling_config import V1beta1KEDAScalingConfig
 from .models.v1beta1_external_metric_source import V1beta1ExternalMetricSource
 from .models.v1beta1_external_metrics import V1beta1ExternalMetrics
 from .models.v1beta1_resource_metric_source import V1beta1ResourceMetricSource

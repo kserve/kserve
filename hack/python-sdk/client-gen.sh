@@ -59,6 +59,34 @@ grep -qF "local_vars_configuration=None${INGRESS_KWONLY}" "${INGRESS_CONFIG_MODE
     exit 1
 }
 
+# Same contract for fields added to other existing models: the generator inserts fields
+# alphabetically, so without this a positional call such as
+# V1beta1AutoScalingSpec(behavior, metrics) would silently bind metrics to keda.
+make_keyword_only() {
+    local model="${SDK_OUTPUT_PATH}/kserve/models/$1.py"
+    shift
+    local kwonly=", *"
+    local script='/def __init__(.*, local_vars_configuration=None):/{'
+    local field
+    for field in "$@"; do
+        script="${script}
+s/, ${field}=None,/,/"
+        kwonly="${kwonly}, ${field}=None"
+    done
+    kwonly="${kwonly}):"
+    script="${script}
+s/, local_vars_configuration=None):/, local_vars_configuration=None${kwonly}/
+}"
+    sed -i'.bak' -e "${script}" "${model}"
+    rm -f "${model}.bak"
+    grep -qF "local_vars_configuration=None${kwonly}" "${model}" || {
+        echo "client-gen: keyword-only patch did not apply to ${model}" >&2
+        exit 1
+    }
+}
+make_keyword_only v1beta1_auto_scaling_spec keda
+make_keyword_only v1beta1_metrics_spec name use_cached_metrics
+
 # Fix openapi-generator 4.3.1 bug: model references with dots in swagger definition
 # names (e.g. "v1alpha2.LLMInferenceService") are emitted as broken Python expressions
 # like "kserve.models.v1alpha2/llm_inference_service.v1alpha2.LLMInferenceService("
@@ -68,8 +96,9 @@ find ${SDK_OUTPUT_PATH}/test -name '*.py' -exec \
     sed -i'.bak' -E 's|kserve\.models\.(v[0-9a-z]+)/([a-z_]+)\.\1\.([A-Za-z]+)\(|kserve.models.\1_\2.\u\1\3(|g' {} + && \
     find ${SDK_OUTPUT_PATH}/test -name '*.py.bak' -delete
 
-# Update kubernetes docs link.
-K8S_IMPORT_LIST=$(cat hack/python-sdk/swagger_config.json|grep "V1" | awk -F"\"" '{print $2}')
+# Update kubernetes docs link. Only the types imported from the kubernetes client are
+# documented upstream, so match on the import statement rather than on the type name.
+K8S_IMPORT_LIST=$(cat hack/python-sdk/swagger_config.json|grep "kubernetes.client" | awk -F"\"" '{print $2}')
 K8S_DOC_LINK="https://github.com/kubernetes-client/python/blob/master/kubernetes/docs"
 for item in $K8S_IMPORT_LIST; do
     sed -i'.bak' -e "s@($item.md)@($K8S_DOC_LINK/$item.md)@g" python/kserve/docs/*
