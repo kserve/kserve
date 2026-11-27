@@ -124,8 +124,7 @@ func SetupWebhooks(cfg *rest.Config, mgr ctrl.Manager) error {
 		if err != nil {
 			return err
 		}
-		_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, llmisvcConfig)
-		return err
+		return llmisvc.ValidateConfigTemplates(config, llmisvcConfig)
 	}
 	v1ConfigValidationFunc := func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
 		v2Config := &v1alpha2.LLMInferenceServiceConfig{}

@@ -58,7 +58,8 @@ var _ = Describe("Validating config configs", func() {
 			)
 			Expect(envTest.Client.Create(ctx, preset)).To(Succeed())
 
-			// when
+			// when: the action is never closed, so neither renderer can parse it. The
+			// error is the JSON renderer's, which fails first on the escaped quote.
 			// The controller adds its finalizer and then writes status, so an update built
 			// from an earlier read can conflict before it reaches the webhook.
 			admissionError := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -66,7 +67,7 @@ var _ = Describe("Validating config configs", func() {
 				if err := envTest.Get(ctx, types.NamespacedName{Name: preset.Name, Namespace: preset.Namespace}, current); err != nil {
 					return err
 				}
-				current.Spec.Model.Name = ptr.To("{{ ChildName .ObjectMeta.Name \"-inference-pool\" }}")
+				current.Spec.Model.Name = ptr.To("{{ ChildName .ObjectMeta.Name \"-inference-pool\" ")
 				return envTest.Update(ctx, current)
 			})
 

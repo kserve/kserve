@@ -115,6 +115,8 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.kernelcache.registry.endpoint | string | `""` |  |
 | kserve.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
 | kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
+| kserve.llmisvc.featureGates.disaggregatedSet | bool | `false` |  |
+| kserve.llmisvc.featureGates.recursiveConfigRender | bool | `false` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |

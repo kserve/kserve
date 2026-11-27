@@ -1081,3 +1081,15 @@ const (
 	RouteRuleNamingPreset = "preset"
 	RouteRuleNamingUnique = "unique"
 )
+
+// ConfigRendererAnnotationKey picks the LLMInferenceServiceConfig template renderer
+// for one LLMInferenceService, overriding the cluster-wide recursiveConfigRender
+// feature gate. It is read from metadata.annotations, which the baseRefs merge does
+// not touch, so a config cannot set it.
+const ConfigRendererAnnotationKey = KServeAPIGroupName + "/config-renderer"
+
+// Values accepted by ConfigRendererAnnotationKey, compared case-insensitively.
+const (
+	ConfigRendererRecursive = "recursive"
+	ConfigRendererJSON      = "json"
+)
