@@ -1162,6 +1162,71 @@ func TestCombineBaseRefsConfig_RendersAgainstBaseRefValues(t *testing.T) {
 	assert.Contains(t, cmd, "--enable-expert-parallel")
 }
 
+// TestCombineBaseRefsConfig_EmptyModelNameFromBaseRef covers a baseRef that sets
+// spec.model.name to "". The service defaulter treats an empty name as unset, so the
+// baseRef must not replace the name the service already has: rendered into the
+// publisher paths, "" leaves an empty segment that the dry run rejects.
+func TestCombineBaseRefsConfig_EmptyModelNameFromBaseRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	const namespace = "test-ns"
+
+	tests := []struct {
+		name string
+		// baseRefModelNames holds the model name of each baseRef, in baseRefs order.
+		baseRefModelNames []string
+		want              string
+	}{
+		{name: "empty name keeps the service's", baseRefModelNames: []string{""}, want: "test-model"},
+		{name: "name replaces the service's", baseRefModelNames: []string{"foo"}, want: "foo"},
+		{name: "later empty name keeps an earlier baseRef's", baseRefModelNames: []string{"foo", ""}, want: "foo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// given: the service carries the name the webhook defaults from metadata.name
+			preset := loadPresetConfig(t, "config-llm-template.yaml")
+			preset.Namespace = namespace
+			objects := []client.Object{preset}
+
+			baseRefs := make([]corev1.LocalObjectReference, 0, len(tt.baseRefModelNames))
+			for i, modelName := range tt.baseRefModelNames {
+				cfg := &v1alpha2.LLMInferenceServiceConfig{
+					ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("model-%d", i), Namespace: namespace},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model: v1alpha2.LLMModelSpec{Name: ptr.To(modelName)},
+					},
+				}
+				objects = append(objects, cfg)
+				baseRefs = append(baseRefs, corev1.LocalObjectReference{Name: cfg.Name})
+			}
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-model", Namespace: namespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:    v1alpha2.LLMModelSpec{Name: ptr.To("test-model")},
+					BaseRefs: baseRefs,
+				},
+			}
+
+			reconciler := &LLMISVCReconciler{
+				Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build(),
+			}
+
+			// when
+			combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+
+			// then
+			require.NoError(t, err)
+			require.NotNil(t, combined.Config.Spec.Model.Name)
+			require.NotNil(t, llmSvc.Spec.Model.Name)
+			assert.Equal(t, tt.want, *combined.Config.Spec.Model.Name, "merged config")
+			assert.Equal(t, tt.want, *llmSvc.Spec.Model.Name, "service after the copy-back")
+		})
+	}
+}
+
 // TestCombineBaseRefsConfig_GracePeriodFromBaseRef covers the quiet half of the bug: a
 // value that does not abort rendering, it just never arrives. The grace period reaches
 // the pod either way - it is merged like any other field - but shutdownTimeout derives

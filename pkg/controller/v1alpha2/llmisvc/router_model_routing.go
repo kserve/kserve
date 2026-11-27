@@ -199,7 +199,8 @@ func perModelPathPrefixes(llmSvc *v1alpha2.LLMInferenceService) []string {
 
 // publisherModelPath returns modelName as it appears in publisher path
 // matches: the name is cleaned as a path, so empty and "." segments are
-// dropped and ".." removes the segment before it, as clients resolve it.
+// dropped and ".." removes the segment before it. Cleaning stops at the
+// root, so a leading ".." is dropped: "../x" becomes "x".
 // A name without such segments is returned unchanged.
 func publisherModelPath(modelName string) string {
 	return strings.TrimPrefix(path.Clean("/"+modelName), "/")
