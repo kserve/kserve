@@ -217,18 +217,23 @@ class InferInput:
         """
         self._shape = shape
 
-    def as_string(self) -> List[List[str]]:
+    def as_string(self) -> List[str]:
         """
         Decodes the inference input data as a list of strings.
 
         Returns:
-            List[List[str]]: The decoded data as a list of strings.
+            List[str]: The tensor elements in row-major order, decoded as UTF-8.
 
         Raises:
             InvalidInput: If the datatype of the inference input is not 'BYTES'.
         """
         if self.datatype == "BYTES":
-            return [s.decode("utf-8") for li in self._data for s in li]
+            # as_numpy decodes every form the data can arrive in: JSON strings,
+            # gRPC bytes_contents and raw (binary) data.
+            return [
+                s.decode("utf-8") if isinstance(s, bytes) else str(s)
+                for s in self.as_numpy().flatten()
+            ]
         else:
             raise InvalidInput(f"invalid datatype {self.datatype} in the input")
 
