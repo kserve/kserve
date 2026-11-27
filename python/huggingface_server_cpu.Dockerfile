@@ -127,16 +127,39 @@ RUN uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-ind
     torchaudio
 
 # Purge CUDA-only packages from the CPU image.
-# The locked PyPI torch and vllm wheels pull in ~3.3GB of CUDA libraries
-# (nvidia-*, cuda-*, flashinfer, triton, ...) that can never load without a
-# GPU, and the CPU torch reinstall above does not remove them. Strip them as
-# the last install step so no later resolution can pull them back in; the
-# pattern self-maintains across torch/vllm bumps and keeps nvidia-ml-py
-# (pynvml).
-RUN uv pip list --format freeze | cut -d= -f1 \
-    | grep -E '^(nvidia-|cuda-|flashinfer|triton|tokenspeed-triton|humming-kernels|apache-tvm-ffi)' \
-    | grep -v '^nvidia-ml-py$' \
-    | xargs -r uv pip uninstall
+# The locked PyPI torch/vllm GPU wheels and xgrammar's x86_64 triton
+# dependency pull in ~3.3GB of CUDA-only libraries (nvidia-*, cuda-*,
+# flashinfer, triton, ...) that can never load without a GPU, and the CPU
+# torch reinstall above does not remove them. Strip the known set as the
+# last install step so no later install in this Dockerfile can pull it back
+# in. nvidia-ml-py (pynvml) is kept for GPU discovery; new CUDA-only
+# packages outside these name patterns must be added here when they appear.
+# Note: torch/xgrammar/vllm metadata still references the removed packages,
+# so `uv pip check` in this image reports unsatisfied requirements, and
+# re-running `uv sync` / `uv pip install` for the huggingface group in a
+# derived image pulls the CUDA family back.
+RUN set -eu; \
+    freeze="$(uv pip list --format freeze)"; \
+    pkgs="$(printf '%s\n' "$freeze" | cut -d= -f1 \
+        | grep -E '^(nvidia-|cuda-|flashinfer|triton|tokenspeed-triton|humming-kernels|apache-tvm-ffi)' \
+        | grep -v '^nvidia-ml-py$' || true)"; \
+    if [ -n "$pkgs" ]; then \
+        echo 'Purging CUDA-only packages from the CPU image:'; \
+        printf '%s\n' "$pkgs"; \
+        printf '%s\n' "$pkgs" | xargs uv pip uninstall; \
+    else \
+        echo 'CUDA purge: no matching packages installed'; \
+    fi; \
+    freeze_after="$(uv pip list --format freeze)"; \
+    left="$(printf '%s\n' "$freeze_after" | cut -d= -f1 \
+        | grep -E '^(nvidia-|cuda-|flashinfer|triton|tokenspeed-triton|humming-kernels|apache-tvm-ffi)' \
+        | grep -v '^nvidia-ml-py$' || true)"; \
+    if [ -n "$left" ]; then \
+        echo 'error: CUDA-only packages still installed after purge:' >&2; \
+        printf '%s\n' "$left" >&2; \
+        exit 1; \
+    fi; \
+    echo 'CUDA purge verified: no packages matching the purge patterns remain'
 
 # Cleanup vllm source code and caches
 RUN rm -rf /vllm /root/.cache/uv /root/.cache/pip /tmp/*
