@@ -1,0 +1,66 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-turingserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    # Opt-in: an InferenceService selects it with `runtime: kserve-turingserver`, so the Hugging Face
+    # runtime stays the default for this format.
+    - name: huggingface
+      version: "1"
+      autoSelect: false
+  containers:
+    - name: kserve-container
+      # Turing Engine (https://github.com/intutic/turing) serves the OpenAI-compatible /v1 API. The image is
+      # the CUDA build; without a GPU it runs on the CPU.
+      image: ghcr.io/intutic/turing:v2.1.0-cuda
+      command:
+        - turing
+        - serve
+      args:
+        - "--model=/mnt/models"
+        - "--served-model-name={{.Name}}"
+        - "--host=0.0.0.0"
+        - "--port=8080"
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      readinessProbe:
+        # The server listens once the model is loaded and its kernels are warmed up.
+        httpGet:
+          path: /health
+          port: 8080
+        failureThreshold: 3
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        failureThreshold: 60
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 10
+        initialDelaySeconds: 30
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+  hostIPC: false
