@@ -126,6 +126,18 @@ RUN uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-ind
     torchvision \
     torchaudio
 
+# Purge CUDA-only packages from the CPU image.
+# The locked PyPI torch and vllm wheels pull in ~3.3GB of CUDA libraries
+# (nvidia-*, cuda-*, flashinfer, triton, ...) that can never load without a
+# GPU, and the CPU torch reinstall above does not remove them. Strip them as
+# the last install step so no later resolution can pull them back in; the
+# pattern self-maintains across torch/vllm bumps and keeps nvidia-ml-py
+# (pynvml).
+RUN uv pip list --format freeze | cut -d= -f1 \
+    | grep -E '^(nvidia-|cuda-|flashinfer|triton|tokenspeed-triton|humming-kernels|apache-tvm-ffi)' \
+    | grep -v '^nvidia-ml-py$' \
+    | xargs -r uv pip uninstall
+
 # Cleanup vllm source code and caches
 RUN rm -rf /vllm /root/.cache/uv /root/.cache/pip /tmp/*
 
