@@ -800,7 +800,7 @@ func computeMpNodeAndGPUs(pipelineParallelSize, tensorParallelSize int) (int, in
 	return nodeCount, gpuPerNode, gpuPerNode
 }
 
-func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) (*raw.RawKubeReconciler, error) {
+func (p *Predictor) newRawKubeReconciler(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec, podSpec, workerPodSpec *corev1.PodSpec) (*raw.RawKubeReconciler, error) {
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get InferenceService ConfigMap")
@@ -827,11 +827,15 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		storageSpec = &modelStorageSpec.StorageSpec
 	}
 
+	return raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, componentExt,
+		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
+}
+
+func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) (*raw.RawKubeReconciler, error) {
 	componentExt := isvc.Spec.Predictor.ComponentExtensionSpec
 	adjustStableMinReplicasForCanaries(isvc, &componentExt)
 
-	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &componentExt,
-		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
+	r, err := p.newRawKubeReconciler(ctx, isvc, objectMeta, workerObjectMeta, &componentExt, podSpec, workerPodSpec)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
@@ -988,8 +992,7 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 		componentExt := v1beta1.ComponentExtensionSpec{}
 		componentExt.MinReplicas = &replicas
 
-		r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, res.objectMeta, metav1.ObjectMeta{},
-			&componentExt, &res.podSpec, nil, nil, nil, nil, nil, nil)
+		r, err := p.newRawKubeReconciler(ctx, canaryISVC, res.objectMeta, metav1.ObjectMeta{}, &componentExt, &res.podSpec, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fails to create canary reconciler for %s", canary.Predictor.Name)
 		}
