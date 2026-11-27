@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import json
 import tempfile
 from unittest import mock
 
 import pytest
+from kubernetes import client
 from kubernetes.client import V1ObjectMeta, V1ServiceAccount, V1ServiceAccountList, rest
 
 from kserve import constants
@@ -205,10 +207,65 @@ def test_set_s3_credentials(
             s3_cabundle=cabundle,
         )
     mock_create_secret.assert_called_with(
-        namespace=namespace, annotations=annotations, data=data
+        namespace=namespace, annotations=annotations, string_data=data
     )
     mock_get_creds_name.asset_called()
     mock_set_service_account.assert_called()
+
+
+def _stored_secret_values(secret_body):
+    """Return the bytes the API server stores: ``data`` is base64, ``stringData`` is plain text."""
+    stored = {
+        key: base64.b64decode(value, validate=True)
+        for key, value in (secret_body.get("data") or {}).items()
+    }
+    stored.update(
+        {
+            key: value.encode()
+            for key, value in (secret_body.get("stringData") or {}).items()
+        }
+    )
+    return stored
+
+
+@pytest.mark.parametrize(
+    "access_key_id, secret_access_key",
+    [
+        # Valid base64 text, so a raw value in `data` is silently stored decoded.
+        ("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+        # Not valid base64, so a raw value in `data` is rejected by the API server.
+        ("minio", "minio123"),
+    ],
+)
+@mock.patch("kserve.api.creds_utils.set_service_account")
+@mock.patch("kserve.api.creds_utils.get_creds_name_from_config_map")
+@mock.patch("kubernetes.client.CoreV1Api.create_namespaced_secret")
+def test_set_s3_credentials_secret_holds_the_keys_from_the_file(
+    mock_create_secret,
+    mock_get_creds_name,
+    mock_set_service_account,
+    access_key_id,
+    secret_access_key,
+):
+    mock_get_creds_name.return_value = None
+    mock_create_secret.return_value = mock.Mock(**{"metadata.name": "test-secret"})
+    creds_str = (
+        "[default]\n"
+        f"aws_access_key_id = {access_key_id}\n"
+        f"aws_secret_access_key = {secret_access_key}\n"
+    )
+
+    with tempfile.NamedTemporaryFile("w") as creds_file:
+        creds_file.write(creds_str)
+        creds_file.flush()
+        set_s3_credentials("test", creds_file.name, "test-sa")
+
+    secret = mock_create_secret.call_args.args[1]
+    body = client.ApiClient().sanitize_for_serialization(secret)
+    assert _stored_secret_values(body) == {
+        constants.S3_ACCESS_KEY_ID_DEFAULT_NAME: access_key_id.encode(),
+        constants.S3_SECRET_ACCESS_KEY_DEFAULT_NAME: secret_access_key.encode(),
+    }
 
 
 @mock.patch("kserve.api.creds_utils.set_service_account")
