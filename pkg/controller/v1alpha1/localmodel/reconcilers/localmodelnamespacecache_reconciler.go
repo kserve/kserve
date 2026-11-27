@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -99,6 +100,12 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
 		nodeGroupNamespacedName := types.NamespacedName{Name: nodeGroupName}
 		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
+			if apierr.IsNotFound(err) && !localModel.DeletionTimestamp.IsZero() {
+				// The node group was deleted before the cache. Keep a nil entry so
+				// that deletion can still clean up and remove the finalizer.
+				nodeGroups[nodeGroupName] = nil
+				continue
+			}
 			return reconcile.Result{}, err
 		}
 		nodeGroups[nodeGroupName] = nodeGroup
