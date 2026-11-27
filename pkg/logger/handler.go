@@ -196,7 +196,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if err := QueueLogRequest(LogRequest{
 				Url:              eh.logUrl,
 				Bytes:            &responseBody,
-				ContentType:      contentType,
+				ContentType:      responseContentType(lrw, contentType),
 				ReqType:          CEInferenceResponse,
 				Id:               id,
 				SourceUri:        eh.sourceUri,
@@ -216,6 +216,13 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		eh.log.Info("Failed to proxy request", "status code", lrw.statusCode)
 	}
+}
+
+func responseContentType(w http.ResponseWriter, requestContentType string) string {
+	if contentType := w.Header().Get("Content-Type"); contentType != "" {
+		return contentType
+	}
+	return requestContentType
 }
 
 func getOrCreateID(r *http.Request) string {
