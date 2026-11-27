@@ -48,7 +48,7 @@ func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelW
 				}
 				modelName := dirSplit[len(dirSplit)-1]
 
-				jsonFile, err := os.Open(filepath.Clean(path))
+				jsonFile, err := os.Open(filepath.Clean(path)) //nolint:gosec // G122: new check; os.Root file handling is a repo-wide change
 				if err != nil {
 					return errors.Wrapf(err, "failed to parse success file")
 				}

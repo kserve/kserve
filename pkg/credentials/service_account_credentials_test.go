@@ -1282,7 +1282,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 									{
 										Name: gcs.GCSCredentialVolumeName,
 										VolumeSource: corev1.VolumeSource{
-											Secret: &corev1.SecretVolumeSource{
+											Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 												SecretName: "user-gcp-sa",
 											},
 										},
@@ -1538,7 +1538,7 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 									{
 										Name: hdfs.HdfsVolumeName,
 										VolumeSource: corev1.VolumeSource{
-											Secret: &corev1.SecretVolumeSource{
+											Secret: &corev1.SecretVolumeSource{ //nolint:gosec // G101: fake test credential
 												SecretName: "hdfs-custom-secret",
 											},
 										},
@@ -2079,7 +2079,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 					Name:      "storage-secret",
 					Namespace: namespace,
 				},
-				StringData: map[string]string{DefaultStorageSecretKey: "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+				StringData: map[string]string{DefaultStorageSecretKey: "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"}, //nolint:gosec // G101: fake test credential
 			},
 			storageKey:        "",
 			storageSecretName: "storage-secret",

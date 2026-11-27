@@ -1926,7 +1926,7 @@ func (f *fakeDecoder) Decode(_ admission.Request, into runtime.Object) error {
 		return f.err
 	}
 	if v, ok := into.(*v1alpha1.ServingRuntime); ok {
-		*v = *(f.obj.(*v1alpha1.ServingRuntime))
+		*v = *f.obj.(*v1alpha1.ServingRuntime)
 	}
 	return nil
 }

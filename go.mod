@@ -1,6 +1,6 @@
 module github.com/kserve/kserve
 
-go 1.26.8
+go 1.27.4
 
 require (
 	cloud.google.com/go/storage v1.62.2
@@ -67,11 +67,6 @@ require (
 	sigs.k8s.io/gateway-api-inference-extension v1.6.2
 	sigs.k8s.io/lws v1.0.0
 	sigs.k8s.io/yaml v1.6.0
-)
-
-require (
-	github.com/go-openapi/swag/pools v0.27.1 // indirect
-	github.com/gorilla/mux v1.8.1 // indirect
 )
 
 require (
@@ -151,6 +146,7 @@ require (
 	github.com/go-openapi/swag/loading v0.27.1 // indirect
 	github.com/go-openapi/swag/mangling v0.27.1 // indirect
 	github.com/go-openapi/swag/netutils v0.27.1 // indirect
+	github.com/go-openapi/swag/pools v0.27.1 // indirect
 	github.com/go-openapi/swag/stringutils v0.27.1 // indirect
 	github.com/go-openapi/swag/typeutils v0.27.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.27.1 // indirect
@@ -170,6 +166,7 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.16 // indirect
 	github.com/googleapis/gax-go/v2 v2.22.0 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect

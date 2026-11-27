@@ -299,7 +299,7 @@ func TestDecomposePluginPipeline(t *testing.T) {
 		tokenizerURL   string
 		validateConfig func(g Gomega, configText string)
 	}{
-		{
+		{ //nolint:gosec // G101: fake test credential
 			name: "decomposes and strips tokenizersPoolConfig-only indexerConfig",
 			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
@@ -369,7 +369,7 @@ schedulingProfiles:
 				g.Expect(refNames).NotTo(ContainElement(precisePrefixCacheScorerPlugin))
 			},
 		},
-		{
+		{ //nolint:gosec // G101: fake test credential
 			name: "preserves tokenProcessorConfig, kvEventsConfig, and kvBlockIndexConfig on producer",
 			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
@@ -598,7 +598,7 @@ func TestInjectTokenProducerConfig(t *testing.T) {
 		wantURL      bool
 		wantModel    bool
 	}{
-		{
+		{ //nolint:gosec // G101: fake test credential
 			name: "injects modelName and vllm.url when token-producer has no params",
 			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
@@ -610,7 +610,7 @@ plugins:
 			wantURL:      true,
 			wantModel:    true,
 		},
-		{
+		{ //nolint:gosec // G101: fake test credential
 			name: "does not overwrite existing modelName or vllm.url",
 			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
@@ -788,7 +788,7 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "shared-pull", "default-pull")},
 			want:            pullSecrets("main-pull", "shared-pull", "default-pull"),
 		},
-		{
+		{ //nolint:gosec // G101: fake test credential
 			name:            "tokenizer template service account list is appended instead of the default one",
 			main:            pullSecrets("main-pull"),
 			tokenizerSAName: "tokenizer-sa",

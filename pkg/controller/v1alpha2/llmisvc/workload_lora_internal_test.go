@@ -757,7 +757,7 @@ func loRASpec(t *testing.T, nameToURI ...string) v1alpha2.LLMInferenceServiceSpe
 	}
 	adapters := make([]v1alpha2.LLMModelSpec, 0, len(nameToURI)/2)
 	for i := 0; i < len(nameToURI); i += 2 {
-		uri, err := apis.ParseURL(nameToURI[i+1])
+		uri, err := apis.ParseURL(nameToURI[i+1]) //nolint:gosec // G602: nameToURI holds name/URI pairs
 		if err != nil {
 			t.Fatal(err)
 		}

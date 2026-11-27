@@ -77,34 +77,31 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	logger := log.FromContext(ctx)
 	logger.Info("Validating LLMInferenceService v1alpha2", "name", llmSvc.Name, "namespace", llmSvc.Namespace)
 
-	var allErrs field.ErrorList
-	var warnings admission.Warnings
-
 	routerWarnings, routerErrs := l.validateRouterCrossFieldConstraints(llmSvc)
-	warnings = append(warnings, routerWarnings...)
-	allErrs = append(allErrs, routerErrs...)
-
-	allErrs = append(allErrs, l.validateTrafficFields(llmSvc)...)
-
-	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
-	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
-	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
-
-	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
-	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
-	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
-	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
-	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
-	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
-	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
-	allErrs = append(allErrs, l.validateRouteRuleNamingAnnotation(llmSvc)...)
-	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
-
-	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
-
 	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+
+	warnings := make(admission.Warnings, 0, len(routerWarnings)+len(confidentialWarnings))
+	warnings = append(warnings, routerWarnings...)
 	warnings = append(warnings, confidentialWarnings...)
-	allErrs = append(allErrs, confidentialErrs...)
+
+	allErrs := slices.Concat(
+		routerErrs,
+		l.validateTrafficFields(llmSvc),
+		l.validateParallelismConstraints(llmSvc),
+		l.validateSchedulerConfig(llmSvc),
+		l.validateWVAConfig(prev, llmSvc),
+		l.validateScaling(llmSvc),
+		l.validateLoRAAdapters(llmSvc),
+		l.validateKVCacheOffloading(llmSvc),
+		l.validateRolloutStrategy(llmSvc),
+		l.validateManagedDRAAnnotations(llmSvc),
+		l.validateModelExpress(llmSvc),
+		l.validateLoRAModelRoutingStrategyAnnotation(llmSvc),
+		l.validateRouteRuleNamingAnnotation(llmSvc),
+		l.validateDisaggregatedSetAnnotation(llmSvc),
+		l.validateImmutable(prev, llmSvc),
+		confidentialErrs,
+	)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)

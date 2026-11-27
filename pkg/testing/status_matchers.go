@@ -65,7 +65,7 @@ func (matcher *haveConditionMatcher) Match(actual any) (success bool, err error)
 func (matcher *haveConditionMatcher) extractConditions(actual any) (v1.Conditions, error) {
 	actualValue := reflect.ValueOf(actual)
 
-	if actualValue.Kind() == reflect.Ptr {
+	if actualValue.Kind() == reflect.Pointer {
 		if actualValue.IsNil() {
 			return nil, errors.New("expected a non-nil pointer, but got nil")
 		}
