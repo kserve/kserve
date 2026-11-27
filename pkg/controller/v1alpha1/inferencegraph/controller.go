@@ -204,7 +204,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		r.Log.Info("Inference graph raw", "deployment conditions", deployment.Status.Conditions)
 		if !forceStopRuntime {
-			// Check if the deployment is ready. If not, requeue
+			// Wait until the Deployment controller has reported an Available condition. Whether it is
+			// True or False is propagated onto the graph's Ready condition by PropagateRawStatus.
 			igAvailable := false
 			for _, con := range deployment.Status.Conditions {
 				if con.Type == appsv1.DeploymentAvailable {
@@ -213,9 +214,11 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				}
 			}
 			if !igAvailable {
-				// If Deployment resource not yet available, IG is not available as well. Reconcile again.
-				return reconcile.Result{Requeue: true}, errors.Wrapf(err,
-					"Failed to find inference graph deployment  %s", graph.Name)
+				// The Deployment has not reported its availability yet, so the graph's readiness is
+				// unknown. This is expected right after creation, not an error. Requeue and wait.
+				r.Log.Info("Inference graph deployment has not reported an Available condition yet, requeueing",
+					"name", graph.Name, "deployment", deployment.Name)
+				return reconcile.Result{Requeue: true}, nil
 			}
 		}
 

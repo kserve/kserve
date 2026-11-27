@@ -632,6 +632,101 @@ func TestPropagateRawStatus(t *testing.T) {
 				},
 			},
 		},
+
+		{
+			name: "Deployment with Available=True marks the graph Ready and sets the URL",
+			args: args{
+				graphStatus: &InferenceGraphStatus{},
+				deployment: &appsv1.Deployment{
+					Status: appsv1.DeploymentStatus{
+						AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{
+								Type:    appsv1.DeploymentAvailable,
+								Status:  corev1.ConditionTrue,
+								Reason:  "MinimumReplicasAvailable",
+								Message: "Deployment has minimum availability.",
+							},
+						},
+					},
+				},
+				url: &apis.URL{
+					Scheme: "http",
+					Host:   "test.com",
+				},
+			},
+			expected: &InferenceGraphStatus{
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "test.com",
+				},
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:    apis.ConditionReady,
+							Status:  corev1.ConditionTrue,
+							Reason:  "MinimumReplicasAvailable",
+							Message: "Deployment has minimum availability.",
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name: "Previously ready graph whose Deployment becomes Available=False is marked not Ready and its URL is cleared",
+			args: args{
+				graphStatus: &InferenceGraphStatus{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "test.com",
+					},
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							{
+								Type:   apis.ConditionReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+				deployment: &appsv1.Deployment{
+					Status: appsv1.DeploymentStatus{
+						AvailableReplicas: 0,
+						Conditions: []appsv1.DeploymentCondition{
+							{
+								Type:    appsv1.DeploymentProgressing,
+								Status:  corev1.ConditionTrue,
+								Reason:  "ReplicaSetUpdated",
+								Message: "ReplicaSet is progressing.",
+							},
+							{
+								Type:    appsv1.DeploymentAvailable,
+								Status:  corev1.ConditionFalse,
+								Reason:  "MinimumReplicasUnavailable",
+								Message: "Deployment does not have minimum availability.",
+							},
+						},
+					},
+				},
+				url: &apis.URL{
+					Scheme: "http",
+					Host:   "test.com",
+				},
+			},
+			expected: &InferenceGraphStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:    apis.ConditionReady,
+							Status:  corev1.ConditionFalse,
+							Reason:  "MinimumReplicasUnavailable",
+							Message: "Deployment does not have minimum availability.",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range scenarios {
