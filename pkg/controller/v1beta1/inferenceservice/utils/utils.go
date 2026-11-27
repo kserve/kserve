@@ -88,6 +88,9 @@ func IsMemoryResourceAvailable(isvc *v1beta1.InferenceService, totalReqMemory re
 	}
 
 	container := isvc.Spec.Predictor.GetImplementation().GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), nil)
+	if container == nil {
+		return false
+	}
 
 	predictorMemoryLimit := container.Resources.Limits.Memory()
 	return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
