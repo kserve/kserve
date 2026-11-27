@@ -64,7 +64,7 @@ class ExceptionToStatusInterceptor(AsyncExceptionToStatusInterceptor):
                 method_name,
                 exc_info=True,
             )
-            await context.abort(StatusCode.UNAVAILABLE, ex.reason)
+            await context.abort(StatusCode.UNAVAILABLE, str(ex))
         elif isinstance(ex, NotImplementedError):
             logger.error(
                 "Method not implemented: %s, grpc_method: %s",
@@ -72,7 +72,7 @@ class ExceptionToStatusInterceptor(AsyncExceptionToStatusInterceptor):
                 method_name,
                 exc_info=True,
             )
-            await context.abort(StatusCode.UNIMPLEMENTED, ex.reason)
+            await context.abort(StatusCode.UNIMPLEMENTED, str(ex))
         elif isinstance(ex, ModelNotFound):
             logger.error(
                 "Model not found: %s, grpc_method: %s", ex, method_name, exc_info=True
@@ -82,7 +82,7 @@ class ExceptionToStatusInterceptor(AsyncExceptionToStatusInterceptor):
             logger.error(
                 "Model not ready: %s, grpc_method: %s", ex, method_name, exc_info=True
             )
-            await context.abort(StatusCode.UNAVAILABLE, ex.reason)
+            await context.abort(StatusCode.UNAVAILABLE, str(ex))
         elif isinstance(ex, GrpcException):
             await super().handle_exception(
                 ex, request_or_iterator, context, method_name
