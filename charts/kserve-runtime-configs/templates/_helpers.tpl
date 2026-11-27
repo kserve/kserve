@@ -48,3 +48,23 @@ app.kubernetes.io/name: {{ include "kserve-runtime-configs.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{/*
+Render an image name with its tag or digest cleanly.
+Usage: {{ include "kserve-runtime-configs.image" (dict "image" .image "tag" .tag) }}
+*/}}
+{{- define "kserve-runtime-configs.image" -}}
+{{- $tag := "" -}}
+{{- if ne .tag nil -}}
+{{- $tag = toString .tag -}}
+{{- end -}}
+{{- if hasPrefix "@" $tag -}}
+{{- printf "%s%s" .image $tag -}}
+{{- else if hasPrefix "sha256:" $tag -}}
+{{- printf "%s@%s" .image $tag -}}
+{{- else if ne $tag "" -}}
+{{- printf "%s:%s" .image $tag -}}
+{{- else -}}
+{{- printf "%s" .image -}}
+{{- end -}}
+{{- end }}
+

@@ -1,0 +1,171 @@
+{{- if .Values.kserve.llmisvcConfigs.enabled }}
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-decode-template
+spec:
+  template:
+    containers:
+      - name: pvc-evictor
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.kvCacheEvictor.image "tag" .Values.kserve.llmd.kvCacheEvictor.tag) }}"
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+    initContainers:
+      - name: llm-d-routing-sidecar
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdRouterDisaggSidecar.image "tag" .Values.kserve.llmd.llmdRouterDisaggSidecar.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-decode-worker-data-parallel
+spec:
+  template:
+    containers:
+      - name: pvc-evictor
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.kvCacheEvictor.image "tag" .Values.kserve.llmd.kvCacheEvictor.tag) }}"
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+    initContainers:
+      - name: llm-d-routing-sidecar
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdRouterDisaggSidecar.image "tag" .Values.kserve.llmd.llmdRouterDisaggSidecar.tag) }}"
+  worker:
+    containers:
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-decode-worker-data-parallel-multi-port
+spec:
+  template:
+    containers:
+      - name: pvc-evictor
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.kvCacheEvictor.image "tag" .Values.kserve.llmd.kvCacheEvictor.tag) }}"
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.vllmOpenai.image "tag" .Values.kserve.llmd.vllmOpenai.tag) }}"
+    initContainers:
+      - name: llm-d-routing-sidecar
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdRouterDisaggSidecar.image "tag" .Values.kserve.llmd.llmdRouterDisaggSidecar.tag) }}"
+  worker:
+    containers:
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.vllmOpenai.image "tag" .Values.kserve.llmd.vllmOpenai.tag) }}"
+    initContainers:
+      - name: llm-d-routing-sidecar
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdRouterDisaggSidecar.image "tag" .Values.kserve.llmd.llmdRouterDisaggSidecar.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-omni-template
+spec:
+  template:
+    containers:
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.vllmOmni.image "tag" .Values.kserve.llmd.vllmOmni.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-prefill-template
+spec:
+  prefill:
+    template:
+      containers:
+        - name: main
+          image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-prefill-worker-data-parallel
+spec:
+  prefill:
+    template:
+      containers:
+        - name: main
+          image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+    worker:
+      containers:
+        - name: main
+          image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-prefill-worker-data-parallel-multi-port
+spec:
+  prefill:
+    template:
+      containers:
+        - name: main
+          image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.vllmOpenai.image "tag" .Values.kserve.llmd.vllmOpenai.tag) }}"
+    worker:
+      containers:
+        - name: main
+          image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.vllmOpenai.image "tag" .Values.kserve.llmd.vllmOpenai.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdRouterEndpointPicker.image "tag" .Values.kserve.llmd.llmdRouterEndpointPicker.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-tokenizer
+spec:
+  router:
+    scheduler:
+      tokenizer:
+        template:
+          containers:
+            - name: main
+              image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdTokenizer.image "tag" .Values.kserve.llmd.llmdTokenizer.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-template
+spec:
+  template:
+    containers:
+      - name: pvc-evictor
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.kvCacheEvictor.image "tag" .Values.kserve.llmd.kvCacheEvictor.tag) }}"
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-worker-data-parallel
+spec:
+  template:
+    containers:
+      - name: pvc-evictor
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.kvCacheEvictor.image "tag" .Values.kserve.llmd.kvCacheEvictor.tag) }}"
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+  worker:
+    containers:
+      - name: main
+        image: "{{ include "kserve-runtime-configs.image" (dict "image" .Values.kserve.llmd.llmdCuda.image "tag" .Values.kserve.llmd.llmdCuda.tag) }}"
+{{- end }}

@@ -7,27 +7,29 @@
 
 {{- /* 3. Parse base resources into a map by name */ -}}
 {{- $baseMap := dict -}}
-{{- range $obj := splitList "---" $baseContent -}}
+{{- range $obj := regexSplit "(?m)^---[ \t]*\r?$" $baseContent -1 -}}
   {{- $trimmed := trim $obj -}}
   {{- if $trimmed -}}
     {{- $parsed := fromYaml $trimmed -}}
-    {{- if and $parsed $parsed.metadata $parsed.metadata.name -}}
-      {{- $name := $parsed.metadata.name -}}
-      {{- $_ := set $baseMap $name $parsed -}}
+    {{- if not (and $parsed $parsed.metadata $parsed.metadata.name) -}}
+      {{- fail (printf "failed to parse base document:\n%s" $trimmed) -}}
     {{- end -}}
+    {{- $name := $parsed.metadata.name -}}
+    {{- $_ := set $baseMap $name $parsed -}}
   {{- end -}}
 {{- end -}}
 
 {{- /* 4. Parse rendered patch resources */ -}}
 {{- $patchMap := dict -}}
-{{- range $obj := splitList "---" $patchRendered -}}
+{{- range $obj := regexSplit "(?m)^---[ \t]*\r?$" $patchRendered -1 -}}
   {{- $trimmed := trim $obj -}}
   {{- if $trimmed -}}
     {{- $parsed := fromYaml $trimmed -}}
-    {{- if and $parsed $parsed.metadata $parsed.metadata.name -}}
-      {{- $name := $parsed.metadata.name -}}
-      {{- $_ := set $patchMap $name $parsed -}}
+    {{- if not (and $parsed $parsed.metadata $parsed.metadata.name) -}}
+      {{- fail (printf "failed to parse patch document:\n%s" $trimmed) -}}
     {{- end -}}
+    {{- $name := $parsed.metadata.name -}}
+    {{- $_ := set $patchMap $name $parsed -}}
   {{- end -}}
 {{- end -}}
 
