@@ -161,6 +161,10 @@ func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoR
 // the role's currently-deployed PodSpec; only a role whose pods already mount an
 // adapter's claim keeps serving it through a degraded cache (see
 // resolveLoRACachePVC), a newly-bound role waits for the import to complete.
+// With the CacheRequired policy, an hf:// or s3:// adapter that has no matching
+// cache entry fails closed with errLocalModelCacheNotReady naming the adapter:
+// the workload waits for the adapter's cache (created and bound later) instead
+// of the storage initializer downloading it from its original source URI.
 func rewriteLoRAAdaptersFromLocalModelCache(
 	ctx context.Context,
 	c client.Client,
@@ -173,14 +177,11 @@ func rewriteLoRAAdaptersFromLocalModelCache(
 		return adapters, "", nil
 	}
 	raw := llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey]
-	if raw == "" {
-		return adapters, "", nil
-	}
 	entries, err := localmodelcache.ParseLoRACacheAnnotation(raw)
 	if err != nil {
 		return nil, "", err
 	}
-	if len(entries) == 0 {
+	if len(entries) == 0 && !cacheRequired {
 		return adapters, "", nil
 	}
 
@@ -192,6 +193,15 @@ func rewriteLoRAAdaptersFromLocalModelCache(
 	for i := range out {
 		entry, ok := entries[out[i].name]
 		if !ok || entry.Cache == "" {
+			// With the CacheRequired policy an hf:// or s3:// adapter without a
+			// matching cache holds the workload instead of falling back to
+			// downloading the adapter from its original source URI (the
+			// base-model path above mirrors this in workload_storage.go).
+			// pvc:// adapters mount their own claim and never need a cache.
+			if cacheRequired && (out[i].scheme == constants.HfURIPrefix || out[i].scheme == constants.S3URIPrefix) {
+				return nil, "", fmt.Errorf("%w: LoRA adapter %q (%s) of LLMInferenceService %s/%s requires a local model cache but is not bound to one; waiting for a matching cache",
+					errLocalModelCacheNotReady, out[i].name, out[i].uri, llmSvc.Namespace, llmSvc.Name)
+			}
 			continue
 		}
 		var sourceURI, pvcName, adapterDegraded string

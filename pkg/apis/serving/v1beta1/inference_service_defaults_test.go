@@ -1843,6 +1843,36 @@ func TestSetLocalModelLabel_SharedPVCNotReadySelected(t *testing.T) {
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
 	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
 	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelCachePolicyInternalAnnotationKey, constants.LocalModelCachePolicyCacheRequired))
+	// The not-ready binding is a wait intent: the pod mutator holds the pods
+	// until the cache reports Ready, and re-import of the claim is not blocked
+	// by this service.
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelCacheWaitIntentInternalAnnotationKey, constants.LocalModelCacheWaitIntentValue))
+}
+
+// CacheRequired: when a ready shared-PVC cache serves the ISVC the wait-intent
+// annotation is absent.
+func TestSetLocalModelLabel_SharedPVCReadyHasNoWaitIntent(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := cacheRequiredISVC()
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(true))
+
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
+	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelCacheWaitIntentInternalAnnotationKey))
+}
+
+// CacheRequired with no matching cache: the opt-in is preserved through the
+// internal policy annotation (the pod mutator holds the predictor's pods
+// instead of letting them download from the original source URI, and the cache
+// reconciler re-runs the selection to bind the ISVC once a cache appears).
+func TestSetLocalModelLabel_NoMatchPreservesCacheRequiredPolicy(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := cacheRequiredISVC()
+	isvc.setLocalModelLabel(nil, nil)
+
+	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelCachePolicyInternalAnnotationKey, constants.LocalModelCachePolicyCacheRequired))
+	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelCacheWaitIntentInternalAnnotationKey))
 }
 
 // Default policy (#6280 rule): a bound ISVC keeps its binding while the

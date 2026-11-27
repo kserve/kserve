@@ -34,6 +34,11 @@ type CacheEntry struct {
 	Namespace string `json:"namespace,omitempty"` // set for LocalModelNamespaceCache; empty for cluster-scoped
 	SourceURI string `json:"-"`
 	PVCName   string `json:"-"`
+	// WaitIntent is set when the entry matches a not-yet-Ready shared-PVC
+	// cache that a CacheRequired workload was bound to as a fail-closed wait
+	// intent (it is false for every entry serialized in the LoRA annotation
+	// and for any servable match).
+	WaitIntent bool `json:"-"`
 }
 
 // MatchCacheForURI finds a namespace-scoped or cluster-scoped cache for a workload.
@@ -69,6 +74,7 @@ func MatchCacheForURI(
 				return namespaceScopedCacheEntry(selected, sel)
 			}
 			waitIntent = namespaceScopedCacheEntry(selected, sel)
+			waitIntent.WaitIntent = true
 		}
 	}
 

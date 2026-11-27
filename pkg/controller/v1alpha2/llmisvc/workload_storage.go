@@ -240,7 +240,18 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return nil
 	}
 
-	nativeModelExpress := containerName == mainContainerName && config.ModelExpress.native()
+	// Only the main workload's attach call runs on the merged configuration:
+	// the tokenizer / scheduler paths load the config again (config_loader.go
+	// loadConfig), which does not enumerate the LoRA adapters. Those calls
+	// therefore resolve neither the adapter bindings nor the workload-wide
+	// LocalModelCacheReady condition below: a sidecar call computing the
+	// condition from an empty adapter list would overwrite a degraded
+	// adapter condition (SharedPVCServingFromImportRecord) set by the main
+	// workload with an all-clear. The condition has a single writer: the main
+	// workload's combined base-model + adapter result, which is also the value
+	// persisted by reconcile().
+	isMainWorkload := containerName == mainContainerName
+	nativeModelExpress := isMainWorkload && config.ModelExpress.native()
 
 	// Rewrite model URI to use cached PVC when local model cache is active. The
 	// binding is resolved from the referenced cache (not just the annotations) so
@@ -284,13 +295,12 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 
 	var resolvedLoRAAdapters []resolvedLoRAAdapter
 	var loraPairs []storageDownloadPair
-	// Resolve the adapter bindings in every call, even for callers that attach
-	// without the adapters (tokenizer / scheduler deployments): the degradation
-	// is a property of the shared-PVC caches, not of the container, so the
-	// combined base-model + adapter result drives the workload-wide
-	// LocalModelCacheReady condition below. Only the adapter downloads are
-	// gated on attachLoRA so non-main containers do not pull adapter weights.
-	hasLoRAAdapters := len(config.ResolvedLoRAAdapters) > 0
+	// The adapter bindings are resolved only for the main workload: it is the
+	// single writer of the LocalModelCacheReady condition, and only main
+	// containers download adapter weights (attachLoRA), so sidecar calls
+	// neither need the rewrites nor may compute the condition from an
+	// incomplete (adapter-less) config.
+	hasLoRAAdapters := isMainWorkload && len(config.ResolvedLoRAAdapters) > 0
 	if hasLoRAAdapters {
 		var loraDegraded string
 		var err error
@@ -317,18 +327,22 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	// independent of the Ready rollup and only set for CacheRequired workloads:
 	// a workload serving from an import record that a not-Ready cache still
 	// attests stays Ready, with the agent-side propagation failure surfaced as
-	// the condition's reason instead of a reconcile error. Every
-	// attachModelArtifacts call sets it from the combined base-model + adapter
-	// binding state, so the tokenizer / scheduler calls cannot hide a degraded
-	// adapter cache behind an all-clear.
-	if cacheRequired {
-		if degradedCacheMsg != "" {
-			llmSvc.MarkLocalModelCacheNotReady(v1alpha2.SharedPVCServingFromImportRecordReason, "%s", degradedCacheMsg)
+	// the condition's reason instead of a reconcile error. The condition is
+	// written only by the main workload's attach call, from the combined
+	// base-model + adapter binding state: the tokenizer / scheduler calls
+	// re-load the config without the merged adapter list, so they must not
+	// overwrite the persisted value with an all-clear computed from an empty
+	// adapter list.
+	if isMainWorkload {
+		if cacheRequired {
+			if degradedCacheMsg != "" {
+				llmSvc.MarkLocalModelCacheNotReady(v1alpha2.SharedPVCServingFromImportRecordReason, "%s", degradedCacheMsg)
+			} else {
+				llmSvc.MarkLocalModelCacheReady()
+			}
 		} else {
-			llmSvc.MarkLocalModelCacheReady()
+			llmSvc.MarkLocalModelCacheUnset()
 		}
-	} else {
-		llmSvc.MarkLocalModelCacheUnset()
 	}
 
 	// Handle model artifact downloads based on URI scheme

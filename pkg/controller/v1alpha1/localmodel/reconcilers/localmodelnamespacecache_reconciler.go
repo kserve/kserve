@@ -80,6 +80,15 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Re-bind CacheRequired InferenceServices in this namespace that are still
+	// waiting for a usable cache (bound as a wait intent or unbound: their
+	// pods are held by the pod mutator until a servable cache appears).
+	if localModel.DeletionTimestamp.IsZero() {
+		if err := bindWaitingInferenceServices(ctx, c.Client, localModel.Namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	// Shared-PVC mode takes a dedicated branch before any node-group resolution or per-node
 	// PV/PVC/LocalModelNode fan-out.
 	if localModel.Spec.SharedPVCMode() {

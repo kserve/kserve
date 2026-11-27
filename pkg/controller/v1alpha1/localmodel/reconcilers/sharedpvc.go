@@ -537,8 +537,17 @@ func reimportBlocked(localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.
 	// once the original consumers leave. Workloads still serving from the import
 	// record (SharedPVCServingFromImportRecord reason) and workloads without the
 	// condition keep counting, as do their Pods through podsBlockReimport.
-	// InferenceServices have no equivalent condition, so all of them count.
-	isvcCount := len(consumers.isvcs)
+	// InferenceServices bound while the shared-PVC cache was not yet Ready carry
+	// the internal wait-intent annotation (written by defaulting together with
+	// the binding): their pods are held by the pod mutator and mount nothing, so
+	// they wait for the import like their LLMInferenceService counterparts.
+	// Only services that actually used the claim keep counting.
+	isvcCount := 0
+	for i := range consumers.isvcs {
+		if !waitsForSharedPVCImportISVC(&consumers.isvcs[i]) {
+			isvcCount++
+		}
+	}
 	llmSvcCount := 0
 	for i := range consumers.llmSvcs {
 		if !waitsForSharedPVCImport(&consumers.llmSvcs[i]) {
@@ -567,6 +576,19 @@ func waitsForSharedPVCImport(llmSvc *v1alpha2.LLMInferenceService) bool {
 		return false
 	}
 	return cond.Status == corev1.ConditionFalse && cond.Reason == v1alpha2.SharedPVCImportIncompleteReason
+}
+
+// waitsForSharedPVCImportISVC reports whether an InferenceService is bound to
+// a shared-PVC cache only as a wait intent: defaulting wrote the internal
+// wait-intent annotation together with its binding, which happens exactly when
+// the matched cache was not Ready to serve the service yet. InferenceServices
+// have no status condition for this (their state lives in the pod mutator's
+// gate), so the annotation is the marker; the pod mutator rejects the pods of
+// such a service, so it cannot be reading the destination, and the cache
+// reconciler re-runs its selection (clearing the annotation once the cache can
+// serve it, re-queueing the service) instead of it holding up the import.
+func waitsForSharedPVCImportISVC(isvc *v1beta1.InferenceService) bool {
+	return isvc.Annotations[constants.LocalModelCacheWaitIntentInternalAnnotationKey] == constants.LocalModelCacheWaitIntentValue
 }
 
 // buildImportJob constructs the single import Job for a shared-PVC cache.

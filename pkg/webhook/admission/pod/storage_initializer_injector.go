@@ -1198,21 +1198,47 @@ func (mi *StorageInitializerInjector) gateLocalModelCacheWaiting(ctx context.Con
 		return nil
 	}
 
-	if cacheName, ok := pod.Labels[constants.LocalModelLabel]; ok {
-		if err := mi.gateSharedPVCImportRecord(ctx, pod, cacheName, pod.Labels[constants.LocalModelNamespaceLabel]); err != nil {
-			return err
-		}
+	// A pod whose workload is bound to a not-yet-Ready shared-PVC cache only
+	// as a wait intent (first bound while the cache could not serve it) has
+	// never run on the cache's current claim: hold it until the cache reports
+	// Ready (the cache reconciler clears the wait intent once the selection
+	// resolves to a servable cache). This keeps an InferenceService created
+	// during a degraded window (e.g. ReimportBlocked) from serving a copy of
+	// unknown freshness that the import record still attests for older
+	// consumers.
+	if pod.Annotations[constants.LocalModelCacheWaitIntentInternalAnnotationKey] == constants.LocalModelCacheWaitIntentValue {
+		return fmt.Errorf("pod %s/%s is bound to a local model cache that is not Ready yet (wait intent); it is admitted once the cache import completes and the cache reports Ready",
+			pod.Namespace, pod.Name)
 	}
 
 	// LoRA adapters bind to caches independently of the base model. Errors and
 	// a malformed annotation fail closed: the annotation is written by
 	// defaulting and parsed again at reconcile time, so a malformed value
-	// means the binding state is unknown.
+	// means the binding state is unknown. It is parsed before the unbound
+	// check below so the parse error is reported first.
 	entries, err := localmodelcache.ParseLoRACacheAnnotation(pod.Annotations[constants.LocalModelLoRAAnnotationKey])
 	if err != nil {
 		return fmt.Errorf("pod %s/%s: parse %s annotation: %w",
 			pod.Namespace, pod.Name, constants.LocalModelLoRAAnnotationKey, err)
 	}
+
+	// CacheRequired with no cache bound to the workload (no cache matched the
+	// storage URI at defaulting, or the binding was released): hold the pod
+	// until a matching cache appears and the local model cache reconciler binds
+	// the workload, instead of downloading the model from its original source
+	// URI. pvc:// and oci:// models are exempt: they mount a claim or pull an
+	// image rather than download, so there is nothing the cache would save the
+	// workload from.
+	if _, ok := pod.Labels[constants.LocalModelLabel]; !ok {
+		if srcURI, ok := pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]; ok {
+			schema, _, found := strings.Cut(srcURI, "://")
+			if found && schema != "pvc" && schema != "oci" {
+				return fmt.Errorf("pod %s/%s requires a local model cache (local-model-cache-policy: %s) but its workload is not bound to one; holding the pod until a matching cache for %s appears",
+					pod.Namespace, pod.Name, constants.LocalModelCachePolicyCacheRequired, srcURI)
+			}
+		}
+	}
+
 	for _, adapterName := range slices.Sorted(maps.Keys(entries)) {
 		entry := entries[adapterName]
 		// Entries without a namespace reference a cluster-scoped
@@ -1222,6 +1248,11 @@ func (mi *StorageInitializerInjector) gateLocalModelCacheWaiting(ctx context.Con
 		}
 		if err := mi.gateSharedPVCImportRecord(ctx, pod, entry.Cache, entry.Namespace); err != nil {
 			return fmt.Errorf("LoRA adapter %q: %w", adapterName, err)
+		}
+	}
+	if cacheName, ok := pod.Labels[constants.LocalModelLabel]; ok {
+		if err := mi.gateSharedPVCImportRecord(ctx, pod, cacheName, pod.Labels[constants.LocalModelNamespaceLabel]); err != nil {
+			return err
 		}
 	}
 	return nil

@@ -237,7 +237,19 @@ var (
 	// reads it to enforce the policy for pods bound to a shared-PVC cache.
 	// It is recorded by the defaulting webhooks, never set by users directly.
 	LocalModelCachePolicyInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/localmodel-cache-policy"
+	// LocalModelCacheWaitIntentInternalAnnotationKey marks an InferenceService
+	// that is bound to a not-yet-Ready shared-PVC LocalModelNamespaceCache only
+	// as a fail-closed wait intent: the workload has never served from the
+	// cache's current claim, so its pods are held by the pod mutator until the
+	// cache reports Ready, and the cache reconciler does not count it as a
+	// consumer that blocks re-import of the claim. It is written by defaulting
+	// together with the binding and cleared by the cache reconciler once the
+	// selection resolves to a servable cache.
+	LocalModelCacheWaitIntentInternalAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/localmodel-cache-wait-import"
 )
+
+// Value of the LocalModelCacheWaitIntentInternalAnnotationKey.
+const LocalModelCacheWaitIntentValue = "true"
 
 // kserve networking constants
 const (

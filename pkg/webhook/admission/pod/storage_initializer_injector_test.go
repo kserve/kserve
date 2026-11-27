@@ -5448,6 +5448,53 @@ func TestLocalModelPVCReadinessGate(t *testing.T) {
 		}
 	})
 
+	t.Run("unbound CacheRequired pod with a downloadable source URI is held", func(t *testing.T) {
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		delete(pod.Labels, constants.LocalModelLabel)
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), "is not bound to one") || !strings.Contains(err.Error(), "s3://foo") {
+			t.Errorf("expected a wait error naming the model source URI, got: %v", err)
+		}
+	})
+
+	t.Run("unbound CacheRequired pod with a pvc source URI is admitted", func(t *testing.T) {
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		delete(pod.Labels, constants.LocalModelLabel)
+		delete(pod.Annotations, constants.LocalModelPVCNameAnnotationKey)
+		pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = "pvc://models/model"
+		if err := injector.gateLocalModelCacheWaiting(t.Context(), pod); err != nil {
+			t.Errorf("unexpected error for a pvc:// model: %v", err)
+		}
+	})
+
+	t.Run("wait-intent pod is held even when the import record attests the claim", func(t *testing.T) {
+		// A service first bound while the cache was degraded (e.g.
+		// ReimportBlocked) has never served from the claim. The record still
+		// attesting the live claim admits older consumers, but not this one:
+		// its pods wait until the cache reports Ready and the reconciler
+		// clears the wait intent.
+		notReady := newCache("gate-cache-wait-intent", false)
+		pvc := &corev1.PersistentVolumeClaim{}
+		if err := c.Get(t.Context(), k8stypes.NamespacedName{Name: pvcRef, Namespace: "default"}, pvc); err != nil {
+			t.Fatalf("failed to get PVC: %v", err)
+		}
+		notReady.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: pvc.UID}
+		createLocalModelGateCache(t, notReady)
+		injector := &StorageInitializerInjector{config: storageConfig, client: c}
+
+		pod := cacheRequiredPod("default")
+		pod.Labels[constants.LocalModelLabel] = "gate-cache-wait-intent"
+		pod.Annotations[constants.LocalModelCacheWaitIntentInternalAnnotationKey] = constants.LocalModelCacheWaitIntentValue
+		err := injector.gateLocalModelCacheWaiting(t.Context(), pod)
+		if err == nil || !strings.Contains(err.Error(), "wait intent") {
+			t.Errorf("expected a wait-intent error, got: %v", err)
+		}
+	})
+
 	t.Run("malformed LoRA annotation fails closed", func(t *testing.T) {
 		injector := &StorageInitializerInjector{config: storageConfig, client: c}
 
