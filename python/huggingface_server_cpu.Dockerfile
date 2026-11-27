@@ -16,8 +16,8 @@ RUN apt-get update && \
         libjemalloc2 \
         libnuma1 \
         numactl \
-        python3.10-dev \
-        python3.10-venv \
+        python3.11-dev \
+        python3.11-venv \
         python3-pip \
         curl && \
     apt-get clean && \
