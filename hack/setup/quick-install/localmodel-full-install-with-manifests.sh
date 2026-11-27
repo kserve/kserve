@@ -9172,12 +9172,20 @@ rules:
   - serving.kserve.io
   resources:
   - clusterstoragecontainers
-  - inferenceservices
   - llminferenceservices
   - localmodelnodegroups
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - inferenceservices
+  verbs:
+  - get
+  - list
+  - patch
   - watch
 - apiGroups:
   - serving.kserve.io
