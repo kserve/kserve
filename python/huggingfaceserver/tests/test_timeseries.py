@@ -159,3 +159,29 @@ async def test_timesfm_forecast(load_timesfm):
     print(response)
     assert isinstance(response, ForecastResponse)
     verify_forecast_response(response, request)
+
+
+@pytest.mark.asyncio
+async def test_timesfm_forecast_without_quantiles(load_timesfm):
+    """Forecasting should work when optional quantiles are omitted."""
+    request = ForecastRequest(
+        model="timesfm",
+        inputs=[
+            TimeSeriesInput(
+                type=TimeSeriesType.UNIVARIATE,
+                name="temperature",
+                series=[23.0, 24.0, 25.0],
+                frequency=Frequency.HOUR,
+                start_timestamp="2026-10-29T10:00:00Z",
+            )
+        ],
+        options=ForecastOptions(horizon=8),
+    )
+
+    assert request.options.quantiles is None
+
+    response = await load_timesfm.forecast(request)
+
+    assert isinstance(response, ForecastResponse)
+    verify_forecast_response(response, request)
+    assert response.outputs[0].content[0].quantiles == {}
