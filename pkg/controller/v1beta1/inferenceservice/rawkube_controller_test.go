@@ -3476,6 +3476,80 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
 	})
+	Context("When reconciling an unchanged HPA", func() {
+		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+			"disableIngressCreation": true,
+			"ingressDomain":          "example.com",
+		})
+
+		It("Should keep an annotation another client added to the HPA", func(ctx SpecContext) {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
+			defer k8sClient.Delete(ctx, configMap)
+			servingRuntime := getServingRuntime("tf-serving-raw", "default")
+			_ = k8sClient.Create(ctx, &servingRuntime)
+			defer k8sClient.Delete(ctx, &servingRuntime)
+
+			serviceKey := types.NamespacedName{Name: "raw-unchanged-hpa", Namespace: "default"}
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceKey.Name,
+					Namespace:   serviceKey.Namespace,
+					Annotations: getDefaultAnnotations(constants.AutoscalerClassHPA),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).To(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			predictorKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, predictorKey, hpa)
+			}, timeout, interval).Should(Succeed())
+
+			By("annotating the HPA from another client")
+			patch := client.MergeFrom(hpa.DeepCopy())
+			metav1.SetMetaDataAnnotation(&hpa.ObjectMeta, "example.com/owner", "team-a")
+			Expect(k8sClient.Patch(ctx, hpa, patch)).To(Succeed())
+
+			By("making the controller reconcile the InferenceService")
+			Eventually(func() error {
+				deployment := &appsv1.Deployment{}
+				if err := k8sClient.Get(ctx, predictorKey, deployment); err != nil {
+					return err
+				}
+				deployment.Status.Conditions = []appsv1.DeploymentCondition{
+					{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue, Reason: "UnchangedHPATest"},
+				}
+				return k8sClient.Status().Update(ctx, deployment)
+			}, timeout, interval).Should(Succeed())
+			Eventually(func(g Gomega) {
+				updated := &v1beta1.InferenceService{}
+				g.Expect(k8sClient.Get(ctx, serviceKey, updated)).To(Succeed())
+				cond := updated.Status.GetCondition(v1beta1.PredictorReady)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Reason).To(Equal("UnchangedHPATest"))
+			}, timeout, interval).Should(Succeed())
+
+			Expect(k8sClient.Get(ctx, predictorKey, hpa)).To(Succeed())
+			Expect(hpa.Annotations).To(HaveKeyWithValue("example.com/owner", "team-a"))
+		})
+	})
 	Context("When creating inference service with raw kube predictor with domain template", func() {
 		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
 			"ingressDomain":  "example.com",

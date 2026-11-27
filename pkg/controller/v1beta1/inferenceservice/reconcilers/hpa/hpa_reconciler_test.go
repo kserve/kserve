@@ -501,6 +501,219 @@ func TestSemanticHPAEquals(t *testing.T) {
 		}))
 }
 
+func TestSemanticHPAEqualsStoredHPA(t *testing.T) {
+	tests := []struct {
+		name    string
+		desired func(*autoscalingv2.HorizontalPodAutoscaler)
+		stored  func(*autoscalingv2.HorizontalPodAutoscaler)
+		equal   bool
+	}{
+		{
+			name:  "stored HPA only has the API server defaults added",
+			equal: true,
+		},
+		{
+			name:    "no metric sent, stored with the API server's CPU default",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) { h.Spec.Metrics = nil },
+			equal:   true,
+		},
+		{
+			name: "scale down window set, stored with the other defaults around it",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Behavior.ScaleDown = &autoscalingv2.HPAScalingRules{StabilizationWindowSeconds: ptr.To(int32(120))}
+			},
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Behavior.ScaleDown.StabilizationWindowSeconds = ptr.To(int32(120))
+			},
+			equal: true,
+		},
+		{
+			name: "empty policy list sent, stored with the default policies",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Behavior.ScaleUp = &autoscalingv2.HPAScalingRules{Policies: []autoscalingv2.HPAScalingPolicy{}}
+			},
+			equal: true,
+		},
+		{
+			name: "select policy no longer set, stored as Disabled",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Behavior.ScaleDown.SelectPolicy = ptr.To(autoscalingv2.DisabledPolicySelect)
+			},
+		},
+		{
+			name: "scaling policy no longer wanted",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Behavior.ScaleUp = &autoscalingv2.HPAScalingRules{
+					Policies: []autoscalingv2.HPAScalingPolicy{
+						{Type: autoscalingv2.PodsScalingPolicy, Value: 4, PeriodSeconds: 15},
+					},
+				}
+			},
+		},
+		{
+			name: "label and annotation added to the HPA by another client",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Labels["example.com/team"] = "a"
+				h.Annotations = map[string]string{"example.com/owner": "a"}
+			},
+			equal: true,
+		},
+		{
+			name:   "max replicas edited on the HPA",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) { h.Spec.MaxReplicas = 9 },
+		},
+		{
+			name:   "scale target reference edited on the HPA",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) { h.Spec.ScaleTargetRef.Name = "other" },
+		},
+		{
+			name: "behavior edited on the HPA",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Behavior.ScaleDown.StabilizationWindowSeconds = ptr.To(int32(60))
+			},
+		},
+		{
+			name: "target changed",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Metrics[0].Resource.Target.AverageUtilization = ptr.To(int32(60))
+			},
+		},
+		{
+			name: "metric no longer wanted",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Metrics = append(h.Spec.Metrics, autoscalingv2.MetricSpec{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceMemory,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(70)),
+						},
+					},
+				})
+			},
+		},
+		{
+			name: "memory target without a type",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Spec.Metrics[0].Resource = &autoscalingv2.ResourceMetricSource{
+					Name: corev1.ResourceMemory,
+				}
+			},
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				quantity := resource.MustParse("2Gi")
+				h.Spec.Metrics[0].Resource = &autoscalingv2.ResourceMetricSource{
+					Name:   corev1.ResourceMemory,
+					Target: autoscalingv2.MetricTarget{Type: autoscalingv2.AverageValueMetricType, AverageValue: &quantity},
+				}
+			},
+		},
+		{
+			name:    "label added to the inference service",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) { h.Labels["example.com/team"] = "a" },
+		},
+		{
+			name: "label value cleared on the inference service",
+			desired: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Labels["example.com/team"] = ""
+			},
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.Labels["example.com/team"] = "a"
+			},
+		},
+		{
+			name:   "stored HPA has no controller reference",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) { h.OwnerReferences = nil },
+		},
+		{
+			name: "stored HPA still owned by a deleted inference service of the same name",
+			stored: func(h *autoscalingv2.HorizontalPodAutoscaler) {
+				h.OwnerReferences[0].UID = "67890"
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			desired := hpaAsSent()
+			stored := asStored(hpaAsSent())
+			if tt.desired != nil {
+				tt.desired(desired)
+			}
+			if tt.stored != nil {
+				tt.stored(stored)
+			}
+			assert.Equal(t, tt.equal, semanticHPAEquals(desired, stored))
+		})
+	}
+}
+
+// hpaAsSent returns an HPA as the reconciler sends it: owned by an InferenceService, with an
+// empty spec.behavior.
+func hpaAsSent() *autoscalingv2.HorizontalPodAutoscaler {
+	return &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-hpa",
+			Namespace: "default",
+			Labels:    map[string]string{constants.InferenceServicePodLabelKey: "test"},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "serving.kserve.io/v1beta1",
+					Kind:       "InferenceService",
+					Name:       "test",
+					UID:        "12345",
+					Controller: ptr.To(true),
+				},
+			},
+		},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "test-hpa",
+			},
+			MinReplicas: ptr.To(int32(1)),
+			MaxReplicas: 3,
+			Metrics: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceCPU,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(80)),
+						},
+					},
+				},
+			},
+			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+		},
+	}
+}
+
+// asStored returns a copy of hpa as the API server stores it when spec.behavior was sent
+// empty: with the default scale up and scale down rules filled in.
+func asStored(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+	stored := hpa.DeepCopy()
+	stored.Spec.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{
+		ScaleUp: &autoscalingv2.HPAScalingRules{
+			StabilizationWindowSeconds: ptr.To(int32(0)),
+			SelectPolicy:               ptr.To(autoscalingv2.MaxChangePolicySelect),
+			Policies: []autoscalingv2.HPAScalingPolicy{
+				{Type: autoscalingv2.PodsScalingPolicy, Value: 4, PeriodSeconds: 15},
+				{Type: autoscalingv2.PercentScalingPolicy, Value: 100, PeriodSeconds: 15},
+			},
+		},
+		ScaleDown: &autoscalingv2.HPAScalingRules{
+			SelectPolicy: ptr.To(autoscalingv2.MaxChangePolicySelect),
+			Policies: []autoscalingv2.HPAScalingPolicy{
+				{Type: autoscalingv2.PercentScalingPolicy, Value: 100, PeriodSeconds: 15},
+			},
+		},
+	}
+	return stored
+}
+
 func TestCheckHPAExist(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = autoscalingv2.AddToScheme(scheme)
@@ -1140,6 +1353,66 @@ func TestReconcile(t *testing.T) {
 			expectedAction: "skip",
 		},
 		{
+			name:        "skip when existing hpa only differs by API server defaults",
+			existingHPA: asStored(hpaAsSent()),
+			desiredHPA:  hpaAsSent(),
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: 3,
+			},
+			expectedResult: nil,
+			expectedAction: "skip",
+		},
+		{
+			name:        "delete hpa when the inference service is stopped",
+			existingHPA: asStored(hpaAsSent()),
+			desiredHPA: func() *autoscalingv2.HorizontalPodAutoscaler {
+				hpa := hpaAsSent()
+				hpa.Annotations = map[string]string{constants.StopAnnotationKey: "true"}
+				return hpa
+			}(),
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: 3,
+			},
+			expectedResult: nil,
+			expectedAction: "delete",
+		},
+		{
+			name: "keep hpa when the inference service is resumed",
+			existingHPA: func() *autoscalingv2.HorizontalPodAutoscaler {
+				hpa := asStored(hpaAsSent())
+				hpa.Annotations = map[string]string{constants.StopAnnotationKey: "true"}
+				return hpa
+			}(),
+			desiredHPA: func() *autoscalingv2.HorizontalPodAutoscaler {
+				hpa := hpaAsSent()
+				hpa.Annotations = map[string]string{constants.StopAnnotationKey: "false"}
+				return hpa
+			}(),
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: 3,
+			},
+			expectedResult: nil,
+			expectedAction: "skip",
+		},
+		{
+			name: "adopt existing hpa without a controller reference",
+			existingHPA: func() *autoscalingv2.HorizontalPodAutoscaler {
+				hpa := asStored(hpaAsSent())
+				hpa.OwnerReferences = nil
+				return hpa
+			}(),
+			desiredHPA: hpaAsSent(),
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: 3,
+			},
+			expectedResult: nil,
+			expectedAction: "update",
+		},
+		{
 			name:        "skip creating hpa with external autoscaler",
 			existingHPA: nil,
 			desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
@@ -1207,6 +1480,7 @@ func TestReconcile(t *testing.T) {
 				require.NoError(t, err, "Expected HPA to exist after %s action", tc.expectedAction)
 				assert.Equal(t, tc.desiredHPA.Spec.MinReplicas, resultHPA.Spec.MinReplicas)
 				assert.Equal(t, tc.desiredHPA.Spec.MaxReplicas, resultHPA.Spec.MaxReplicas)
+				assert.Equal(t, metav1.GetControllerOf(tc.desiredHPA), metav1.GetControllerOf(resultHPA))
 			case "delete":
 				assert.True(t, apierr.IsNotFound(err), "Expected HPA to be deleted")
 			}
