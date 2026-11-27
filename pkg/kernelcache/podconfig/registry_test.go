@@ -157,3 +157,26 @@ func TestCaptureRegistryInsecureWithoutAuthentication(t *testing.T) {
 	require.NoError(t, ApplyCaptureRegistry(&corev1.PodSpec{}, &container, cfg, ""))
 	require.Equal(t, []corev1.EnvVar{{Name: kernelcacheutil.RegistryInsecureEnv, Value: "true"}}, container.Env)
 }
+
+func TestPullRegistryMountsCAWithoutDeferredAccess(t *testing.T) {
+	cfg := captureRegistryTestConfig()
+	cfg.CAConfigMapRef = &v1beta1.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "bundle"}
+	pod := corev1.PodSpec{}
+	container := corev1.Container{Name: "extractor"}
+
+	require.NoError(t, ApplyPullRegistry(&pod, &container, cfg))
+	require.NoError(t, ApplyPullRegistry(&pod, &container, cfg))
+	require.Len(t, pod.Volumes, 1)
+	require.Len(t, pod.Volumes[0].Projected.Sources, 1)
+	require.Nil(t, pod.Volumes[0].Projected.Sources[0].Secret)
+	require.Equal(t, "registry-ca", pod.Volumes[0].Projected.Sources[0].ConfigMap.Name)
+	require.Equal(t, []corev1.VolumeMount{{Name: registryVolume, MountPath: registryPath, ReadOnly: true}}, container.VolumeMounts)
+	require.Equal(t, []corev1.EnvVar{{Name: "MCV_REGISTRY_CA_FILE", Value: registryPath + "/ca.crt"}}, container.Env)
+}
+
+func TestPullRegistryInsecure(t *testing.T) {
+	container := corev1.Container{}
+
+	require.NoError(t, ApplyPullRegistry(&corev1.PodSpec{}, &container, v1beta1.KernelCacheRegistryConfig{Insecure: true}))
+	require.Equal(t, []corev1.EnvVar{{Name: kernelcacheutil.RegistryInsecureEnv, Value: "true"}}, container.Env)
+}

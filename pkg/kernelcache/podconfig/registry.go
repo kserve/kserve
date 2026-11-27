@@ -113,6 +113,14 @@ func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg 
 	return nil
 }
 
+// ApplyPullRegistry mounts the registry CA bundle and insecure setting for an
+// MCV pull. Deferred registry access Secrets are minted per capture, so pulls
+// keep using the default keychain for credentials.
+func ApplyPullRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg v1beta1.KernelCacheRegistryConfig) error {
+	cfg.Auth = v1beta1.KernelCacheRegistryAuth{}
+	return ApplyCaptureRegistry(pod, container, cfg, "")
+}
+
 func registryEnvToAdd(container *corev1.Container, env []corev1.EnvVar) ([]corev1.EnvVar, error) {
 	envToAdd := make([]corev1.EnvVar, 0, len(env))
 	for _, desired := range env {

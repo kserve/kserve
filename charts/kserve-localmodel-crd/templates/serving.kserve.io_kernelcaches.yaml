@@ -103,6 +103,7 @@ spec:
                 default: oci
                 enum:
                 - oci
+                - pvc
                 type: string
               nodeGroupRef:
                 properties:
@@ -183,6 +184,7 @@ spec:
               mountType:
                 enum:
                 - oci
+                - pvc
                 type: string
               state:
                 enum:

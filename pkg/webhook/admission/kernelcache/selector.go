@@ -130,7 +130,7 @@ func cacheCanMountToPod(cache *v1alpha1.KernelCache, pod *corev1.Pod) bool {
 	if cache.Namespace != pod.Namespace || cache.Spec.Artifact.ImageReference == "" || len(cache.Spec.Artifact.CachePaths) == 0 {
 		return false
 	}
-	if cache.Spec.MountType != "" && cache.Spec.MountType != v1alpha1.KernelCacheMountTypeOCI {
+	if cache.Spec.MountType != "" && !v1alpha1.IsSupportedKernelCacheMountType(cache.Spec.MountType) {
 		return false
 	}
 	for _, cachePath := range cache.Spec.Artifact.CachePaths {
@@ -150,4 +150,80 @@ func cacheCanMountToPod(cache *v1alpha1.KernelCache, pod *corev1.Pod) bool {
 		}
 	}
 	return true
+}
+
+// cacheMountTypeAllowsUse reports whether the cache can be mounted with its
+// resolved mount type. A pvc cache whose paths resolve to more than one OCI
+// path is skipped so the pod starts without a cache instead of being denied.
+func cacheMountTypeAllowsUse(cache *v1alpha1.KernelCache, cfg *v1beta1.KernelCacheConfig) bool {
+	defaultMountType := ""
+	if cfg != nil {
+		defaultMountType = cfg.DefaultMountType
+	}
+	if v1alpha1.ResolveKernelCacheMountType(cache.Spec.MountType, defaultMountType) != v1alpha1.KernelCacheMountTypePVC {
+		return true
+	}
+	ociPaths := make([]string, 0, len(cache.Spec.Artifact.CachePaths))
+	for _, cachePath := range cache.Spec.Artifact.CachePaths {
+		ociPaths = append(ociPaths, cachePath.OCIPath)
+	}
+	_, err := kernelcacheutil.ResolvePVCOCIPath(ociPaths)
+	return err == nil
+}
+
+func pvcKernelCacheCandidates(caches *v1alpha1.KernelCacheList, cfg *v1beta1.KernelCacheConfig) []kernelCacheNodeCandidate {
+	candidates := make([]kernelCacheNodeCandidate, 0)
+	if caches == nil {
+		return candidates
+	}
+	defaultMountType := ""
+	if cfg != nil {
+		defaultMountType = cfg.DefaultMountType
+	}
+	for i := range caches.Items {
+		cache := &caches.Items[i]
+		if cache.Status.State != v1alpha1.KernelCacheStateReady {
+			continue
+		}
+		if cache.Spec.Artifact.ImageReference == "" {
+			continue
+		}
+		if v1alpha1.ResolveKernelCacheMountType(cache.Spec.MountType, defaultMountType) != v1alpha1.KernelCacheMountTypePVC {
+			continue
+		}
+		candidates = append(candidates, kernelCacheNodeCandidate{
+			ref: v1alpha1.NamespacedName{Namespace: cache.Namespace, Name: cache.Name},
+			infos: []v1alpha1.KernelCacheNodeCacheInfo{{
+				KernelCacheRef: v1alpha1.NamespacedName{Namespace: cache.Namespace, Name: cache.Name},
+				ImageReference: cache.Spec.Artifact.ImageReference,
+				Footprints:     cache.Spec.Artifact.Identity.Footprints,
+				State:          v1alpha1.KernelCacheNodePreparationStateReady,
+			}},
+		})
+	}
+	return candidates
+}
+
+func mergeKernelCacheCandidates(groups ...[]kernelCacheNodeCandidate) []kernelCacheNodeCandidate {
+	byRef := make(map[string]kernelCacheNodeCandidate)
+	for _, group := range groups {
+		for _, candidate := range group {
+			key := candidate.ref.Namespace + "/" + candidate.ref.Name
+			if _, exists := byRef[key]; exists {
+				continue
+			}
+			byRef[key] = candidate
+		}
+	}
+	candidates := make([]kernelCacheNodeCandidate, 0, len(byRef))
+	for _, candidate := range byRef {
+		candidates = append(candidates, candidate)
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].ref.Namespace != candidates[j].ref.Namespace {
+			return candidates[i].ref.Namespace < candidates[j].ref.Namespace
+		}
+		return candidates[i].ref.Name < candidates[j].ref.Name
+	})
+	return candidates
 }
