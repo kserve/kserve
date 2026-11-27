@@ -110,6 +110,12 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 	if len(podSpec.Containers) != 0 {
 		container := podSpec.Containers[0]
 		for _, c := range podSpec.Containers {
+			if c.Name == constants.InferenceServiceContainerName {
+				container = c
+				break
+			}
+		}
+		for _, c := range podSpec.Containers {
 			if c.Name == constants.TransformerContainerName {
 				container = c
 				break
