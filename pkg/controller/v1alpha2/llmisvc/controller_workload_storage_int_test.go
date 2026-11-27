@@ -181,6 +181,61 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateOciStorageIsConfigured(expectedPrefillDeployment)
 		})
 
+		It("should use storage-initializer to download model when uri starts with modelscope://", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-storage-modelscope"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelURL, err := apis.ParseURL("modelscope://user-id/repo-id:tag")
+			Expect(err).ToNot(HaveOccurred())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			expectedPrefillDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-prefill",
+					Namespace: testNs.Name,
+				}, expectedPrefillDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			validateStorageInitializerIsConfigured(expectedMainDeployment, "modelscope://user-id/repo-id:tag")
+			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "modelscope://user-id/repo-id:tag")
+		})
+
 		It("should use storage-initializer to download model when uri starts with hf://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-hf"
@@ -1531,6 +1586,75 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			validateOciStorageIsConfiguredForLWS(expectedMainLWS)
 			validateOciStorageIsConfiguredForLWS(expectedPrefillLWS)
+		})
+
+		It("should use storage-initializer to download model when uri starts with modelscope://", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-storage-ms-mn"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelURL, err := apis.ParseURL("modelscope://user-id/repo-id:tag")
+			Expect(err).ToNot(HaveOccurred())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{
+							Containers: []corev1.Container{},
+						},
+						Parallelism: &v1alpha2.ParallelismSpec{
+							Data:      ptr.To[int32](1),
+							DataLocal: ptr.To[int32](1),
+						},
+					},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{Containers: []corev1.Container{}},
+						Parallelism: &v1alpha2.ParallelismSpec{
+							Data:      ptr.To[int32](1),
+							DataLocal: ptr.To[int32](1),
+						},
+					},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			expectedMainLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-mn",
+					Namespace: testNs.Name,
+				}, expectedMainLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			expectedPrefillLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-mn-prefill",
+					Namespace: testNs.Name,
+				}, expectedPrefillLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			validateStorageInitializerIsConfiguredForLWS(expectedMainLWS, "modelscope://user-id/repo-id:tag")
+			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, "modelscope://user-id/repo-id:tag")
 		})
 
 		It("should use storage-initializer to download model when uri starts with hf://", func(ctx SpecContext) {
