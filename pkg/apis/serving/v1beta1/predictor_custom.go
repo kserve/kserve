@@ -66,7 +66,11 @@ func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
 	if len(c.Containers) == 0 {
 		c.Containers = append(c.Containers, corev1.Container{})
 	}
-	if len(c.Containers) == 1 || len(c.Containers[0].Name) == 0 {
+	// GetContainer finds the predictor by name. A leading transformer-container keeps
+	// its name, so it never becomes the predictor and its validation still applies.
+	if len(c.Containers) == 1 || len(c.Containers[0].Name) == 0 ||
+		(c.Containers[0].Name != constants.TransformerContainerName &&
+			utils.GetContainerWithName(&c.PodSpec, constants.InferenceServiceContainerName) == nil) {
 		c.Containers[0].Name = constants.InferenceServiceContainerName
 	}
 	setResourceRequirementDefaults(config, &c.Containers[0].Resources)
