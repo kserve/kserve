@@ -105,19 +105,20 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 			}
 			updatedConfig.CachePaths[index].ContainerName = containerName
 			containerIndex := findContainerIndex(pod.Spec.Containers, containerName)
-			containerPath, err := kernelcacheutil.ResolveContainerPath(
-				&pod.Spec.Containers[containerIndex],
-				updatedConfig.CachePaths[index].ContainerPath,
-			)
-			if err != nil {
-				return err
-			}
-			updatedConfig.CachePaths[index].ContainerPath = containerPath
 			ociPath, err := kernelcacheutil.ResolveOCIPath(updatedConfig.CachePaths[index].OCIPath)
 			if err != nil {
 				return err
 			}
 			updatedConfig.CachePaths[index].OCIPath = ociPath
+			containerPath, err := kernelcacheutil.ResolveContainerPath(
+				&pod.Spec.Containers[containerIndex],
+				updatedConfig.CachePaths[index].ContainerPath,
+				ociPath,
+			)
+			if err != nil {
+				return err
+			}
+			updatedConfig.CachePaths[index].ContainerPath = containerPath
 		}
 	}
 	var containerName string
@@ -316,11 +317,11 @@ func runtimeInfoConfig(container *corev1.Container, modelURI string) captureconf
 // defaultCachePaths returns the default cache path for the runtime container.
 // Triton cache discovery is not inferred; it must be configured explicitly.
 func defaultCachePaths(container *corev1.Container) ([]v1alpha1.KernelCachePath, error) {
-	containerPath, err := kernelcacheutil.ResolveContainerPath(container, "")
+	ociPath, err := kernelcacheutil.ResolveOCIPath("")
 	if err != nil {
 		return nil, err
 	}
-	ociPath, err := kernelcacheutil.ResolveOCIPath("")
+	containerPath, err := kernelcacheutil.ResolveContainerPath(container, "", ociPath)
 	if err != nil {
 		return nil, err
 	}
