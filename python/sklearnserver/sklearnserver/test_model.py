@@ -130,8 +130,9 @@ def test_model_pickle():
 
 def test_dir_with_no_model():
     model = SKLearnModel("model", _MODEL_DIR)
-    with pytest.raises(ModelMissingError):
+    with pytest.raises(ModelMissingError) as e:
         model.load()
+    assert str(e.value) == _MODEL_DIR
 
 
 def test_dir_with_incompatible_model():
