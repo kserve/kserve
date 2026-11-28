@@ -132,7 +132,7 @@ parameters {
 
 4. Upload your model to a storage location
 
-For this example we will use [S3](https://kserve.github.io/website/0.10/modelserving/storage/s3/s3/) but you may also use any of the other storage providers supported by KServe.
+For this example we will use [S3](https://kserve.github.io/website/docs/model-serving/storage/providers/s3) but you may also use any of the other storage providers supported by KServe.
 
 ```sh
 aws s3 cp --recursive model-repo s3://example-bucket/bloom-ft-example
