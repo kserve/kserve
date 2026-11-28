@@ -144,10 +144,13 @@ This allows editing the agent file without interfering with in-progress release 
    RELEASE_WORKSPACE="$HOME/.kserve_release/kserve"
    ```
 
-2. If the worktree already exists, remove it first to start clean:
+2. If the worktree already exists, remove it first to start clean.
+   `git worktree prune` drops registrations whose directory is gone; without it `git worktree add` fails.
+   Check the registration, not the directory:
 
    ```bash
-   if [ -d "$RELEASE_WORKSPACE" ]; then
+   git worktree prune
+   if git worktree list --porcelain | grep -qxF "worktree $RELEASE_WORKSPACE"; then
      git worktree remove "$RELEASE_WORKSPACE" --force
    fi
    git fetch upstream master
@@ -266,11 +269,32 @@ Before creating a new bump branch, check if the version bump was already done
 
 ### Phase 2: Version Bump
 
-1. Fetch latest upstream master and create bump branch:
+1. Fetch latest upstream master and check for a leftover bump branch
+   (e.g., from a closed bump PR or an aborted run):
    ```bash
    git fetch upstream master
-   git checkout -b release-bump-v{VERSION} upstream/master
+   git branch --list release-bump-v{VERSION}
+   git ls-remote --heads origin release-bump-v{VERSION}
    ```
+
+   - **Neither exists**: create the branch.
+     ```bash
+     git checkout -b release-bump-v{VERSION} upstream/master
+     ```
+   - **Local and/or remote exists**: report which, and ask:
+     "Branch release-bump-v{VERSION} already exists (local/remote). Recreate it from upstream/master? (y/n)"
+     - **y**: reset the local branch. If the remote branch exists, the push in step 4 must use
+       `--force-with-lease` (never plain `--force`).
+       ```bash
+       git checkout -B release-bump-v{VERSION} upstream/master
+       ```
+     - **n**: stop and ask the user how to proceed.
+
+   Verify before continuing:
+   ```bash
+   git branch --show-current   # must print release-bump-v{VERSION}
+   ```
+   If the checkout failed or the output is empty (detached HEAD), STOP. Never run the bump on a detached HEAD.
 
 2. Get prior version and detect release type:
    ```bash
@@ -285,13 +309,27 @@ Before creating a new bump branch, check if the version bump was already done
    ```
    This is the ONLY make command you should run.
 
+   **Verify the bump completed.** `make bump-version` runs `make precommit` before `generate-install.sh`.
+   If any step fails (even an apparent environment error such as `verify-module-size` /
+   `safe.bareRepository`), `install/v{VERSION}/` is never generated.
+   Never treat a non-zero exit as ignorable. After the command, check:
+   ```bash
+   test -d install/v{VERSION} && ls install/v{VERSION} | head
+   grep -q "KSERVE_VERSION=v{VERSION}" kserve-deps.env && echo OK
+   ```
+   - If `install/v{VERSION}/` is missing or the command exited non-zero: STOP. Do not commit or create the PR.
+     Report the error and ask the user how to fix the cause, then re-run the bump.
+     Never change security-related git config (e.g. `safe.bareRepository`) to get past a failure.
+     Only if the user explicitly approves, run the remaining steps manually
+     (`./hack/release/generate-install.sh v{VERSION}`), then re-verify.
+
 4. Commit and create PR:
    Title: `release: prepare release v{VERSION}` (all release types)
 
    ```bash
    git add -A
    git commit -S -s -m "{TITLE}"
-   git push origin release-bump-v{VERSION}
+   git push origin release-bump-v{VERSION}   # add --force-with-lease only if approved in step 1
    gh pr create --repo {PR_REPO} --base master \
      --head {BRANCH_OWNER}:release-bump-v{VERSION} \
      --title "{TITLE}" \
@@ -461,6 +499,8 @@ This pushes tag with user credentials, which triggers Docker Publisher workflows
    git checkout upstream/master
    ./hack/release/create-branch-tag.sh v{VERSION}
    ```
+   For RC0 the script pushes upstream master straight to the new branch and tags that commit.
+   It does not check out local `master`, so it works from the release worktree.
    Review the execution plan. If everything looks correct, ask user: "Dry-run passed. Execute? (y/n)"
 
 2. On approval, execute:

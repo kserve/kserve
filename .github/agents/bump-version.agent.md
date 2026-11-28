@@ -75,6 +75,8 @@ yes "" | make bump-version NEW_VERSION={VERSION} PRIOR_VERSION={PRIOR_VERSION}
 
 If this fails, comment the error output on the issue and stop.
 
+Also verify `install/v{VERSION}/` exists afterwards. `make bump-version` generates it only after `make precommit` succeeds, so a failure there leaves it missing. If missing, treat it as a failure: comment on the issue and stop.
+
 ### 5. Fix Formatting
 
 Run `make precommit` to fix any formatting issues introduced by the version bump:
