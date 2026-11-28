@@ -6,6 +6,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **batch_interval** | **str** | Max duration to wait before flushing a partial batch (e.g. \&quot;5s\&quot;, \&quot;100ms\&quot;). Only used when BatchSize &gt; 1. Defaults to \&quot;0\&quot; (no time-based flushing). | [optional] 
 **batch_size** | **int** | Number of log records per batch for blob storage. Defaults to 1 (immediate). | [optional] 
+**log_all_responses** | **bool** | Log responses regardless of their status code, and add a statuscode extension attribute to the response cloud event. Only 200 responses are logged when this is unset. Defaults to false. | [optional] 
 **marshaller_url** | **str** | URL of the log marshaller service that transforms log records before storage. Defaults to the embedded JSON marshaller at http://localhost:9083/marshal. | [optional] 
 **metadata_annotations** | **list[str]** | Matched inference service annotations for propagating to inference logger cloud events. | [optional] 
 **metadata_headers** | **list[str]** | Matched metadata HTTP headers for propagating to inference logger cloud events. | [optional] 

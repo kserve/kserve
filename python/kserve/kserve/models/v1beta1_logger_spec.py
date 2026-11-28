@@ -49,6 +49,7 @@ class V1beta1LoggerSpec(object):
     openapi_types = {
         'batch_interval': 'str',
         'batch_size': 'int',
+        'log_all_responses': 'bool',
         'marshaller_url': 'str',
         'metadata_annotations': 'list[str]',
         'metadata_headers': 'list[str]',
@@ -60,6 +61,7 @@ class V1beta1LoggerSpec(object):
     attribute_map = {
         'batch_interval': 'batchInterval',
         'batch_size': 'batchSize',
+        'log_all_responses': 'logAllResponses',
         'marshaller_url': 'marshallerUrl',
         'metadata_annotations': 'metadataAnnotations',
         'metadata_headers': 'metadataHeaders',
@@ -68,7 +70,7 @@ class V1beta1LoggerSpec(object):
         'url': 'url'
     }
 
-    def __init__(self, batch_interval=None, batch_size=None, marshaller_url=None, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, batch_interval=None, batch_size=None, log_all_responses=None, marshaller_url=None, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LoggerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -76,6 +78,7 @@ class V1beta1LoggerSpec(object):
 
         self._batch_interval = None
         self._batch_size = None
+        self._log_all_responses = None
         self._marshaller_url = None
         self._metadata_annotations = None
         self._metadata_headers = None
@@ -88,6 +91,8 @@ class V1beta1LoggerSpec(object):
             self.batch_interval = batch_interval
         if batch_size is not None:
             self.batch_size = batch_size
+        if log_all_responses is not None:
+            self.log_all_responses = log_all_responses
         if marshaller_url is not None:
             self.marshaller_url = marshaller_url
         if metadata_annotations is not None:
@@ -146,6 +151,29 @@ class V1beta1LoggerSpec(object):
         """
 
         self._batch_size = batch_size
+
+    @property
+    def log_all_responses(self):
+        """Gets the log_all_responses of this V1beta1LoggerSpec.  # noqa: E501
+
+        Log responses regardless of their status code, and add a statuscode extension attribute to the response cloud event. Only 200 responses are logged when this is unset. Defaults to false.  # noqa: E501
+
+        :return: The log_all_responses of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._log_all_responses
+
+    @log_all_responses.setter
+    def log_all_responses(self, log_all_responses):
+        """Sets the log_all_responses of this V1beta1LoggerSpec.
+
+        Log responses regardless of their status code, and add a statuscode extension attribute to the response cloud event. Only 200 responses are logged when this is unset. Defaults to false.  # noqa: E501
+
+        :param log_all_responses: The log_all_responses of this V1beta1LoggerSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._log_all_responses = log_all_responses
 
     @property
     def marshaller_url(self):
