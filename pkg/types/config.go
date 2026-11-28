@@ -26,8 +26,10 @@ const (
 )
 
 type StorageInitializerConfig struct {
-	Image                   string `json:"image"`
-	CpuRequest              string `json:"cpuRequest"`
+	Image      string `json:"image"`
+	CpuRequest string `json:"cpuRequest"`
+	// CpuLimit is optional: when empty, the storage-initializer container
+	// runs without a CPU limit.
 	CpuLimit                string `json:"cpuLimit"`
 	CpuModelcar             string `json:"cpuModelcar"`
 	MemoryRequest           string `json:"memoryRequest"`
