@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -109,6 +110,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	var reconcileErrs []error
 	previousNamespaces := consumerNamespaces(localModel.Status)
 
 	// Step 2 - Adds this model to LocalModelNode resources in the node group
@@ -116,36 +118,18 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "failed to reconcile LocalModelNode")
 	}
 
-	// Step 3 - Creates PV & PVC for model download
-	for _, nodeGroup := range nodeGroups {
-		pvSpec := nodeGroup.Spec.PersistentVolumeSpec
-		pv := corev1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
-			Name: localModel.Name + "-" + nodeGroup.Name + "-download",
-		}}
-		if err := CreatePV(ctx, c.Clientset, c.Scheme, c.Log, pv, localModel, nil); err != nil {
-			c.Log.Error(err, "Create PV err", "name", pv.Name)
-		}
-
-		pvc := corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: localModel.Name + "-" + nodeGroup.Name,
-			},
-			Spec: nodeGroup.Spec.PersistentVolumeClaimSpec,
-		}
-		pvc.Spec.VolumeName = pv.Name
-
-		if err := CreatePVC(ctx, c.Clientset, c.Scheme, c.Log, pvc, localModelConfig.JobNamespace, localModel, nil); err != nil {
-			c.Log.Error(err, "Create PVC err", "name", pv.Name)
-		}
+	// Step 3 - Provision the download volumes for each node group.
+	if err := reconcileDownloadVolumes(ctx, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, localModelConfig.JobNamespace); err != nil {
+		reconcileErrs = append(reconcileErrs, err)
 	}
 
-	if localModelConfig.DisableVolumeManagement {
-		return ctrl.Result{}, nil
+	// Step 4 - Provision serving volumes independently of earlier errors.
+	if !localModelConfig.DisableVolumeManagement {
+		if err := ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup, consumers, previousNamespaces); err != nil {
+			reconcileErrs = append(reconcileErrs, err)
+		}
 	}
-
-	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
-	return ctrl.Result{}, err
+	return ctrl.Result{}, errors.Join(reconcileErrs...)
 }
 
 // Reconciles corresponding model cache CR when we found an update on an isvc
