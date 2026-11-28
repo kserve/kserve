@@ -30,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/utils/ptr"
 )
 
@@ -1055,6 +1056,27 @@ func TestCustomOK(t *testing.T) {
 	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
+}
+
+func TestInferenceServiceValidatorReadsHTTPStorageURIAllowlist(t *testing.T) {
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+		Data: map[string]string{
+			StorageInitializerConfigMapKeyName: `{"httpStorageUriAllowlist":["models.ml-platform.svc"]}`,
+		},
+	}
+	validator := InferenceServiceValidator{Clientset: fakeclientset.NewSimpleClientset(configMap)}
+
+	allowlist, err := validator.httpStorageURIAllowlist(t.Context())
+	if err != nil {
+		t.Fatalf("httpStorageURIAllowlist() error = %v", err)
+	}
+	if len(allowlist) != 1 || allowlist[0] != "models.ml-platform.svc" {
+		t.Fatalf("httpStorageURIAllowlist() = %v, want [models.ml-platform.svc]", allowlist)
+	}
 }
 
 func TestRejectBadTransformer(t *testing.T) {

@@ -22,13 +22,16 @@ package jobs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
@@ -66,6 +69,34 @@ func ContainerFromConfig(config *pkgtypes.StorageInitializerConfig) *corev1.Cont
 		Image:                    image,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
+}
+
+// InjectHTTPStorageURIAllowlist applies the administrator policy to HTTP(S)
+// downloads. Non-HTTP sources are left untouched so allowlist changes do not
+// roll unrelated LocalModelCache download Jobs.
+func InjectHTTPStorageURIAllowlist(container *corev1.Container, sourceURI string, allowlist []string) error {
+	uri := strings.ToLower(sourceURI)
+	if !strings.HasPrefix(uri, "http://") && !strings.HasPrefix(uri, "https://") {
+		return nil
+	}
+	if allowlist == nil {
+		allowlist = []string{}
+	}
+	value, err := json.Marshal(allowlist)
+	if err != nil {
+		return fmt.Errorf("failed to encode HTTP storage URI allowlist: %w", err)
+	}
+	policyEnv := corev1.EnvVar{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: string(value)}
+	for i := range container.Env {
+		if container.Env[i].Name == policyEnv.Name {
+			container.Env[i] = policyEnv
+			return nil
+		}
+	}
+	if len(allowlist) > 0 {
+		container.Env = append(container.Env, policyEnv)
+	}
+	return nil
 }
 
 // containerFromStorageContainers returns the container spec of the first enabled

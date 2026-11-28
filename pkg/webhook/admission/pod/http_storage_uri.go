@@ -19,9 +19,11 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -47,4 +49,14 @@ func injectHTTPStorageURIAllowlist(container *corev1.Container, allowlist []stri
 		container.Env = append(container.Env, policyEnv)
 	}
 	return nil
+}
+
+func hasHTTPStorageURI(storageURIs []v1beta1.StorageUri) bool {
+	for _, storageURI := range storageURIs {
+		uri := strings.ToLower(storageURI.Uri)
+		if strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
+			return true
+		}
+	}
+	return false
 }

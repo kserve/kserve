@@ -555,6 +555,13 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		storageUri = normalized
 	}
 	container.Args = []string{storageUri, constants.DefaultModelLocalMountPath}
+	var httpStorageURIAllowlist []string
+	if storageInitializerConfig != nil {
+		httpStorageURIAllowlist = storageInitializerConfig.HTTPStorageURIAllowlist
+	}
+	if err := jobs.InjectHTTPStorageURIAllowlist(container, localModel.Spec.SourceModelUri, httpStorageURIAllowlist); err != nil {
+		return nil, err
+	}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: constants.DefaultModelLocalMountPath,

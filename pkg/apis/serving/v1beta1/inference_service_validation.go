@@ -32,10 +32,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -66,7 +65,7 @@ var (
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type InferenceServiceValidator struct {
-	Client client.Client `json:"-"`
+	Clientset kubernetes.Interface `json:"-"`
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kserve-webhook-server.validator
@@ -102,16 +101,15 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldIsvc,
 }
 
 func (v *InferenceServiceValidator) httpStorageURIAllowlist(ctx context.Context) ([]string, error) {
-	if v.Client == nil {
+	if v.Clientset == nil {
 		return nil, nil
 	}
-	configMap := &corev1.ConfigMap{}
-	key := k8stypes.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}
-	if err := v.Client.Get(ctx, key, configMap); err != nil {
+	configMap, err := GetInferenceServiceConfigMap(ctx, v.Clientset)
+	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to read InferenceService config map %s/%s: %w", key.Namespace, key.Name, err)
+		return nil, fmt.Errorf("failed to read InferenceService config map %s/%s: %w", constants.KServeNamespace, constants.InferenceServiceConfigMapName, err)
 	}
 	return GetHTTPStorageURIAllowlist(configMap)
 }

@@ -102,6 +102,14 @@ def test_http_storage_uri_allows_configured_private_destinations(
     assert _resolve_http_storage_uri(uri) == ("10.20.1.4",)
 
 
+def test_bare_ip_allowlist_is_an_exact_host_not_a_cidr(monkeypatch):
+    monkeypatch.setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", '["10.20.1.4"]')
+    with pytest.raises(RuntimeError, match="blocked host or IP"):
+        _resolve_http_storage_uri("http://models.ml-platform.svc/model")
+
+    assert _resolve_http_storage_uri("http://10.20.1.4/model") == ("10.20.1.4",)
+
+
 def test_http_storage_uri_allowlist_does_not_allow_metadata(monkeypatch):
     monkeypatch.setenv("KSERVE_HTTP_STORAGE_URI_ALLOWLIST", '["10.0.0.0/8"]')
     with pytest.raises(RuntimeError, match="blocked host or IP"):

@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -53,6 +54,8 @@ const (
 	AutoscalerConfigName               = "autoscaler"
 	KernelCacheConfigName              = "kernelcache"
 )
+
+var storageAllowlistLogger = logf.Log.WithName("storage-uri-allowlist")
 
 const (
 	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
@@ -830,9 +833,7 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 			return nil, fmt.Errorf("unable to unmarshal %q JSON: %w", StorageInitializerConfigMapKeyName, err)
 		}
 	}
-	if err := utils.ValidateHTTPStorageURIAllowlist(storageInitializerConfig.HTTPStorageURIAllowlist); err != nil {
-		return nil, fmt.Errorf("invalid %q.httpStorageUriAllowlist: %w", StorageInitializerConfigMapKeyName, err)
-	}
+	storageInitializerConfig.HTTPStorageURIAllowlist = filterHTTPStorageURIAllowlist(storageInitializerConfig.HTTPStorageURIAllowlist)
 	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := map[string]string{
 		"memoryRequest": storageInitializerConfig.MemoryRequest,
@@ -882,8 +883,13 @@ func GetHTTPStorageURIAllowlist(configMap *corev1.ConfigMap) ([]string, error) {
 			return nil, fmt.Errorf("unable to unmarshal %q JSON: %w", StorageInitializerConfigMapKeyName, err)
 		}
 	}
-	if err := utils.ValidateHTTPStorageURIAllowlist(storageInitializerConfig.HTTPStorageURIAllowlist); err != nil {
-		return nil, fmt.Errorf("invalid %q.httpStorageUriAllowlist: %w", StorageInitializerConfigMapKeyName, err)
+	return filterHTTPStorageURIAllowlist(storageInitializerConfig.HTTPStorageURIAllowlist), nil
+}
+
+func filterHTTPStorageURIAllowlist(entries []string) []string {
+	valid, invalid := utils.FilterValidHTTPStorageURIAllowlist(entries)
+	for _, err := range invalid {
+		storageAllowlistLogger.Error(err, "Ignoring invalid HTTP storage URI allowlist entry")
 	}
-	return storageInitializerConfig.HTTPStorageURIAllowlist, nil
+	return valid
 }

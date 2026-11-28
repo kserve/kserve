@@ -101,6 +101,25 @@ func ValidateHTTPStorageURIAllowlist(entries []string) error {
 	return err
 }
 
+// FilterValidHTTPStorageURIAllowlist returns valid entries and errors for entries
+// that should be ignored. Invalid entries must not widen access; callers can log
+// the errors while continuing with the remaining cluster-admin policy.
+func FilterValidHTTPStorageURIAllowlist(entries []string) ([]string, []error) {
+	var valid []string
+	if entries != nil {
+		valid = make([]string, 0, len(entries))
+	}
+	var invalid []error
+	for _, entry := range entries {
+		if _, err := parseHTTPStorageURIAllowlist([]string{entry}); err != nil {
+			invalid = append(invalid, fmt.Errorf("%q: %w", entry, err))
+			continue
+		}
+		valid = append(valid, entry)
+	}
+	return valid, invalid
+}
+
 type httpStorageURIAllowlist struct {
 	hosts    map[string]struct{}
 	prefixes []netip.Prefix

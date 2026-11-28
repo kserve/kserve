@@ -114,25 +114,27 @@ def _parse_http_storage_uri_allowlist() -> tuple[
             raise RuntimeError(f"Invalid entry in {_HTTP_STORAGE_URI_ALLOWLIST_ENV}")
         entry = entry.strip().lower().rstrip(".")
         try:
+            address = ipaddress.ip_address(entry)
+        except ValueError:
+            address = None
+        if address is not None:
+            if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+                address = address.ipv4_mapped
+            if (
+                address.is_loopback
+                or address.is_link_local
+                or address.is_multicast
+                or address.is_unspecified
+                or address == ipaddress.ip_address("fd00:ec2::254")
+            ):
+                raise RuntimeError(
+                    f"Blocked address in {_HTTP_STORAGE_URI_ALLOWLIST_ENV}: {entry}"
+                )
+            allowed_hosts.add(str(address))
+            continue
+        try:
             network = ipaddress.ip_network(entry, strict=False)
         except ValueError:
-            try:
-                address = ipaddress.ip_address(entry)
-            except ValueError:
-                address = None
-            if address is not None:
-                if (
-                    address.is_loopback
-                    or address.is_link_local
-                    or address.is_multicast
-                    or address.is_unspecified
-                    or address == ipaddress.ip_address("fd00:ec2::254")
-                ):
-                    raise RuntimeError(
-                        f"Blocked address in {_HTTP_STORAGE_URI_ALLOWLIST_ENV}: {entry}"
-                    )
-                allowed_hosts.add(str(address))
-                continue
             if (
                 not re.fullmatch(
                     r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"

@@ -648,8 +648,10 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			*initContainer = merged
 		}
 
-		if err := injectHTTPStorageURIAllowlist(initContainer, params.Config.HTTPStorageURIAllowlist); err != nil {
-			return err
+		if hasHTTPStorageURI(params.StorageURIs) {
+			if err := injectHTTPStorageURIAllowlist(initContainer, params.Config.HTTPStorageURIAllowlist); err != nil {
+				return err
+			}
 		}
 
 		// Add CA bundle env vars and volume mount after merge to avoid conflicts with user-defined env vars
