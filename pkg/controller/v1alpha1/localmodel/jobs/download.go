@@ -93,9 +93,7 @@ func InjectHTTPStorageURIAllowlist(container *corev1.Container, sourceURI string
 			return nil
 		}
 	}
-	if len(allowlist) > 0 {
-		container.Env = append(container.Env, policyEnv)
-	}
+	container.Env = append(container.Env, policyEnv)
 	return nil
 }
 

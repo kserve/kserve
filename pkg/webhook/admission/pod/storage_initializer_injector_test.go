@@ -189,7 +189,6 @@ func TestStorageInitializerInjector(t *testing.T) {
 							Args:      []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources: resourceRequirement,
 							Env: []corev1.EnvVar{
-								{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: `["models.ml-platform.svc","10.20.0.0/16"]`},
 								{Name: "HF_HUB_ENABLE_HF_TRANSFER", Value: "1"},
 								{Name: "HF_XET_HIGH_PERFORMANCE", Value: "1"},
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},

@@ -45,6 +45,12 @@ func TestInjectHTTPStorageURIAllowlist(t *testing.T) {
 			wantEnv:   &corev1.EnvVar{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: `[]`},
 		},
 		{
+			name:      "empty policy overrides inherited EnvFrom for HTTP source",
+			sourceURI: "http://models.example/model",
+			container: corev1.Container{EnvFrom: []corev1.EnvFromSource{{Prefix: "INHERITED_"}}},
+			wantEnv:   &corev1.EnvVar{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: `[]`},
+		},
+		{
 			name:      "leaves non-HTTP source unchanged",
 			sourceURI: "s3://bucket/model",
 			container: corev1.Container{Env: []corev1.EnvVar{{Name: "CUSTOM", Value: "kept"}}},

@@ -185,7 +185,13 @@ def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
     host = parsed.hostname
     normalized_host = (host or "").rstrip(".").lower()
     allowed_hosts, allowed_networks = _parse_http_storage_uri_allowlist()
-    host_allowed = normalized_host in allowed_hosts
+    try:
+        normalized_ip_host = str(
+            _normalize_http_storage_address(ipaddress.ip_address(normalized_host))
+        )
+    except ValueError:
+        normalized_ip_host = normalized_host
+    host_allowed = normalized_ip_host in allowed_hosts
     if (
         not normalized_host
         or normalized_host

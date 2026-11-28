@@ -69,6 +69,7 @@ func TestCheckHTTPStorageURIWithAllowlist(t *testing.T) {
 	}{
 		{name: "private IP requires CIDR", uri: "http://10.20.1.4/model", wantErr: true},
 		{name: "private IP allowed by CIDR", uri: "http://10.20.1.4/model", allowlist: []string{"10.20.0.0/16"}},
+		{name: "mapped private IP allowed exactly", uri: "http://[::ffff:10.20.1.4]/model", allowlist: []string{"::ffff:10.20.1.4"}},
 		{name: "private host allowed exactly", uri: "http://models.ml-platform.svc/model", allowlist: []string{"models.ml-platform.svc"}},
 		{name: "private host is not wildcard matched", uri: "http://other.ml-platform.svc/model", allowlist: []string{"models.ml-platform.svc"}, wantErr: true},
 		{name: "metadata stays blocked", uri: "http://169.254.169.254/latest/meta-data", allowlist: []string{"169.254.0.0/16"}, wantErr: true},

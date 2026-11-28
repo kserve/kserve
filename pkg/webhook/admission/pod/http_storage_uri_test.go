@@ -17,9 +17,13 @@ limitations under the License.
 package pod
 
 import (
+	"slices"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestHasHTTPStorageURI(t *testing.T) {
@@ -37,5 +41,18 @@ func TestHasHTTPStorageURI(t *testing.T) {
 				t.Errorf("hasHTTPStorageURI() = %t, want %t", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestInjectHTTPStorageURIAllowlistOverridesEmptyPolicy(t *testing.T) {
+	container := &corev1.Container{
+		EnvFrom: []corev1.EnvFromSource{{Prefix: "INHERITED_"}},
+	}
+	if err := injectHTTPStorageURIAllowlist(container, nil); err != nil {
+		t.Fatalf("injectHTTPStorageURIAllowlist() error = %v", err)
+	}
+	want := corev1.EnvVar{Name: constants.HTTPStorageURIAllowlistEnvVar, Value: `[]`}
+	if !slices.Contains(container.Env, want) {
+		t.Fatalf("env = %v, want explicit empty policy %v", container.Env, want)
 	}
 }
