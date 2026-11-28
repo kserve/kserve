@@ -166,9 +166,9 @@ model onto the **same** PVC conflict (`DestinationConflict`); two caches importi
 
 ## Readiness ordering and resulting URI
 
-An InferenceService, LLMInferenceService base model, or LoRA adapter is routed to the
-shared copy **only after** the cache reaches `Ready: True`. Until then the workload
-falls back to its original `storageUri` as if the cache were absent.
+By default an InferenceService, LLMInferenceService base model, or LoRA adapter is
+routed to the shared copy **only after** the cache reaches `Ready: True`. Until then
+the workload falls back to its original `storageUri` as if the cache were absent.
 
 A workload that is already bound to the cache stays bound if the cache later reports
 `Ready: False` (for example `ReimportBlocked`, `PVCTerminating`, or a spec-generation
@@ -181,6 +181,40 @@ default a bound workload updated then falls back to its original `storageUri` (t
 storage initializer, or a modelcar for `oci://`) and binds again on a later update once
 the cache is `Ready: True`. The binding is also released when the workload no longer
 matches the cache's `sourceModelUri`.
+
+### Per-workload cache policy
+
+Whether readiness gates **serving** is a per-workload decision, because only the
+workload owner knows whether the workload may download its own copy to its node's root
+disk instead. Two workloads using the same `LocalModelNamespaceCache` can therefore
+need different policies, so the policy lives on the workload, not on the cache:
+
+```yaml
+metadata:
+  annotations:
+    serving.kserve.io/local-model-cache-policy: CacheRequired
+```
+
+- `FallbackToSource` (the default, also when the annotation is unset): the behavior
+  described above. A not-Ready cache never receives new bindings, and an existing
+  binding survives recuts through the import record, but serving is never blocked:
+  once the record is cleared the workload falls back to its original `storageUri`.
+- `CacheRequired`: serving from the cache is gated on the cache's import record for
+  the **current claim** (`status.sharedPVCImport`), not on `Ready: True` (which also
+  folds in node-agent propagation state):
+  - a workload whose current claim is not attested by the record (a new binding, or a
+    claim that was recreated) waits for the import instead of downloading to root
+    disk: the pod-creating webhook rejects its pods while the cache is not Ready, and
+    an LLMInferenceService reports the wait through its `LocalModelCacheReady`
+    condition with reason `SharedPVCImportIncomplete`.
+  - a workload already bound to the claim the record attests keeps serving through
+    `ReimportBlocked` and node-agent failures; the degradation shows on
+    LLMInferenceService as `LocalModelCacheReady: False` with reason
+    `SharedPVCServingFromImportRecord` (independent of the `Ready` rollup) rather
+    than as a reconcile error. The workload stops serving only once the record no
+    longer attests the live claim.
+
+Any other annotation value is rejected on admission (create and update).
 
 Once ready, the served model resolves to:
 

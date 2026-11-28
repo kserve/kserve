@@ -21,11 +21,17 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -341,6 +347,287 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			t.Errorf("args mismatch (-want +got):\n%s", diff)
 		}
 	})
+}
+
+func newBaseModelCacheScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+	return scheme
+}
+
+func baseModelCacheLLMSvc(labels map[string]string, annotations map[string]string) *v1alpha2.LLMInferenceService {
+	return &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-llm",
+			Namespace:   "default",
+			Labels:      labels,
+			Annotations: annotations,
+		},
+	}
+}
+
+func TestResolveBaseModelCachePVC(t *testing.T) {
+	t.Parallel()
+
+	sharedRef := "shared-pvc"
+	sharedReady := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/model",
+			PVCRef:         &sharedRef,
+		},
+	}
+	sharedReady.Status.MarkReady(1)
+
+	sharedNotReady := sharedReady.DeepCopy()
+	sharedNotReady.Name = "shared-not-ready"
+	sharedNotReady.Status.MarkNotReady(v1alpha1.ReasonImportRunning, "Import Job is running", 1)
+
+	// A Ready cache whose import record attests a different (recreated) claim:
+	// the Ready condition is stale until the cache reconciler catches up, so a
+	// CacheRequired workload must still fail closed rather than mount the
+	// empty replacement claim. The cache still references "shared-pvc", which a
+	// previous import recorded under a different UID, while the live claim carries
+	// a fresh one — the mismatch is what the gate must catch.
+	sharedReadyRecreated := sharedReady.DeepCopy()
+	sharedReadyRecreated.Name = "shared-ready-recreated"
+	sharedReadyRecreated.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-old"}
+	recreatedPVC := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: *sharedReady.Spec.PVCRef, Namespace: "default", UID: "pvc-uid-recreated"},
+	}
+
+	// A not-Ready cache whose import record attests the claim that currently
+	// backs the cache (same UID): an already-bound CacheRequired workload keeps
+	// serving from it while node agents catch up.
+	importedPVCRef := "imported-pvc"
+	importedPVC := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "imported-pvc", Namespace: "default", UID: "pvc-uid-1"},
+	}
+	sharedNotReadyImported := sharedReady.DeepCopy()
+	sharedNotReadyImported.Name = "shared-not-ready-imported"
+	sharedNotReadyImported.Spec = v1alpha1.LocalModelNamespaceCacheSpec{
+		SourceModelUri: "hf://org/model",
+		PVCRef:         &importedPVCRef,
+	}
+	sharedNotReadyImported.Status.MarkNotReady(v1alpha1.ReasonReimportBlocked, "node agents behind", 1)
+	sharedNotReadyImported.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-1"}
+
+	// The claim was recreated (different UID): the record attests the old claim,
+	// so the current claim holds no usable copy and a CacheRequired workload
+	// must wait for the re-import.
+	sharedNotReadyReimported := sharedNotReadyImported.DeepCopy()
+	sharedNotReadyReimported.Name = "shared-not-ready-reimported"
+	sharedNotReadyReimported.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-old"}
+
+	// A Ready cache whose import record attests the live claim: the normal
+	// steady state, admitted without degradation.
+	sharedReadyImported := sharedNotReadyImported.DeepCopy()
+	sharedReadyImported.Name = "shared-ready-imported"
+	sharedReadyImported.Status = v1alpha1.LocalModelCacheStatus{}
+	sharedReadyImported.Status.MarkReady(1)
+	sharedReadyImported.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "pvc-uid-1"}
+
+	nodeLocalNS := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "node-cache", Namespace: "default"},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/model",
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+
+	clusterCache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "hf://org/model",
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+
+	scenarios := map[string]struct {
+		labels           map[string]string
+		annotations      map[string]string
+		cacheRequired    bool
+		currClaim        string
+		objects          []client.Object
+		expectedSource   string
+		expectedPVC      string
+		expectedDegraded bool
+		expectedErr      string
+		errIsNotReady    bool
+	}{
+		"shared-PVC cache ready resolves the claim": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-ready-imported",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired:  true,
+			objects:        []client.Object{sharedReadyImported, importedPVC},
+			expectedSource: "hf://org/model",
+			expectedPVC:    "imported-pvc",
+		},
+		"recreated claim not attested by the import record fails closed even while Ready": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-ready-recreated",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired: true,
+			objects:       []client.Object{sharedReadyRecreated, recreatedPVC},
+			expectedErr:   "does not attest the current claim",
+			errIsNotReady: true,
+		},
+		"shared-PVC cache not ready fails closed for CacheRequired workloads": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-not-ready",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired: true,
+			objects:       []client.Object{sharedNotReady},
+			expectedErr:   "not ready",
+			errIsNotReady: true,
+		},
+		"shared-PVC cache not ready is not gated for the default policy": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-not-ready",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			objects:        []client.Object{sharedNotReady},
+			expectedSource: "hf://org/model",
+			expectedPVC:    "shared-pvc",
+		},
+		"CacheRequired workload keeps serving from the claim its import record attests": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-not-ready-imported",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired:    true,
+			currClaim:        "imported-pvc",
+			objects:          []client.Object{sharedNotReadyImported, importedPVC},
+			expectedSource:   "hf://org/model",
+			expectedPVC:      "imported-pvc",
+			expectedDegraded: true,
+		},
+		"CacheRequired workload binding while the cache is degraded waits instead": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-not-ready-imported",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired: true,
+			// The role's currently-deployed PodSpec mounts nothing: the
+			// workload has never served from the degraded cache, so it waits
+			// for a completed import instead of serving an unknown copy.
+			objects:       []client.Object{sharedNotReadyImported, importedPVC},
+			expectedErr:   v1alpha1.ReasonReimportBlocked,
+			errIsNotReady: true,
+		},
+		"recreated claim not attested by the import record fails closed": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-not-ready-reimported",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired: true,
+			objects:       []client.Object{sharedNotReadyReimported, importedPVC},
+			expectedErr:   "not ready",
+			errIsNotReady: true,
+		},
+		"missing claim recorded by the import record fails closed": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "shared-not-ready-imported",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired: true,
+			objects:       []client.Object{sharedNotReadyImported},
+			expectedErr:   "not ready",
+			errIsNotReady: true,
+		},
+		"missing shared-PVC cache fails closed": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "gone-cache",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			cacheRequired: true,
+			expectedErr:   "get LocalModelNamespaceCache",
+		},
+		"namespace-scoped node-local cache derives the PVC from the node group": {
+			labels: map[string]string{
+				constants.LocalModelLabel:          "node-cache",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			annotations: map[string]string{
+				constants.NodeGroupAnnotationKey: "gpu1",
+			},
+			objects:        []client.Object{nodeLocalNS},
+			expectedSource: "hf://org/model",
+			expectedPVC:    "node-cache-gpu1",
+		},
+		"cluster-scoped cache derives the PVC from the node group": {
+			labels: map[string]string{
+				constants.LocalModelLabel: "cluster-cache",
+			},
+			objects:        []client.Object{clusterCache},
+			expectedSource: "hf://org/model",
+			expectedPVC:    "cluster-cache-gpu1",
+		},
+		"cluster-scoped cache with unmatched node group fails": {
+			labels: map[string]string{
+				constants.LocalModelLabel: "cluster-cache",
+			},
+			annotations: map[string]string{
+				constants.NodeGroupAnnotationKey: "gpu2",
+			},
+			objects:     []client.Object{clusterCache},
+			expectedErr: "no matching node group",
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			c := fake.NewClientBuilder().
+				WithScheme(newBaseModelCacheScheme(t)).
+				WithObjects(scenario.objects...).
+				Build()
+
+			annotations := scenario.annotations
+			if scenario.cacheRequired {
+				annotations = baseModelCacheAnnotationsWithPolicy(annotations, constants.LocalModelCachePolicyCacheRequired)
+			}
+			llmSvc := baseModelCacheLLMSvc(scenario.labels, annotations)
+			curr := corev1.PodSpec{}
+			if scenario.currClaim != "" {
+				curr = podSpecMountingPVC(scenario.currClaim)
+			}
+			binding, err := resolveBaseModelCachePVC(t.Context(), c, llmSvc, scenario.cacheRequired, curr)
+
+			if scenario.expectedErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), scenario.expectedErr)
+				if scenario.errIsNotReady {
+					assert.ErrorIs(t, err, errLocalModelCacheNotReady)
+				}
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, scenario.expectedSource, binding.sourceURI)
+			assert.Equal(t, scenario.expectedPVC, binding.pvcName)
+			if scenario.expectedDegraded {
+				assert.NotEmpty(t, binding.degradedMsg, "binding served from a not-Ready cache must report degradation")
+			} else {
+				assert.Empty(t, binding.degradedMsg)
+			}
+		})
+	}
+}
+
+func baseModelCacheAnnotationsWithPolicy(annotations map[string]string, policy string) map[string]string {
+	out := make(map[string]string, len(annotations)+1)
+	for k, v := range annotations {
+		out[k] = v
+	}
+	out[constants.LocalModelCachePolicyAnnotationKey] = policy
+	return out
 }
 
 func TestAddsDefaultHFEnv(t *testing.T) {

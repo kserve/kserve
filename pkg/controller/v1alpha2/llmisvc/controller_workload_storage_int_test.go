@@ -18,11 +18,15 @@ package llmisvc_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1393,6 +1397,1097 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// Verify NO storage-initializer was created (model comes from local cache PVC)
 			validateNoStorageInitializer(expectedMainDeployment)
+		})
+
+		It("should fail closed while the shared-PVC cache is not ready, then serve from the cache once ready", func(ctx SpecContext) {
+			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
+			svcName := "test-llm-storage-shared-cache-wait"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			sourceUri := "hf://meta-llama/Llama-3.2-1B"
+			modelURL, err := apis.ParseURL(sourceUri)
+			Expect(err).ToNot(HaveOccurred())
+
+			pvcRef := "shared-model-pvc"
+			claim := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: pvcRef, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, claim)).To(Succeed())
+			// The fail-closed wait requires opting into the CacheRequired policy;
+			// the default (FallbackToSource) policy is not gated.
+			annotations := map[string]string{
+				constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+			}
+			// The defaulting webhook binds the workload to the matching shared-PVC
+			// cache even though it is not Ready yet (fail-closed intent).
+			sharedCache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-wait-cache", Namespace: testNs.Name},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: sourceUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					PVCRef:         &pvcRef,
+				},
+			}
+			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, sharedCache)
+				Expect(envTest.Delete(ctx, claim)).To(Succeed())
+			}()
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        svcName,
+					Namespace:   testNs.Name,
+					Annotations: annotations,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - the defaulter records the binding to the not-ready cache
+			Eventually(func(g Gomega, ctx context.Context) error {
+				defaulted := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), defaulted); err != nil {
+					return err
+				}
+				g.Expect(defaulted.Labels).To(HaveKeyWithValue(constants.LocalModelLabel, sharedCache.Name))
+				g.Expect(defaulted.Labels).To(HaveKeyWithValue(constants.LocalModelNamespaceLabel, testNs.Name))
+				g.Expect(defaulted.Annotations).To(HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, pvcRef))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// and - the workload waits for the cache instead of falling back to the
+			// original source URI: no deployment is created while the cache is not Ready
+			Consistently(func(ctx context.Context) bool {
+				return apierrors.IsNotFound(envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{}))
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(BeTrue())
+
+			// when - the cache import completes: the controller both reports
+			// Ready and records that the import landed on the current claim
+			Eventually(func(ctx context.Context) error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(sharedCache), current); err != nil {
+					return err
+				}
+				live := &corev1.PersistentVolumeClaim{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(claim), live); err != nil {
+					return err
+				}
+				current.Status.MarkReady(current.Generation)
+				current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: live.UID}
+				return envTest.Status().Update(ctx, current)
+			}).WithContext(ctx).Should(Succeed())
+
+			// then - the workload is created and serves from the cache PVC
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedMainDeployment.Spec.Template.Spec.Volumes).To(ContainElement(And(
+				HaveField("Name", constants.PvcSourceMountName),
+				HaveField("VolumeSource.PersistentVolumeClaim.ClaimName", pvcRef),
+			)))
+			validateNoStorageInitializer(expectedMainDeployment)
+		})
+
+		It("should bind a CacheRequired workload that was created before its matching shared-PVC cache", func(ctx SpecContext) {
+			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
+			svcName := "test-llm-storage-cache-created-late"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			sourceUri := "hf://meta-llama/Llama-3.2-1B"
+			modelURL, err := apis.ParseURL(sourceUri)
+			Expect(err).ToNot(HaveOccurred())
+
+			// The workload opts into the CacheRequired policy, but no matching
+			// cache exists yet: the defaulting webhook finds nothing to bind,
+			// so reconciliation waits for a cache without falling back to the
+			// source URI.
+			annotations := map[string]string{
+				constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+			}
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        svcName,
+					Namespace:   testNs.Name,
+					Annotations: annotations,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// and - the matching cache (and its claim) appear while the
+			// workload is waiting
+			pvcRef := "late-model-pvc"
+			claim := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: pvcRef, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, claim)).To(Succeed())
+			sharedCache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "late-cache", Namespace: testNs.Name},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: sourceUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					PVCRef:         &pvcRef,
+				},
+			}
+			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, sharedCache)
+				Expect(envTest.Delete(ctx, claim)).To(Succeed())
+			}()
+
+			// then - the controller re-runs the cache selection and binds the
+			// waiting workload without any edit to its spec
+			Eventually(func(g Gomega, ctx context.Context) error {
+				defaulted := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), defaulted); err != nil {
+					return err
+				}
+				g.Expect(defaulted.Labels).To(HaveKeyWithValue(constants.LocalModelLabel, sharedCache.Name))
+				g.Expect(defaulted.Labels).To(HaveKeyWithValue(constants.LocalModelNamespaceLabel, testNs.Name))
+				g.Expect(defaulted.Annotations).To(HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, pvcRef))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - the cache import completes on the current claim
+			Eventually(func(ctx context.Context) error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(sharedCache), current); err != nil {
+					return err
+				}
+				live := &corev1.PersistentVolumeClaim{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(claim), live); err != nil {
+					return err
+				}
+				current.Status.MarkReady(current.Generation)
+				current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: live.UID}
+				return envTest.Status().Update(ctx, current)
+			}).WithContext(ctx).Should(Succeed())
+
+			// then - the workload is created and serves from the cache PVC
+			// instead of keeping the fail-closed wait
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedMainDeployment.Spec.Template.Spec.Volumes).To(ContainElement(And(
+				HaveField("Name", constants.PvcSourceMountName),
+				HaveField("VolumeSource.PersistentVolumeClaim.ClaimName", pvcRef),
+			)))
+			validateNoStorageInitializer(expectedMainDeployment)
+		})
+
+		It("should fall back to the source URI while the shared-PVC cache is not ready without the CacheRequired policy", func(ctx SpecContext) {
+			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
+			svcName := "test-llm-storage-shared-cache-fallback"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			sourceUri := "hf://meta-llama/Llama-3.2-1B"
+			modelURL, err := apis.ParseURL(sourceUri)
+			Expect(err).ToNot(HaveOccurred())
+
+			pvcRef := "shared-model-pvc"
+			sharedCache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-fallback-cache", Namespace: testNs.Name},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: sourceUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					PVCRef:         &pvcRef,
+				},
+			}
+			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, sharedCache)
+			}()
+
+			// No local-model-cache-policy annotation: the FallbackToSource default
+			// keeps the pre-gate behavior - the workload is not bound to the
+			// not-ready cache and downloads from the original source URI.
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - the workload downloads from the source URI and no cache
+			// condition is reported.
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			validateStorageInitializerIsConfigured(expectedMainDeployment, sourceUri)
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.GetCondition(v1alpha2.LocalModelCacheReady)).To(BeNil())
+			}).WithContext(ctx).WithTimeout(5 * time.Second).Should(Succeed())
+		})
+
+		It("should keep serving a bound CacheRequired workload from the import record of a degraded shared-PVC cache, while a newly-bound workload waits", func(ctx SpecContext) {
+			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
+			svcName := "test-llm-storage-shared-cache-degraded"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			sourceUri := "hf://meta-llama/Llama-3.2-1B"
+			modelURL, err := apis.ParseURL(sourceUri)
+			Expect(err).ToNot(HaveOccurred())
+
+			pvcRef := "shared-degraded-pvc"
+			claim := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: pvcRef, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, claim)).To(Succeed())
+
+			// A cache that completed an import onto the claim and is Ready: the
+			// workload binds and starts serving from the claim first.
+			sharedCache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-degraded-cache", Namespace: testNs.Name},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: sourceUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					PVCRef:         &pvcRef,
+				},
+			}
+			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, sharedCache)
+				Expect(envTest.Delete(ctx, claim)).To(Succeed())
+			}()
+			markSharedCacheImported := func(ctx SpecContext, ready bool) error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(sharedCache), current); err != nil {
+					return err
+				}
+				live := &corev1.PersistentVolumeClaim{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(claim), live); err != nil {
+					return err
+				}
+				if ready {
+					current.Status.MarkReady(current.Generation)
+				} else {
+					current.Status.MarkNotReady(v1alpha1.ReasonReimportBlocked, "node agents behind", current.Generation)
+				}
+				current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: live.UID}
+				return envTest.Status().Update(ctx, current)
+			}
+			Eventually(markSharedCacheImported).WithContext(ctx).WithArguments(true).Should(Succeed())
+
+			newCacheRequiredLlmSvc := func(name string) *v1alpha2.LLMInferenceService {
+				return &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: testNs.Name,
+						Annotations: map[string]string{
+							constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+						},
+					},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model: v1alpha2.LLMModelSpec{
+							Name: ptr.To("foo"),
+							URI:  *modelURL,
+						},
+						WorkloadSpec: v1alpha2.WorkloadSpec{},
+						Router: &v1alpha2.RouterSpec{
+							Route:     &v1alpha2.GatewayRoutesSpec{},
+							Gateway:   &v1alpha2.GatewaySpec{},
+							Scheduler: &v1alpha2.SchedulerSpec{},
+						},
+						Prefill: &v1alpha2.WorkloadSpec{},
+					},
+				}
+			}
+
+			llmSvc := newCacheRequiredLlmSvc(svcName)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// The workload binds while the cache is Ready and serves from the claim.
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+			Expect(expectedMainDeployment.Spec.Template.Spec.Volumes).To(ContainElement(And(
+				HaveField("Name", constants.PvcSourceMountName),
+				HaveField("VolumeSource.PersistentVolumeClaim.ClaimName", pvcRef),
+			)))
+			validateNoStorageInitializer(expectedMainDeployment)
+
+			// when - the cache is degraded (e.g. node agents behind, re-import
+			// blocked) while the import record still attests the live claim
+			Eventually(markSharedCacheImported).WithContext(ctx).WithArguments(false).Should(Succeed())
+
+			// then - the already-bound workload keeps serving from the attested
+			// claim, and the agent-side degradation surfaces through the
+			// LocalModelCacheReady condition rather than a reconcile error.
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.LocalModelCacheReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha2.SharedPVCServingFromImportRecordReason))
+				g.Expect(cond.Message).To(ContainSubstring(v1alpha1.ReasonReimportBlocked))
+			}).WithContext(ctx).Should(Succeed())
+
+			// and - the sidecar rewrites (scheduler, prefill) run with the same
+			// unresolved model config: only the main workload owns the
+			// LocalModelCacheReady condition, so the degraded reason persists
+			// instead of being reset by a sidecar that only sees the base model.
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{})
+			}).WithContext(ctx).Should(Succeed())
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.LocalModelCacheReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha2.SharedPVCServingFromImportRecordReason))
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(Succeed())
+
+			Consistently(func(g Gomega, ctx context.Context) {
+				serving := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, serving)).To(Succeed())
+				g.Expect(serving.Spec.Template.Spec.Volumes).To(ContainElement(And(
+					HaveField("Name", constants.PvcSourceMountName),
+					HaveField("VolumeSource.PersistentVolumeClaim.ClaimName", pvcRef),
+				)))
+				validateNoStorageInitializer(serving)
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(Succeed())
+
+			// and - a workload first bound while the cache is degraded has never
+			// served from the claim, so it waits for a Ready cache instead of
+			// serving a copy of unknown freshness.
+			waitingSvc := newCacheRequiredLlmSvc(svcName + "-late")
+			Expect(envTest.Create(ctx, waitingSvc)).To(Succeed())
+			Consistently(func(ctx context.Context) bool {
+				return apierrors.IsNotFound(envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-late-kserve",
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{}))
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(BeTrue())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(waitingSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.LocalModelCacheReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha2.SharedPVCImportIncompleteReason))
+				g.Expect(cond.Message).To(ContainSubstring(v1alpha1.ReasonReimportBlocked))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should keep an established binding while the shared-PVC cache is transiently not ready", func(ctx SpecContext) {
+			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
+			svcName := "test-llm-storage-shared-cache-stay-bound"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			sourceUri := "hf://meta-llama/Llama-3.2-1B"
+			modelURL, err := apis.ParseURL(sourceUri)
+			Expect(err).ToNot(HaveOccurred())
+
+			pvcRef := "shared-model-pvc"
+			sharedCache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-bound-cache", Namespace: testNs.Name},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: sourceUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					PVCRef:         &pvcRef,
+				},
+			}
+			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, sharedCache)
+			}()
+			Eventually(func(ctx context.Context) error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(sharedCache), current); err != nil {
+					return err
+				}
+				current.Status.MarkReady(current.Generation)
+				return envTest.Status().Update(ctx, current)
+			}).WithContext(ctx).Should(Succeed())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// the workload is bound and its deployment serves from the cache PVC
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - the cache drops to NotReady while the import record still
+			// attests the claim: under the default policy the #6590 selection
+			// semantics keep the binding (a bound consumer is released only when
+			// the import record is cleared).
+			Eventually(func(ctx context.Context) error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(sharedCache), current); err != nil {
+					return err
+				}
+				current.Status.MarkNotReady(v1alpha1.ReasonImportRunning, "Import Job is running", current.Generation)
+				current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "shared-model-pvc-uid"}
+				return envTest.Status().Update(ctx, current)
+			}).WithContext(ctx).Should(Succeed())
+
+			// then - an update through the defaulting webhook keeps the binding
+			// instead of reverting the workload to its original source URI
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				metav1.SetMetaDataLabel(&current.ObjectMeta, "rebind-test", "true")
+				return envTest.Update(ctx, current)
+			}).WithContext(ctx).Should(Succeed())
+
+			Consistently(func(g Gomega, ctx context.Context) {
+				defaulted := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), defaulted)).To(Succeed())
+				g.Expect(defaulted.Labels).To(HaveKeyWithValue(constants.LocalModelLabel, sharedCache.Name))
+				g.Expect(defaulted.Annotations).To(HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, pvcRef))
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(Succeed())
+		})
+
+		It("should fail closed while a LoRA adapter's shared-PVC cache is not ready, then mount the adapter once ready", func(ctx SpecContext) {
+			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
+			svcName := "test-llm-storage-shared-cache-lora-wait"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			baseUri := "hf://meta-llama/Llama-3.2-1B"
+			adapterUri := "hf://org/lora-adapter"
+			modelURL, err := apis.ParseURL(baseUri)
+			Expect(err).ToNot(HaveOccurred())
+			adapterURL, err := apis.ParseURL(adapterUri)
+			Expect(err).ToNot(HaveOccurred())
+			adapterStorageKey := v1alpha1.GetStorageKey(adapterUri)
+
+			pvcRef := "shared-adapter-pvc"
+			claim := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: pvcRef, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, claim)).To(Succeed())
+			// The defaulting webhook binds the adapter to the matching shared-PVC cache
+			// even though it is not Ready yet (fail-closed intent). The fail-closed wait
+			// requires opting into the CacheRequired policy.
+			sharedCache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-adapter-cache", Namespace: testNs.Name},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: adapterUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					PVCRef:         &pvcRef,
+				},
+			}
+			Expect(envTest.Create(ctx, sharedCache)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, sharedCache)
+				Expect(envTest.Delete(ctx, claim)).To(Succeed())
+			}()
+
+			// The base model has its own shared-PVC cache as well: a CacheRequired
+			// workload must not download its uncached base model from the original
+			// source URI while an adapter import is pending - it fails closed for
+			// the base model too and serves both from their claims once imported.
+			basePvcRef := "shared-base-pvc"
+			baseClaim := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: basePvcRef, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, baseClaim)).To(Succeed())
+			baseStorageKey := v1alpha1.GetStorageKey(baseUri)
+			baseCache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "shared-base-cache", Namespace: testNs.Name},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: baseUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					PVCRef:         &basePvcRef,
+				},
+			}
+			Expect(envTest.Create(ctx, baseCache)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, baseCache)
+				Expect(envTest.Delete(ctx, baseClaim)).To(Succeed())
+			}()
+
+			markCacheImported := func(cache *v1alpha1.LocalModelNamespaceCache, pvcName string) func(ctx SpecContext) error {
+				return func(ctx SpecContext) error {
+					current := &v1alpha1.LocalModelNamespaceCache{}
+					if err := envTest.Get(ctx, client.ObjectKeyFromObject(cache), current); err != nil {
+						return err
+					}
+					live := &corev1.PersistentVolumeClaim{}
+					if err := envTest.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: current.Namespace}, live); err != nil {
+						return err
+					}
+					current.Status.MarkReady(current.Generation)
+					current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: live.UID}
+					return envTest.Status().Update(ctx, current)
+				}
+			}
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+					Annotations: map[string]string{
+						constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+						LoRA: &v1alpha2.LoRASpec{
+							Adapters: []v1alpha2.LLMModelSpec{{Name: ptr.To("my-adapter"), URI: *adapterURL}},
+						},
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - the defaulter records the adapter's wait binding
+			Eventually(func(g Gomega, ctx context.Context) error {
+				defaulted := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), defaulted); err != nil {
+					return err
+				}
+				g.Expect(defaulted.Annotations).To(HaveKeyWithValue(constants.LocalModelLoRAAnnotationKey,
+					fmt.Sprintf(`{"my-adapter":{"cache":%q,"namespace":%q}}`, sharedCache.Name, testNs.Name)))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// and - the workload waits for the adapter import instead of mounting the
+			// incomplete claim: no deployment is created while the cache is not Ready
+			Consistently(func(ctx context.Context) bool {
+				return apierrors.IsNotFound(envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{}))
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(BeTrue())
+
+			// and - the wait surfaces as an actionable warning event
+			Eventually(func(g Gomega, ctx context.Context) {
+				events := &corev1.EventList{}
+				g.Expect(envTest.List(ctx, events, client.InNamespace(testNs.Name))).To(Succeed())
+				found := false
+				for i := range events.Items {
+					if events.Items[i].Reason == "LocalModelCacheNotReady" &&
+						events.Items[i].InvolvedObject.Kind == "LLMInferenceService" &&
+						events.Items[i].InvolvedObject.Name == svcName {
+						found = true
+					}
+				}
+				g.Expect(found).To(BeTrue())
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - both imports complete
+			Eventually(markCacheImported(sharedCache, pvcRef)).WithContext(ctx).Should(Succeed())
+			Eventually(markCacheImported(baseCache, basePvcRef)).WithContext(ctx).Should(Succeed())
+
+			// then - the workload is created: the base model and the adapter both
+			// mount from their cache PVCs instead of downloading from source
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			mainContainer := utils.GetContainerWithName(&expectedMainDeployment.Spec.Template.Spec, "main")
+			Expect(mainContainer).ToNot(BeNil())
+			Expect(mainContainer.VolumeMounts).To(ContainElement(And(
+				HaveField("MountPath", "/mnt/lora/my-adapter"),
+				HaveField("ReadOnly", BeTrue()),
+				HaveField("SubPath", "models/"+adapterStorageKey+"/"),
+			)))
+			Expect(expectedMainDeployment.Spec.Template.Spec.Volumes).To(ContainElement(And(
+				HaveField("Name", "lora-pvc-my-adapter"),
+				HaveField("VolumeSource.PersistentVolumeClaim.ClaimName", pvcRef),
+			)))
+			Expect(expectedMainDeployment.Spec.Template.Spec.Volumes).To(ContainElement(And(
+				HaveField("Name", constants.PvcSourceMountName),
+				HaveField("VolumeSource.PersistentVolumeClaim.ClaimName", basePvcRef),
+			)))
+			Expect(mainContainer.VolumeMounts).To(ContainElement(And(
+				HaveField("Name", constants.PvcSourceMountName),
+				HaveField("MountPath", constants.DefaultModelLocalMountPath),
+				HaveField("ReadOnly", BeTrue()),
+				HaveField("SubPath", "models/"+baseStorageKey+"/"),
+			)))
+			Expect(mainContainer.Args).To(ContainElement("--enable-lora"))
+			Expect(mainContainer.Args).To(ContainElement("--lora-modules"))
+			validateNoStorageInitializer(expectedMainDeployment)
+		})
+
+		It("should fail closed when a CacheRequired LoRA adapter has no cache entry at all", func(ctx SpecContext) {
+			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
+			svcName := "test-llm-storage-lora-uncached"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			baseUri := "hf://meta-llama/Llama-3.2-1B"
+			adapterUri := "hf://org/never-cached-adapter"
+			modelURL, err := apis.ParseURL(baseUri)
+			Expect(err).ToNot(HaveOccurred())
+			adapterURL, err := apis.ParseURL(adapterUri)
+			Expect(err).ToNot(HaveOccurred())
+
+			// The base model has a Ready shared-PVC cache; the adapter has no
+			// LocalModelNamespaceCache at all (e.g. created before the admin
+			// defines one). Under the CacheRequired policy the workload must
+			// wait for the adapter cache instead of silently downloading the
+			// adapter from its original source URI.
+			basePvcRef := "lora-uncached-base-pvc"
+			baseClaim := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: basePvcRef, Namespace: testNs.Name},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, baseClaim)).To(Succeed())
+			baseCache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "lora-uncached-base-cache", Namespace: testNs.Name},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: baseUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					PVCRef:         &basePvcRef,
+				},
+			}
+			Expect(envTest.Create(ctx, baseCache)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, baseCache)
+				Expect(envTest.Delete(ctx, baseClaim)).To(Succeed())
+			}()
+			Eventually(func(ctx context.Context) error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(baseCache), current); err != nil {
+					return err
+				}
+				live := &corev1.PersistentVolumeClaim{}
+				if err := envTest.Get(ctx, types.NamespacedName{Name: basePvcRef, Namespace: current.Namespace}, live); err != nil {
+					return err
+				}
+				current.Status.MarkReady(current.Generation)
+				current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: live.UID}
+				return envTest.Status().Update(ctx, current)
+			}).WithContext(ctx).Should(Succeed())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+					Annotations: map[string]string{
+						constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+						LoRA: &v1alpha2.LoRASpec{
+							Adapters: []v1alpha2.LLMModelSpec{{Name: ptr.To("my-adapter"), URI: *adapterURL}},
+						},
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - no workload deployment is created (main or prefill) and no
+			// storage-initializer ever downloads the uncached adapter from its
+			// source URI
+			Consistently(func(g Gomega, ctx context.Context) {
+				for _, name := range []string{svcName + "-kserve", svcName + "-kserve-prefill"} {
+					g.Expect(apierrors.IsNotFound(envTest.Get(ctx, types.NamespacedName{
+						Name:      name,
+						Namespace: testNs.Name,
+					}, &appsv1.Deployment{}))).To(BeTrue())
+				}
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(Succeed())
+
+			// and - the wait surfaces through the cache condition and an
+			// actionable warning event naming the adapter
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.LocalModelCacheReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha2.SharedPVCImportIncompleteReason))
+				g.Expect(cond.Message).To(ContainSubstring(adapterUri))
+
+				events := &corev1.EventList{}
+				g.Expect(envTest.List(ctx, events, client.InNamespace(testNs.Name))).To(Succeed())
+				found := false
+				for i := range events.Items {
+					if events.Items[i].Reason == "LocalModelCacheNotReady" &&
+						events.Items[i].InvolvedObject.Kind == "LLMInferenceService" &&
+						events.Items[i].InvolvedObject.Name == svcName {
+						found = strings.Contains(events.Items[i].Message, adapterUri)
+					}
+				}
+				g.Expect(found).To(BeTrue())
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should keep the degraded adapter condition while sidecars only see the healthy base model", func(ctx SpecContext) {
+			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
+			svcName := "test-llm-storage-lora-degraded-sidecar"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			baseUri := "hf://meta-llama/Llama-3.2-1B"
+			adapterUri := "hf://org/lora-degraded-adapter"
+			modelURL, err := apis.ParseURL(baseUri)
+			Expect(err).ToNot(HaveOccurred())
+			adapterURL, err := apis.ParseURL(adapterUri)
+			Expect(err).ToNot(HaveOccurred())
+
+			markCache := func(cache *v1alpha1.LocalModelNamespaceCache, pvcName string, ready bool) func(ctx SpecContext) error {
+				return func(ctx SpecContext) error {
+					current := &v1alpha1.LocalModelNamespaceCache{}
+					if err := envTest.Get(ctx, client.ObjectKeyFromObject(cache), current); err != nil {
+						return err
+					}
+					live := &corev1.PersistentVolumeClaim{}
+					if err := envTest.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: current.Namespace}, live); err != nil {
+						return err
+					}
+					if ready {
+						current.Status.MarkReady(current.Generation)
+					} else {
+						current.Status.MarkNotReady(v1alpha1.ReasonReimportBlocked, "node agents behind", current.Generation)
+					}
+					current.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: live.UID}
+					return envTest.Status().Update(ctx, current)
+				}
+			}
+			newSharedCache := func(name, pvcName, sourceUri string) (*v1alpha1.LocalModelNamespaceCache, *corev1.PersistentVolumeClaim) {
+				pvc := &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: testNs.Name},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
+						},
+					},
+				}
+				Expect(envTest.Create(ctx, pvc)).To(Succeed())
+				cache := &v1alpha1.LocalModelNamespaceCache{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNs.Name},
+					Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+						SourceModelUri: sourceUri,
+						ModelSize:      resource.MustParse("10Gi"),
+						PVCRef:         &pvcName,
+					},
+				}
+				Expect(envTest.Create(ctx, cache)).To(Succeed())
+				return cache, pvc
+			}
+
+			// Both the base model and the adapter bind to Ready shared-PVC caches
+			// first, so the workload is established on both claims. Only the
+			// adapter cache then degrades: the base model's view stays all-clear,
+			// which is exactly the sidecar (scheduler / tokenizer) configuration.
+			baseCache, baseClaim := newSharedCache("lora-degraded-base-cache", "lora-degraded-base-pvc", baseUri)
+			adapterCache, adapterClaim := newSharedCache("lora-degraded-adapter-cache", "lora-degraded-adapter-pvc", adapterUri)
+			defer func() {
+				testNs.DeleteAndWait(ctx, baseCache)
+				Expect(envTest.Delete(ctx, baseClaim)).To(Succeed())
+				testNs.DeleteAndWait(ctx, adapterCache)
+				Expect(envTest.Delete(ctx, adapterClaim)).To(Succeed())
+			}()
+			Eventually(markCache(baseCache, "lora-degraded-base-pvc", true)).WithContext(ctx).Should(Succeed())
+			Eventually(markCache(adapterCache, "lora-degraded-adapter-pvc", true)).WithContext(ctx).Should(Succeed())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+					Annotations: map[string]string{
+						constants.LocalModelCachePolicyAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+						LoRA: &v1alpha2.LoRASpec{
+							Adapters: []v1alpha2.LLMModelSpec{{Name: ptr.To("my-adapter"), URI: *adapterURL}},
+						},
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:   &v1alpha2.GatewayRoutesSpec{},
+						Gateway: &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{
+							// A tokenizer sidecar in the scheduler template runs
+							// the sidecar attach path: it re-loads the model
+							// config without the merged adapter list.
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{{Name: "tokenizer", Image: "tokenizer"}},
+							},
+						},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// The workload binds while both caches are Ready and serves from both claims.
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).WithTimeout(time.Minute).Should(Succeed())
+
+			// when - only the adapter cache degrades while its import record
+			// still attests the live claim
+			Eventually(markCache(adapterCache, "lora-degraded-adapter-pvc", false)).WithContext(ctx).Should(Succeed())
+
+			// then - the main workload computes the condition from the combined
+			// base + adapter state and reports degraded adapter serving.
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.LocalModelCacheReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha2.SharedPVCServingFromImportRecordReason))
+				g.Expect(cond.Message).To(ContainSubstring(v1alpha1.ReasonReimportBlocked))
+			}).WithContext(ctx).WithTimeout(time.Minute).Should(Succeed())
+
+			// and - the persisted value survives sidecar rebuilds: the scheduler
+			// and tokenizer re-load the model config without the merged adapter
+			// list, so their base-model-only view must not overwrite the
+			// degraded condition with an all-clear. Force a sidecar rebuild
+			// after the degradation (delete the scheduler Deployment so the
+			// controller recreates it) to exercise the sidecar attach path.
+			schedulerName := kmeta.ChildName(svcName, "-kserve-router-scheduler")
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      schedulerName,
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{})
+			}).WithContext(ctx).WithTimeout(time.Minute).Should(Succeed())
+			Expect(envTest.Delete(ctx, &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: schedulerName, Namespace: testNs.Name},
+			})).To(Succeed())
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      schedulerName,
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{})
+			}).WithContext(ctx).WithTimeout(time.Minute).Should(Succeed())
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.LocalModelCacheReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(cond.Reason).To(Equal(v1alpha2.SharedPVCServingFromImportRecordReason))
+				g.Expect(cond.Message).To(ContainSubstring("my-adapter"))
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(Succeed())
+
+			Consistently(func(g Gomega, ctx context.Context) {
+				serving := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, serving)).To(Succeed())
+				g.Expect(serving.Spec.Template.Spec.Volumes).To(ContainElement(And(
+					HaveField("Name", "lora-pvc-my-adapter"),
+					HaveField("VolumeSource.PersistentVolumeClaim.ClaimName", "lora-degraded-adapter-pvc"),
+				)))
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(Succeed())
 		})
 	})
 

@@ -105,6 +105,13 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, localModel, nil, nodeGroups)
 	}
 
+	// Re-bind CacheRequired InferenceServices that are still waiting for a
+	// usable cache (bound as a wait intent or unbound): a cluster-scoped cache
+	// may serve services in any namespace, so the search is cluster-wide.
+	if err := bindWaitingInferenceServices(ctx, c.Client, ""); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	consumers, err := collectCacheConsumers(ctx, c.Client, c.Log, localModel, nil, c.llmInferenceServiceCRDUp)
 	if err != nil {
 		return reconcile.Result{}, err

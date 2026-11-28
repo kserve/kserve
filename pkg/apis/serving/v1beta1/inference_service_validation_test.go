@@ -3228,3 +3228,34 @@ func TestValidateInferenceServiceTracing(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCreateRejectsUnsupportedLocalModelCachePolicyAnnotation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	for _, tt := range []struct {
+		name    string
+		missing bool
+		value   string
+		wantErr bool
+	}{
+		{name: "unset is the default and admitted", missing: true},
+		{name: "CacheRequired is admitted", value: " CacheRequired "},
+		{name: "FallbackToSource is admitted case-insensitively", value: "fallbacktosource"},
+		{name: "typo is rejected", value: "CacheRequire", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			isvc := makeTestInferenceService()
+			if !tt.missing {
+				isvc.Annotations = map[string]string{constants.LocalModelCachePolicyAnnotationKey: tt.value}
+			}
+
+			_, err := (&InferenceServiceValidator{}).ValidateCreate(t.Context(), &isvc)
+
+			if !tt.wantErr {
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				return
+			}
+			g.Expect(err).To(gomega.HaveOccurred())
+			g.Expect(err.Error()).To(gomega.ContainSubstring(constants.LocalModelCachePolicyAnnotationKey))
+		})
+	}
+}

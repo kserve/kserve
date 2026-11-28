@@ -34,6 +34,11 @@ type CacheEntry struct {
 	Namespace string `json:"namespace,omitempty"` // set for LocalModelNamespaceCache; empty for cluster-scoped
 	SourceURI string `json:"-"`
 	PVCName   string `json:"-"`
+	// WaitIntent is set when the entry matches a not-yet-Ready shared-PVC
+	// cache that a CacheRequired workload was bound to as a fail-closed wait
+	// intent (it is false for every entry serialized in the LoRA annotation
+	// and for any servable match).
+	WaitIntent bool `json:"-"`
 }
 
 // MatchCacheForURI finds a namespace-scoped or cluster-scoped cache for a workload.
@@ -42,7 +47,14 @@ type CacheEntry struct {
 // Namespace-scoped selection is deterministic and binding-aware: see
 // v1alpha1.SelectLocalModelNamespaceCache. When no namespace-scoped cache is
 // selected, a matching cluster-scoped LocalModelCache that serves the
-// workload's node group is used; the oldest match wins there too.
+// workload's node group is used; the oldest match wins there too. For a
+// CacheRequired workload (serving.kserve.io/local-model-cache-policy:
+// CacheRequired) a not-ready shared-PVC LocalModelNamespaceCache is matched as
+// a fail-closed wait intent: the binding records the intent to serve from that
+// cache, and callers must wait for the cache's import record instead of
+// falling back to the workload's original source URI. A servable
+// cluster-scoped cache still wins over a wait intent, and for the default
+// (FallbackToSource) workload no wait intent is ever produced.
 func MatchCacheForURI(
 	sel v1alpha1.LocalModelCacheSelection,
 	models *v1alpha1.LocalModelCacheList,
@@ -52,13 +64,23 @@ func MatchCacheForURI(
 		return nil
 	}
 
+	// Namespace-scoped caches take precedence, except for the not-ready
+	// shared-PVC wait intent: remember it and prefer any servable
+	// cluster-scoped cache below before settling for the wait.
+	var waitIntent *CacheEntry
 	if nsModels != nil {
-		if selected := v1alpha1.SelectLocalModelNamespaceCache(sel, nsModels); selected != nil {
-			return namespaceScopedCacheEntry(selected, sel)
+		if selected, wait := v1alpha1.SelectLocalModelNamespaceCache(sel, nsModels); selected != nil {
+			if !wait {
+				return namespaceScopedCacheEntry(selected, sel)
+			}
+			waitIntent = namespaceScopedCacheEntry(selected, sel)
+			waitIntent.WaitIntent = true
 		}
 	}
 
 	if models != nil {
+		// Oldest matching cache wins (creation timestamp, then name), so the
+		// choice does not depend on the API list order.
 		var oldest *v1alpha1.LocalModelCache
 		for i := range models.Items {
 			model := &models.Items[i]
@@ -78,7 +100,7 @@ func MatchCacheForURI(
 			}
 		}
 	}
-	return nil
+	return waitIntent
 }
 
 // namespaceScopedCacheEntry builds the CacheEntry for a selected namespace-scoped

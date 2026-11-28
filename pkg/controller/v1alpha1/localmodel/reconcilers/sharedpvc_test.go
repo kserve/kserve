@@ -1051,6 +1051,40 @@ func TestReconcileSharedPVCReimportsOnceConsumersRemoved(t *testing.T) {
 	}
 }
 
+// A CacheRequired InferenceService created while the re-import was blocked is
+// bound to the cache only as a wait intent: defaulting recorded the intent
+// (the internal wait-intent annotation) because the cache was not Ready to
+// serve it, and the pod mutator holds its pods. Waiting for the import is the
+// reason to run it, so the service must not hold the import up once the
+// original consumers leave: only services that actually used the claim count.
+func TestReconcileSharedPVCReimportNotBlockedByWaitIntentISVC(t *testing.T) {
+	cache := importedSharedCache("pvc-uid")
+	pvc := boundSharedPVC("pvc-uid")
+	cl, scheme := sharedPVCFixture(t, cache, pvc)
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
+
+	waitingConsumers := cacheConsumers{isvcs: []v1beta1.InferenceService{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "waiting",
+			Namespace: "ns",
+			Annotations: map[string]string{
+				constants.LocalModelCachePolicyInternalAnnotationKey:     constants.LocalModelCachePolicyCacheRequired,
+				constants.LocalModelCacheWaitIntentInternalAnnotationKey: constants.LocalModelCacheWaitIntentValue,
+			},
+		},
+	}}}
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, waitingConsumers); err != nil {
+		t.Fatalf("reconcile with only a wait-intent consumer error = %v", err)
+	}
+	if jobs := listImportJobs(t, cl); len(jobs) != 1 {
+		t.Fatalf("expected exactly one replacement import Job despite the wait-intent InferenceService, got %d", len(jobs))
+	}
+	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Reason != v1alpha1.ReasonImportPending {
+		t.Fatalf("cache Ready condition = %#v, want %s", condition, v1alpha1.ReasonImportPending)
+	}
+}
+
 // claimPod is a Pod in the cache namespace that mounts the shared claim.
 func claimPod(name, claimName string, phase corev1.PodPhase) *corev1.Pod {
 	return &corev1.Pod{

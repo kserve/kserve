@@ -1348,3 +1348,32 @@ func TestValidateModelExpress(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCreateRejectsUnsupportedLocalModelCachePolicyAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "unset is the default and admitted"},
+		{name: "CacheRequired is admitted", value: " CacheRequired "},
+		{name: "FallbackToSource is admitted case-insensitively", value: "fallbacktosource"},
+		{name: "typo is rejected", value: "CacheRequire", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			if tt.value != "" || tt.name != "unset is the default and admitted" {
+				svc.Annotations = map[string]string{constants.LocalModelCachePolicyAnnotationKey: tt.value}
+			}
+
+			_, err := validator.ValidateCreate(t.Context(), svc)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, constants.LocalModelCachePolicyAnnotationKey)
+		})
+	}
+}

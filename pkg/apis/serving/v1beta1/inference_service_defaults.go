@@ -36,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/validation"
 )
 
 // logger for the mutating webhook.
@@ -499,11 +500,23 @@ func deleteLocalModelMetadata(isvc *InferenceService) {
 	if isvc.Annotations != nil {
 		delete(isvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 		delete(isvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+		delete(isvc.Annotations, constants.LocalModelCachePolicyInternalAnnotationKey)
+		delete(isvc.Annotations, constants.LocalModelCacheWaitIntentInternalAnnotationKey)
 	}
 }
 
 // setLocalModelLabel sets local model labels on the ISVC if a matching cache exists.
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
+//
+// The per-workload policy (serving.kserve.io/local-model-cache-policy) decides
+// how a not-ready shared-PVC cache is treated: with the default
+// FallbackToSource the ISVC follows the #6590 semantics (never bound to a
+// not-ready shared-PVC cache, released from a bound cache once its import
+// record for the current claim is gone); with CacheRequired the ISVC may be
+// bound to a not-ready shared-PVC cache as a fail-closed wait intent, and the
+// pod mutator keeps serving gated on the cache's import record for the current
+// claim instead of its Ready condition. The resolved policy is mirrored onto
+// the internal policy annotation so it propagates to the serving pod.
 func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
 	var predictor ComponentImplementation
 	if predictor = isvc.Spec.Predictor.GetImplementation(); predictor == nil {
@@ -515,22 +528,41 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 
+	// A malformed non-empty value is already rejected by admission validation;
+	// reading it as CacheRequired here keeps the defaulter fail-closed instead
+	// of silently falling back to a source download.
+	cacheRequired, _ := validation.LocalModelCachePolicyRequired(isvc.Annotations)
+
 	// Selection is deterministic and binding-aware (see
 	// localmodelcache.MatchCacheForURI): a cache the ISVC is already bound to
-	// keeps winning while it still matches the storage URI and its import
-	// record still attests usable data, otherwise ready shared-PVC caches are
-	// preferred over node-local caches, and the oldest cache breaks ties
-	// (independent of API list order). An unbound ISVC is never routed to a
-	// not-ready shared-PVC cache.
+	// keeps winning while it still matches the storage URI, otherwise ready
+	// shared-PVC caches are preferred over node-local caches, and the oldest
+	// cache breaks ties (independent of API list order). For a CacheRequired
+	// ISVC a not-ready shared-PVC cache may be matched for an unbound ISVC as a
+	// fail-closed wait intent: the binding records the intent to serve from
+	// that cache, and the pod mutator gates pods on the cache's import record
+	// for the current claim, so the workload never falls back to downloading
+	// from its original source URI.
 	match := localmodelcache.MatchCacheForURI(v1alpha1.LocalModelCacheSelection{
 		StorageURI:      isvcStorageUri,
 		NodeGroup:       isvcNodeGroup,
 		NodeGroupExists: isvcNodeGroupExists,
 		BoundCache:      isvc.Labels[constants.LocalModelLabel],
 		BoundNamespace:  isvc.Labels[constants.LocalModelNamespaceLabel],
+		CacheRequired:   cacheRequired,
 	}, models, nsModels)
 	if match == nil {
 		deleteLocalModelMetadata(isvc)
+		if cacheRequired {
+			// Preserve the opt-in when no cache matches: without the internal
+			// policy annotation the pod mutator would let the predictor fall
+			// back to downloading from the original source URI, silently
+			// dropping the user's CacheRequired intent. The annotation holds
+			// the pod until the local model cache reconciler re-runs this
+			// selection and binds the InferenceService once a matching cache
+			// appears (no edit of the service required).
+			setLocalModelCachePolicyInternalAnnotation(isvc, cacheRequired)
+		}
 		return
 	}
 
@@ -549,6 +581,78 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	}
 	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = match.SourceURI
 	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = match.PVCName
+	setLocalModelCachePolicyInternalAnnotation(isvc, cacheRequired)
+	// A binding to a not-yet-Ready shared-PVC cache is only a wait intent: the
+	// service has never served from the cache's current claim. The annotation
+	// is carried to the pod template, where the pod mutator holds the pods
+	// until the cache reports Ready, and the cache reconciler clears it once
+	// the selection resolves to a servable cache (and does not count the
+	// service as a consumer blocking re-import of the claim while set).
+	// The bound fast-path in SelectLocalModelNamespaceCache cannot report the
+	// intent on a re-run, so a CacheRequired binding whose shared-PVC cache is
+	// still importing (neither Ready, nor an import record attesting a usable
+	// copy on the current claim) keeps the intent: without this, the first
+	// re-run of the selection (e.g. from the cache reconciler) would release a
+	// still-waiting workload before its cache ever turned Ready.
+	waitIntent := match.WaitIntent || sharedPVCCacheStillImporting(match, nsModels)
+	if waitIntent {
+		isvc.Annotations[constants.LocalModelCacheWaitIntentInternalAnnotationKey] = constants.LocalModelCacheWaitIntentValue
+	} else {
+		delete(isvc.Annotations, constants.LocalModelCacheWaitIntentInternalAnnotationKey)
+	}
 
 	mutatorLogger.Info("LocalModelCache found", "model", match.Cache, "modelNamespace", match.Namespace, "isvcNamespace", isvc.Namespace, "isvc", isvc.Name)
+}
+
+// sharedPVCCacheStillImporting reports whether match refers to a
+// namespace-scoped shared-PVC cache that a CacheRequired workload is bound to
+// while it is still importing: not Ready and with no import record attesting
+// a usable copy on the current claim. A binding to such a cache began as a
+// wait intent; the bound fast-path in SelectLocalModelNamespaceCache returns
+// early without re-classifying it, so re-runs of the selection (defaulting
+// through an unrelated edit, or the cache reconciler's rebind) consult the
+// cache directly to keep the intent. Once a record appears the intent is
+// dropped: the serving gates then decide on the record (pods of a bound
+// workload are admitted by it, and a replacement import blocks on the
+// remaining consumers instead of a wait-intent annotation).
+func sharedPVCCacheStillImporting(match *localmodelcache.CacheEntry, nsModels *v1alpha1.LocalModelNamespaceCacheList) bool {
+	if match == nil || match.Namespace == "" || nsModels == nil {
+		return false
+	}
+	for i := range nsModels.Items {
+		c := &nsModels.Items[i]
+		if c.Name != match.Cache || c.Namespace != match.Namespace {
+			continue
+		}
+		return c.Spec.SharedPVCMode() && !c.IsReady() && c.Status.SharedPVCImport == nil
+	}
+	return false
+}
+
+// setLocalModelCachePolicyInternalAnnotation mirrors the resolved
+// local-model-cache-policy onto the internal annotation consumed by the pod
+// mutator. Setting it unconditionally (not only for CacheRequired) makes the
+// propagated value authoritative for the pod even if the user later edits the
+// public annotation on the object without going through defaulting again.
+func setLocalModelCachePolicyInternalAnnotation(isvc *InferenceService, cacheRequired bool) {
+	if isvc.Annotations == nil {
+		isvc.Annotations = make(map[string]string)
+	}
+	if cacheRequired {
+		isvc.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyCacheRequired
+	} else {
+		isvc.Annotations[constants.LocalModelCachePolicyInternalAnnotationKey] = constants.LocalModelCachePolicyFallbackToSource
+	}
+}
+
+// RefreshLocalModelCacheBinding re-runs the admission defaulter's local model
+// cache selection on an InferenceService outside the webhook, for
+// reconcile-time re-binding. A CacheRequired InferenceService created before
+// its matching cache existed stays unbound at admission; the local model cache
+// reconciler calls this once a matching cache appears (or leaves the wait
+// intent) and persists the metadata change, so the service recovers without an
+// edit. Callers that re-run the selection on an object fetched from the API
+// must persist only the metadata this function changed.
+func (isvc *InferenceService) RefreshLocalModelCacheBinding(models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
+	isvc.setLocalModelLabel(models, nsModels)
 }

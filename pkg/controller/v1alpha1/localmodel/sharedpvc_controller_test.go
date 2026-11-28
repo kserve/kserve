@@ -219,7 +219,75 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			}, timeout, interval).Should(BeTrue(), "shared cache status should clear removed ISVC consumer")
 		})
 
-		It("Should track an LLMInferenceService referenced only through LoRA", func() {
+		It("Should bind a CacheRequired InferenceService created before its shared cache, then release the wait intent once Ready", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			ns := fmt.Sprintf("test-shared-bind-waiting-%d", time.Now().UnixNano())
+			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
+
+			pvc := makeRWXPVC("bind-waiting-pvc", ns)
+			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, pvc)
+
+			// The CacheRequired InferenceService is admitted before any cache
+			// exists: defaulting found no match, preserved the opt-in through
+			// the internal policy mirror, and the pod mutator holds its pods.
+			// No defaulting webhook runs in this suite, so the state defaulting
+			// persists is created directly.
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bind-waiting",
+					Namespace: ns,
+					Annotations: map[string]string{
+						constants.LocalModelCachePolicyAnnotationKey:         constants.LocalModelCachePolicyCacheRequired,
+						constants.LocalModelCachePolicyInternalAnnotationKey: constants.LocalModelCachePolicyCacheRequired,
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{StorageURI: ptr.To(sourceModelUri)},
+							ModelFormat:            v1beta1.ModelFormat{Name: "sklearn"},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			// When the matching cache appears, the cache reconciler re-runs the
+			// selection and binds the waiting service without any edit to it.
+			cache := makeSharedCache("bind-waiting-cache", ns, pvc.Name)
+			Expect(k8sClient.Create(ctx, cache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cache)
+
+			isvcKey := types.NamespacedName{Name: isvc.Name, Namespace: ns}
+			Eventually(func(g Gomega) {
+				current := &v1beta1.InferenceService{}
+				g.Expect(k8sClient.Get(ctx, isvcKey, current)).Should(Succeed())
+				g.Expect(current.Labels).To(HaveKeyWithValue(constants.LocalModelLabel, cache.Name))
+				g.Expect(current.Labels).To(HaveKeyWithValue(constants.LocalModelNamespaceLabel, ns))
+				g.Expect(current.Annotations).To(HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, pvc.Name))
+				// The cache is not Ready yet: the binding is a wait intent.
+				g.Expect(current.Annotations).To(HaveKeyWithValue(
+					constants.LocalModelCacheWaitIntentInternalAnnotationKey, constants.LocalModelCacheWaitIntentValue))
+			}, timeout, interval).Should(Succeed(), "cache reconciler should bind the waiting CacheRequired InferenceService")
+
+			// When the import completes and the cache turns Ready, the wait
+			// intent is cleared so the held pods are released.
+			jobKey := types.NamespacedName{Name: cache.Name + "-import", Namespace: ns}
+			markJobCondition(ctx, jobKey, batchv1.JobComplete)
+
+			Eventually(func(g Gomega) {
+				current := &v1beta1.InferenceService{}
+				g.Expect(k8sClient.Get(ctx, isvcKey, current)).Should(Succeed())
+				g.Expect(current.Labels).To(HaveKeyWithValue(constants.LocalModelLabel, cache.Name))
+				g.Expect(current.Annotations).ToNot(HaveKey(constants.LocalModelCacheWaitIntentInternalAnnotationKey))
+			}, timeout, interval).Should(Succeed(), "wait intent should be cleared once the cache is Ready")
+		})
+
+		It("Should track a LLMInferenceService referenced only through LoRA", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 

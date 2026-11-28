@@ -263,7 +263,7 @@ func main() {
 
 	setupLog.Info("registering webhooks to the webhook server")
 	hookServer.Register("/mutate-pods", &webhook.Admission{
-		Handler: &pod.Mutator{Client: mgr.GetClient(), Clientset: clientSet, Decoder: admission.NewDecoder(mgr.GetScheme())},
+		Handler: &pod.Mutator{Client: mgr.GetClient(), Clientset: clientSet, Decoder: admission.NewDecoder(mgr.GetScheme()), APIReader: mgr.GetAPIReader()},
 	})
 
 	csrAvailable, err := kserveutils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime")

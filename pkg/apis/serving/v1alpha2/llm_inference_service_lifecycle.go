@@ -173,6 +173,33 @@ const (
 	// Independent of the Ready rollup.
 	// Only present when serving.kserve.io/exp-modelexpress-mode is set.
 	ModelExpressReady apis.ConditionType = "ModelExpressReady"
+
+	// LocalModelCacheReady is True when the workload's shared-PVC local model
+	// cache binding can serve the model from a cache whose import completed.
+	// Independent of the Ready rollup: a workload that already holds the
+	// imported copy on its current claim keeps serving (and stays Ready) through
+	// node-agent propagation failures, with reason
+	// SharedPVCServingFromImportRecord. False with reason
+	// SharedPVCImportIncomplete while the workload waits for an import onto the
+	// current claim instead of serving (or downloading to its own root disk).
+	// Only present when the workload opts into
+	// serving.kserve.io/local-model-cache-policy: CacheRequired. Cached
+	// workloads without that policy (FallbackToSource, the default) never have
+	// this condition: their serving path is not gated on cache readiness.
+	LocalModelCacheReady apis.ConditionType = "LocalModelCacheReady"
+)
+
+const (
+	// SharedPVCImportIncompleteReason marks LocalModelCacheReady False while the
+	// bound shared-PVC cache is not Ready and no model is imported onto the
+	// current claim: the workload waits for the import instead of serving.
+	SharedPVCImportIncompleteReason = "SharedPVCImportIncomplete"
+
+	// SharedPVCServingFromImportRecordReason marks LocalModelCacheReady False
+	// while the bound shared-PVC cache is not Ready (e.g. node-agent
+	// propagation incomplete) but the workload keeps serving the model copy
+	// that the cache's import record attests on the current claim.
+	SharedPVCServingFromImportRecordReason = "SharedPVCServingFromImportRecord"
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
@@ -247,6 +274,18 @@ func (in *LLMInferenceService) MarkModelExpressNotReady(reason, messageFormat st
 
 func (in *LLMInferenceService) MarkModelExpressUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(ModelExpressReady)
+}
+
+func (in *LLMInferenceService) MarkLocalModelCacheReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(LocalModelCacheReady)
+}
+
+func (in *LLMInferenceService) MarkLocalModelCacheNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(LocalModelCacheReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkLocalModelCacheUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(LocalModelCacheReady)
 }
 
 func (in *LLMInferenceService) MarkScalingReady() {

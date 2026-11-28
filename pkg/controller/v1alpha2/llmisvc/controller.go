@@ -355,6 +355,13 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 
 	RecordAcceleratorAnnotation(llmSvc)
 
+	// Bind CacheRequired workloads that are waiting without a cache (e.g. the
+	// matching cache was created after the workload) before reconciling the
+	// workload, so the same pass continues from the selected binding.
+	if err := r.ensureLocalModelCacheBinding(ctx, llmSvc); err != nil {
+		return err
+	}
+
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
@@ -598,6 +605,20 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Watches(&v1alpha1.ServingRuntime{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueOnServingRuntimeChange(logger)),
 			builder.WithPredicates(servingRuntimeSpecChangedPredicate()))
+	}
+
+	// Watch local model caches so LLMInferenceServices waiting for a cache
+	// import (fail closed, see resolveBaseModelCachePVC) resume as soon as the
+	// cache becomes Ready instead of on the next requeue backoff.
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "LocalModelNamespaceCache"); ok && err == nil {
+		b = b.Watches(&v1alpha1.LocalModelNamespaceCache{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnLocalModelCacheChange(logger)),
+			builder.WithPredicates(localModelCacheReadinessChangePredicate()))
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "LocalModelCache"); ok && err == nil {
+		b = b.Watches(&v1alpha1.LocalModelCache{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnLocalModelCacheChange(logger)),
+			builder.WithPredicates(localModelCacheReadinessChangePredicate()))
 	}
 
 	return b.Complete(r)
