@@ -333,6 +333,12 @@ type LLMModelSpec struct {
 	// +optional
 	Name *string `json:"name,omitempty"`
 
+	// MinReplicas is the minimum number of workload pods that should report this adapter as registered.
+	// It only applies when this model is listed in LoRA.Adapters.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+
 	// LoRA (Low-Rank Adaptation) adapters configurations.
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
 	// +optional
