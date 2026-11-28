@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import inspect
+import math
 import os
 import time
+from time import perf_counter
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, AsyncIterator, Awaitable, Dict, List, Optional, Union
@@ -29,7 +31,7 @@ from .constants.constants import (
 )
 from .errors import InvalidInput
 from .inference_client import RESTConfig, InferenceRESTClient, InferenceGRPCClient
-from .logging import trace_logger
+from .logging import logger, trace_logger
 from .metrics import (
     EXPLAIN_HIST_TIME,
     POST_HIST_TIME,
@@ -174,6 +176,9 @@ class Model(InferenceModel):
         self,
         name: str,
         return_response_headers: bool = False,
+        *,
+        sync_predict_warning_threshold_ms: float = 100.0,
+        sync_predict_warning_interval_seconds: float = 60.0,
     ):
         """KServe Model Public Interface
 
@@ -181,8 +186,27 @@ class Model(InferenceModel):
 
         Args:
             name: The name of the model.
+            sync_predict_warning_threshold_ms: Warn when inline synchronous prediction
+                exceeds this duration. Zero disables measurement. Defaults to 100 ms.
+            sync_predict_warning_interval_seconds: Minimum interval between warnings
+                for this model instance. Zero warns on every slow call. Defaults to 60 s.
         """
         super().__init__(name)
+
+        for setting, value in (
+            ("sync_predict_warning_threshold_ms", sync_predict_warning_threshold_ms),
+            (
+                "sync_predict_warning_interval_seconds",
+                sync_predict_warning_interval_seconds,
+            ),
+        ):
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{setting} must be finite and non-negative")
+        self.sync_predict_warning_threshold_ms = sync_predict_warning_threshold_ms
+        self.sync_predict_warning_interval_seconds = (
+            sync_predict_warning_interval_seconds
+        )
+        self._last_sync_predict_warning: Optional[float] = None
 
         self.explainer_host = None
         self._http_client_instance = None
@@ -194,6 +218,40 @@ class Model(InferenceModel):
     def predictor_config(self) -> Optional[PredictorConfig]:
         # Return predictor config from context, may be None
         return kserve_context.get_predictor_config()
+
+    def _predict_inline(self, *args):
+        if self.sync_predict_warning_threshold_ms == 0:
+            return self.predict(*args)
+        started = perf_counter()
+        try:
+            return self.predict(*args)
+        finally:
+            finished = perf_counter()
+            elapsed_ms = (finished - started) * 1000
+            if elapsed_ms > self.sync_predict_warning_threshold_ms and (
+                self._last_sync_predict_warning is None
+                or finished - self._last_sync_predict_warning
+                >= self.sync_predict_warning_interval_seconds
+            ):
+                self._last_sync_predict_warning = finished
+                try:
+                    handler = getattr(
+                        self.predict, "__qualname__", type(self.predict).__qualname__
+                    )
+                    logger.warning(
+                        "Synchronous predict for model %s (%s) occupied the event-loop "
+                        "thread for %.3f ms (threshold: %.3f ms). Consider an async "
+                        "handler or explicit thread offloading for thread-safe blocking "
+                        "I/O. See https://github.com/kserve/kserve/tree/master/docs/"
+                        "samples/sync-predict-diagnostics",
+                        self.name,
+                        handler,
+                        elapsed_ms,
+                        self.sync_predict_warning_threshold_ms,
+                    )
+                except Exception:
+                    # Diagnostics must not replace prediction results or exceptions.
+                    pass
 
     async def __call__(
         self,
@@ -246,13 +304,13 @@ class Model(InferenceModel):
                     response = (
                         (await self.predict(payload, headers, response_headers))
                         if inspect.iscoroutinefunction(self.predict)
-                        else self.predict(payload, headers, response_headers)
+                        else self._predict_inline(payload, headers, response_headers)
                     )
                 else:
                     response = (
                         (await self.predict(payload, headers))
                         if inspect.iscoroutinefunction(self.predict)
-                        else self.predict(payload, headers)
+                        else self._predict_inline(payload, headers)
                     )
                 predict_ms = get_latency_ms(start, time.time())
         else:
