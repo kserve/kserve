@@ -30,8 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -62,7 +64,9 @@ var (
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type InferenceServiceValidator struct{}
+type InferenceServiceValidator struct {
+	Clientset kubernetes.Interface `json:"-"`
+}
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kserve-webhook-server.validator
 var _ admission.Validator[*InferenceService] = &InferenceServiceValidator{}
@@ -70,7 +74,11 @@ var _ admission.Validator[*InferenceService] = &InferenceServiceValidator{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
 	validatorLogger.Info("validate create", "name", isvc.Name)
-	return validateInferenceService(isvc)
+	allowlist, err := v.httpStorageURIAllowlist(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return validateInferenceServiceWithAllowlist(isvc, allowlist)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -85,7 +93,25 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldIsvc,
 	if err := validatePredictorNameChange(isvc, oldIsvc); err != nil {
 		return nil, err
 	}
-	return validateInferenceService(isvc)
+	allowlist, err := v.httpStorageURIAllowlist(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return validateInferenceServiceWithAllowlist(isvc, allowlist)
+}
+
+func (v *InferenceServiceValidator) httpStorageURIAllowlist(ctx context.Context) ([]string, error) {
+	if v.Clientset == nil {
+		return nil, nil
+	}
+	configMap, err := GetInferenceServiceConfigMap(ctx, v.Clientset)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to read InferenceService config map %s/%s: %w", constants.KServeNamespace, constants.InferenceServiceConfigMapName, err)
+	}
+	return GetHTTPStorageURIAllowlist(configMap)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -95,6 +121,10 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, isvc *In
 }
 
 func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {
+	return validateInferenceServiceWithAllowlist(isvc, nil)
+}
+
+func validateInferenceServiceWithAllowlist(isvc *InferenceService, allowlist []string) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
 	annotations := isvc.Annotations
 
@@ -126,7 +156,7 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
-	if err := validateMultipleStorageURIs(isvc); err != nil {
+	if err := validateMultipleStorageURIsWithAllowlist(isvc, allowlist); err != nil {
 		return allWarnings, err
 	}
 
@@ -765,11 +795,15 @@ func getPredictorStorageURI(p PredictorSpec) string {
 
 // ValidateStorageURISpec validates that paths are absolute
 func validateStorageURISpec(storageUri *StorageUri) error {
+	return validateStorageURISpecWithAllowlist(storageUri, nil)
+}
+
+func validateStorageURISpecWithAllowlist(storageUri *StorageUri, allowlist []string) error {
 	// Validate individual storage URI specification
 	if storageUri.Uri == "" {
 		return errors.New("storage URI cannot be empty")
 	}
-	if err := utils.CheckHTTPStorageURI(storageUri.Uri); err != nil {
+	if err := utils.CheckHTTPStorageURIWithAllowlist(storageUri.Uri, allowlist); err != nil {
 		return err
 	}
 
@@ -801,6 +835,10 @@ func validateStorageURISpec(storageUri *StorageUri) error {
 // Returns:
 //   - error: First validation error encountered, or nil if all validations pass
 func validateMultipleStorageURIsSpec(storageUris []StorageUri) error {
+	return validateMultipleStorageURIsSpecWithAllowlist(storageUris, nil)
+}
+
+func validateMultipleStorageURIsSpecWithAllowlist(storageUris []StorageUri, allowlist []string) error {
 	paths := make([]string, 0, len(storageUris))
 	pvcPaths := make([]string, 0, len(storageUris))
 
@@ -810,7 +848,7 @@ func validateMultipleStorageURIsSpec(storageUris []StorageUri) error {
 
 	// Validate each individual StorageUrisSpec
 	for _, storageUri := range storageUris {
-		if err := validateStorageURISpec(&storageUri); err != nil {
+		if err := validateStorageURISpecWithAllowlist(&storageUri, allowlist); err != nil {
 			return err
 		}
 		if strings.HasPrefix(storageUri.Uri, "pvc://") {
@@ -846,6 +884,10 @@ func validateMultipleStorageURIsSpec(storageUris []StorageUri) error {
 }
 
 func validateMultipleStorageURIs(isvc *InferenceService) error {
+	return validateMultipleStorageURIsWithAllowlist(isvc, nil)
+}
+
+func validateMultipleStorageURIsWithAllowlist(isvc *InferenceService, allowlist []string) error {
 	if isvc.Spec.Transformer != nil {
 		storageURIs := isvc.Spec.Transformer.StorageUris
 		var storageURI *string
@@ -856,12 +898,12 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 			return errors.New(InvalidStorageUriConfigError)
 		}
 		if storageURI != nil {
-			if err := utils.CheckHTTPStorageURI(*storageURI); err != nil {
+			if err := utils.CheckHTTPStorageURIWithAllowlist(*storageURI, allowlist); err != nil {
 				return err
 			}
 		}
 
-		if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
+		if err := validateMultipleStorageURIsSpecWithAllowlist(storageURIs, allowlist); err != nil {
 			return err
 		}
 	}
@@ -876,12 +918,12 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 			return errors.New(InvalidStorageUriConfigError)
 		}
 		if storageURI != nil {
-			if err := utils.CheckHTTPStorageURI(*storageURI); err != nil {
+			if err := utils.CheckHTTPStorageURIWithAllowlist(*storageURI, allowlist); err != nil {
 				return err
 			}
 		}
 
-		if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
+		if err := validateMultipleStorageURIsSpecWithAllowlist(storageURIs, allowlist); err != nil {
 			return err
 		}
 	}
@@ -896,12 +938,12 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 		return errors.New(InvalidStorageUriConfigError)
 	}
 	if storageURI != nil {
-		if err := utils.CheckHTTPStorageURI(*storageURI); err != nil {
+		if err := utils.CheckHTTPStorageURIWithAllowlist(*storageURI, allowlist); err != nil {
 			return err
 		}
 	}
 
-	if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
+	if err := validateMultipleStorageURIsSpecWithAllowlist(storageURIs, allowlist); err != nil {
 		return err
 	}
 

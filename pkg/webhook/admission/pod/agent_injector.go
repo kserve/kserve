@@ -57,11 +57,12 @@ const (
 )
 
 type AgentConfig struct {
-	Image         string `json:"image"`
-	CpuRequest    string `json:"cpuRequest"`
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryRequest string `json:"memoryRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
+	Image                   string   `json:"image"`
+	CpuRequest              string   `json:"cpuRequest"`
+	CpuLimit                string   `json:"cpuLimit"`
+	MemoryRequest           string   `json:"memoryRequest"`
+	MemoryLimit             string   `json:"memoryLimit"`
+	HTTPStorageURIAllowlist []string `json:"-"`
 }
 
 type LoggerConfig struct {
@@ -490,6 +491,10 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			return err
 		}
 		log.Info("Successfully created secret volume and env", "secret", saName)
+	}
+
+	if err := injectHTTPStorageURIAllowlist(agentContainer, ag.agentConfig.HTTPStorageURIAllowlist); err != nil {
+		return err
 	}
 
 	// Add container to the spec

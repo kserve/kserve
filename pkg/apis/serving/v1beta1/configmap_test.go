@@ -1212,6 +1212,53 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(cfg.OciModelMode).To(gomega.Equal("fetch"))
 	})
+
+	t.Run("ignores invalid allowlist entries and retains valid entries", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				StorageInitializerConfigMapKeyName: baseJSON(`,"httpStorageUriAllowlist":["10.20.0.0/16","*.svc"]`),
+			},
+		}
+		cfg, err := GetStorageInitializerConfigs(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.HTTPStorageURIAllowlist).To(gomega.Equal([]string{"10.20.0.0/16"}))
+	})
+}
+
+func TestGetHTTPStorageURIAllowlist(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		config  string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name:   "reads configured hosts and CIDRs",
+			config: `{"httpStorageUriAllowlist":["models.ml-platform.svc","10.20.0.0/16"]}`,
+			want:   []string{"models.ml-platform.svc", "10.20.0.0/16"},
+		},
+		{
+			name:   "empty configuration defaults to no exceptions",
+			config: `{}`,
+		},
+		{
+			name:   "ignores invalid wildcard and preserves valid entries",
+			config: `{"httpStorageUriAllowlist":["*.ml-platform.svc","10.20.0.0/16"]}`,
+			want:   []string{"10.20.0.0/16"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := GetHTTPStorageURIAllowlist(&corev1.ConfigMap{
+				Data: map[string]string{StorageInitializerConfigMapKeyName: test.config},
+			})
+			if (err != nil) != test.wantErr {
+				t.Fatalf("GetHTTPStorageURIAllowlist() error = %v, wantErr = %v", err, test.wantErr)
+			}
+			if err == nil {
+				gomega.NewGomegaWithT(t).Expect(got).To(gomega.Equal(test.want))
+			}
+		})
+	}
 }
 
 func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {

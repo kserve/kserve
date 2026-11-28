@@ -26,17 +26,20 @@ const (
 )
 
 type StorageInitializerConfig struct {
-	Image                   string `json:"image"`
-	CpuRequest              string `json:"cpuRequest"`
-	CpuLimit                string `json:"cpuLimit"`
-	CpuModelcar             string `json:"cpuModelcar"`
-	MemoryRequest           string `json:"memoryRequest"`
-	MemoryLimit             string `json:"memoryLimit"`
-	CaBundleConfigMapName   string `json:"caBundleConfigMapName"`
-	CaBundleVolumeMountPath string `json:"caBundleVolumeMountPath"`
-	MemoryModelcar          string `json:"memoryModelcar"`
-	EnableOciImageSource    bool   `json:"enableModelcar"`
-	UidModelcar             *int64 `json:"uidModelcar"`
+	Image string `json:"image"`
+	// HTTPStorageURIAllowlist contains exact hostnames or CIDRs that may be used
+	// by HTTP(S) model storage URIs to access otherwise blocked private addresses.
+	HTTPStorageURIAllowlist []string `json:"httpStorageUriAllowlist,omitempty"`
+	CpuRequest              string   `json:"cpuRequest"`
+	CpuLimit                string   `json:"cpuLimit"`
+	CpuModelcar             string   `json:"cpuModelcar"`
+	MemoryRequest           string   `json:"memoryRequest"`
+	MemoryLimit             string   `json:"memoryLimit"`
+	CaBundleConfigMapName   string   `json:"caBundleConfigMapName"`
+	CaBundleVolumeMountPath string   `json:"caBundleVolumeMountPath"`
+	MemoryModelcar          string   `json:"memoryModelcar"`
+	EnableOciImageSource    bool     `json:"enableModelcar"`
+	UidModelcar             *int64   `json:"uidModelcar"`
 	// EnableOciModelSupport enables any OCI-backed model storage path.
 	// Backcompat: EnableOciImageSource (enableModelcar) remains functional; this is the newer switch.
 	EnableOciModelSupport bool `json:"enableOciModelSupport"`

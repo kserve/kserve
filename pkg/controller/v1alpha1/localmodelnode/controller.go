@@ -159,6 +159,13 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		storageUri = normalized
 	}
 	container.Args = []string{storageUri, MountPath}
+	var httpStorageURIAllowlist []string
+	if storageInitializerConfig != nil {
+		httpStorageURIAllowlist = storageInitializerConfig.HTTPStorageURIAllowlist
+	}
+	if err := jobs.InjectHTTPStorageURIAllowlist(container, modelInfo.SourceModelUri, httpStorageURIAllowlist); err != nil {
+		return nil, err
+	}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: MountPath,

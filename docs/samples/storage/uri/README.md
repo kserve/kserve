@@ -8,6 +8,25 @@ This `storageUri` option supports single file models, like `sklearn` which is sp
 2. Your cluster's Istio Ingress gateway must be [network-accessible](https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/).
 3. Your cluster's Istio Egress gateway must [allow http / https traffic](https://istio.io/latest/docs/tasks/traffic-management/egress/egress-gateway/)
 
+## Allow private HTTP model hosts
+
+HTTP and HTTPS model downloads reject private and cluster-local destinations by default. A cluster administrator can explicitly allow exact DNS hostnames or IP CIDR ranges in the `storageInitializer.httpStorageUriAllowlist` field of the `inferenceservice-config` ConfigMap:
+
+```yaml
+data:
+  storageInitializer: |
+    {
+      "httpStorageUriAllowlist": [
+        "models.ml-platform.svc",
+        "10.20.0.0/16"
+      ]
+    }
+```
+
+Hostnames are exact matches; wildcard entries are not supported. CIDRs allow matching resolved addresses. Loopback, link-local, and metadata service destinations remain blocked. Leave the list empty to keep the default policy. Helm users can set the same list with `kserve.storage.httpStorageUriAllowlist`.
+
+The policy is injected when pods are created. Recreate existing pods after changing the allowlist to apply the new policy to their downloaders.
+
 ## Create HTTP/HTTPS header Secret
 If you do not require headers in your HTTP/HTTPS service request then you can skip this step.
 You can define headers using the following format:
