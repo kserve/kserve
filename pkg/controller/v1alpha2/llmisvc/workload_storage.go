@@ -197,12 +197,12 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			}
 		}
 
-	case constants.S3URIPrefix:
+	case constants.S3URIPrefix, constants.MsURIPrefix:
 		if len(loraPairs) == 0 {
-			if err := r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
+			if err := r.attachStorageModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
 				return err
 			}
-			if nativeModelExpress {
+			if nativeModelExpress && schema+"://" == constants.S3URIPrefix {
 				if err := attachModelExpressObjectStore(podSpec, containerName, modelUri); err != nil {
 					return err
 				}
@@ -286,22 +286,21 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 	return nil
 }
 
-// attachS3ModelArtifact configures a PodSpec to use a model stored in an S3-compatible object store.
-// Model downloading is delegated to vLLM by passing the S3 URI and other required arguments.
+// attachStorageModelArtifact configures a PodSpec to download a model with credentials.
 //
 // Parameters:
 //   - ctx: The context for API calls and logging.
 //   - serviceAccount: service account associated with the LLMInferenceService.
 //   - llmSvc: The LLMInferenceService resource containing the model specification.
-//   - modelUri: The URI of the model in the S3-compatible object store.
-//   - podSpec: The PodSpec to which the S3 model should be attached.
+//   - modelUri: The URI of the model to download.
+//   - podSpec: The PodSpec to which the model should be attached.
 //   - storageConfig: The storage initializer configuration.
 //   - credentialConfig: The credential configuration used for model downloads.
 //
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
+func (r *LLMISVCReconciler) attachStorageModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
 	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
@@ -316,7 +315,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 				return nil
 			}
 		}
-		// Check for AWS IAM Role for Service Account or AWS IAM User Credentials
+		// Inject credentials referenced by the service account.
 		credentialBuilder := credentials.NewCredentialBuilderFromConfig(r.Client, r.Clientset, *credentialConfig)
 		if err := credentialBuilder.CreateSecretVolumeAndEnvFromServiceAccount(
 			ctx,
