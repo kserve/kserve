@@ -19,6 +19,10 @@ package localmodel
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +33,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/go-logr/logr"
+	"k8s.io/client-go/kubernetes"
 
 	"knative.dev/pkg/apis"
 
@@ -36,6 +45,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/reconcilers"
 )
 
 var _ = Describe("CachedModel controller", func() {
@@ -1561,4 +1571,603 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 	}
 	Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
 	return pvc
+}
+
+var _ = Describe("LocalModel cache deletion with missing node groups", func() {
+	const (
+		timeout             = time.Second * 10
+		interval            = time.Millisecond * 250
+		sourceModelUri      = "s3://mybucket/mymodel"
+		modelCacheNamespace = "kserve-localmodel-jobs"
+	)
+
+	// deletionNodeGroupSpec matches no real node; node affinity is irrelevant
+	// for the deletion paths under test.
+	deletionNodeGroupSpec := func(instanceType string) v1alpha1.LocalModelNodeGroupSpec {
+		return v1alpha1.LocalModelNodeGroupSpec{
+			PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+				AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
+				Capacity:                      corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
+				StorageClassName:              "standard",
+				PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+				PersistentVolumeSource: corev1.PersistentVolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/models",
+						Type: ptr.To(corev1.HostPathDirectory),
+					},
+				},
+				NodeAffinity: &corev1.VolumeNodeAffinity{
+					Required: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "node.kubernetes.io/instance-type",
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   []string{instanceType},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
+				},
+			},
+		}
+	}
+
+	deleteIfPresent := func(ctx context.Context, obj ctrlclient.Object) error {
+		return ctrlclient.IgnoreNotFound(k8sClient.Delete(ctx, obj))
+	}
+
+	createNodeGroup := func(ctx context.Context, name string) *v1alpha1.LocalModelNodeGroup {
+		nodeGroup := &v1alpha1.LocalModelNodeGroup{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       deletionNodeGroupSpec(name),
+		}
+		Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+		DeferCleanup(deleteIfPresent, nodeGroup)
+		return nodeGroup
+	}
+
+	deleteAndWaitGone := func(ctx context.Context, obj ctrlclient.Object, key types.NamespacedName) {
+		Expect(k8sClient.Delete(ctx, obj)).Should(Succeed())
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, key, obj)
+			return err != nil && errors.IsNotFound(err)
+		}, timeout, interval).Should(BeTrue(), "object should be gone: "+key.String())
+	}
+
+	waitForFinalizer := func(ctx context.Context, obj ctrlclient.Object, finalizer string) {
+		Eventually(func() bool {
+			if err := k8sClient.Get(ctx, ctrlclient.ObjectKeyFromObject(obj), obj); err != nil {
+				return false
+			}
+			for _, f := range obj.GetFinalizers() {
+				if f == finalizer {
+					return true
+				}
+			}
+			return false
+		}, timeout, interval).Should(BeTrue(), "finalizer should be added: "+finalizer)
+	}
+
+	// envtest runs no controllers that strip the pv/pvc-protection finalizers,
+	// so a deleted volume may keep its deletionTimestamp instead of vanishing.
+	goneOrDeleting := func(ctx context.Context, obj ctrlclient.Object, key types.NamespacedName) bool {
+		err := k8sClient.Get(ctx, key, obj)
+		if err != nil {
+			return errors.IsNotFound(err)
+		}
+		return !obj.GetDeletionTimestamp().IsZero()
+	}
+
+	It("Should finish deleting a LocalModelCache whose node group is already deleted", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		nodeGroup := createNodeGroup(ctx, "gpu-del-cluster")
+		modelName := "cluster-iris-deletion"
+		cachedModel := &v1alpha1.LocalModelCache{
+			ObjectMeta: metav1.ObjectMeta{Name: modelName},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: sourceModelUri,
+				ModelSize:      resource.MustParse("123Gi"),
+				NodeGroups:     []string{nodeGroup.Name},
+			},
+		}
+		Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+
+		waitForFinalizer(ctx, cachedModel, reconcilers.FinalizerName)
+
+		// Delete the node group first, then the cache: deletion must still finish.
+		deleteAndWaitGone(ctx, nodeGroup, types.NamespacedName{Name: nodeGroup.Name})
+		deleteAndWaitGone(ctx, cachedModel, types.NamespacedName{Name: modelName})
+	})
+
+	It("Should finish deleting a LocalModelNamespaceCache and clean its volumes when the node group is already deleted", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		testNamespace := fmt.Sprintf("test-ns-nodegroup-deleted-%d", time.Now().UnixNano())
+		namespaceObj := createTestNamespace(ctx, testNamespace)
+		DeferCleanup(deleteIfPresent, namespaceObj)
+
+		nodeGroup := createNodeGroup(ctx, "gpu-del-ns")
+		modelName := "ns-iris-deletion"
+		cachedModel := &v1alpha1.LocalModelNamespaceCache{
+			ObjectMeta: metav1.ObjectMeta{Name: modelName, Namespace: testNamespace},
+			Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+				SourceModelUri: sourceModelUri,
+				ModelSize:      resource.MustParse("123Gi"),
+				NodeGroups:     []string{nodeGroup.Name},
+			},
+		}
+		Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+
+		waitForFinalizer(ctx, cachedModel, reconcilers.NamespaceCacheFinalizerName)
+
+		// An ISVC consumer makes the controller create the namespace-scoped
+		// serving volumes on top of the download ones.
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      modelName + "-isvc",
+				Namespace: testNamespace,
+				Labels: map[string]string{
+					constants.LocalModelLabel:          modelName,
+					constants.LocalModelNamespaceLabel: testNamespace,
+				},
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{
+					Model: &v1beta1.ModelSpec{
+						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+							StorageURI: ptr.To(sourceModelUri),
+						},
+						ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+		DeferCleanup(deleteIfPresent, isvc)
+
+		downloadPVName := modelName + "-" + nodeGroup.Name + "-" + testNamespace + "-download"
+		servingPVName := modelName + "-" + nodeGroup.Name + "-" + testNamespace
+		downloadPVC := &corev1.PersistentVolumeClaim{}
+		Eventually(func() bool {
+			return k8sClient.Get(ctx, types.NamespacedName{Name: downloadPVName, Namespace: modelCacheNamespace}, downloadPVC) == nil
+		}, timeout, interval).Should(BeTrue(), "download PVC should be created")
+		downloadPV := &corev1.PersistentVolume{}
+		Eventually(func() bool {
+			return k8sClient.Get(ctx, types.NamespacedName{Name: downloadPVName}, downloadPV) == nil
+		}, timeout, interval).Should(BeTrue(), "download PV should be created")
+		servingPV := &corev1.PersistentVolume{}
+		Eventually(func() bool {
+			return k8sClient.Get(ctx, types.NamespacedName{Name: servingPVName}, servingPV) == nil
+		}, timeout, interval).Should(BeTrue(), "serving PV should be created")
+
+		// Delete the node group first, then the cache: deletion must still
+		// finish and the namespace-scoped volumes must be cleaned up by name.
+		deleteAndWaitGone(ctx, nodeGroup, types.NamespacedName{Name: nodeGroup.Name})
+		deleteAndWaitGone(ctx, cachedModel, types.NamespacedName{Name: modelName, Namespace: testNamespace})
+
+		Eventually(func() bool {
+			return goneOrDeleting(ctx, downloadPV, types.NamespacedName{Name: downloadPVName})
+		}, timeout, interval).Should(BeTrue(), "download PV should be deleted or deleting")
+		Eventually(func() bool {
+			return goneOrDeleting(ctx, downloadPVC, types.NamespacedName{Name: downloadPVName, Namespace: modelCacheNamespace})
+		}, timeout, interval).Should(BeTrue(), "download PVC should be deleted or deleting")
+		Eventually(func() bool {
+			return goneOrDeleting(ctx, servingPV, types.NamespacedName{Name: servingPVName})
+		}, timeout, interval).Should(BeTrue(), "serving PV should be deleted or deleting")
+	})
+
+	It("Should remove every matching entry from LocalModelNodes when a LocalModelCache is deleted", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		nodeGroup := createNodeGroup(ctx, "gpu-del-sweep")
+		modelName := "cluster-iris-sweep"
+		cachedModel := &v1alpha1.LocalModelCache{
+			ObjectMeta: metav1.ObjectMeta{Name: modelName},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: sourceModelUri,
+				ModelSize:      resource.MustParse("123Gi"),
+				NodeGroups:     []string{nodeGroup.Name},
+			},
+		}
+		Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+		waitForFinalizer(ctx, cachedModel, reconcilers.FinalizerName)
+		DeferCleanup(deleteIfPresent, cachedModel)
+
+		// Two entries for the deleting cache (duplicate entries are allowed by
+		// the CRD) and one same-name entry owned by a namespace-scoped cache:
+		// all of the former must go, the latter must survive.
+		localModelNode := &v1alpha1.LocalModelNode{
+			ObjectMeta: metav1.ObjectMeta{Name: "sweep-node"},
+			Spec: v1alpha1.LocalModelNodeSpec{
+				LocalModels: []v1alpha1.LocalModelInfo{
+					{ModelName: modelName, SourceModelUri: sourceModelUri, NodeGroup: nodeGroup.Name},
+					{ModelName: modelName, SourceModelUri: sourceModelUri, NodeGroup: nodeGroup.Name + "-other"},
+					{ModelName: modelName, Namespace: "other-namespace", SourceModelUri: sourceModelUri, NodeGroup: nodeGroup.Name},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+		DeferCleanup(deleteIfPresent, localModelNode)
+
+		deleteAndWaitGone(ctx, cachedModel, types.NamespacedName{Name: modelName})
+
+		sweptNode := &v1alpha1.LocalModelNode{}
+		Eventually(func() []v1alpha1.LocalModelInfo {
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: localModelNode.Name}, sweptNode); err != nil {
+				return nil
+			}
+			return sweptNode.Spec.LocalModels
+		}, timeout, interval).Should(Equal([]v1alpha1.LocalModelInfo{
+			{ModelName: modelName, Namespace: "other-namespace", SourceModelUri: sourceModelUri, NodeGroup: nodeGroup.Name},
+		}), "only the entry of the deleting cache should be removed")
+	})
+
+	It("Should keep the finalizer while namespace-scoped volume cleanup fails, then finish on retry", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		testNamespace := fmt.Sprintf("test-ns-volume-fault-%d", time.Now().UnixNano())
+		namespaceObj := createTestNamespace(ctx, testNamespace)
+		DeferCleanup(deleteIfPresent, namespaceObj)
+
+		nodeGroup := createNodeGroup(ctx, "gpu-del-fault")
+		modelName := "ns-iris-fault"
+		modelKey := types.NamespacedName{Name: modelName, Namespace: testNamespace}
+		cachedModel := &v1alpha1.LocalModelNamespaceCache{
+			ObjectMeta: metav1.ObjectMeta{Name: modelName, Namespace: testNamespace},
+			Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+				SourceModelUri: sourceModelUri,
+				ModelSize:      resource.MustParse("123Gi"),
+				NodeGroups:     []string{nodeGroup.Name},
+			},
+		}
+		Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+		waitForFinalizer(ctx, cachedModel, reconcilers.NamespaceCacheFinalizerName)
+
+		downloadPVName := modelName + "-" + nodeGroup.Name + "-" + testNamespace + "-download"
+		downloadPVC := &corev1.PersistentVolumeClaim{}
+		Eventually(func() bool {
+			return k8sClient.Get(ctx, types.NamespacedName{Name: downloadPVName, Namespace: modelCacheNamespace}, downloadPVC) == nil
+		}, timeout, interval).Should(BeTrue(), "download PVC should be created")
+
+		// Deny the download PVC delete on the reconcilers' clientset only.
+		denials := setAPIFault(apiFaultSpec{
+			method:       http.MethodDelete,
+			pathContains: "/persistentvolumeclaims/",
+			nameContains: "/" + downloadPVName,
+		})
+		DeferCleanup(clearAPIFault)
+
+		Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
+
+		// The deletion reconcile must reach the volume cleanup (the download PV
+		// delete precedes the faulted PVC delete) and then fail on the PVC.
+		downloadPV := &corev1.PersistentVolume{}
+		Eventually(func() bool {
+			return goneOrDeleting(ctx, downloadPV, types.NamespacedName{Name: downloadPVName})
+		}, timeout, interval).Should(BeTrue(), "cleanup must reach the volume deletes")
+
+		// Wait until at least one retry has also been denied: a first failed
+		// reconcile followed by a queued retry, both hitting the fault.
+		Eventually(func() bool {
+			return denials.Load() >= 2
+		}, time.Second*30, interval).Should(BeTrue(), "a cleanup retry must have been denied too")
+
+		// With every retry still failing, the finalizer must stay: the cache is
+		// not dropped with the volume still around.
+		Expect(k8sClient.Get(ctx, modelKey, cachedModel)).Should(Succeed())
+		Expect(cachedModel.Finalizers).Should(ContainElement(reconcilers.NamespaceCacheFinalizerName),
+			"finalizer must stay while the PVC delete fails")
+		Expect(cachedModel.DeletionTimestamp.IsZero()).Should(BeFalse())
+
+		// With the fault gone the work-queue retry completes the deletion.
+		clearAPIFault()
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, modelKey, cachedModel)
+			return err != nil && errors.IsNotFound(err)
+		}, timeout, interval).Should(BeTrue(), "LocalModelNamespaceCache should be deleted after cleanup succeeds")
+		Eventually(func() bool {
+			return goneOrDeleting(ctx, downloadPVC, types.NamespacedName{Name: downloadPVName, Namespace: modelCacheNamespace})
+		}, timeout, interval).Should(BeTrue(), "download PVC should be deleted or deleting")
+	})
+
+	It("Should retry the LocalModelNode deletion patch on a real conflict", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		nodeName := "conflict-delete-node"
+		row := v1alpha1.LocalModelInfo{ModelName: "target", SourceModelUri: sourceModelUri, NodeGroup: "unused"}
+		node := &v1alpha1.LocalModelNode{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+			Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{
+				row, row,
+				{ModelName: "target", Namespace: "other-tenant", SourceModelUri: sourceModelUri, NodeGroup: "unused"},
+			}},
+		}
+		Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+		DeferCleanup(deleteIfPresent, node)
+
+		// A peer write lands between the read and the patch: the conflicting
+		// patch must be retried against the fresh state, not overwrite it.
+		w := &interleavedNodeWriter{Client: k8sClient, name: nodeName, before: firstPeerEntry}
+		Expect(reconcilers.DeleteModelFromNode(ctx, k8sClient, w, logr.Discard(), nodeName, "target", "")).Should(Succeed())
+		Expect(w.conflicts).Should(Equal(1))
+		Expect(w.attempts).Should(Equal(2))
+
+		current := &v1alpha1.LocalModelNode{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, current)).Should(Succeed())
+		Expect(current.Spec.LocalModels).Should(ConsistOf(
+			v1alpha1.LocalModelInfo{ModelName: "target", Namespace: "other-tenant", SourceModelUri: sourceModelUri, NodeGroup: "unused"},
+			v1alpha1.LocalModelInfo{ModelName: "peer-1", Namespace: "review-tenant", SourceModelUri: sourceModelUri + "/peer-1", NodeGroup: "unused"},
+		), "the concurrent peer write must survive")
+	})
+
+	It("Should give up after repeated LocalModelNode conflicts and converge on the next sweep", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		nodeName := "conflict-exhausted-node"
+		row := v1alpha1.LocalModelInfo{ModelName: "target", SourceModelUri: sourceModelUri, NodeGroup: "unused"}
+		node := &v1alpha1.LocalModelNode{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+			Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{row}},
+		}
+		Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+		DeferCleanup(deleteIfPresent, node)
+
+		w := &interleavedNodeWriter{Client: k8sClient, name: nodeName, before: appendPeerEntry}
+		Expect(reconcilers.DeleteModelFromNode(ctx, k8sClient, w, logr.Discard(), nodeName, "target", "")).Should(HaveOccurred())
+		Expect(w.conflicts).Should(Equal(3))
+		Expect(reconcilers.DeleteModelFromNode(ctx, k8sClient, k8sClient, logr.Discard(), nodeName, "target", "")).Should(Succeed())
+		current := &v1alpha1.LocalModelNode{}
+		Expect(k8sClient.Get(ctx, ctrlclient.ObjectKeyFromObject(node), current)).To(Succeed())
+		remaining := make([]string, 0, len(current.Spec.LocalModels))
+		for _, m := range current.Spec.LocalModels {
+			remaining = append(remaining, m.GetStatusKey())
+		}
+		Expect(remaining).To(ConsistOf("review-tenant/peer-1", "review-tenant/peer-2", "review-tenant/peer-3"))
+	})
+
+	It("Should tolerate a LocalModelNode disappearing mid-deletion", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		nodeName := "conflict-vanishing-node"
+		node := &v1alpha1.LocalModelNode{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+			Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{
+				{ModelName: "target", SourceModelUri: sourceModelUri, NodeGroup: "unused"},
+			}},
+		}
+		Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+
+		DeferCleanup(deleteIfPresent, node)
+		w := &interleavedNodeWriter{Client: k8sClient, name: nodeName, before: func(context.Context, types.NamespacedName, int) error {
+			return k8sClient.Delete(ctx, node)
+		}}
+		Expect(reconcilers.DeleteModelFromNode(ctx, k8sClient, w, logr.Discard(), nodeName, "target", "")).Should(Succeed())
+		Expect(w.attempts).To(Equal(1))
+		Expect(reconcilers.DeleteModelFromNode(ctx, k8sClient, w, logr.Discard(), nodeName, "target", "")).To(Succeed())
+		Expect(w.attempts).To(Equal(1))
+	})
+
+	DescribeTable("Should return LocalModelNode conflicts from Reconcile and converge on retry", func(ctx SpecContext, scope, operation string) {
+		suffix := scope + "-" + operation
+		groupName := "gpu-conflict-" + suffix
+		createNodeGroup(ctx, groupName)
+		modelName := "iris-conflict-" + suffix
+		namespace := ""
+		plainClientset, err := kubernetes.NewForConfig(cfg)
+		Expect(err).Should(Succeed())
+		var cache ctrlclient.Object
+		var reconcile func(ctrlclient.Client) (ctrl.Result, error)
+		if scope == "cluster" {
+			model := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: modelName, Finalizers: []string{reconcilers.FinalizerName}},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: sourceModelUri, ModelSize: resource.MustParse("123Gi"), NodeGroups: []string{groupName},
+				},
+			}
+			cache = model
+			reconcile = func(c ctrlclient.Client) (ctrl.Result, error) {
+				r := &reconcilers.LocalModelReconciler{Client: c, APIReader: k8sClient, Clientset: plainClientset, Log: logr.Discard(), Scheme: testScheme}
+				return r.Reconcile(ctx, ctrl.Request{NamespacedName: ctrlclient.ObjectKeyFromObject(model)})
+			}
+		} else {
+			namespace = fmt.Sprintf("test-ns-conflict-%d", time.Now().UnixNano())
+			ns := createTestNamespace(ctx, namespace)
+			DeferCleanup(deleteIfPresent, ns)
+			model := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: modelName, Namespace: namespace, Finalizers: []string{reconcilers.NamespaceCacheFinalizerName}},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: sourceModelUri, ModelSize: resource.MustParse("123Gi"), NodeGroups: []string{groupName},
+				},
+			}
+			cache = model
+			reconcile = func(c ctrlclient.Client) (ctrl.Result, error) {
+				r := &reconcilers.LocalModelNamespaceCacheReconciler{Client: c, APIReader: k8sClient, Clientset: plainClientset, Log: logr.Discard(), Scheme: testScheme}
+				return r.Reconcile(ctx, ctrl.Request{NamespacedName: ctrlclient.ObjectKeyFromObject(model)})
+			}
+		}
+		Expect(k8sClient.Create(ctx, cache)).To(Succeed())
+		DeferCleanup(deleteIfPresent, cache)
+
+		// The Ready core Node is visible only to the direct reconcile. The suite
+		// controller cannot populate the LocalModelNode ahead of either call.
+		// The LocalModelNode, both writes, and the conflict use the real API server.
+		nodeName := groupName + "-host"
+		control := clientWithReadyNode{Client: mgrClient, node: corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName, Labels: map[string]string{"node.kubernetes.io/instance-type": groupName}},
+			Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
+		}}
+		keep := v1alpha1.LocalModelInfo{ModelName: "keep", SourceModelUri: sourceModelUri + "/keep", NodeGroup: groupName}
+		desired := v1alpha1.LocalModelInfo{ModelName: modelName, Namespace: namespace, SourceModelUri: sourceModelUri, NodeGroup: groupName}
+		initial := []v1alpha1.LocalModelInfo{keep}
+		if operation == "update" {
+			old := desired
+			old.SourceModelUri += "/old"
+			initial = append(initial, old)
+		}
+		node := &v1alpha1.LocalModelNode{ObjectMeta: metav1.ObjectMeta{Name: nodeName}, Spec: v1alpha1.LocalModelNodeSpec{LocalModels: initial}}
+		Expect(k8sClient.Create(ctx, node)).To(Succeed())
+		DeferCleanup(deleteIfPresent, node)
+
+		waitForVersion := func(obj ctrlclient.Object, version string) {
+			Eventually(func() string {
+				copy := obj.DeepCopyObject().(ctrlclient.Object)
+				if err := mgrClient.Get(ctx, ctrlclient.ObjectKeyFromObject(obj), copy); err != nil {
+					return ""
+				}
+				return copy.GetResourceVersion()
+			}, timeout, interval).Should(Equal(version))
+		}
+		// The cache object may already have a newer status version.
+		Eventually(func() error {
+			return mgrClient.Get(ctx, ctrlclient.ObjectKeyFromObject(cache), cache.DeepCopyObject().(ctrlclient.Object))
+		}, timeout, interval).Should(Succeed())
+		Eventually(func() error {
+			return mgrClient.Get(ctx, types.NamespacedName{Name: groupName}, &v1alpha1.LocalModelNodeGroup{})
+		}, timeout, interval).Should(Succeed())
+		waitForVersion(node, node.ResourceVersion)
+
+		w := &interleavedNodeWriter{Client: control, name: nodeName, before: firstPeerEntry}
+		_, err = reconcile(w)
+		Expect(w.attempts).To(Equal(1))
+		Expect(w.conflicts).To(Equal(1))
+		Expect(errors.IsConflict(err)).To(BeTrue(), "the outer Reconcile must return the conflict")
+		live := &v1alpha1.LocalModelNode{}
+		Expect(k8sClient.Get(ctx, ctrlclient.ObjectKeyFromObject(node), live)).To(Succeed())
+		peer := v1alpha1.LocalModelInfo{ModelName: "peer-1", Namespace: "review-tenant", SourceModelUri: sourceModelUri + "/peer-1", NodeGroup: "unused"}
+		Expect(live.Spec.LocalModels).To(ConsistOf(append(initial, peer)))
+		waitForVersion(node, live.ResourceVersion)
+
+		_, err = reconcile(control)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Get(ctx, ctrlclient.ObjectKeyFromObject(node), live)).To(Succeed())
+		Expect(live.Spec.LocalModels).To(ConsistOf(keep, peer, desired))
+	}, Entry("cluster add", "cluster", "add"), Entry("cluster update", "cluster", "update"),
+		Entry("namespace add", "ns", "add"), Entry("namespace update", "ns", "update"))
+})
+
+// apiFaultSpec selects the API requests a test wants to deny: those with the
+// given method whose path contains pathContains and, when set, nameContains.
+type apiFaultSpec struct {
+	method       string
+	pathContains string
+	nameContains string
+	denials      *atomic.Int64
+}
+
+// injectedAPIFault is read by faultInjectorTransport, which wraps the suite
+// reconcilers' clientset; an empty method disables the injection.
+var injectedAPIFault atomic.Value
+
+func setAPIFault(f apiFaultSpec) *atomic.Int64 {
+	f.denials = new(atomic.Int64)
+	injectedAPIFault.Store(f)
+	return f.denials
+}
+func clearAPIFault() { injectedAPIFault.Store(apiFaultSpec{}) }
+
+// faultInjectorTransport denies the requests selected by injectedAPIFault with
+// a 403 and passes everything else through.
+type faultInjectorTransport struct {
+	rt http.RoundTripper
+}
+
+func (t faultInjectorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if f, ok := injectedAPIFault.Load().(apiFaultSpec); ok && f.method != "" &&
+		req.Method == f.method && strings.Contains(req.URL.Path, f.pathContains) &&
+		(f.nameContains == "" || strings.Contains(req.URL.Path, f.nameContains)) {
+		f.denials.Add(1)
+		return forbiddenResponse(req), nil
+	}
+	return t.rt.RoundTrip(req)
+}
+
+// clientWithReadyNode exposes one matching core Node only to the direct
+// reconcile. The manager and the test share the real LocalModelNode API.
+type clientWithReadyNode struct {
+	ctrlclient.Client
+	node corev1.Node
+}
+
+func (c clientWithReadyNode) List(ctx context.Context, list ctrlclient.ObjectList, opts ...ctrlclient.ListOption) error {
+	if nodes, ok := list.(*corev1.NodeList); ok {
+		nodes.Items = []corev1.Node{c.node}
+		return nil
+	}
+	return c.Client.List(ctx, list, opts...)
+}
+
+func forbiddenResponse(req *http.Request) *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusForbidden,
+		Status:     "403 Forbidden",
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(strings.NewReader(
+			`{"kind":"Status","apiVersion":"v1","status":"Failure","code":403,"reason":"Forbidden","message":"denied by test fault injection"}`)),
+		Request: req,
+	}
+}
+
+// interleavedNodeWriter wraps a controller-runtime client and runs a hook
+// between a reconciler's read of a LocalModelNode and its patch, so tests can
+// create genuine API-server write conflicts.
+type interleavedNodeWriter struct {
+	ctrlclient.Client
+	name                string
+	before              func(context.Context, types.NamespacedName, int) error
+	attempts, conflicts int
+}
+
+func (w *interleavedNodeWriter) Patch(ctx context.Context, obj ctrlclient.Object, p ctrlclient.Patch, opts ...ctrlclient.PatchOption) error {
+	if _, isNode := obj.(*v1alpha1.LocalModelNode); !isNode || obj.GetName() != w.name {
+		return w.Client.Patch(ctx, obj, p, opts...)
+	}
+	w.attempts++
+	if err := w.before(ctx, types.NamespacedName{Name: w.name}, w.attempts); err != nil {
+		return err
+	}
+	err := w.Client.Patch(ctx, obj, p, opts...)
+	if errors.IsConflict(err) {
+		w.conflicts++
+	}
+	return err
+}
+
+// appendPeerEntry writes another cache's entry to the node, bumping its
+// resourceVersion; firstPeerEntry does so only before the first patch.
+func appendPeerEntry(ctx context.Context, key types.NamespacedName, seq int) error {
+	node := &v1alpha1.LocalModelNode{}
+	if err := k8sClient.Get(ctx, key, node); err != nil {
+		return err
+	}
+	peerName := fmt.Sprintf("peer-%d", seq)
+	node.Spec.LocalModels = append(node.Spec.LocalModels, v1alpha1.LocalModelInfo{
+		ModelName: peerName, Namespace: "review-tenant",
+		SourceModelUri: "s3://mybucket/mymodel/" + peerName, NodeGroup: "unused",
+	})
+	return k8sClient.Update(ctx, node)
+}
+
+func firstPeerEntry(ctx context.Context, key types.NamespacedName, seq int) error {
+	if seq == 1 {
+		return appendPeerEntry(ctx, key, seq)
+	}
+	return nil
 }

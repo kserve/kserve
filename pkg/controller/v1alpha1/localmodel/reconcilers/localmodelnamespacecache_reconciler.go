@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -93,6 +94,13 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		return c.reconcileSharedPVC(ctx, localModel, isvcConfigMap, localModelConfig, consumers)
 	}
 
+	// Handle the deletion before the node groups are resolved: a referenced
+	// group may already be deleted, and the deletion path only needs the group
+	// names. (Shared-PVC mode returned above.)
+	if !localModel.DeletionTimestamp.IsZero() {
+		return DeleteModelFromNodes(ctx, c.Client, c.APIReader, c.Clientset, c.Log, nil, localModel, localModel.Spec.NodeGroups, localModelConfig)
+	}
+
 	defaultNodeGroup := &v1alpha1.LocalModelNodeGroup{}
 	nodeGroups := map[string]*v1alpha1.LocalModelNodeGroup{}
 	for idx, nodeGroupName := range localModel.Spec.NodeGroups {
@@ -107,30 +115,29 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		}
 	}
 
-	// Step 1 - Checks if the CR is in the deletion process
-	if localModel.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object.
-		if !utils.Includes(localModel.Finalizers, NamespaceCacheFinalizerName) {
-			patch := client.MergeFrom(localModel.DeepCopy())
-			localModel.Finalizers = append(localModel.Finalizers, NamespaceCacheFinalizerName)
-			if err := c.Patch(ctx, localModel, patch); err != nil {
-				return ctrl.Result{}, err
-			}
+	// The object is not being deleted, so if it does not have our finalizer,
+	// then lets add the finalizer and update the object.
+	if !utils.Includes(localModel.Finalizers, NamespaceCacheFinalizerName) {
+		patch := client.MergeFrom(localModel.DeepCopy())
+		localModel.Finalizers = append(localModel.Finalizers, NamespaceCacheFinalizerName)
+		if err := c.Patch(ctx, localModel, patch); err != nil {
+			return ctrl.Result{}, err
 		}
-	} else {
-		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, nil, localModel, nodeGroups)
 	}
 
 	consumers, err := collectCacheConsumers(ctx, c.Client, c.Log, nil, localModel, c.llmInferenceServiceCRDUp)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	var reconcileErrs []error
 	previousNamespaces := consumerNamespaces(localModel.Status)
 
-	// Step 2 - Adds this model to LocalModelNode resources in the node group
+	// Step 2 - Adds this model to LocalModelNode resources in the node group.
+	// The error is kept and returned at the end so the work queue retries the
+	// node update, while the volume reconciliation below still runs.
 	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, consumers); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
+		reconcileErrs = append(reconcileErrs, err)
 	}
 
 	// Step 3 - Creates PV & PVC for model download (in jobNamespace, same as cluster-scoped)
@@ -156,13 +163,13 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		}
 	}
 
-	if localModelConfig.DisableVolumeManagement {
-		return ctrl.Result{}, nil
+	// Step 4 - Provision serving volumes independently of earlier errors.
+	if !localModelConfig.DisableVolumeManagement {
+		if err := ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces); err != nil {
+			reconcileErrs = append(reconcileErrs, err)
+		}
 	}
-
-	// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
-	return ctrl.Result{}, err
+	return ctrl.Result{}, errors.Join(reconcileErrs...)
 }
 
 // Reconciles corresponding namespace model cache CR when we found an update on an isvc

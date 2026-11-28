@@ -19,9 +19,11 @@ package reconcilers
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,6 +68,124 @@ func isvcConsumer(name, namespace string) cacheConsumers {
 	return cacheConsumers{isvcs: []v1beta1.InferenceService{{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 	}}}
+}
+
+type nodeGetRecorder struct {
+	client.Reader
+	names []string
+}
+
+func (r *nodeGetRecorder) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, ok := obj.(*v1alpha1.LocalModelNode); ok {
+		r.names = append(r.names, key.Name)
+	}
+	return r.Reader.Get(ctx, key, obj, opts...)
+}
+
+type pagedNodeReader struct {
+	client.Reader
+	secondPageErr error
+	requests      []string
+}
+
+func (r *pagedNodeReader) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	options := (&client.ListOptions{}).ApplyOptions(opts)
+	r.requests = append(r.requests, options.Continue)
+	if options.Limit <= 0 {
+		return errors.New("expected a bounded LocalModelNode list")
+	}
+	switch options.Continue {
+	case "":
+		page := list.(*v1alpha1.LocalModelNodeList)
+		page.Items = []v1alpha1.LocalModelNode{{ObjectMeta: metav1.ObjectMeta{Name: "unrelated"}}}
+		page.Continue = "second"
+		return nil
+	case "second":
+		if r.secondPageErr != nil {
+			return r.secondPageErr
+		}
+		return r.Reader.List(ctx, list)
+	default:
+		return errors.New("unexpected continuation token")
+	}
+}
+
+func TestDeleteModelFromNodesRetainsFinalizerAcrossPageErrors(t *testing.T) {
+	ctx := t.Context()
+	cache := &v1alpha1.LocalModelCache{ObjectMeta: metav1.ObjectMeta{Name: "model", Finalizers: []string{FinalizerName}}}
+	node := &v1alpha1.LocalModelNode{
+		ObjectMeta: metav1.ObjectMeta{Name: "last-node"},
+		Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{{ModelName: cache.Name}}},
+	}
+	cl := newLocalModelCacheClient(t, cache, node)
+	pageErr := errors.New("second page unavailable")
+	reader := &pagedNodeReader{Reader: cl, secondPageErr: pageErr}
+	sweep := func() error {
+		_, err := DeleteModelFromNodes(ctx, cl, reader, nil, logr.Discard(), cache, nil, nil, nil)
+		return err
+	}
+	if err := sweep(); !errors.Is(err, pageErr) {
+		t.Fatalf("first sweep error = %v, want %v", err, pageErr)
+	}
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(cache), cache); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(cache.Finalizers, FinalizerName) {
+		t.Fatal("lost finalizer before the last page was read")
+	}
+
+	reader.secondPageErr = nil
+	if err := sweep(); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]string{"", "second", "", "second"}, reader.requests); diff != "" {
+		t.Errorf("continuation tokens (-want +got):\n%s", diff)
+	}
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(node), node); err != nil {
+		t.Fatal(err)
+	}
+	if len(node.Spec.LocalModels) != 0 {
+		t.Errorf("last page still has %v", node.Spec.LocalModels)
+	}
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(cache), cache); err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(cache.Finalizers, FinalizerName) {
+		t.Error("finalizer still present after the last page was cleaned")
+	}
+}
+
+func TestDeleteModelFromNodesOnlyFetchesMatchingNodes(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{ObjectMeta: metav1.ObjectMeta{
+		Name: "target", Namespace: "tenant", Finalizers: []string{NamespaceCacheFinalizerName},
+	}}
+	target := v1alpha1.LocalModelInfo{ModelName: cache.Name, Namespace: cache.Namespace}
+	otherModel := v1alpha1.LocalModelInfo{ModelName: "other", Namespace: cache.Namespace}
+	otherNamespace := v1alpha1.LocalModelInfo{ModelName: cache.Name, Namespace: "other-tenant"}
+	node := func(name string, models ...v1alpha1.LocalModelInfo) *v1alpha1.LocalModelNode {
+		return &v1alpha1.LocalModelNode{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: models},
+		}
+	}
+	matching := node("matching", otherModel, target, target)
+	cl := newLocalModelCacheClient(t, cache, matching, node("unrelated", otherModel, otherNamespace), node("empty"))
+	reader := &nodeGetRecorder{Reader: cl}
+
+	ctx := t.Context()
+	if _, err := DeleteModelFromNodes(ctx, cl, reader, nil, logr.Discard(), nil, cache, nil, nil); err != nil {
+		t.Fatalf("DeleteModelFromNodes() error = %v", err)
+	}
+	if diff := cmp.Diff([]string{matching.Name}, reader.names); diff != "" {
+		t.Errorf("LocalModelNode Gets (-want +got):\n%s", diff)
+	}
+	got := &v1alpha1.LocalModelNode{}
+	if err := cl.Get(ctx, client.ObjectKeyFromObject(matching), got); err != nil {
+		t.Fatalf("get matching node: %v", err)
+	}
+	if diff := cmp.Diff([]v1alpha1.LocalModelInfo{otherModel}, got.Spec.LocalModels); diff != "" {
+		t.Errorf("remaining LocalModels (-want +got):\n%s", diff)
+	}
 }
 
 func TestReconcileLocalModelNodeRecordsConsumersWithoutNodeGroups(t *testing.T) {
