@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=ubuntu:24.04
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS base
@@ -12,13 +12,13 @@ RUN apt-get update && \
         gcc-12 \
         google-perftools \
         libgl1 \
-        libglib2.0-0 \
+        libglib2.0-0t64 \
         libjemalloc2 \
         libnuma1 \
         numactl \
-        python3.10-dev \
-        python3.10-venv \
-        python3-pip \
+        python3 \
+        python3.12-dev \
+        python3.12-venv \
         curl && \
     apt-get clean && \
     apt-get autoclean && \
@@ -126,6 +126,14 @@ RUN uv pip install --no-cache-dir --index-strategy unsafe-best-match --extra-ind
     torchvision \
     torchaudio
 
+# flashinfer-cubin is 427MB of CUDA kernel binaries that vllm's dependency
+# tree pulls in unconditionally; they are only loadable on a CUDA device and
+# are dead weight in the CPU image. Uninstall it last so vllm's dependency
+# resolution does not pull it back in.
+# https://pypi.org/project/flashinfer-cubin/ - pre-compiled cuda kernels
+# not needed on CPU images.
+RUN uv pip uninstall flashinfer-cubin
+
 # Cleanup vllm source code and caches
 RUN rm -rf /vllm /root/.cache/uv /root/.cache/pip /tmp/*
 
@@ -134,8 +142,6 @@ RUN df -hT
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
-# TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 # Build the final image
@@ -148,7 +154,9 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-RUN useradd kserve -m -u 1000 -d /home/kserve
+# ubuntu:24.04 ships a default "ubuntu" user with UID 1000; remove it first
+# (same as the CUDA variant of this image).
+RUN userdel -r ubuntu || true && useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
