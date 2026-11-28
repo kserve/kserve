@@ -236,3 +236,40 @@ def test_gcs_no_patterns_downloads_all(mock_client):
     assert mock_safetensors.download_to_filename.called
     assert mock_bin.download_to_filename.called
     assert mock_json.download_to_filename.called
+
+
+@pytest.mark.parametrize("gcs_path", ["gs://foo", "gs://foo/"])
+@mock.patch("google.cloud.storage.Client")
+def test_gcs_bucket_root(mock_client, gcs_path, tmp_path):
+    mock_bucket = mock.MagicMock()
+    mock_bucket.list_blobs.return_value = [
+        create_mock_dir_with_file("sub", "config.json"),
+        create_mock_dir("model.joblib"),
+    ]
+    mock_bucket.blob.return_value.name = ""
+    mock_client.return_value.bucket.return_value = mock_bucket
+
+    Storage._download_gcs(gcs_path, str(tmp_path))
+
+    mock_bucket.list_blobs.assert_called_with(prefix="")
+    downloaded = sorted(
+        c.args[0]
+        for b in mock_bucket.list_blobs.return_value
+        for c in b.download_to_filename.call_args_list
+    )
+    assert downloaded == [
+        str(tmp_path / "model.joblib"),
+        str(tmp_path / "sub/config.json"),
+    ]
+
+
+@mock.patch("google.cloud.storage.Client")
+def test_gcs_empty_bucket_root(mock_client, tmp_path):
+    mock_bucket = mock.MagicMock()
+    mock_bucket.list_blobs.return_value = []
+    mock_bucket.blob.return_value.name = ""
+    mock_client.return_value.bucket.return_value = mock_bucket
+
+    with pytest.raises(RuntimeError, match="No model found"):
+        Storage._download_gcs("gs://foo", str(tmp_path))
+    mock_bucket.blob.return_value.download_to_filename.assert_not_called()
