@@ -39,6 +39,8 @@ BASE_VERSION=""
 RC=""
 BRANCH=""
 RELEASE_TYPE=""
+# Commit the RC0 branch and tag are created from (upstream master at validation time)
+RC0_BASE_SHA=""
 
 # ============================================================
 # Helper functions
@@ -182,8 +184,15 @@ validate_kserve_deps() {
             exit 1
         fi
         print_info "Reading kserve-deps.env from $UPSTREAM_REMOTE/$BRANCH (patch release)"
+    elif [[ "$RC" == "rc0" ]]; then
+        # RC0 branches from upstream master: validate the exact commit that gets
+        # branched and tagged, not the local working tree.
+        git fetch "$UPSTREAM_REMOTE" master
+        RC0_BASE_SHA=$(git rev-parse FETCH_HEAD)
+        current_version=$(git show "$RC0_BASE_SHA:kserve-deps.env" 2>/dev/null | grep KSERVE_VERSION= | cut -d= -f2)
+        print_info "Reading kserve-deps.env from $UPSTREAM_REMOTE/master (${RC0_BASE_SHA:0:9})"
     else
-        # Minor release (e.g., v0.17.0-rc0, v0.17.0-rc1, v0.17.0): version lives on master
+        # RC1+/Final of a minor release (e.g., v0.17.0-rc1, v0.17.0): version lives on master
         if [[ ! -f "kserve-deps.env" ]]; then
             print_error "kserve-deps.env file not found!"
             exit 1
@@ -305,7 +314,7 @@ show_dry_run_plan() {
     echo "  Type:         $RELEASE_TYPE"
     echo "  Branch:       $BRANCH"
     if [[ "$RC" == "rc0" ]]; then
-        echo "  Base:         master"
+        echo "  Base:         $UPSTREAM_REMOTE/master (${RC0_BASE_SHA:0:9})"
     else
         echo "  Base:         $BRANCH (existing)"
     fi
@@ -372,10 +381,9 @@ handle_error() {
 create_rc0() {
     print_section "Step 1: Creating release branch from master..."
 
-    git checkout master
-    git pull "$UPSTREAM_REMOTE" master
-    git checkout -b "$BRANCH"
-    git push "$UPSTREAM_REMOTE" "$BRANCH"
+    # Push the validated commit straight to the new branch. No local checkout:
+    # local master may be stale, diverged, or held by another worktree.
+    git push "$UPSTREAM_REMOTE" "$RC0_BASE_SHA:refs/heads/$BRANCH"
 
     print_success "Created and pushed branch: $BRANCH"
 }
@@ -393,7 +401,9 @@ create_rc1_plus_or_final() {
 create_tag() {
     print_section "Step 2: Creating tag..."
 
-    git tag "$VERSION"
+    # RC0 tags the commit the branch was created from; RC1+/Final tag the
+    # checked-out release branch.
+    git tag "$VERSION" "${RC0_BASE_SHA:-HEAD}"
     git push "$UPSTREAM_REMOTE" "$VERSION"
 
     print_success "Created and pushed tag: $VERSION"

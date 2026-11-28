@@ -73,8 +73,11 @@ gh copilot -- --help  # check version and usage
 ```bash
 git clone git@github.com:<your-github-id>/kserve.git
 cd kserve
-git remote add upstream https://github.com/kserve/kserve.git
+git remote add upstream git@github.com:kserve/kserve.git
 ```
+
+Use the SSH URL for `upstream`: the release pushes the branch and tag there, and an HTTPS remote
+fails at that point unless a git credential helper is configured.
 
 ---
 
@@ -153,6 +156,7 @@ Edit that file to modify the release workflow.
 | Copilot permission error | Re-auth with `gh auth login --scopes copilot` |
 | `--agent` option missing | Run `gh copilot -- --help` to check version |
 | CI keeps failing | Retry or select `abort` in Phase 3 |
+| Push to `upstream` fails with an authentication error | `upstream` is an HTTPS remote. Run `git remote set-url --push upstream git@github.com:kserve/kserve.git` and retry |
 
 ---
 
