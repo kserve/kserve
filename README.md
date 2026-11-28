@@ -7,6 +7,8 @@
 [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://github.com/kserve/community/blob/main/README.md#questions-and-issues)
 [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20KServe%20Guru-006BFF)](https://gurubase.io/g/kserve)
 
+[ English | [简体中文](https://github.com/kserve/kserve/blob/master/README.zh.md) ]
+
 KServe is a standardized distributed generative and predictive AI inference platform for scalable, multi-framework deployment on Kubernetes.
 
 KServe is being [used by many organizations](https://kserve.github.io/website/docs/community/adopters) and is a [Cloud Native Computing Foundation (CNCF)](https://www.cncf.io/) incubating project.
