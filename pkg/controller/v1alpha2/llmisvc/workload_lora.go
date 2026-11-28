@@ -529,10 +529,23 @@ func hasValueFromLoRAConfig(c *corev1.Container) bool {
 	return false
 }
 
+// argsConfigVersionEnvVar is set to "1" by a preset that passes container args to the
+// engine as written. A preset without it re-splits args in its shell entrypoint, and a
+// pinned preset keeps doing so after a controller upgrade.
+const argsConfigVersionEnvVar = "KSERVE_ARGS_CONFIG_VERSION"
+
+// passesArgsAsWritten reports whether the container's preset hands container args to
+// the engine without re-splitting them in the shell.
+func passesArgsAsWritten(container *corev1.Container) bool {
+	version, _ := utils.GetEnvVarValue(container.Env, argsConfigVersionEnvVar)
+	return version == "1"
+}
+
 // addLoRAVLLMArgs appends vLLM LoRA flags to main.Args so the LLMInferenceServiceConfig
-// entrypoint can pass them to `vllm serve` (eval "... $@") after the trailing `--` argv separator.
-// Each loraModules entry is a JSON object (e.g. {"name":"...","path":"..."}); entries are
-// single-quoted so they survive bash eval without brace expansion or quote stripping.
+// entrypoint can pass them to `vllm serve` after the trailing `--` argv separator.
+// Each loraModules entry is a JSON object (e.g. {"name":"...","path":"..."}). A preset
+// that re-splits args in the shell (eval "... $@") needs each entry single-quoted, or bash
+// strips its quotes and expands its braces; one that passes args as written gets it bare.
 // loraMaxRank, loraMaxAdapters, and loraMaxCpuAdapters are only injected when non-nil (explicitly set in the spec);
 // vLLM applies its own defaults otherwise.
 // See: https://github.com/vllm-project/vllm/blob/main/vllm/config/lora.py
@@ -549,10 +562,14 @@ func addLoRAVLLMArgs(main *corev1.Container, loraModules []string, loraMaxRank, 
 		argv = append(argv, fmt.Sprintf("--max-cpu-loras=%d", *loraMaxCpuAdapters))
 	}
 	argv = append(argv, "--lora-modules")
-	// Single-quote each JSON object so it survives bash eval in the config template
-	// entrypoint (eval "vllm serve ... $@" would otherwise strip quotes and expand braces).
+	// Quoting an entry for a preset that passes args as written would hand the quotes
+	// to vLLM, which then rejects the value as JSON.
+	asWritten := passesArgsAsWritten(main)
 	for _, m := range loraModules {
-		argv = append(argv, "'"+m+"'")
+		if !asWritten {
+			m = "'" + m + "'"
+		}
+		argv = append(argv, m)
 	}
 
 	// Place injected args before so that user-provided arguments could override the injected arguments

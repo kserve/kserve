@@ -2466,9 +2466,11 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -2875,9 +2877,11 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -3259,9 +3263,11 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -3576,9 +3582,11 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -4025,9 +4033,11 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -4501,9 +4511,11 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
             {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
-            $@"
+            \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -4828,9 +4840,11 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
             {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
-            $@"
+            \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -5145,9 +5159,11 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
             {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
-            $@"
+            \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -5445,9 +5461,11 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
-            $@"
+            \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -5805,9 +5823,11 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
-            $@"
+            \"\$@\""
         - --
         env:
+        - name: KSERVE_ARGS_CONFIG_VERSION
+          value: "1"
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: KSERVE_MODEL_ARGS
@@ -6813,9 +6833,11 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -7261,9 +7283,11 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS
@@ -7551,9 +7575,11 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@"
+          \"\$@\""
       - --
       env:
+      - name: KSERVE_ARGS_CONFIG_VERSION
+        value: "1"
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: KSERVE_MODEL_ARGS

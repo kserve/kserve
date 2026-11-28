@@ -17,7 +17,12 @@ limitations under the License.
 package llmisvc
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -32,6 +37,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -504,6 +510,87 @@ func TestAddLoRAVLLMArgs(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestLoRAAdaptersReachVLLMAsJSON renders a service with LoRA adapters against a preset
+// the way a reconcile does, then executes the rendered launch command with only the
+// vllm executable substituted. Whichever way the preset forwards container args, vLLM
+// must receive every --lora-modules value as a JSON object.
+func TestLoRAAdaptersReachVLLMAsJSON(t *testing.T) {
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	// A service pinned to an earlier release keeps that release's preset across a
+	// controller upgrade. This one still re-splits container args in the shell.
+	data, err := os.ReadFile(filepath.Join("testdata", "config-llm-template-v0.21.0.yaml"))
+	require.NoError(t, err)
+	pinned := &v1alpha2.LLMInferenceServiceConfig{}
+	require.NoError(t, yaml.Unmarshal(data, pinned))
+
+	for name, preset := range map[string]*v1alpha2.LLMInferenceServiceConfig{
+		"shipped preset":      loadPresetConfig(t, "config-llm-template.yaml"),
+		"preset from v0.21.0": pinned,
+	} {
+		t.Run(name, func(t *testing.T) {
+			base, err := apis.ParseURL("pvc://shared/base")
+			require.NoError(t, err)
+			spec := loRASpec(t, "billing", "pvc://shared/billing", "gaming", "pvc://shared/gaming")
+			spec.Model.URI = *base
+			// Admission defaults the name; the presets render it into the launch command.
+			spec.Model.Name = ptr.To("org/base")
+			svc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "lora-launch", Namespace: "default"},
+				Spec:       spec,
+			}
+
+			r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
+			preset.Namespace = svc.Namespace
+			require.NoError(t, r.Create(t.Context(), preset))
+
+			config := &Config{}
+			combined, err := r.combineBaseRefsConfig(t.Context(), svc, config)
+			require.NoError(t, err)
+			svc.Spec = combined.Config.Spec
+
+			deployment, err := r.expectedSingleNodeMainDeployment(t.Context(), svc, config)
+			require.NoError(t, err)
+			main := utils.GetContainerWithName(&deployment.Spec.Template.Spec, "main")
+			require.NotNil(t, main)
+
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "vllm"), []byte("#!/bin/sh\nprintf '%s\\n' \"$@\"\n"), 0o755)) //nolint:gosec // executable test stub
+			// Skip the setup that precedes the launch command; it probes the real image.
+			start := strings.Index(main.Command[2], `eval "exec vllm serve`)
+			require.GreaterOrEqual(t, start, 0)
+			argv := append([]string{"-c", main.Command[2][start:]}, main.Command[3:]...)
+			argv = append(argv, main.Args...)
+			cmd := exec.CommandContext(t.Context(), bashPath, argv...) // #nosec G204 -- rendered test fixture
+			cmd.Env = []string{"PATH=" + dir + ":/usr/bin:/bin"}
+			out, err := cmd.CombinedOutput()
+			require.NoError(t, err, "%s", out)
+
+			got := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
+			flag := slices.Index(got, "--lora-modules")
+			require.GreaterOrEqual(t, flag, 0, "vllm was not given --lora-modules: %q", got)
+
+			var names []string
+			for _, value := range got[flag+1:] {
+				if strings.HasPrefix(value, "--") {
+					break
+				}
+				var module struct {
+					Name string `json:"name"`
+					Path string `json:"path"`
+				}
+				require.NoError(t, json.Unmarshal([]byte(value), &module), "vllm would reject --lora-modules value %q", value)
+				assert.NotEmpty(t, module.Path)
+				names = append(names, module.Name)
+			}
+			assert.Subset(t, names, []string{"billing", "gaming"})
+		})
+	}
 }
 
 func TestUserSuppliedLoRAConfig(t *testing.T) {

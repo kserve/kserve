@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -200,6 +201,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_ARGS_CONFIG_VERSION", Value: "1"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{Name: "KSERVE_MODEL_ARGS"},
 										{
@@ -390,6 +392,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_ARGS_CONFIG_VERSION", Value: "1"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{Name: "KSERVE_MODEL_ARGS"},
 										{
@@ -490,6 +493,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_ARGS_CONFIG_VERSION", Value: "1"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{Name: "KSERVE_MODEL_ARGS"},
 										{
@@ -959,6 +963,134 @@ func TestVLLMPresetsRenderRootPath(t *testing.T) {
 				t.Errorf("rendered %d root-path flags, want %d:\n%s", gotCount, wantCount, renderedYAML)
 			}
 		})
+	}
+}
+
+// vllmLaunch is the start of the command every vLLM preset uses to start the server.
+const vllmLaunch = `eval "exec vllm serve`
+
+// vllmLaunchRunner returns a function that executes a preset container's launch
+// command with the given container args, substituting only the vllm executable, and
+// returns the arguments vllm received.
+func vllmLaunchRunner(t *testing.T) func(t *testing.T, container *corev1.Container, args ...string) []string {
+	t.Helper()
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	// Stand-in for vllm that prints each argument it receives on its own line.
+	stubDir := t.TempDir()
+	stub := "#!/bin/sh\nfor arg in \"$@\"; do printf 'arg<%s>\\n' \"$arg\"; done\n"
+	if err := os.WriteFile(filepath.Join(stubDir, "vllm"), []byte(stub), 0o755); err != nil { //nolint:gosec // G306: stub must be executable
+		t.Fatalf("write vllm stub: %v", err)
+	}
+
+	return func(t *testing.T, container *corev1.Container, args ...string) []string {
+		t.Helper()
+		// Skip the setup that precedes the launch command; it probes the real image.
+		start := strings.Index(container.Command[2], vllmLaunch)
+		if start < 0 {
+			t.Fatalf("launch command %q not found", vllmLaunch)
+		}
+		// The shape the kubelet runs: the command, then the container args.
+		argv := append([]string{"-c", container.Command[2][start:]}, container.Command[3:]...)
+		argv = append(argv, args...)
+		cmd := exec.CommandContext(t.Context(), bashPath, argv...) // #nosec G204 -- repository preset and fixed test input, not user data
+		cmd.Env = []string{"PATH=" + stubDir + ":/usr/bin:/bin", "VLLM_API_SERVER_COUNT=8", "DP_ADDRESS=127.0.0.1", "START_RANK=0"}
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("launch command failed: %v\n%s", err, out)
+		}
+
+		lines := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
+		got := make([]string, 0, len(lines))
+		for _, line := range lines {
+			arg, ok := strings.CutPrefix(line, "arg<")
+			if !ok {
+				t.Fatalf("unexpected output line %q in:\n%s", line, out)
+			}
+			got = append(got, strings.TrimSuffix(arg, ">"))
+		}
+		return got
+	}
+}
+
+// vllmLaunchContainers returns the main containers of a rendered preset that start vLLM.
+func vllmLaunchContainers(config *v1alpha2.LLMInferenceServiceConfig) map[string]*corev1.Container {
+	out := map[string]*corev1.Container{}
+	for role, pod := range podSpecs(config) {
+		for i := range pod.Containers {
+			container := &pod.Containers[i]
+			if container.Name == "main" && len(container.Command) >= 3 && strings.Contains(container.Command[2], vllmLaunch) {
+				out[role] = container
+			}
+		}
+	}
+	return out
+}
+
+// TestVLLMPresetsForwardContainerArgsVerbatim executes the launch command of every
+// built-in vLLM preset and verifies that container args reach vLLM unchanged: one
+// argument per entry, with spaces and quotes preserved, and nothing added when no
+// args are set.
+func TestVLLMPresetsForwardContainerArgsVerbatim(t *testing.T) {
+	run := vllmLaunchRunner(t)
+
+	userArgs := []string{
+		"--max-model-len=4096",
+		"--override-generation-config",
+		`{"temperature": 0.5, "top_p": 0.9}`,
+		"--chat-template",
+		"it's a template",
+	}
+
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+
+		filename := entry.Name()
+		filePath := filepath.Join(presetsDir, filename)
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("read %s: %v", filename, err)
+		}
+		if !strings.Contains(string(data), vllmLaunch) {
+			continue
+		}
+
+		rendered, err := llmisvc.ReplaceVariables(llmSvc, loadConfig(t, data, filePath), &llmisvc.Config{})
+		if err != nil {
+			t.Fatalf("render %s: %v", filename, err)
+		}
+
+		for role, container := range vllmLaunchContainers(rendered) {
+			t.Run(filename+"/"+role, func(t *testing.T) {
+				withoutArgs := run(t, container)
+				if slices.Contains(withoutArgs, "") {
+					t.Errorf("an empty argument is passed when no container args are set: %q", withoutArgs)
+				}
+
+				want := append(slices.Clone(withoutArgs), userArgs...)
+				if diff := cmp.Diff(want, run(t, container, userArgs...)); diff != "" {
+					t.Errorf("container args were not forwarded verbatim (-want +got):\n%s", diff)
+				}
+
+				// The controller formats the args it adds by this declaration.
+				if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_ARGS_CONFIG_VERSION"); version != "1" {
+					t.Errorf("preset forwards container args verbatim but does not set KSERVE_ARGS_CONFIG_VERSION=1")
+				}
+			})
+		}
 	}
 }
 
