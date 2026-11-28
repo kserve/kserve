@@ -36,7 +36,7 @@ import zipfile
 from pathlib import Path
 from typing import Tuple
 from urllib.error import HTTPError
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 from urllib.request import Request, urlopen
 import certifi
 import requests
@@ -936,7 +936,8 @@ class Storage(object):
         Uses pre-initialized S3 resource from _init_s3_worker().
 
         Args:
-            args: Tuple containing (bucket_name:str, obj_key:str, target_path:str)
+            args: Tuple containing (bucket_name:str, obj_key:str, target_path:str),
+                optionally followed by a version_id:str to download that object version
 
         Returns:
             Tuple of (success: bool, obj_key: str, error_message: str)
@@ -945,16 +946,41 @@ class Storage(object):
             if _worker_s3_resource is None:
                 return False, args[1], "S3 resource not initialized in worker process"
 
-            bucket_name, obj_key, target_path = args
+            bucket_name, obj_key, target_path, *version = args
             bucket = _worker_s3_resource.Bucket(bucket_name)
 
             # Download the file
-            bucket.download_file(obj_key, target_path)
+            if version:
+                bucket.download_file(
+                    obj_key, target_path, ExtraArgs={"VersionId": version[0]}
+                )
+            else:
+                bucket.download_file(obj_key, target_path)
 
             return True, obj_key, ""
 
         except Exception as e:
             return False, obj_key, str(e)
+
+    @staticmethod
+    def _get_s3_version_id(query: str) -> Optional[str]:
+        """Return the versionId selected in an s3:// URI query, or None.
+
+        The ID is percent-decoded but otherwise kept as is, since S3 version IDs
+        are opaque.
+        """
+        values = []
+        for pair in query.split("&"):
+            key, sep, value = pair.partition("=")
+            if key == "versionId":
+                values.append(unquote(value) if sep else "")
+        if not values:
+            return None
+        if len(values) > 1 or not values[0]:
+            raise ValueError(
+                "versionId in an s3:// URI must be given once, with a value"
+            )
+        return values[0]
 
     @staticmethod
     def _download_s3(
@@ -971,6 +997,11 @@ class Storage(object):
         parsed = urlparse(uri, scheme="s3")
         bucket_name = parsed.netloc
         bucket_path = parsed.path.lstrip("/")
+        version_id = Storage._get_s3_version_id(parsed.query)
+        if version_id is not None and (not bucket_path or bucket_path.endswith("/")):
+            raise ValueError(
+                f"versionId selects a single object and cannot be used with a prefix: {uri}"
+            )
 
         try:
             s3 = boto3.resource("s3", **kwargs)
@@ -986,7 +1017,24 @@ class Storage(object):
             s3.meta.client.head_bucket(Bucket=bucket_name)
             bucket = s3.Bucket(bucket_name)
 
-            for obj in bucket.objects.filter(Prefix=bucket_path):
+            if version_id is not None:
+                # A pinned version is addressed directly, never through a listing of
+                # the current objects, so it never falls back to the current version.
+                s3.meta.client.head_object(
+                    Bucket=bucket_name, Key=bucket_path, VersionId=version_id
+                )
+                target_path = f"{temp_dir}/{bucket_path.rsplit('/', 1)[-1]}"
+                download_tasks.append(
+                    (bucket_name, bucket_path, target_path, version_id)
+                )
+
+            # A pinned version skips the listing entirely.
+            objects = (
+                []
+                if version_id is not None
+                else bucket.objects.filter(Prefix=bucket_path)
+            )
+            for obj in objects:
                 if obj.key.endswith("/") or obj.size == 0:
                     logger.debug("Skipping: %s", obj.key)
                     continue

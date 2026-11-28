@@ -205,6 +205,82 @@ def test_full_name_key_root_bucket_dir(mock_resource):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
 
 
+@mock.patch("boto3.resource")
+def test_version_id_downloads_exact_object_version(mock_storage):
+    object_key = "path/to/model/model.joblib"
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
+    mock_client = mock_storage.return_value.meta.client
+
+    Storage._download_s3(f"s3://foo/{object_key}?versionId=v1-abc", "dest_path")
+
+    mock_client.head_object.assert_called_once_with(
+        Bucket="foo", Key=object_key, VersionId="v1-abc"
+    )
+    mock_boto3_bucket.objects.filter.assert_not_called()
+    mock_boto3_bucket.download_file.assert_called_once_with(
+        object_key, "dest_path/model.joblib", ExtraArgs={"VersionId": "v1-abc"}
+    )
+
+
+@mock.patch("boto3.resource")
+def test_version_id_is_url_decoded_and_kept_opaque(mock_storage):
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, ["model.pt"])
+
+    Storage._download_s3("s3://foo/model.pt?versionId=a%2Bb%2Fc.d", "dest_path")
+
+    mock_boto3_bucket.download_file.assert_called_once_with(
+        "model.pt", "dest_path/model.pt", ExtraArgs={"VersionId": "a+b/c.d"}
+    )
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "s3://foo/models/?versionId=v1",
+        "s3://foo?versionId=v1",
+        "s3://foo/?versionId=v1",
+    ],
+)
+@mock.patch("boto3.resource")
+def test_version_id_on_prefix_is_rejected(mock_storage, uri):
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, ["models/a.pt"])
+
+    with pytest.raises(ValueError, match="single object"):
+        Storage._download_s3(uri, "dest_path")
+
+    mock_boto3_bucket.objects.filter.assert_not_called()
+    mock_boto3_bucket.download_file.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "query", ["versionId=", "versionId=v1&versionId=v2", "versionId"]
+)
+@mock.patch("boto3.resource")
+def test_invalid_version_id_is_rejected(mock_storage, query):
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, ["model.pt"])
+
+    with pytest.raises(ValueError, match="versionId"):
+        Storage._download_s3(f"s3://foo/model.pt?{query}", "dest_path")
+
+    mock_boto3_bucket.download_file.assert_not_called()
+
+
+@mock.patch("boto3.resource")
+def test_missing_version_never_falls_back_to_current(mock_storage):
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, ["model.pt"])
+    mock_storage.return_value.meta.client.head_object.side_effect = (
+        botocore.exceptions.ClientError(
+            {"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject"
+        )
+    )
+
+    with pytest.raises(RuntimeError):
+        Storage._download_s3("s3://foo/model.pt?versionId=gone", "dest_path")
+
+    mock_boto3_bucket.objects.filter.assert_not_called()
+    mock_boto3_bucket.download_file.assert_not_called()
+
+
 AWS_TEST_CREDENTIALS = {
     "AWS_ACCESS_KEY_ID": "testing",
     "AWS_SECRET_ACCESS_KEY": "testing",
